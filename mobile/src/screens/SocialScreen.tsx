@@ -267,7 +267,7 @@ export default function SocialScreen({ user }: Props) {
                 <View style={s.actCard}>
                   <LinearGradient
                     colors={[rgbaFromHex(accentM, 0.06), 'transparent']}
-                    style={[StyleSheet.absoluteFillObject, { borderRadius: 22 }]}
+                    style={[StyleSheet.absoluteFillObject, { borderRadius: 16 }]}
                   />
                   {data.recentActivity.map((item: any, ai: number) => {
                     const type  = String(item?.activity_type ?? item?.type ?? '').toLowerCase();
@@ -328,7 +328,7 @@ export default function SocialScreen({ user }: Props) {
             <View style={s.podiumCard}>
               <LinearGradient
                 colors={[rgbaFromHex(accent, 0.08), rgbaFromHex(selectedTheme.bgPrimary, 0)]}
-                style={[StyleSheet.absoluteFillObject, { borderRadius: 22 }]}
+                style={[StyleSheet.absoluteFillObject, { borderRadius: 16 }]}
               />
               <View style={s.podiumRow}>
                 {podium.map((entry, pi) => {
@@ -461,7 +461,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
 
     /* Identity strip */
     identityCard: {
-      flexDirection: 'row', borderRadius: 22, borderWidth: 1, borderColor: BDRS,
+      flexDirection: 'row', borderRadius: 16, borderWidth: 1, borderColor: BDRS,
       paddingVertical: 20, paddingHorizontal: 16, overflow: 'hidden',
     },
     identityStat:  { flex: 1, alignItems: 'center', gap: 4 },
@@ -481,7 +481,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
 
     /* Podium card — mirrors LeaderboardScreen pod styles */
     podiumCard: {
-      borderRadius: 22, overflow: 'hidden', position: 'relative',
+      borderRadius: 16, overflow: 'hidden', position: 'relative',
       paddingTop: 16, gap: 0,
       backgroundColor: rgbaFromHex(SURF, 0.96),
       borderWidth: 1, borderColor: BDRS,
@@ -529,7 +529,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
 
     /* Activity feed */
     actCard: {
-      borderRadius: 22, borderWidth: 1, borderColor: BDRS,
+      borderRadius: 16, borderWidth: 1, borderColor: BDRS,
       backgroundColor: rgbaFromHex(SURF, 0.96), overflow: 'hidden',
     },
     actRow:       { flexDirection: 'row', gap: 12, paddingHorizontal: 14, paddingVertical: 13, alignItems: 'flex-start' },
@@ -546,7 +546,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     /* Explore tiles */
     tileRow: { flexDirection: 'row', gap: 12 },
     tile: {
-      flex: 1, minHeight: layout.isTablet ? 155 : 136, borderRadius: 22, borderWidth: 1,
+      flex: 1, minHeight: layout.isTablet ? 155 : 136, borderRadius: 16, borderWidth: 1,
       borderColor: BDR, backgroundColor: SURFA, padding: 16, overflow: 'hidden',
     },
     tileBadge:    { position: 'absolute', top: 12, right: 12, borderRadius: 999, backgroundColor: rgbaFromHex(GOLDM, 0.15), borderWidth: 1, borderColor: rgbaFromHex(GOLDM, 0.3), paddingHorizontal: 8, paddingVertical: 3 },

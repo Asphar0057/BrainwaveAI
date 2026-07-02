@@ -907,7 +907,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
 
   // Input card (shared)
   inputCard: {
-    borderRadius: 28,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: CARD_BORDER,
     backgroundColor: SURFACE,
@@ -1022,7 +1022,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     alignItems: 'center',
     gap: 12,
     backgroundColor: SURFACE,
-    borderRadius: 22,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: CARD_BORDER,
     padding: 14,

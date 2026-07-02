@@ -53,7 +53,6 @@ export default function SettingsScreen({ user, onBack }: Props) {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFill} />
       <AmbientBubbles theme={selectedTheme} variant="settings" opacity={0.82} />
-      <View style={[styles.glow, { backgroundColor: rgbaFromHex(selectedTheme.accent, 0.08) }]} pointerEvents="none" />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.topBar}>
@@ -279,7 +278,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     pageTitle: { fontFamily: 'Inter_900Black', fontSize: 24, color: theme.accentHover, textTransform: 'lowercase', letterSpacing: -0.4 },
     pageSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 10, color: theme.textSecondary, letterSpacing: 1.8, marginTop: 4, textTransform: 'uppercase' },
     heroCard: {
-      borderRadius: 28,
+      borderRadius: 20,
       borderWidth: 1,
       borderColor: theme.border,
       paddingHorizontal: 20,
@@ -292,7 +291,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     heroMeta: { fontFamily: 'Inter_400Regular', fontSize: 13, color: theme.accent, marginTop: 6 },
     heroBody: { fontFamily: 'Inter_400Regular', fontSize: 14, lineHeight: 21, color: theme.textSecondary, marginTop: 14 },
     sectionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: theme.textSecondary, letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' },
-    card: { backgroundColor: theme.panel, borderRadius: 24, borderWidth: 1, borderColor: theme.border, marginBottom: 24, overflow: 'hidden' },
+    card: { backgroundColor: theme.panel, borderRadius: 16, borderWidth: 1, borderColor: theme.border, marginBottom: 24, overflow: 'hidden' },
     themeTabRow: {
       flexDirection: 'row',
       padding: 8,

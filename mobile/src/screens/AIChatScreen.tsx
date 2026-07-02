@@ -277,8 +277,6 @@ export default function AIChatScreen({ user }: Props) {
     <SafeAreaView style={s.safe} edges={[]}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFill} />
       <AmbientBubbles theme={selectedTheme} variant="chat" opacity={0.84} />
-      <View style={[s.glowTop, { backgroundColor: rgbaFromHex(selectedTheme.accent, 0.08) }]} pointerEvents="none" />
-      <View style={[s.glowBottom, { backgroundColor: rgbaFromHex(selectedTheme.accent, 0.09) }]} pointerEvents="none" />
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={insets.top}>
         <View style={s.header}>
@@ -509,7 +507,7 @@ function createStyles(
   headerBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: BORDER,
     backgroundColor: rgbaFromHex(CARD_ALT, 0.88),
@@ -538,7 +536,7 @@ function createStyles(
     paddingBottom: 24,
   },
   emptyHero: {
-    borderRadius: 32,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: BORDER,
     padding: 22,
@@ -582,7 +580,7 @@ function createStyles(
     borderWidth: 1,
     borderColor: BORDER,
     backgroundColor: CARD_ALT,
-    borderRadius: 18,
+    borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 14,
   },
@@ -614,7 +612,7 @@ function createStyles(
     marginHorizontal: 6,
   },
   bubble: {
-    borderRadius: 22,
+    borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
     overflow: 'hidden',
@@ -644,7 +642,7 @@ function createStyles(
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 10,
-    borderRadius: 24,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: BORDER,
     backgroundColor: rgbaFromHex(CARD_ALT, 0.94),

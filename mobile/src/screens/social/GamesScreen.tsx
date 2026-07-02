@@ -454,7 +454,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     cta: { borderRadius: 12, paddingHorizontal: 15, paddingVertical: 10 },
     ctaText: { fontFamily: 'Inter_700Bold', fontSize: 13, color: INK },
     hero: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', alignItems: 'center', paddingTop: 12, paddingBottom: 24, gap: 8 },
-    heroGlow: { width: 112, height: 112, borderRadius: 38, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.24) },
+    heroGlow: { width: 112, height: 112, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.24) },
     heroTitle: { fontFamily: 'Inter_900Black', fontSize: 44, color: theme.accentHover, letterSpacing: -2.2, marginTop: 8 },
     heroSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM, letterSpacing: 1 },
     divider: { height: 1, width: '100%', maxWidth: layout.contentMaxWidth - 40, alignSelf: 'center', marginLeft: 20, marginRight: 20, backgroundColor: BORDER },
@@ -506,7 +506,7 @@ function createEmptyStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'
   const INK = theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary;
   return StyleSheet.create({
     wrap: { alignItems: 'center', paddingTop: 64, gap: 14 },
-    icon: { width: 88, height: 88, borderRadius: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: rgbaFromHex(theme.accent, 0.22) },
+    icon: { width: 88, height: 88, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: rgbaFromHex(theme.accent, 0.22) },
     title: { fontFamily: 'Inter_900Black', fontSize: 18, color: darkenColor(theme.accent, theme.isLight ? 12 : 26) },
     hint: { fontFamily: 'Inter_400Regular', fontSize: 13, color: theme.textSecondary },
     btn: { borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 },

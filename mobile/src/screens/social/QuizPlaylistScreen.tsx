@@ -375,7 +375,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       paddingHorizontal: 20,
       paddingBottom: 48,
     },
-    card: { backgroundColor: rgbaFromHex(CARD, 0.94), borderRadius: 22, borderWidth: 1, borderColor: BORDER, padding: 18, marginBottom: 12, gap: 12, shadowColor: ACCENT, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 22, elevation: 5 },
+    card: { backgroundColor: rgbaFromHex(CARD, 0.94), borderRadius: 16, borderWidth: 1, borderColor: BORDER, padding: 18, marginBottom: 12, gap: 12, shadowColor: ACCENT, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 22, elevation: 5 },
     cardHeader: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
     subjectBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 4, backgroundColor: rgbaFromHex(ACCENT, 0.10), borderRadius: 7, borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.20) },
     subjectText: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: DIM, letterSpacing: 0.5 },

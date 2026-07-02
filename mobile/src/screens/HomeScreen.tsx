@@ -262,8 +262,6 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
     <SafeAreaView style={styles.safe} edges={[]}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
       <AmbientBubbles theme={selectedTheme} variant="home" opacity={0.95} />
-      <View style={[styles.glowTop, { backgroundColor: rgbaFromHex(selectedTheme.accent, 0.08) }]} pointerEvents="none" />
-      <View style={[styles.glowBottom, { backgroundColor: rgbaFromHex(selectedTheme.accent, 0.09) }]} pointerEvents="none" />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} bounces={false} alwaysBounceVertical={false}>
         <View style={styles.topBar}>
@@ -519,7 +517,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     paddingHorizontal: 8,
     paddingVertical: 10,
     overflow: 'hidden',
-    borderRadius: 34,
+    borderRadius: 20,
     marginHorizontal: 4,
     backgroundColor: rgbaFromHex(SURFACE, 0.96),
   },
@@ -529,7 +527,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: 34,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: CARD_BORDER,
   },
@@ -743,7 +741,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   },
   sectionCard: {
     backgroundColor: rgbaFromHex(SURFACE, 0.93),
-    borderRadius: 26,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: CARD_BORDER,
     padding: 16,
@@ -783,7 +781,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   quickCard: {
     width: quickCardWidth,
     backgroundColor: SURFACE_ALT,
-    borderRadius: 22,
+    borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderWidth: 1,
@@ -820,7 +818,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
 
   todayCard: {
     backgroundColor: 'transparent',
-    borderRadius: 22,
+    borderRadius: 16,
     overflow: 'hidden',
     marginTop: 10,
   },

@@ -97,7 +97,6 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
     <SafeAreaView style={s.safe} edges={[]}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFill} />
       <AmbientBubbles theme={selectedTheme} variant="explore" opacity={0.9} />
-      <View style={[s.glow, { backgroundColor: rgbaFromHex(selectedTheme.accent, 0.08) }]} pointerEvents="none" />
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         <View style={s.header}>
@@ -310,7 +309,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   title: { fontFamily: 'Inter_900Black', fontSize: 30, color: GOLD_L, letterSpacing: -0.8 },
   subtitle: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM, letterSpacing: 1.6, marginTop: 4, textTransform: 'uppercase' },
   heroCard: {
-    borderRadius: 30,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: BORDER,
     padding: 22,
@@ -323,7 +322,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   heroStat: {
     minWidth: layout.twoColumn ? 120 : 0,
     flex: 1,
-    borderRadius: 18,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: BORDER,
     backgroundColor: rgbaFromHex(SURFACE_ALT, 0.78),
@@ -335,7 +334,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   statsStrip: {
     flexDirection: 'row',
     backgroundColor: rgbaFromHex(SURFACE, 0.98),
-    borderRadius: 22,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: BORDER,
     overflow: 'hidden',
@@ -349,7 +348,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   sectionMeta: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM },
   grid: { flexDirection: 'row', gap: 12 },
   quickTile: {
-    flex: 1, minHeight: 140, borderRadius: 22, borderWidth: 1,
+    flex: 1, minHeight: 140, borderRadius: 16, borderWidth: 1,
     borderColor: BORDER, backgroundColor: SURFACE_ALT, padding: 16, overflow: 'hidden',
   },
   quickGlow: { ...StyleSheet.absoluteFillObject },
@@ -365,7 +364,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   quickTitle: { fontFamily: 'Inter_900Black', fontSize: 18, color: GOLD_L },
   quickSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 12, lineHeight: 18, color: DIM, marginTop: 6 },
   featureCard: {
-    borderRadius: 26, borderWidth: 1, borderColor: BORDER,
+    borderRadius: 20, borderWidth: 1, borderColor: BORDER,
     backgroundColor: SURFACE, padding: 18, overflow: 'hidden',
   },
   featureTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -382,7 +381,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   featureMetaValue: { fontFamily: 'Inter_900Black', fontSize: 16, color: GOLD_L },
   featureMetaLabel: { fontFamily: 'Inter_400Regular', fontSize: 9, color: DIM, marginTop: 3, textTransform: 'uppercase', letterSpacing: 1.2 },
   flashcardCard: {
-    borderRadius: 26, borderWidth: 1, borderColor: BORDER,
+    borderRadius: 20, borderWidth: 1, borderColor: BORDER,
     backgroundColor: SURFACE, padding: 18, gap: 16, overflow: 'hidden',
   },
   fcTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },

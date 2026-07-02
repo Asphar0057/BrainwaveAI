@@ -422,7 +422,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     requestBadge: { backgroundColor: rgbaFromHex(ACCENT_DARK, 0.14), borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: theme.borderStrong },
     requestBadgeText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: theme.accent },
     hero: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', alignItems: 'center', paddingTop: 12, paddingBottom: 24, gap: 8 },
-    heroGlow: { width: 100, height: 100, borderRadius: 34, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: rgbaFromHex(ACCENT_DARK, 0.3) },
+    heroGlow: { width: 100, height: 100, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: rgbaFromHex(ACCENT_DARK, 0.3) },
     heroTitle: { fontFamily: 'Inter_900Black', fontSize: 42, color: theme.accentHover, letterSpacing: -2, marginTop: 6 },
     heroSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: theme.textSecondary, letterSpacing: 1 },
     searchWrap: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingLeft: 20, paddingRight: 20, marginBottom: 14 },
@@ -500,7 +500,7 @@ function createEmptyStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'
   const ACCENT_DARK = darkenColor(theme.accent, theme.isLight ? 10 : 26);
   return StyleSheet.create({
     wrap: { alignItems: 'center', paddingTop: 64, gap: 14 },
-    icon: { width: 88, height: 88, borderRadius: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: rgbaFromHex(ACCENT_DARK, 0.24) },
+    icon: { width: 88, height: 88, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: rgbaFromHex(ACCENT_DARK, 0.24) },
     title: { fontFamily: 'Inter_900Black', fontSize: 18, color: ACCENT_DARK },
     hint: { fontFamily: 'Inter_400Regular', fontSize: 13, color: theme.textSecondary, textAlign: 'center', paddingHorizontal: 24 },
   });

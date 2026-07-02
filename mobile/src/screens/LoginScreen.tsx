@@ -8,7 +8,7 @@ import * as Google from 'expo-auth-session/providers/google';
 import { makeRedirectUri } from 'expo-auth-session';
 
 import { signIn, signInWithGoogle, AuthUser } from '../services/auth';
-import { register } from '../services/api';
+import { confirmPasswordReset, register, requestPasswordReset, verifyRegistration } from '../services/api';
 import HapticTouchable from '../components/HapticTouchable';
 import GeoBackground from '../components/GeoBackground';
 import { useAppTheme } from '../contexts/ThemeContext';
@@ -17,7 +17,7 @@ import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const CLIENT_ID = '482205787855-emlbsvd954ga26c2i1gmegm80lq40qek.apps.googleusercontent.com';
+const CLIENT_ID = '44446084594-8jc1vsg08qkt4d35npd2gn33b65b2638.apps.googleusercontent.com';
 const redirectUri = makeRedirectUri({ scheme: 'cerbyl' });
 
 type Props = { onLogin: (user: AuthUser) => void };
@@ -32,6 +32,13 @@ export default function LoginScreen({ onLogin }: Props) {
   // login fields
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetStep, setResetStep] = useState<'request' | 'confirm'>('request');
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetOtp, setResetOtp] = useState('');
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetConfirmPassword, setResetConfirmPassword] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
 
   // register fields
   const [regFirstName, setRegFirstName] = useState('');
@@ -39,6 +46,8 @@ export default function LoginScreen({ onLogin }: Props) {
   const [regEmail, setRegEmail]         = useState('');
   const [regUsername, setRegUsername]   = useState('');
   const [regPassword, setRegPassword]   = useState('');
+  const [registrationOtp, setRegistrationOtp] = useState('');
+  const [verificationPending, setVerificationPending] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
@@ -59,7 +68,7 @@ export default function LoginScreen({ onLogin }: Props) {
       setError('');
       signInWithGoogle(idToken)
         .then(user => onLogin(user))
-        .catch(() => setError('google sign-in failed'))
+        .catch((e: any) => setError(e?.message || 'google sign-in failed'))
         .finally(() => setLoading(false));
     }
   }, [response]);
@@ -76,8 +85,8 @@ export default function LoginScreen({ onLogin }: Props) {
     try {
       const user = await signIn(username.trim(), password);
       onLogin(user);
-    } catch {
-      setError('invalid credentials');
+    } catch (e: any) {
+      setError(e?.message || 'invalid credentials');
     } finally {
       setLoading(false);
     }
@@ -98,11 +107,12 @@ export default function LoginScreen({ onLogin }: Props) {
         email:      regEmail.trim(),
         username:   regUsername.trim(),
         password:   regPassword,
+      }).then((data) => {
+        const devOtp = data?.dev_otp ? ` Dev OTP: ${data.dev_otp}` : '';
+        setSuccess(`${data?.message || 'verification OTP sent'}${devOtp}`);
       });
-      setSuccess('account created! sign in below');
-      setUsername(regUsername.trim());
-      setPassword(regPassword);
-      setMode('login');
+      setVerificationPending(true);
+      setRegistrationOtp('');
     } catch (e: any) {
       setError(e.message || 'registration failed');
     } finally {
@@ -110,8 +120,88 @@ export default function LoginScreen({ onLogin }: Props) {
     }
   };
 
+  const handleVerifyRegistration = async () => {
+    if (!registrationOtp.trim()) {
+      setError('enter the 6-digit OTP');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      await verifyRegistration({
+        email: regEmail.trim(),
+        otp: registrationOtp.trim(),
+      });
+      setSuccess('account verified! sign in below');
+      setUsername(regUsername.trim());
+      setPassword(regPassword);
+      setRegistrationOtp('');
+      setVerificationPending(false);
+      setMode('login');
+    } catch (e: any) {
+      setError(e.message || 'verification failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRequestPasswordReset = async () => {
+    if (!resetEmail.trim()) {
+      setError('enter your account email');
+      return;
+    }
+    setResetLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const data = await requestPasswordReset(resetEmail.trim());
+      const devOtp = data?.dev_otp ? ` Dev OTP: ${data.dev_otp}` : '';
+      setSuccess(`${data?.message || 'OTP sent if the account exists.'}${devOtp}`);
+      setResetStep('confirm');
+    } catch (e: any) {
+      setError(e.message || 'could not send OTP');
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const handleConfirmPasswordReset = async () => {
+    if (!resetOtp.trim() || !resetPassword.trim() || !resetConfirmPassword.trim()) {
+      setError('enter OTP and new password');
+      return;
+    }
+    if (resetPassword !== resetConfirmPassword) {
+      setError('passwords do not match');
+      return;
+    }
+    setResetLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const data = await confirmPasswordReset({
+        email: resetEmail.trim(),
+        otp: resetOtp.trim(),
+        new_password: resetPassword,
+      });
+      setSuccess(data?.message || 'password updated successfully');
+      setPassword('');
+      setResetOpen(false);
+      setResetStep('request');
+      setResetEmail('');
+      setResetOtp('');
+      setResetPassword('');
+      setResetConfirmPassword('');
+    } catch (e: any) {
+      setError(e.message || 'could not reset password');
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   const switchMode = (m: 'login' | 'register') => {
     setMode(m);
+    setResetOpen(false);
     setError('');
     setSuccess('');
   };
@@ -166,6 +256,47 @@ export default function LoginScreen({ onLogin }: Props) {
                       </LinearGradient>
                     </HapticTouchable>
 
+                    <HapticTouchable
+                      style={s.textButton}
+                      onPress={() => {
+                        setResetOpen(prev => !prev);
+                        setError('');
+                        setSuccess('');
+                        setResetEmail(username.includes('@') ? username : resetEmail);
+                      }}
+                      activeOpacity={0.8}
+                      disabled={loading}
+                      haptic="selection"
+                    >
+                      <Text style={s.textButtonLabel}>forgot password?</Text>
+                    </HapticTouchable>
+
+                    {resetOpen ? (
+                      <View style={s.resetPanel}>
+                        {resetStep === 'request' ? (
+                          <>
+                            <Text style={s.label}>account email</Text>
+                            <TextInput style={s.input} value={resetEmail} onChangeText={setResetEmail} placeholder="you@example.com" placeholderTextColor={selectedTheme.textSecondary} autoCapitalize="none" keyboardType="email-address" />
+                            <HapticTouchable style={s.secondaryBtn} onPress={handleRequestPasswordReset} activeOpacity={0.88} disabled={resetLoading} haptic="medium">
+                              {resetLoading ? <ActivityIndicator color={selectedTheme.textPrimary} /> : <Text style={s.secondaryBtnText}>send OTP</Text>}
+                            </HapticTouchable>
+                          </>
+                        ) : (
+                          <>
+                            <Text style={s.label}>reset code</Text>
+                            <TextInput style={s.input} value={resetOtp} onChangeText={setResetOtp} placeholder="6-digit OTP" placeholderTextColor={selectedTheme.textSecondary} keyboardType="number-pad" maxLength={6} />
+                            <Text style={[s.label, s.spacedLabel]}>new password</Text>
+                            <TextInput style={s.input} value={resetPassword} onChangeText={setResetPassword} placeholder="new password" placeholderTextColor={selectedTheme.textSecondary} secureTextEntry />
+                            <Text style={[s.label, s.spacedLabel]}>confirm password</Text>
+                            <TextInput style={s.input} value={resetConfirmPassword} onChangeText={setResetConfirmPassword} placeholder="confirm password" placeholderTextColor={selectedTheme.textSecondary} secureTextEntry />
+                            <HapticTouchable style={s.secondaryBtn} onPress={handleConfirmPasswordReset} activeOpacity={0.88} disabled={resetLoading} haptic="medium">
+                              {resetLoading ? <ActivityIndicator color={selectedTheme.textPrimary} /> : <Text style={s.secondaryBtnText}>reset password</Text>}
+                            </HapticTouchable>
+                          </>
+                        )}
+                      </View>
+                    ) : null}
+
                     <View style={s.dividerRow}>
                       <View style={s.dividerLine} />
                       <Text style={s.dividerText}>or continue</Text>
@@ -175,6 +306,40 @@ export default function LoginScreen({ onLogin }: Props) {
                     <HapticTouchable style={s.googleBtn} onPress={() => { setError(''); promptAsync(); }} activeOpacity={0.88} disabled={loading || !request} haptic="medium">
                       <Text style={s.googleIcon}>G</Text>
                       <Text style={s.googleText}>continue with google</Text>
+                    </HapticTouchable>
+                  </>
+                ) : verificationPending ? (
+                  <>
+                    <Text style={s.label}>verification code</Text>
+                    <TextInput
+                      style={s.input}
+                      value={registrationOtp}
+                      onChangeText={setRegistrationOtp}
+                      placeholder="6-digit OTP"
+                      placeholderTextColor={selectedTheme.textSecondary}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                    />
+
+                    <HapticTouchable style={s.btnWrap} onPress={handleVerifyRegistration} activeOpacity={0.88} disabled={loading} haptic="medium">
+                      <LinearGradient colors={[selectedTheme.accentHover, selectedTheme.accent]} start={{ x: 0.05, y: 0 }} end={{ x: 0.95, y: 1 }} style={s.btn}>
+                        {loading ? <ActivityIndicator color={selectedTheme.bgPrimary} /> : <Text style={s.btnText}>verify account</Text>}
+                      </LinearGradient>
+                    </HapticTouchable>
+
+                    <HapticTouchable
+                      style={[s.googleBtn, { marginTop: 12 }]}
+                      onPress={() => {
+                        setVerificationPending(false);
+                        setRegistrationOtp('');
+                        setError('');
+                        setSuccess('');
+                      }}
+                      activeOpacity={0.88}
+                      disabled={loading}
+                      haptic="selection"
+                    >
+                      <Text style={s.googleText}>edit registration details</Text>
                     </HapticTouchable>
                   </>
                 ) : (
@@ -197,7 +362,7 @@ export default function LoginScreen({ onLogin }: Props) {
                     <TextInput style={s.input} value={regUsername} onChangeText={setRegUsername} placeholder="choose a username" placeholderTextColor={selectedTheme.textSecondary} autoCapitalize="none" autoCorrect={false} />
 
                     <Text style={[s.label, s.spacedLabel]}>password</Text>
-                    <TextInput style={s.input} value={regPassword} onChangeText={setRegPassword} placeholder="min 6 characters" placeholderTextColor={selectedTheme.textSecondary} secureTextEntry />
+                    <TextInput style={s.input} value={regPassword} onChangeText={setRegPassword} placeholder="8+ chars, uppercase + symbol" placeholderTextColor={selectedTheme.textSecondary} secureTextEntry />
 
                     <HapticTouchable style={s.btnWrap} onPress={handleRegister} activeOpacity={0.88} disabled={loading} haptic="medium">
                       <LinearGradient colors={[selectedTheme.accentHover, selectedTheme.accent]} start={{ x: 0.05, y: 0 }} end={{ x: 0.95, y: 1 }} style={s.btn}>
@@ -239,7 +404,7 @@ return StyleSheet.create({
   panel: {
     width: '100%',
     backgroundColor: rgbaFromHex(theme.panel, 0.92),
-    borderRadius: 28,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: theme.border,
     padding: 18,
@@ -249,8 +414,8 @@ return StyleSheet.create({
     shadowRadius: 30,
     elevation: 18,
   },
-  tabs: { flexDirection: 'row', backgroundColor: rgbaFromHex(theme.textPrimary, 0.03), borderRadius: 18, borderWidth: 1, borderColor: theme.border, marginBottom: 22, overflow: 'hidden', padding: 4 },
-  tab:       { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 14 },
+  tabs: { flexDirection: 'row', backgroundColor: rgbaFromHex(theme.textPrimary, 0.03), borderRadius: 10, borderWidth: 1, borderColor: theme.border, marginBottom: 22, overflow: 'hidden', padding: 4 },
+  tab:       { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8 },
   tabActive: { backgroundColor: theme.panelAlt },
   tabText:       { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: theme.textSecondary, letterSpacing: 0.5 },
   tabTextActive: { color: theme.accent },
@@ -265,7 +430,7 @@ return StyleSheet.create({
     backgroundColor: theme.panelAlt,
     borderWidth: 1,
     borderColor: theme.border,
-    borderRadius: 16,
+    borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontFamily: 'Inter_400Regular',
@@ -276,9 +441,29 @@ return StyleSheet.create({
   error:   { fontFamily: 'Inter_400Regular', fontSize: 12, color: theme.danger, letterSpacing: 0.3, marginBottom: 12, textAlign: 'center' },
   success: { fontFamily: 'Inter_400Regular', fontSize: 12, color: theme.success, letterSpacing: 0.3, marginBottom: 12, textAlign: 'center' },
 
-  btnWrap: { marginTop: 24, borderRadius: 18, overflow: 'hidden' },
+  btnWrap: { marginTop: 24, borderRadius: 10, overflow: 'hidden' },
   btn:     { paddingVertical: 17, alignItems: 'center', justifyContent: 'center' },
   btnText: { fontFamily: 'Inter_900Black', fontSize: 14, color: theme.bgPrimary, letterSpacing: 0.6 },
+
+  textButton: { alignItems: 'center', paddingTop: 14 },
+  textButtonLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: theme.accent, letterSpacing: 0.2 },
+
+  resetPanel: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+  },
+  secondaryBtn: {
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: rgbaFromHex(theme.accent, 0.28),
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    backgroundColor: theme.panelAlt,
+  },
+  secondaryBtnText: { fontFamily: 'Inter_900Black', fontSize: 12, color: theme.textPrimary, letterSpacing: 0.7 },
 
   dividerRow:  { flexDirection: 'row', alignItems: 'center', marginVertical: 20, gap: 12 },
   dividerLine: { flex: 1, height: 1, backgroundColor: theme.border },
@@ -286,7 +471,7 @@ return StyleSheet.create({
 
   googleBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    borderWidth: 1, borderColor: theme.border, borderRadius: 18, paddingVertical: 15, backgroundColor: theme.panelAlt,
+    borderWidth: 1, borderColor: theme.border, borderRadius: 10, paddingVertical: 15, backgroundColor: theme.panelAlt,
   },
   googleIcon: { fontFamily: 'Inter_900Black', fontSize: 16, color: theme.accent },
   googleText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: theme.textPrimary, letterSpacing: 0.2 },

@@ -2277,7 +2277,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    borderRadius: 24,
+    borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -2334,7 +2334,7 @@ const styles = StyleSheet.create({
   },
   stageShell: {
     flex: 1,
-    borderRadius: 32,
+    borderRadius: 20,
     borderWidth: 1,
     overflow: 'hidden',
     position: 'relative',
@@ -2383,7 +2383,7 @@ const styles = StyleSheet.create({
   },
   stageViewport: {
     flex: 1,
-    borderRadius: 32,
+    borderRadius: 20,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -2417,7 +2417,7 @@ const styles = StyleSheet.create({
   },
   traySurface: {
     borderWidth: 1,
-    borderRadius: 26,
+    borderRadius: 20,
     paddingTop: 10,
     paddingBottom: 10,
     overflow: 'hidden',
@@ -2511,7 +2511,7 @@ const styles = StyleSheet.create({
   },
   toolbarRail: {
     borderWidth: 1,
-    borderRadius: 28,
+    borderRadius: 20,
     paddingHorizontal: 8,
     paddingTop: 8,
     paddingBottom: 10,
@@ -2566,7 +2566,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   textModalCard: {
-    borderRadius: 26,
+    borderRadius: 20,
     borderWidth: 1,
     padding: 18,
     gap: 12,

@@ -8,14 +8,14 @@ import { AuthUser } from '../services/auth';
 import { getFriendActivityFeed } from '../services/api';
 import HapticTouchable from '../components/HapticTouchable';
 
-const GOLD_XL = '#FFF0BC';
-const GOLD_L  = '#E8CC88';
-const GOLD_M  = '#C9A87C';
-const GOLD_D  = '#8A6535';
-const DIM     = '#4A3E2A';
-const SURFACE = '#111111';
-const BORDER  = '#2A2218';
-const BG      = ['#120E06', '#0A0906', '#080808'] as const;
+const GOLD_XL = '#EAECEF';
+const GOLD_L  = '#E5C9A8';
+const GOLD_M  = '#D7B38C';
+const GOLD_D  = '#9CA3AF';
+const DIM     = '#9CA3AF';
+const SURFACE = '#121110';
+const BORDER  = 'rgba(215, 179, 140, 0.14)';
+const BG      = ['#0a0a0b', '#0a0a0b', '#0f0e0d'] as const;
 
 const FILTERS = ['all', 'chat', 'note', 'flashcard', 'quiz'] as const;
 type Filter = typeof FILTERS[number];
@@ -160,7 +160,7 @@ export default function ActivityTimelineScreen({ user, onBack }: Props) {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#120E06' },
+  safe: { flex: 1, backgroundColor: '#0a0a0b' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 18, paddingBottom: 12 },
   title: { fontFamily: 'Inter_900Black', fontSize: 32, color: GOLD_L, letterSpacing: -0.8 },
   subtitle: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM, letterSpacing: 2.2, marginTop: 4, textTransform: 'uppercase' },

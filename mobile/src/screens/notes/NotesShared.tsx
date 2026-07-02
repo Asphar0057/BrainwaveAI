@@ -1754,7 +1754,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     workspacePanel: {
       gap: 12,
       backgroundColor: rgbaFromHex(SURFACE, 0.96),
-      borderRadius: 26,
+      borderRadius: 20,
       borderWidth: 1,
       borderColor: BORDER,
       padding: layout.isTablet ? 16 : 14,
@@ -2087,7 +2087,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
       marginTop: 2,
     },
     heroCard: {
-      borderRadius: 24,
+      borderRadius: 16,
       borderWidth: 1,
       borderColor: rgbaFromHex(ACCENT, 0.2),
       backgroundColor: rgbaFromHex(SURFACE, 0.97),
@@ -2519,7 +2519,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     editorDeck: {
       gap: 14,
       backgroundColor: rgbaFromHex(SURFACE, 0.96),
-      borderRadius: 28,
+      borderRadius: 20,
       borderWidth: 1,
       borderColor: BORDER,
       padding: layout.isTablet ? 18 : 16,
@@ -2713,7 +2713,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     },
     inlineTextBlock: {
       backgroundColor: rgbaFromHex(SURFACE, 0.94),
-      borderRadius: 28,
+      borderRadius: 20,
       borderWidth: 1,
       borderColor: BORDER,
       overflow: 'hidden',
@@ -2731,7 +2731,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     inlineCanvasBlock: {
       gap: 10,
       backgroundColor: rgbaFromHex(SURFACE, 0.94),
-      borderRadius: 28,
+      borderRadius: 20,
       borderWidth: 1,
       borderColor: BORDER,
       padding: 14,
@@ -2780,7 +2780,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     },
     titleInput: {
       backgroundColor: rgbaFromHex(SURFACE, 0.94),
-      borderRadius: 28,
+      borderRadius: 20,
       borderWidth: 1,
       borderColor: BORDER,
       paddingHorizontal: 16,
@@ -2797,7 +2797,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     contentInput: {
       minHeight: layout.isLandscape ? 320 : 420,
       backgroundColor: rgbaFromHex(SURFACE, 0.94),
-      borderRadius: 28,
+      borderRadius: 20,
       borderWidth: 1,
       borderColor: BORDER,
       paddingHorizontal: 16,
@@ -2837,7 +2837,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     },
     previewTextBlock: {
       backgroundColor: rgbaFromHex(SURFACE, 0.94),
-      borderRadius: 26,
+      borderRadius: 20,
       borderWidth: 1,
       borderColor: BORDER,
       paddingHorizontal: 18,
@@ -2912,7 +2912,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     modalCard: {
       maxHeight: '88%',
       backgroundColor: rgbaFromHex(SURFACE, 0.98),
-      borderRadius: 28,
+      borderRadius: 20,
       borderWidth: 1,
       borderColor: BORDER,
       paddingHorizontal: 18,

@@ -1015,7 +1015,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     alignSelf: 'center',
     flexDirection: 'row',
     backgroundColor: rgbaFromHex(SURFACE, 0.98),
-    borderRadius: 26,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: BORDER,
     marginHorizontal: 16,
@@ -1052,7 +1052,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
 
   setCard: {
     backgroundColor: rgbaFromHex(SURFACE, 0.98),
-    borderRadius: 28,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: softAccentBorder,
     padding: 18,
@@ -1106,7 +1106,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   },
   heroCreateCard: {
     backgroundColor: rgbaFromHex(SURFACE, 0.94),
-    borderRadius: 28,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: softAccentBorder,
     padding: 18,
@@ -1134,7 +1134,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   optionPillTextActive: { color: INK },
   formCard: {
     backgroundColor: rgbaFromHex(SURFACE, 0.94),
-    borderRadius: 28,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: BORDER,
     padding: 16,
@@ -1171,7 +1171,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   inputMultiline: { minHeight: 112 },
   manualCard: {
     backgroundColor: SURFACE,
-    borderRadius: 24,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: BORDER,
     padding: 16,
@@ -1335,14 +1335,14 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     position: 'absolute',
     width: Math.max(cardWidth - 48, 240),
     height: useLandscapeStudyLayout ? Math.max(cardHeight - 42, 220) : '82%',
-    borderRadius: 36,
+    borderRadius: 20,
     backgroundColor: rgbaFromHex(ACCENT, 0.08),
   },
   card: {
     width: cardWidth,
     height: useLandscapeStudyLayout ? cardHeight : '100%',
     backgroundColor: rgbaFromHex(QUESTION_SURFACE, 0.98),
-    borderRadius: 34,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: QUESTION_CHIP_BORDER,
     padding: 26,
@@ -1404,7 +1404,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   wrongBtn: {
     flex: 1,
     backgroundColor: softDanger,
-    borderRadius: 24,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: softDangerBorder,
     alignItems: 'center',
@@ -1420,7 +1420,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   rightBtn: {
     flex: 1,
     backgroundColor: softSuccess,
-    borderRadius: 24,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: softSuccessBorder,
     alignItems: 'center',
@@ -1461,7 +1461,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   resultsRow: {
     flexDirection: 'row',
     backgroundColor: SURFACE,
-    borderRadius: 24,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: BORDER,
     overflow: 'hidden',

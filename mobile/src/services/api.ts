@@ -38,14 +38,14 @@ export async function login(username: string, password: string) {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString(),
   });
-  if (!res.ok) throw new Error('Invalid credentials');
+  if (!res.ok) await readApiError(res, 'Invalid credentials');
   return res.json(); // { access_token, token_type }
 }
 
 export async function getMe() {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}/me`, { headers });
-  if (!res.ok) throw new Error('Unauthorized');
+  if (!res.ok) await readApiError(res, 'Unauthorized');
   return res.json(); // { username, email, first_name, ... }
 }
 
@@ -685,6 +685,52 @@ export async function register(data: {
   return res.json();
 }
 
+export async function verifyRegistration(data: {
+  email: string;
+  otp: string;
+}) {
+  const res = await fetch(`${API_URL}/register/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Verification failed');
+  }
+  return res.json();
+}
+
+export async function requestPasswordReset(email: string) {
+  const res = await fetch(`${API_URL}/password-reset/request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Could not send OTP');
+  }
+  return res.json();
+}
+
+export async function confirmPasswordReset(data: {
+  email: string;
+  otp: string;
+  new_password: string;
+}) {
+  const res = await fetch(`${API_URL}/password-reset/confirm`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Could not reset password');
+  }
+  return res.json();
+}
+
 // ── Google OAuth ──────────────────────────────────────────────────────
 export async function googleAuth(idToken: string) {
   const res = await fetch(`${API_URL}/google-auth`, {
@@ -692,7 +738,7 @@ export async function googleAuth(idToken: string) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token: idToken }),
   });
-  if (!res.ok) throw new Error('Google auth failed');
+  if (!res.ok) await readApiError(res, 'Google auth failed');
   return res.json(); // { access_token, token_type, user_info }
 }
 

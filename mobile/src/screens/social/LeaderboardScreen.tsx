@@ -280,7 +280,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     topBar: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
     backBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: rgbaFromHex(SURFACE, 0.92), borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center' },
     hero:      { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', alignItems: 'center', paddingTop: 12, paddingBottom: 24, gap: 8 },
-    heroGlow:  { width: 112, height: 112, borderRadius: 38, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.24) },
+    heroGlow:  { width: 112, height: 112, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.24) },
     heroTitle: { fontFamily: 'Inter_900Black', fontSize: 40, color: theme.accentHover, letterSpacing: -2.2, marginTop: 8 },
     heroSub:   { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM, letterSpacing: 0.5 },
     tabRow:        { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', flexDirection: 'row', paddingLeft: 20, paddingRight: 20, marginBottom: 16, borderBottomWidth: 1, borderBottomColor: BORDER },
@@ -326,7 +326,7 @@ function createRowStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'])
 function createEmptyStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
   return StyleSheet.create({
     wrap:  { alignItems: 'center', paddingTop: 80, gap: 14 },
-    icon:  { width: 88, height: 88, borderRadius: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: rgbaFromHex(theme.accent, 0.22) },
+    icon:  { width: 88, height: 88, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: rgbaFromHex(theme.accent, 0.22) },
     title: { fontFamily: 'Inter_900Black', fontSize: 18, color: darkenColor(theme.accent, theme.isLight ? 12 : 26) },
   });
 }

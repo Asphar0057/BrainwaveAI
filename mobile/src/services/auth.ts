@@ -10,9 +10,14 @@ export type AuthUser = {
 export async function signIn(username: string, password: string): Promise<AuthUser> {
   const data = await apiLogin(username, password);
   await AsyncStorage.setItem('token', data.access_token);
-  const me = await getMe();
-  await AsyncStorage.setItem('user', JSON.stringify(me));
-  return me;
+  try {
+    const me = await getMe();
+    await AsyncStorage.setItem('user', JSON.stringify(me));
+    return me;
+  } catch (error) {
+    await AsyncStorage.multiRemove(['token', 'user']);
+    throw error;
+  }
 }
 
 export async function signOut() {
@@ -32,7 +37,12 @@ export async function isLoggedIn(): Promise<boolean> {
 export async function signInWithGoogle(idToken: string): Promise<AuthUser> {
   const data = await googleAuth(idToken);
   await AsyncStorage.setItem('token', data.access_token);
-  const me = await getMe();
-  await AsyncStorage.setItem('user', JSON.stringify(me));
-  return me;
+  try {
+    const me = await getMe();
+    await AsyncStorage.setItem('user', JSON.stringify(me));
+    return me;
+  } catch (error) {
+    await AsyncStorage.multiRemove(['token', 'user']);
+    throw error;
+  }
 }

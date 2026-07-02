@@ -74,7 +74,7 @@ export const COLOR_PALETTE = [
 
 export const PRIMARY_PALETTE: Record<ThemeMode, { name: string; value: string }[]> = {
   dark: [
-    { name: 'Midnight', value: '#0b0b0c' },
+    { name: 'Midnight', value: '#0a0a0b' },
     { name: 'Charcoal', value: '#1a1a2e' },
     { name: 'Navy', value: '#0f1729' },
     { name: 'Forest', value: '#0d1912' },
@@ -139,16 +139,16 @@ function getRelativeLuminance(hex: string) {
 
 export function buildTheme(definition: ThemeDefinition & { primary?: string }): MobileTheme {
   const isLight = definition.mode === 'light';
-  const primary = definition.primary || (isLight ? '#fefefe' : '#0b0b0c');
+  const primary = definition.primary || (isLight ? '#fefefe' : '#0a0a0b');
   const bgPrimary = primary;
-  const bgSecondary = isLight ? darkenColor(primary, 2) : lightenColor(primary, 5);
-  const panel = isLight ? '#ffffff' : lightenColor(primary, 4);
-  const panelAlt = isLight ? darkenColor(primary, 1) : lightenColor(primary, 8);
-  const panelMuted = isLight ? darkenColor(primary, 3) : lightenColor(primary, 12);
+  const bgSecondary = isLight ? darkenColor(primary, 2) : '#11100f';
+  const panel = isLight ? '#ffffff' : '#121110';
+  const panelAlt = isLight ? darkenColor(primary, 1) : '#171513';
+  const panelMuted = isLight ? darkenColor(primary, 3) : '#211f1d';
   const textPrimary = isLight ? '#1a1a1a' : '#EAECEF';
-  const textSecondary = isLight ? '#666666' : '#B8C0CC';
-  const border = isLight ? rgbaFromHex(darkenColor(primary, 20), 0.18) : rgbaFromHex(definition.accent, 0.20);
-  const borderStrong = isLight ? rgbaFromHex(darkenColor(primary, 28), 0.28) : rgbaFromHex(definition.accent, 0.32);
+  const textSecondary = isLight ? '#666666' : '#9CA3AF';
+  const border = isLight ? rgbaFromHex(darkenColor(primary, 20), 0.18) : rgbaFromHex(definition.accent, 0.14);
+  const borderStrong = isLight ? rgbaFromHex(darkenColor(primary, 28), 0.28) : rgbaFromHex(definition.accent, 0.24);
 
   return {
     ...definition,
@@ -157,7 +157,7 @@ export function buildTheme(definition: ThemeDefinition & { primary?: string }): 
     bgPrimary,
     bgSecondary,
     bgTop: primary,
-    bgBottom: isLight ? darkenColor(primary, 4) : lightenColor(primary, 6),
+    bgBottom: isLight ? darkenColor(primary, 4) : '#0f0e0d',
     panel,
     panelAlt,
     panelMuted,

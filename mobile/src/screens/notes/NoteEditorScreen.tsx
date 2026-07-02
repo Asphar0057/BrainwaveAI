@@ -940,7 +940,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
     },
     editorShell: {
       backgroundColor: paper,
-      borderRadius: 30,
+      borderRadius: 20,
       borderWidth: 1,
       borderColor: paperBorder,
       paddingHorizontal: 20,
@@ -996,7 +996,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
     },
     sketchCard: {
       backgroundColor: rgbaFromHex(theme.panel, 0.92),
-      borderRadius: 24,
+      borderRadius: 16,
       borderWidth: 1,
       borderColor: rgbaFromHex(theme.borderStrong, 0.82),
       padding: 14,
@@ -1045,7 +1045,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
       flexDirection: 'row',
       gap: 10,
       backgroundColor: rgbaFromHex(theme.panel, 0.94),
-      borderRadius: 26,
+      borderRadius: 20,
       borderWidth: 1,
       borderColor: rgbaFromHex(theme.borderStrong, 0.82),
       padding: 10,

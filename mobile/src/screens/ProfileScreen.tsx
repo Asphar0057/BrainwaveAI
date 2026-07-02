@@ -67,7 +67,6 @@ export default function ProfileScreen({ user, onLogout, onNavigate }: Props) {
     <SafeAreaView style={styles.safe} edges={[]}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFill} />
       <AmbientBubbles theme={selectedTheme} variant="profile" opacity={0.88} />
-      <View style={[styles.glow, { backgroundColor: rgbaFromHex(selectedTheme.accent, 0.08) }]} pointerEvents="none" />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.topBar}>
@@ -193,7 +192,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       paddingHorizontal: PAD - 4,
     },
     settingsButton: {
-      width: 40, height: 40, borderRadius: 20,
+      width: 40, height: 40, borderRadius: 10,
       borderWidth: 1, borderColor: BORDER,
       backgroundColor: rgbaFromHex(CARD_ALT, 0.88),
       alignItems: 'center', justifyContent: 'center',
@@ -201,7 +200,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     pageTitle:    { fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 36 : 30, lineHeight: layout.isTablet ? 38 : 32, color: GOLD_LIGHT, letterSpacing: -0.8 },
     pageSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM, letterSpacing: 1.6, marginTop: 4, textTransform: 'uppercase' },
     heroCard: {
-      borderRadius: 26,
+      borderRadius: 20,
       borderWidth: 1,
       borderColor: BORDER,
       padding: 20,
@@ -228,7 +227,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     sectionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: DIM, letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' },
     card: {
       backgroundColor: CARD,
-      borderRadius: 22,
+      borderRadius: 16,
       borderWidth: 1,
       borderColor: BORDER,
       marginBottom: 22,
