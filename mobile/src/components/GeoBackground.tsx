@@ -1,5 +1,6 @@
 import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Line, Rect, G, Text as SvgText, Defs, RadialGradient, Stop, Polyline } from 'react-native-svg';
+import { BlurView } from 'expo-blur';
 import { useAppTheme } from '../contexts/ThemeContext';
 
 export default function GeoBackground() {
@@ -14,7 +15,7 @@ export default function GeoBackground() {
 
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <Svg width={W} height={H} style={StyleSheet.absoluteFill}>
+      <Svg width={W} height={H} style={[StyleSheet.absoluteFill, { opacity: 0.6 }]}>
         <Defs>
           <RadialGradient id="gOrbTL" cx="20%" cy="10%" r="60%">
             <Stop offset="0%" stopColor={ac} stopOpacity={0.18} />
@@ -36,13 +37,11 @@ export default function GeoBackground() {
         <Rect x={0} y={0} width={W} height={H} fill="url(#gOrbC)" />
 
         {/* Large edge circles */}
-        <Circle cx={-W * 0.18} cy={H * 0.48} r={W * 0.72} fill="none" stroke={ac} strokeWidth={0.6} strokeOpacity={0.15} />
-        <Circle cx={-W * 0.18} cy={H * 0.48} r={W * 1.05} fill="none" stroke={ac} strokeWidth={0.28} strokeOpacity={0.08} />
-        <Circle cx={W * 1.18} cy={H * 0.52} r={W * 0.68} fill="none" stroke={ac} strokeWidth={0.55} strokeOpacity={0.13} />
-        <Circle cx={W * 1.18} cy={H * 0.52} r={W * 0.95} fill="none" stroke={ac} strokeWidth={0.26} strokeOpacity={0.07} />
+        <Circle cx={-W * 0.18} cy={H * 0.48} r={W * 0.72} fill="none" stroke={ac} strokeWidth={0.5} strokeOpacity={0.1} />
+        <Circle cx={W * 1.18} cy={H * 0.52} r={W * 0.68} fill="none" stroke={ac} strokeWidth={0.45} strokeOpacity={0.09} />
 
         {/* Top center small circle */}
-        <Circle cx={W * 0.5} cy={-18} r={W * 0.22} fill="none" stroke={ac} strokeWidth={0.45} strokeOpacity={0.2} />
+        <Circle cx={W * 0.5} cy={-18} r={W * 0.22} fill="none" stroke={ac} strokeWidth={0.35} strokeOpacity={0.13} />
 
         {/* Dashed horizontal grid lines */}
         <Line x1={0} y1={H / 4}    x2={W} y2={H / 4}    stroke={ac} strokeWidth={0.3} strokeOpacity={0.12} strokeDasharray="4 12" />
@@ -127,6 +126,11 @@ export default function GeoBackground() {
           <SvgText x={W * 0.7} y={H * 0.68} fill={ac} fontSize={68} fontWeight="800" fontFamily="Inter">02</SvgText>
         </G>
       </Svg>
+      <BlurView
+        intensity={26}
+        tint={selectedTheme.isLight ? 'light' : 'dark'}
+        style={StyleSheet.absoluteFill}
+      />
     </View>
   );
 }

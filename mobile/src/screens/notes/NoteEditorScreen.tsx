@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import AmbientBubbles from '../../components/AmbientBubbles';
+import GeoBackground from '../../components/GeoBackground';
 import HapticTouchable from '../../components/HapticTouchable';
 import {
   createFolder,
@@ -487,6 +488,7 @@ export default function NoteEditorScreen({
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <GeoBackground />
       <AmbientBubbles theme={CURRENT_THEME} variant="notes" opacity={0.46} />
 
       <KeyboardAvoidingView style={styles.safe} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

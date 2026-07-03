@@ -25,6 +25,7 @@ import {
 } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import AmbientBubbles from '../../components/AmbientBubbles';
+import GeoBackground from '../../components/GeoBackground';
 import HapticTouchable from '../../components/HapticTouchable';
 import { AuthUser } from '../../services/auth';
 import { useAppTheme } from '../../contexts/ThemeContext';
@@ -471,6 +472,7 @@ export function NotesTrashScreen({
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
+      <GeoBackground />
       <AmbientBubbles theme={CURRENT_THEME} variant="notes" opacity={0.82} />
       <View style={s.header}>
         <HapticTouchable onPress={onBack} style={{ marginRight: 12 }} haptic="selection">
@@ -1002,6 +1004,7 @@ export function NotesHome({
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
+      <GeoBackground />
       <AmbientBubbles theme={CURRENT_THEME} variant="notes" opacity={0.82} />
       {layout.isTablet ? (
         <View style={s.compactHeader}>
@@ -1484,7 +1487,7 @@ export function NotesHome({
                   <Text style={s.selectRowTitle}>{note.title || 'Untitled Note'}</Text>
                   <Text style={s.selectRowMeta}>{formatDate(note.updated_at)}</Text>
                 </View>
-                <Ionicons name="arrow-forward-outline" size={20} color={ACCENT} />
+                <Ionicons name="chevron-forward-outline" size={20} color={ACCENT} />
               </HapticTouchable>
             )) : (
               <View style={s.emptyModalState}>
@@ -1553,7 +1556,7 @@ export function NotesHome({
                   <Text style={s.templateName}>{group.name}</Text>
                   <Text style={s.templateDesc}>{group.notes.length} note{group.notes.length === 1 ? '' : 's'}</Text>
                 </View>
-                <Ionicons name="arrow-forward-outline" size={18} color={ACCENT} />
+                <Ionicons name="chevron-forward-outline" size={18} color={ACCENT} />
               </HapticTouchable>
             ))}
           </View>

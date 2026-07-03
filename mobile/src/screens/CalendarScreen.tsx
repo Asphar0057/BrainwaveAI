@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthUser } from '../services/auth';
 import { API_URL } from '../services/api';
 import HapticTouchable from '../components/HapticTouchable';
+import GeoBackground from '../components/GeoBackground';
 
 const GOLD_XL = '#EAECEF';
 const GOLD_L  = '#E5C9A8';
@@ -67,6 +68,7 @@ export default function CalendarScreen({ user, onBack }: Props) {
   return (
     <SafeAreaView style={s.safe} edges={[]}>
       <LinearGradient colors={BG} style={StyleSheet.absoluteFill} />
+      <GeoBackground />
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         {/* Header */}

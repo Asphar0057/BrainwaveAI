@@ -7,6 +7,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../services/auth';
 import { getFriendActivityFeed } from '../services/api';
 import HapticTouchable from '../components/HapticTouchable';
+import GeoBackground from '../components/GeoBackground';
 
 const GOLD_XL = '#EAECEF';
 const GOLD_L  = '#E5C9A8';
@@ -83,6 +84,7 @@ export default function ActivityTimelineScreen({ user, onBack }: Props) {
   return (
     <SafeAreaView style={s.safe} edges={[]}>
       <LinearGradient colors={BG} style={StyleSheet.absoluteFill} />
+      <GeoBackground />
 
       {/* Header */}
       <View style={s.header}>

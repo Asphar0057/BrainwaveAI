@@ -12,6 +12,7 @@ import { API_URL } from '../../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import HapticTouchable from '../../components/HapticTouchable';
 import AmbientBubbles from '../../components/AmbientBubbles';
+import GeoBackground from '../../components/GeoBackground';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../../utils/theme';
 import { useResponsiveLayout } from '../../hooks/useResponsiveLayout';
@@ -142,6 +143,7 @@ export default function LearningPathsScreen({ user, onBack }: Props) {
   return (
     <View style={s.root}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.58, 1]} style={StyleSheet.absoluteFillObject} />
+      <GeoBackground />
       <AmbientBubbles theme={selectedTheme} variant="paths" opacity={0.8} />
 
       <View>
@@ -279,6 +281,7 @@ export default function LearningPathsScreen({ user, onBack }: Props) {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
           <View style={m.root}>
             <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFillObject} />
+            <GeoBackground />
             <View style={m.header}>
               <Text style={m.title}>generate path</Text>
               <HapticTouchable onPress={() => setShowCreate(false)} haptic="light">

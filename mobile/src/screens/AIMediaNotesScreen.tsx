@@ -10,6 +10,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import HapticTouchable from '../components/HapticTouchable';
 import AmbientBubbles from '../components/AmbientBubbles';
+import GeoBackground from '../components/GeoBackground';
 import { AuthUser } from '../services/auth';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { processMediaYouTube, getMediaHistory, saveMediaNotes } from '../services/api';
@@ -440,6 +441,7 @@ function AIMediaHub({
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
+      <GeoBackground />
       <AmbientBubbles theme={CURRENT_THEME} variant="media" opacity={0.86} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
@@ -635,6 +637,7 @@ function AIMediaProcessing({
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
+      <GeoBackground />
       <AmbientBubbles theme={CURRENT_THEME} variant="media" opacity={0.86} />
       <View style={s.subHeader}>
         <HapticTouchable onPress={() => { cancelRef.current = true; onCancel(); }} style={s.backBtn} haptic="warning">
@@ -677,6 +680,7 @@ function AIMediaResults({
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
+      <GeoBackground />
       <AmbientBubbles theme={CURRENT_THEME} variant="media" opacity={0.86} />
       <View style={s.subHeader}>
         <HapticTouchable onPress={onBack} style={s.backBtn} haptic="selection">

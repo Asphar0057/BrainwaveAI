@@ -13,6 +13,7 @@ import {
 } from '../../services/api';
 import HapticTouchable from '../../components/HapticTouchable';
 import AmbientBubbles from '../../components/AmbientBubbles';
+import GeoBackground from '../../components/GeoBackground';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../../utils/theme';
 import { useResponsiveLayout } from '../../hooks/useResponsiveLayout';
@@ -155,6 +156,7 @@ export default function GamesScreen({ user, onBack }: Props) {
   if (loading) return (
     <View style={{ flex: 1 }}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.58, 1]} style={StyleSheet.absoluteFillObject} />
+      <GeoBackground />
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color={GOLD_M} size="large" />
       </View>
@@ -164,6 +166,7 @@ export default function GamesScreen({ user, onBack }: Props) {
   return (
     <View style={s.root}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.58, 1]} style={StyleSheet.absoluteFillObject} />
+      <GeoBackground />
       <AmbientBubbles theme={selectedTheme} variant="games" opacity={0.82} />
       <DotGrid />
 
@@ -332,6 +335,7 @@ export default function GamesScreen({ user, onBack }: Props) {
       <Modal visible={showCreate} animationType="slide" presentationStyle="pageSheet">
         <View style={{ flex: 1 }}>
           <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.58, 1]} style={StyleSheet.absoluteFillObject} />
+          <GeoBackground />
           <DotGrid />
 
           <View style={modal.header}>

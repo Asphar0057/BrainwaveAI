@@ -17,6 +17,7 @@ import QuizPlaylistScreen  from './social/QuizPlaylistScreen';
 import PlaylistsScreen     from './social/PlaylistsScreen';
 import LearningPathsScreen from './social/LearningPathsScreen';
 import AmbientBubbles from '../components/AmbientBubbles';
+import GeoBackground from '../components/GeoBackground';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { rgbaFromHex, darkenColor, lightenColor } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
@@ -189,6 +190,7 @@ export default function SocialScreen({ user }: Props) {
   return (
     <View style={s.root}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
+      <GeoBackground />
       <AmbientBubbles theme={selectedTheme} variant="social" opacity={0.9} />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 100 }]}>

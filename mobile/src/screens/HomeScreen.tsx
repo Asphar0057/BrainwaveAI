@@ -7,6 +7,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import RingProgress from '../components/RingProgress';
 import HapticTouchable from '../components/HapticTouchable';
 import AmbientBubbles from '../components/AmbientBubbles';
+import GeoBackground from '../components/GeoBackground';
 import { AuthUser } from '../services/auth';
 import { getEnhancedStats, getFriendActivityFeed } from '../services/api';
 import { triggerHaptic } from '../utils/haptics';
@@ -261,6 +262,7 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
+      <GeoBackground />
       <AmbientBubbles theme={selectedTheme} variant="home" opacity={0.95} />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} bounces={false} alwaysBounceVertical={false}>
