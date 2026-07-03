@@ -167,6 +167,576 @@ export async function getSearchHubSuggestions(userId: string, query = '') {
   return res.json() as Promise<{ success: boolean; suggestions: string[] }>;
 }
 
+export async function runSearchHubCommand(payload: {
+  userId: string;
+  query: string;
+  sessionId?: string;
+  context?: Record<string, any>;
+  useHsContext?: boolean;
+}) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/agents/searchhub`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_id: payload.userId,
+      query: payload.query,
+      session_id: payload.sessionId,
+      context: payload.context ?? {},
+      use_hs_context: payload.useHsContext ?? true,
+    }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'SearchHub command failed');
+  }
+  return res.json();
+}
+
+export async function getSearchHubCommands() {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/agents/searchhub/commands`, { headers });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to load commands');
+  }
+  return res.json() as Promise<{ success: boolean; commands: Array<{ command: string; description: string }> }>;
+}
+
+// ── Question Bank ─────────────────────────────────────────────────────
+export type QuestionSetSummary = {
+  id: number;
+  title: string;
+  description?: string | null;
+  question_count?: number;
+  total_questions?: number;
+  best_score?: number;
+  attempt_count?: number;
+  status?: string;
+  created_at?: string;
+};
+
+export type PracticeQuestion = {
+  id: number;
+  question_text: string;
+  question_type: 'multiple_choice' | 'true_false' | 'short_answer' | 'fill_blank' | string;
+  correct_answer?: string;
+  options?: string[];
+  difficulty?: string;
+  explanation?: string;
+  topic?: string;
+};
+
+export async function getQuestionSets(userId: string) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/qb/get_question_sets?user_id=${encodeURIComponent(userId)}`, { headers });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to load question sets');
+  }
+  return res.json() as Promise<{ question_sets: QuestionSetSummary[] }>;
+}
+
+export async function getQuestionSet(questionSetId: number, userId: string) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/qb/get_question_set/${questionSetId}?user_id=${encodeURIComponent(userId)}`, { headers });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to load questions');
+  }
+  return res.json() as Promise<QuestionSetSummary & { questions: PracticeQuestion[] }>;
+}
+
+export async function generatePracticeQuestions(payload: {
+  userId: string;
+  topic: string;
+  questionCount?: number;
+  difficulty?: string;
+  questionTypes?: string[];
+  title?: string;
+  contextDocIds?: string[];
+  useHsContext?: boolean;
+}) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/generate_practice_questions`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_id: payload.userId,
+      topic: payload.topic,
+      title: payload.title ?? `Practice: ${payload.topic}`,
+      question_count: payload.questionCount ?? 10,
+      difficulty: payload.difficulty ?? 'mixed',
+      question_types: payload.questionTypes ?? ['multiple_choice', 'true_false', 'short_answer'],
+      context_doc_ids: payload.contextDocIds ?? [],
+      use_hs_context: payload.useHsContext ?? true,
+    }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to generate questions');
+  }
+  return res.json() as Promise<{ question_set_id: number; id: number; title: string; question_count: number; questions: PracticeQuestion[] }>;
+}
+
+export async function submitQuestionAnswers(userId: string, questionSetId: number, answers: Record<string, string>) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/qb/submit_answers`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId, question_set_id: questionSetId, answers }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to submit answers');
+  }
+  return res.json() as Promise<{
+    status: string;
+    score: number;
+    correct_count: number;
+    total_questions: number;
+    details: Array<{ question_id: number; user_answer: string; correct_answer: string; is_correct: boolean; explanation?: string }>;
+  }>;
+}
+
+export async function deleteQuestionSet(questionSetId: number, userId: string) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/qb/delete_question_set/${questionSetId}?user_id=${encodeURIComponent(userId)}`, { method: 'DELETE', headers });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to delete question set');
+  }
+  return res.json();
+}
+
+// ── Knowledge Maps / Roadmaps ─────────────────────────────────────────
+export type KnowledgeRoadmap = {
+  id: number;
+  title: string;
+  root_topic: string;
+  total_nodes?: number;
+  max_depth_reached?: number;
+  status?: string;
+  created_at?: string;
+  last_accessed?: string | null;
+};
+
+export type KnowledgeNode = {
+  id: number;
+  parent_id?: number | null;
+  topic_name: string;
+  description?: string;
+  depth_level?: number;
+  ai_explanation?: string;
+  key_concepts?: string[];
+  why_important?: string;
+  real_world_examples?: string[];
+  learning_tips?: string;
+  is_explored?: boolean;
+  exploration_count?: number;
+  expansion_status?: string;
+  has_generated_subtopics?: boolean;
+  user_notes?: string;
+  position?: { x?: number; y?: number };
+  created_at?: string;
+};
+
+export type KnowledgeRoadmapDetail = {
+  roadmap: KnowledgeRoadmap;
+  nodes_flat: KnowledgeNode[];
+  expanded_nodes: number[];
+};
+
+export async function getKnowledgeRoadmaps(userId: string) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/get_user_roadmaps?user_id=${encodeURIComponent(userId)}`, { headers });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to load knowledge maps');
+  }
+  return res.json() as Promise<{ status: string; roadmaps: KnowledgeRoadmap[] }>;
+}
+
+export async function createKnowledgeRoadmap(userId: string, rootTopic: string) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/create_knowledge_roadmap`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId, root_topic: rootTopic }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to create knowledge map');
+  }
+  return res.json() as Promise<{ status: string; roadmap_id: number; root_node_id: number; total_nodes: number }>;
+}
+
+export async function createKnowledgeRoadmapFromDocs(userId: string, contextDocIds: string[], title?: string) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/create_roadmap_from_context_docs`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId, context_doc_ids: contextDocIds, title }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to create knowledge map from sources');
+  }
+  return res.json() as Promise<{ status: string; roadmap_id?: number; root_node_id?: number; root_topic?: string; title?: string }>;
+}
+
+export async function getKnowledgeRoadmap(roadmapId: number) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/get_knowledge_roadmap/${roadmapId}`, { headers });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to load knowledge map');
+  }
+  return res.json() as Promise<KnowledgeRoadmapDetail>;
+}
+
+export async function expandKnowledgeNode(nodeId: number) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/expand_knowledge_node/${nodeId}`, {
+    method: 'POST',
+    headers,
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to expand node');
+  }
+  return res.json() as Promise<{ status: string; message?: string; child_nodes?: KnowledgeNode[] }>;
+}
+
+export async function saveKnowledgeNodeNotes(nodeId: number, notes: string) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/save_node_notes/${nodeId}`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ notes }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to save node notes');
+  }
+  return res.json();
+}
+
+export async function addManualKnowledgeNode(payload: {
+  roadmapId: number;
+  parentId: number;
+  topicName: string;
+  description?: string;
+}) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/add_manual_node`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      roadmap_id: payload.roadmapId,
+      parent_id: payload.parentId,
+      topic_name: payload.topicName,
+      description: payload.description || '',
+    }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to add node');
+  }
+  return res.json() as Promise<{ status: string; node: KnowledgeNode }>;
+}
+
+export async function deleteKnowledgeNode(nodeId: number) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/delete_roadmap_node/${nodeId}`, { method: 'DELETE', headers });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to delete node');
+  }
+  return res.json();
+}
+
+export async function deleteKnowledgeRoadmap(roadmapId: number) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/delete_roadmap/${roadmapId}`, { method: 'DELETE', headers });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to delete knowledge map');
+  }
+  return res.json();
+}
+
+// ── Slide Explorer ───────────────────────────────────────────────────
+export type UploadedSlide = {
+  id: number;
+  title?: string;
+  filename: string;
+  file_size?: number;
+  file_type?: string;
+  page_count?: number;
+  created_at?: string;
+  uploaded_at?: string;
+  preview_url?: string | null;
+  processing_status?: string;
+};
+
+export type SlideAnalysisPage = {
+  slide_number: number;
+  title?: string;
+  content?: string;
+  summary?: string;
+  explanation?: string;
+  key_points?: string[];
+  key_concepts?: string[];
+  insights?: string[];
+  visual_description?: string;
+};
+
+export type SlideAnalysis = {
+  status: string;
+  filename: string;
+  total_slides: number;
+  presentation_summary?: string;
+  slides: SlideAnalysisPage[];
+  analyzed_at?: string;
+};
+
+export async function getUploadedSlides(userId: string) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/get_uploaded_slides?user_id=${encodeURIComponent(userId)}`, { headers });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to load slides');
+  }
+  return res.json() as Promise<{ slides: UploadedSlide[] }>;
+}
+
+export async function uploadSlides(files: Array<{ uri: string; name: string; mimeType?: string | null }>) {
+  const headers = await authHeaders();
+  const body = new FormData();
+  files.forEach((file) => {
+    body.append('files', {
+      uri: file.uri,
+      name: file.name,
+      type: file.mimeType || 'application/octet-stream',
+    } as any);
+  });
+  const res = await fetch(`${API_URL}/upload_slides`, {
+    method: 'POST',
+    headers,
+    body,
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to upload slides');
+  }
+  return res.json() as Promise<{ status: string; uploaded_count: number; message: string }>;
+}
+
+export async function analyzeSlide(slideId: number, forceReanalyze = false) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/analyze_slide/${slideId}?force_reanalyze=${forceReanalyze}`, { headers });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to analyze slides');
+  }
+  return res.json() as Promise<SlideAnalysis>;
+}
+
+export async function deleteSlide(slideId: number) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/delete_slide/${slideId}`, { method: 'DELETE', headers });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to delete slides');
+  }
+  return res.json();
+}
+
+export async function generateQuestionsFromSlides(payload: {
+  userId: string;
+  slideIds: number[];
+  questionCount?: number;
+  difficultyMix?: { easy?: number; medium?: number; hard?: number };
+}) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/generate_questions`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_id: payload.userId,
+      slide_ids: payload.slideIds,
+      question_count: payload.questionCount ?? 10,
+      difficulty_mix: payload.difficultyMix ?? { easy: 3, medium: 5, hard: 2 },
+    }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to generate slide questions');
+  }
+  return res.json() as Promise<{ status: string; question_set_id: number; id?: number; question_count: number }>;
+}
+
+export async function getPersonalizedXPRoadmap(userId: string, forceRefresh = false) {
+  const headers = await authHeaders();
+  const res = await fetch(
+    `${API_URL}/xp_roadmap/personalized?user_id=${encodeURIComponent(userId)}&include_stats=true&force_refresh=${forceRefresh}`,
+    { headers }
+  );
+  if (!res.ok) {
+    await readApiError(res, 'Failed to load XP roadmap');
+  }
+  return res.json();
+}
+
+export type ConceptNode = {
+  id: number;
+  concept_name: string;
+  description?: string;
+  category?: string;
+  importance_score?: number;
+  mastery_level?: number;
+  notes_count?: number;
+  quizzes_count?: number;
+  flashcards_count?: number;
+};
+
+export type ConceptConnection = {
+  id: number;
+  source_id: number;
+  target_id: number;
+  connection_type?: string;
+  strength?: number;
+};
+
+export async function getConceptWeb(userId: string) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/get_concept_web?user_id=${encodeURIComponent(userId)}`, { headers });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to load concept web');
+  }
+  return res.json() as Promise<{ nodes: ConceptNode[]; connections: ConceptConnection[] }>;
+}
+
+export async function generateConceptWeb(userId: string) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/generate_concept_web`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to generate concept web');
+  }
+  return res.json();
+}
+
+export async function addConceptNode(payload: { userId: string; conceptName: string; description?: string; category?: string }) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/add_concept_node`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_id: payload.userId,
+      concept_name: payload.conceptName,
+      description: payload.description ?? '',
+      category: payload.category ?? 'General',
+    }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to add concept');
+  }
+  return res.json();
+}
+
+export async function generateConceptAsset(userId: string, conceptId: number, asset: 'notes' | 'flashcards' | 'quiz') {
+  const headers = await authHeaders();
+  const endpoint =
+    asset === 'notes'
+      ? 'generate_concept_notes'
+      : asset === 'flashcards'
+        ? 'generate_concept_flashcards'
+        : 'generate_concept_quiz';
+  const res = await fetch(`${API_URL}/${endpoint}`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId, concept_id: conceptId }),
+  });
+  if (!res.ok) {
+    await readApiError(res, `Failed to generate concept ${asset}`);
+  }
+  return res.json();
+}
+
+export async function createNoteFromContextDocs(payload: {
+  userId: string;
+  contextDocIds: string[];
+  title?: string;
+  topic?: string;
+  depth?: string;
+  tone?: string;
+}) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/create_note_from_context_docs`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_id: payload.userId,
+      context_doc_ids: payload.contextDocIds,
+      title: payload.title,
+      topic: payload.topic,
+      depth: payload.depth ?? 'deep',
+      tone: payload.tone ?? 'professional',
+    }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to create note from selected sources');
+  }
+  return res.json() as Promise<{ status?: string; note_id?: number; id?: number; title?: string }>;
+}
+
+export type LearningReview = {
+  id: number;
+  title: string;
+  status?: string;
+  total_points?: number;
+  best_score?: number;
+  attempt_count?: number;
+  current_attempt?: number;
+  created_at?: string;
+  completed_at?: string | null;
+  can_continue?: boolean;
+};
+
+export async function getLearningReviews(userId: string) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/get_learning_reviews?user_id=${encodeURIComponent(userId)}`, { headers });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to load learning reviews');
+  }
+  return res.json() as Promise<{ reviews: LearningReview[] }>;
+}
+
+export async function submitLearningReviewResponse(reviewId: number, responseText: string) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/submit_review_response`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ review_id: reviewId, response_text: responseText }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to submit review response');
+  }
+  return res.json();
+}
+
+// ── Analytics / Weaknesses ────────────────────────────────────────────
+export async function getLearningAnalytics(userId: string, period = 'week') {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/get_learning_analytics?user_id=${encodeURIComponent(userId)}&period=${encodeURIComponent(period)}`, { headers });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to load learning analytics');
+  }
+  return res.json();
+}
+
+export async function getStrengthsWeaknesses(userId: string) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/study_insights/strengths_weaknesses?user_id=${encodeURIComponent(userId)}`, { headers });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to load strengths and weaknesses');
+  }
+  return res.json();
+}
+
+export async function getWeaknessAnalysis(userId: number) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/weakness-practice/analysis?user_id=${encodeURIComponent(String(userId))}`, { headers });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to load weakness analysis');
+  }
+  return res.json();
+}
+
 // ── Social ────────────────────────────────────────────────────────────
 export async function getFriends(userId: string) {
   const headers = await authHeaders();
@@ -335,7 +905,7 @@ export async function createNote(payload: {
 }
 
 export async function updateNote(payload: {
-  noteId: number;
+  noteId: number | string;
   title: string;
   content: string;
   customFont?: string;
@@ -345,7 +915,7 @@ export async function updateNote(payload: {
     method: 'PUT',
     headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      note_id: payload.noteId,
+      note_id: String(payload.noteId),
       title: payload.title,
       content: payload.content,
       custom_font: payload.customFont ?? 'Inter',
@@ -360,7 +930,7 @@ export async function updateNote(payload: {
 }
 
 export async function toggleFavorite(payload: {
-  noteId: number;
+  noteId: number | string;
   isFavorite: boolean;
 }) {
   const headers = await authHeaders();
@@ -368,7 +938,7 @@ export async function toggleFavorite(payload: {
     method: 'PUT',
     headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      note_id: payload.noteId,
+      note_id: String(payload.noteId),
       is_favorite: payload.isFavorite,
     }),
   });
@@ -470,7 +1040,7 @@ export async function createFolder(payload: {
 }
 
 export async function moveNoteToFolder(payload: {
-  noteId: number;
+  noteId: number | string;
   folderId: number | null;
 }) {
   const headers = await authHeaders();
@@ -478,7 +1048,7 @@ export async function moveNoteToFolder(payload: {
     method: 'PUT',
     headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      note_id: payload.noteId,
+      note_id: String(payload.noteId),
       folder_id: payload.folderId,
     }),
   });
@@ -664,6 +1234,158 @@ export async function saveMediaNotes(
     body: JSON.stringify({ user_id: userId, title, content, transcript, analysis }),
   });
   return res.json(); // { success, note_id }
+}
+
+// ── Podcast Mode ─────────────────────────────────────────────────────
+export type PodcastChapter = {
+  index: number;
+  title?: string;
+  content?: string;
+  summary?: string;
+  duration_seconds?: number;
+};
+
+export type PodcastQuestion = {
+  index: number;
+  question: string;
+  options: string[];
+};
+
+export type PodcastMCQState = {
+  active?: boolean;
+  completed?: boolean;
+  score?: number;
+  total?: number;
+  current_index?: number;
+  question?: PodcastQuestion;
+  summary?: string;
+};
+
+export type PodcastSessionPayload = {
+  success?: boolean;
+  session_id: string;
+  episode_title?: string;
+  title?: string;
+  current_segment?: string;
+  current_index?: number;
+  total_segments?: number;
+  has_more?: boolean;
+  chapters?: PodcastChapter[];
+  bookmarks?: Array<{ id: number; label?: string; chapter_index?: number; timestamp_seconds?: number }>;
+  key_takeaways?: string[];
+  follow_up_suggestions?: string[];
+  answer?: string;
+  mcq_state?: PodcastMCQState;
+  mcq_drill?: PodcastMCQState;
+};
+
+async function podcastRequest<T>(path: string, payload: Record<string, any>) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/media/podcast${path}`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Podcast request failed');
+  }
+  return res.json() as Promise<T>;
+}
+
+export async function getPodcastSessions(userId: string, limit = 20) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/media/podcast/sessions?user_id=${encodeURIComponent(userId)}&limit=${limit}`, { headers });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to load podcast sessions');
+  }
+  return res.json() as Promise<{ success: boolean; sessions: Array<{ session_id: string; title?: string; episode_title?: string; updated_at?: string; created_at?: string; current_index?: number; total_segments?: number }> }>;
+}
+
+export async function startPodcastSession(payload: {
+  userId: string;
+  transcript: string;
+  analysis?: Record<string, any>;
+  title?: string;
+  sourceType?: string;
+  voiceMode?: string;
+  voicePersona?: string;
+  difficulty?: string;
+  answerLanguage?: string;
+  sessionOptions?: Record<string, any>;
+}) {
+  return podcastRequest<PodcastSessionPayload>('/start', {
+    user_id: payload.userId,
+    transcript: payload.transcript,
+    analysis: payload.analysis ?? {},
+    title: payload.title ?? 'Media Podcast',
+    source_type: payload.sourceType ?? 'media',
+    voice_mode: payload.voiceMode ?? 'coach',
+    voice_persona: payload.voicePersona ?? 'mentor',
+    difficulty: payload.difficulty ?? 'intermediate',
+    answer_language: payload.answerLanguage ?? 'en',
+    session_options: payload.sessionOptions ?? {},
+  });
+}
+
+export async function resumePodcastSession(userId: string, sessionId: string) {
+  return podcastRequest<PodcastSessionPayload>('/resume', { user_id: userId, session_id: sessionId });
+}
+
+export async function getNextPodcastSegment(userId: string, sessionId: string) {
+  return podcastRequest<PodcastSessionPayload>('/next', { user_id: userId, session_id: sessionId });
+}
+
+export async function jumpPodcastChapter(userId: string, sessionId: string, chapterIndex: number) {
+  return podcastRequest<PodcastSessionPayload>('/jump', { user_id: userId, session_id: sessionId, chapter_index: chapterIndex });
+}
+
+export async function askPodcastQuestion(payload: {
+  userId: string;
+  sessionId: string;
+  question: string;
+  voiceMode?: string;
+  voicePersona?: string;
+  difficulty?: string;
+  answerLanguage?: string;
+}) {
+  return podcastRequest<PodcastSessionPayload>('/ask', {
+    user_id: payload.userId,
+    session_id: payload.sessionId,
+    question: payload.question,
+    voice_mode: payload.voiceMode ?? 'coach',
+    voice_persona: payload.voicePersona ?? 'mentor',
+    difficulty: payload.difficulty ?? 'intermediate',
+    answer_language: payload.answerLanguage ?? 'en',
+  });
+}
+
+export async function addPodcastBookmark(userId: string, sessionId: string, chapterIndex?: number) {
+  return podcastRequest<PodcastSessionPayload>('/bookmark', {
+    user_id: userId,
+    session_id: sessionId,
+    chapter_index: chapterIndex ?? 0,
+  });
+}
+
+export async function startPodcastMCQ(userId: string, sessionId: string, count = 5) {
+  return podcastRequest<PodcastMCQState>('/mcq/start', { user_id: userId, session_id: sessionId, count });
+}
+
+export async function answerPodcastMCQ(userId: string, sessionId: string, questionIndex: number, selectedIndex: number) {
+  return podcastRequest<{
+    is_correct?: boolean;
+    explanation?: string;
+    completed?: boolean;
+    score?: number;
+    total?: number;
+    summary?: string;
+    next_question?: PodcastQuestion;
+  }>('/mcq/answer', {
+    user_id: userId,
+    session_id: sessionId,
+    question_index: questionIndex,
+    selected_index: selectedIndex,
+  });
 }
 
 // ── Weekly Progress ───────────────────────────────────────────────────

@@ -257,6 +257,34 @@ def _get_action_command_examples(action: str) -> list[str]:
     }
     return mapping.get(action, _build_default_command_suggestions())
 
+def _build_search_ai_response(query: str, topic: str, results: list[dict], suggestions: list[str]) -> str:
+    if not results:
+        return ""
+
+    lower = (query or "").lower()
+    titles = [
+        item.get("title") or item.get("name") or item.get("type") or "saved item"
+        for item in results[:3]
+    ]
+    top_text = "\n".join(f"- {title}" for title in titles if title)
+
+    if "weak" in lower or "next study" in lower or "checklist" in lower:
+        return (
+            "Here is the best next study action from your saved work:\n"
+            "1. Start with the top matching note or flashcard set.\n"
+            "2. Do one active-recall pass without looking at the answer.\n"
+            "3. Turn missed points into 3-5 flashcards or practice questions.\n"
+            "4. Re-test the same topic tomorrow.\n\n"
+            f"Most relevant items:\n{top_text}"
+        )
+
+    suggestion_text = ", ".join(suggestions[:3]) if suggestions else "notes, flashcards, or a quiz"
+    return (
+        f"I found {len(results)} matching item{'s' if len(results) != 1 else ''} for {topic or 'your search'}.\n"
+        f"Start with:\n{top_text}\n\n"
+        f"Next actions: {suggestion_text}."
+    )
+
 def _get_command_catalog() -> list[dict]:
     return [
         {"command": "/notes <topic>", "description": "Create notes from a topic"},
@@ -705,8 +733,9 @@ async def searchhub_agent(request: SearchHubRequest, db: Session = Depends(get_d
         if not suggestions:
             suggestions = search_result.get("related_searches", []) or _build_topic_suggestions(topic)
 
-        ai_response = None
-        if not search_result.get("results"):
+        results = search_result.get("results", [])
+        ai_response = _build_search_ai_response(query, topic, results, suggestions)
+        if not results:
             try:
                 ai_response = await call_ai_async(
                     f"Provide a short, friendly description of '{topic}' in 2-3 sentences.",
@@ -720,7 +749,7 @@ async def searchhub_agent(request: SearchHubRequest, db: Session = Depends(get_d
                 )
 
         return {
-            "search_results": search_result.get("results", []),
+            "search_results": results,
             "ai_response": ai_response,
             "suggestions": suggestions,
             "metadata": {

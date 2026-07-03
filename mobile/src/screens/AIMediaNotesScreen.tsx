@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TextInput,
-  ScrollView, Animated, KeyboardAvoidingView, Platform, Alert
+  ScrollView, Animated, KeyboardAvoidingView, Platform, Alert, ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
@@ -13,7 +13,20 @@ import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
 import { AuthUser } from '../services/auth';
 import { useAppTheme } from '../contexts/ThemeContext';
-import { processMediaYouTube, getMediaHistory, saveMediaNotes } from '../services/api';
+import {
+  addPodcastBookmark,
+  answerPodcastMCQ,
+  askPodcastQuestion,
+  getNextPodcastSegment,
+  jumpPodcastChapter,
+  PodcastMCQState,
+  PodcastSessionPayload,
+  processMediaYouTube,
+  getMediaHistory,
+  saveMediaNotes,
+  startPodcastMCQ,
+  startPodcastSession,
+} from '../services/api';
 import { darkenColor, getDefaultTheme, rgbaFromHex } from '../utils/theme';
 import { getResponsiveLayout, useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
@@ -42,7 +55,7 @@ const STATUSES = [
 ];
 
 type Mode      = 'youtube' | 'record';
-type Tab       = 'notes' | 'transcript';
+type Tab       = 'notes' | 'transcript' | 'podcast';
 
 interface MediaResult {
   filename: string;
@@ -651,6 +664,293 @@ function AIMediaProcessing({
   );
 }
 
+function PodcastMode({
+  user,
+  result,
+  title,
+}: {
+  user: AuthUser;
+  result: MediaResult;
+  title: string;
+}) {
+  const [sessionId, setSessionId] = useState('');
+  const [episodeTitle, setEpisodeTitle] = useState(title || 'Media Podcast');
+  const [currentSegment, setCurrentSegment] = useState('');
+  const [currentIndex, setCurrentIndex] = useState(-1);
+  const [totalSegments, setTotalSegments] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [chapters, setChapters] = useState<PodcastSessionPayload['chapters']>([]);
+  const [bookmarks, setBookmarks] = useState<PodcastSessionPayload['bookmarks']>([]);
+  const [takeaways, setTakeaways] = useState<string[]>([]);
+  const [followUps, setFollowUps] = useState<string[]>([]);
+  const [question, setQuestion] = useState('');
+  const [answer, setAnswer] = useState('');
+  const [mcq, setMcq] = useState<PodcastMCQState | null>(null);
+  const [mcqFeedback, setMcqFeedback] = useState('');
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState('');
+
+  const applyPayload = useCallback((data: PodcastSessionPayload) => {
+    setSessionId(data.session_id || sessionId);
+    setEpisodeTitle(data.episode_title || data.title || episodeTitle);
+    setCurrentSegment(data.current_segment || '');
+    setCurrentIndex(data.current_index ?? currentIndex);
+    setTotalSegments(data.total_segments || data.chapters?.length || totalSegments);
+    setHasMore(Boolean(data.has_more));
+    if (data.chapters) setChapters(data.chapters);
+    if (data.bookmarks) setBookmarks(data.bookmarks);
+    if (data.key_takeaways) setTakeaways(data.key_takeaways);
+    if (data.follow_up_suggestions) setFollowUps(data.follow_up_suggestions);
+    if (data.answer) setAnswer(data.answer);
+    if (data.mcq_state || data.mcq_drill) setMcq(data.mcq_state || data.mcq_drill || null);
+  }, [currentIndex, episodeTitle, sessionId, totalSegments]);
+
+  const start = async () => {
+    if (!result.transcript || result.transcript.length < 100) {
+      Alert.alert('Podcast mode', 'This media item does not have enough transcript text for podcast mode.');
+      return;
+    }
+    setBusy('start');
+    setError('');
+    try {
+      const data = await startPodcastSession({
+        userId: user.username,
+        transcript: result.transcript,
+        analysis: result.analysis || {},
+        title,
+        sourceType: 'media',
+        voiceMode: 'coach',
+        voicePersona: 'mentor',
+        difficulty: 'intermediate',
+      });
+      applyPayload(data);
+      setAnswer('');
+    } catch (e: any) {
+      setError(e.message || 'Failed to start podcast mode');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const next = async () => {
+    if (!sessionId) return;
+    setBusy('next');
+    setError('');
+    try {
+      applyPayload(await getNextPodcastSegment(user.username, sessionId));
+    } catch (e: any) {
+      setError(e.message || 'Failed to load next segment');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const jump = async (index: number) => {
+    if (!sessionId) return;
+    setBusy(`jump-${index}`);
+    setError('');
+    try {
+      applyPayload(await jumpPodcastChapter(user.username, sessionId, index));
+    } catch (e: any) {
+      setError(e.message || 'Failed to jump chapter');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const ask = async (value = question) => {
+    const cleaned = value.trim();
+    if (!sessionId || !cleaned) return;
+    setBusy('ask');
+    setError('');
+    setAnswer('');
+    try {
+      const data = await askPodcastQuestion({
+        userId: user.username,
+        sessionId,
+        question: cleaned,
+        voiceMode: 'coach',
+        voicePersona: 'mentor',
+        difficulty: 'intermediate',
+      });
+      applyPayload(data);
+      setAnswer(data.answer || 'No answer returned.');
+      setQuestion('');
+    } catch (e: any) {
+      setError(e.message || 'Failed to ask podcast');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const bookmark = async () => {
+    if (!sessionId) return;
+    setBusy('bookmark');
+    setError('');
+    try {
+      const data = await addPodcastBookmark(user.username, sessionId, Math.max(currentIndex, 0));
+      if (data.bookmarks) setBookmarks(data.bookmarks);
+    } catch (e: any) {
+      setError(e.message || 'Failed to bookmark');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const startDrill = async () => {
+    if (!sessionId) return;
+    setBusy('mcq');
+    setMcqFeedback('');
+    setError('');
+    try {
+      setMcq(await startPodcastMCQ(user.username, sessionId, 5));
+    } catch (e: any) {
+      setError(e.message || 'Failed to start MCQ drill');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const answerDrill = async (selectedIndex: number) => {
+    if (!sessionId || !mcq?.question) return;
+    setBusy(`mcq-${selectedIndex}`);
+    try {
+      const data = await answerPodcastMCQ(user.username, sessionId, mcq.question.index, selectedIndex);
+      setMcqFeedback(`${data.is_correct ? 'Correct' : 'Incorrect'}${data.explanation ? ` · ${data.explanation}` : ''}`);
+      if (data.completed) {
+        setMcq({ active: false, completed: true, score: data.score, total: data.total, summary: data.summary });
+      } else {
+        setMcq((prev) => ({
+          ...prev,
+          active: true,
+          score: data.score,
+          total: data.total,
+          current_index: data.next_question?.index,
+          question: data.next_question,
+        }));
+      }
+    } catch (e: any) {
+      setError(e.message || 'Failed to answer MCQ');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  if (!sessionId) {
+    return (
+      <View style={s.podcastLaunch}>
+        <Text style={s.podcastEyebrow}>interactive audio lesson</Text>
+        <Text style={s.podcastTitle}>podcast mode</Text>
+        <Text style={s.podcastCopy}>Turn this transcript into a guided episode with chapters, questions, bookmarks, and quick checks.</Text>
+        {!!error && <Text style={s.errorText}>{error}</Text>}
+        <HapticTouchable style={s.podcastPrimary} onPress={start} disabled={busy === 'start'} haptic="medium">
+          {busy === 'start' ? <ActivityIndicator color={INK} /> : <Text style={s.podcastPrimaryText}>start podcast</Text>}
+        </HapticTouchable>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView contentContainerStyle={s.podcastScroll} showsVerticalScrollIndicator={false}>
+      <View style={s.podcastPlayer}>
+        <Text style={s.podcastEyebrow}>now playing</Text>
+        <Text style={s.podcastTitle}>{episodeTitle}</Text>
+        <Text style={s.podcastProgress}>chapter {Math.max(currentIndex + 1, 1)} of {Math.max(totalSegments, chapters?.length || 1)}</Text>
+        <Text style={s.podcastSegment}>{currentSegment || 'Press next to continue the podcast.'}</Text>
+        {!!error && <Text style={s.errorText}>{error}</Text>}
+        <View style={s.podcastControls}>
+          <PodcastButton label="bookmark" onPress={bookmark} busy={busy === 'bookmark'} />
+          <PodcastButton label={hasMore ? 'next' : 'replay'} onPress={next} busy={busy === 'next'} />
+          <PodcastButton label="mcq" onPress={startDrill} busy={busy === 'mcq'} />
+        </View>
+      </View>
+
+      {chapters?.length ? (
+        <View style={s.podcastSection}>
+          <Text style={s.podcastSectionTitle}>chapters</Text>
+          {chapters.map((chapter, index) => (
+            <HapticTouchable key={`${chapter.index}-${index}`} style={[s.chapterRow, currentIndex === chapter.index && s.chapterRowActive]} onPress={() => jump(chapter.index ?? index)} haptic="selection">
+              <Text style={s.chapterIndex}>{String((chapter.index ?? index) + 1).padStart(2, '0')}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={s.chapterTitle}>{chapter.title || `Chapter ${(chapter.index ?? index) + 1}`}</Text>
+                {!!chapter.summary && <Text style={s.chapterSummary} numberOfLines={2}>{chapter.summary}</Text>}
+              </View>
+              {busy === `jump-${chapter.index ?? index}` ? <ActivityIndicator color={GOLD_M} size="small" /> : null}
+            </HapticTouchable>
+          ))}
+        </View>
+      ) : null}
+
+      {takeaways.length ? (
+        <View style={s.podcastSection}>
+          <Text style={s.podcastSectionTitle}>takeaways</Text>
+          {takeaways.slice(0, 6).map((item) => <Text key={item} style={s.takeaway}>• {item}</Text>)}
+        </View>
+      ) : null}
+
+      <View style={s.podcastSection}>
+        <Text style={s.podcastSectionTitle}>ask the podcast</Text>
+        <TextInput
+          value={question}
+          onChangeText={setQuestion}
+          placeholder="ask for an example, recap, or simpler explanation..."
+          placeholderTextColor={GOLD_D + '80'}
+          style={s.podcastInput}
+          multiline
+        />
+        <HapticTouchable style={s.podcastSecondary} onPress={() => ask()} disabled={busy === 'ask' || !question.trim()} haptic="selection">
+          {busy === 'ask' ? <ActivityIndicator color={GOLD_L} /> : <Text style={s.podcastSecondaryText}>ask</Text>}
+        </HapticTouchable>
+        {!!answer && <Text style={s.podcastAnswer}>{answer}</Text>}
+        {followUps.length ? (
+          <View style={s.followRow}>
+            {followUps.slice(0, 3).map((item) => (
+              <HapticTouchable key={item} style={s.followChip} onPress={() => ask(item)} haptic="selection">
+                <Text style={s.followText}>{item}</Text>
+              </HapticTouchable>
+            ))}
+          </View>
+        ) : null}
+      </View>
+
+      {mcq?.question || mcq?.completed ? (
+        <View style={s.podcastSection}>
+          <Text style={s.podcastSectionTitle}>quick check</Text>
+          {mcq.completed ? (
+            <Text style={s.podcastAnswer}>{mcq.summary || `Score: ${mcq.score || 0}/${mcq.total || 0}`}</Text>
+          ) : (
+            <>
+              <Text style={s.mcqQuestion}>{mcq.question?.question}</Text>
+              {(mcq.question?.options || []).map((option, index) => (
+                <HapticTouchable key={`${option}-${index}`} style={s.mcqOption} onPress={() => answerDrill(index)} disabled={busy === `mcq-${index}`} haptic="selection">
+                  <Text style={s.mcqLetter}>{String.fromCharCode(65 + index)}</Text>
+                  <Text style={s.mcqText}>{option}</Text>
+                </HapticTouchable>
+              ))}
+              {!!mcqFeedback && <Text style={s.podcastAnswer}>{mcqFeedback}</Text>}
+            </>
+          )}
+        </View>
+      ) : null}
+
+      {bookmarks?.length ? (
+        <View style={s.podcastSection}>
+          <Text style={s.podcastSectionTitle}>bookmarks</Text>
+          <Text style={s.chapterSummary}>{bookmarks.length} saved moments in this episode</Text>
+        </View>
+      ) : null}
+    </ScrollView>
+  );
+}
+
+function PodcastButton({ label, onPress, busy }: { label: string; onPress: () => void; busy?: boolean }) {
+  return (
+    <HapticTouchable style={s.podcastControl} onPress={onPress} disabled={busy} haptic="medium">
+      {busy ? <ActivityIndicator color={GOLD_L} size="small" /> : <Text style={s.podcastControlText}>{label}</Text>}
+    </HapticTouchable>
+  );
+}
+
 function AIMediaResults({
   user,
   result,
@@ -686,7 +986,7 @@ function AIMediaResults({
         <HapticTouchable onPress={onBack} style={s.backBtn} haptic="selection">
           <Text style={s.backBtnText}>‹</Text>
         </HapticTouchable>
-        <Text style={s.subTitle}>notes</Text>
+        <Text style={s.subTitle}>{tab === 'podcast' ? 'podcast' : 'notes'}</Text>
         <HapticTouchable
           style={[s.saveChip, saved && s.saveChipDone]}
           onPress={handleSave}
@@ -717,7 +1017,7 @@ function AIMediaResults({
       <View style={s.divider} />
 
       <View style={s.tabRow}>
-        {(['notes', 'transcript'] as Tab[]).map(t => (
+        {(['notes', 'transcript', 'podcast'] as Tab[]).map(t => (
           <HapticTouchable
             key={t}
             style={[s.tab, tab === t && s.tabActive]}
@@ -732,12 +1032,16 @@ function AIMediaResults({
         ))}
       </View>
 
-      <ScrollView contentContainerStyle={s.resultsScroll} showsVerticalScrollIndicator={false}>
-        {tab === 'notes'
-          ? <MarkdownNote content={result.notes.content} />
-          : <Text style={s.transcriptBody}>{result.transcript}</Text>
-        }
-      </ScrollView>
+      {tab === 'podcast' ? (
+        <PodcastMode user={user} result={result} title={displayTitle} />
+      ) : (
+        <ScrollView contentContainerStyle={s.resultsScroll} showsVerticalScrollIndicator={false}>
+          {tab === 'notes'
+            ? <MarkdownNote content={result.notes.content} />
+            : <Text style={s.transcriptBody}>{result.transcript}</Text>
+          }
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -1060,7 +1364,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     paddingVertical: 10,
     gap: 4,
   },
-  tab:           { paddingHorizontal: 18, paddingVertical: 9, borderRadius: 10 },
+  tab:           { flex: 1, alignItems: 'center', paddingHorizontal: 8, paddingVertical: 9, borderRadius: 10 },
   tabActive:     { backgroundColor: softAccent, borderWidth: 1, borderColor: CARD_BORDER },
   tabText:       { fontFamily: 'Inter_600SemiBold', fontSize: 9,  color: GOLD_D,  letterSpacing: 2.5 },
   tabTextActive: { fontFamily: 'Inter_600SemiBold', fontSize: 9,  color: GOLD_XL, letterSpacing: 2.5 },
@@ -1099,6 +1403,71 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     paddingBottom: 80,
   },
   transcriptBody: { fontFamily: 'Inter_400Regular', fontSize: 13, color: GOLD_L, lineHeight: 22 },
+
+  // Podcast mode
+  podcastScroll: {
+    width: '100%',
+    maxWidth: layout.contentMaxWidth,
+    alignSelf: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 90,
+    gap: 12,
+  },
+  podcastLaunch: {
+    width: '100%',
+    maxWidth: layout.contentMaxWidth,
+    alignSelf: 'center',
+    marginTop: 10,
+    marginHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    backgroundColor: SURFACE,
+    padding: 18,
+    gap: 12,
+  },
+  podcastPlayer: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    backgroundColor: SURFACE,
+    padding: 18,
+    gap: 12,
+    shadowColor: GOLD_D,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 5,
+  },
+  podcastEyebrow: { fontFamily: 'Inter_700Bold', color: GOLD_D, fontSize: 9, letterSpacing: 2.2, textTransform: 'uppercase' },
+  podcastTitle: { fontFamily: 'Inter_900Black', color: GOLD_XL, fontSize: 23, letterSpacing: -0.2, lineHeight: 29 },
+  podcastCopy: { fontFamily: 'Inter_400Regular', color: GOLD_L, fontSize: 13, lineHeight: 20 },
+  podcastProgress: { fontFamily: 'Inter_600SemiBold', color: GOLD_D, fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase' },
+  podcastSegment: { fontFamily: 'Inter_400Regular', color: GOLD_XL, fontSize: 14, lineHeight: 23 },
+  podcastPrimary: { minHeight: 50, borderRadius: 14, backgroundColor: GOLD_M, alignItems: 'center', justifyContent: 'center' },
+  podcastPrimaryText: { fontFamily: 'Inter_900Black', color: INK, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase' },
+  podcastControls: { flexDirection: 'row', gap: 8 },
+  podcastControl: { flex: 1, minHeight: 40, borderRadius: 12, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: softAccent, alignItems: 'center', justifyContent: 'center' },
+  podcastControlText: { fontFamily: 'Inter_900Black', color: GOLD_L, fontSize: 10, letterSpacing: 1.1, textTransform: 'uppercase' },
+  podcastSection: { borderRadius: 18, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: SURFACE, padding: 15, gap: 10 },
+  podcastSectionTitle: { fontFamily: 'Inter_900Black', color: GOLD_XL, fontSize: 16, letterSpacing: -0.1 },
+  chapterRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: softAccent, padding: 12 },
+  chapterRowActive: { borderColor: GOLD_M, backgroundColor: softAccentStrong },
+  chapterIndex: { fontFamily: 'Inter_900Black', color: GOLD_D, fontSize: 12, width: 26 },
+  chapterTitle: { fontFamily: 'Inter_700Bold', color: GOLD_XL, fontSize: 13 },
+  chapterSummary: { fontFamily: 'Inter_400Regular', color: GOLD_L, fontSize: 11, lineHeight: 17, marginTop: 2 },
+  takeaway: { fontFamily: 'Inter_400Regular', color: GOLD_L, fontSize: 12, lineHeight: 19 },
+  podcastInput: { minHeight: 84, borderRadius: 14, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: softAccent, color: GOLD_XL, fontFamily: 'Inter_400Regular', paddingHorizontal: 13, paddingVertical: 12, textAlignVertical: 'top' },
+  podcastSecondary: { height: 44, borderRadius: 13, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: softAccent, alignItems: 'center', justifyContent: 'center' },
+  podcastSecondaryText: { fontFamily: 'Inter_900Black', color: GOLD_L, fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase' },
+  podcastAnswer: { fontFamily: 'Inter_400Regular', color: GOLD_XL, fontSize: 13, lineHeight: 21 },
+  followRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  followChip: { borderRadius: 999, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: softAccent, paddingHorizontal: 11, paddingVertical: 8 },
+  followText: { fontFamily: 'Inter_600SemiBold', color: GOLD_L, fontSize: 11 },
+  mcqQuestion: { fontFamily: 'Inter_700Bold', color: GOLD_XL, fontSize: 14, lineHeight: 21 },
+  mcqOption: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 13, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: softAccent, padding: 12 },
+  mcqLetter: { fontFamily: 'Inter_900Black', color: GOLD_D, fontSize: 12, width: 20 },
+  mcqText: { flex: 1, fontFamily: 'Inter_400Regular', color: GOLD_XL, fontSize: 12, lineHeight: 18 },
 });
 }
 

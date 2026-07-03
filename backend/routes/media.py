@@ -380,11 +380,19 @@ async def process_media(
                 extraction = await asyncio.to_thread(extract_text_from_pdf_detailed, source_bytes)
                 extracted_text = (extraction.get("text") or "").strip()
                 if not extracted_text:
+                    warnings = extraction.get("warnings", []) or []
+                    needs_ocr = any("ocr" in str(w).lower() or "tesseract" in str(w).lower() for w in warnings)
                     raise HTTPException(
                         status_code=400,
                         detail=(
-                            "No readable text was found in this PDF. "
-                            "Scanned or image-only PDFs are not currently supported."
+                            "No readable text was found in this scanned or image-only PDF, "
+                            "and OCR is not available on the server. Install Tesseract OCR "
+                            "and the pytesseract Python package, then retry."
+                            if needs_ocr
+                            else (
+                                "No readable text was found in this PDF. "
+                                "It may be scanned, image-only, encrypted, or malformed."
+                            )
                         ),
                     )
                 transcript_data = {

@@ -5,7 +5,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
-import { makeRedirectUri } from 'expo-auth-session';
 
 import { signIn, signInWithGoogle, AuthUser } from '../services/auth';
 import { confirmPasswordReset, register, requestPasswordReset, verifyRegistration } from '../services/api';
@@ -17,8 +16,23 @@ import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const CLIENT_ID = '44446084594-8jc1vsg08qkt4d35npd2gn33b65b2638.apps.googleusercontent.com';
-const redirectUri = makeRedirectUri({ scheme: 'cerbyl' });
+const DEFAULT_WEB_GOOGLE_CLIENT_ID = '44446084594-8jc1vsg08qkt4d35npd2gn33b65b2638.apps.googleusercontent.com';
+const GOOGLE_WEB_CLIENT_ID =
+  process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
+  process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ||
+  DEFAULT_WEB_GOOGLE_CLIENT_ID;
+const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '';
+const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '';
+
+function getGoogleConfigError() {
+  if (Platform.OS === 'ios' && !GOOGLE_IOS_CLIENT_ID) {
+    return 'Google sign-in is not configured for iOS. Add EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID and use a development build.';
+  }
+  if (Platform.OS === 'android' && !GOOGLE_ANDROID_CLIENT_ID) {
+    return 'Google sign-in is not configured for Android. Add EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID and use a development build.';
+  }
+  return '';
+}
 
 type Props = { onLogin: (user: AuthUser) => void };
 
@@ -52,17 +66,19 @@ export default function LoginScreen({ onLogin }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
   const [success, setSuccess] = useState('');
+  const googleConfigError = getGoogleConfigError();
 
   const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId:        CLIENT_ID,
-    androidClientId: CLIENT_ID,
-    iosClientId:     CLIENT_ID,
-    redirectUri,
+    webClientId: GOOGLE_WEB_CLIENT_ID,
+    androidClientId: GOOGLE_ANDROID_CLIENT_ID || GOOGLE_WEB_CLIENT_ID,
+    iosClientId: GOOGLE_IOS_CLIENT_ID || GOOGLE_WEB_CLIENT_ID,
+    scopes: ['openid', 'profile', 'email'],
+    selectAccount: true,
   });
 
   useEffect(() => {
     if (response?.type === 'success') {
-      const idToken = response.authentication?.idToken;
+      const idToken = response.authentication?.idToken || response.params?.id_token;
       if (!idToken) { setError('google sign-in failed'); return; }
       setLoading(true);
       setError('');
@@ -70,6 +86,9 @@ export default function LoginScreen({ onLogin }: Props) {
         .then(user => onLogin(user))
         .catch((e: any) => setError(e?.message || 'google sign-in failed'))
         .finally(() => setLoading(false));
+    } else if (response?.type === 'error') {
+      const detail = response.params?.error_description || response.params?.error || 'google authorization failed';
+      setError(detail);
     }
   }, [response]);
 
@@ -206,6 +225,20 @@ export default function LoginScreen({ onLogin }: Props) {
     setSuccess('');
   };
 
+  const handleGoogleSignIn = () => {
+    setSuccess('');
+    if (request?.redirectUri?.startsWith('exp://')) {
+      setError('Google sign-in cannot run in Expo Go/tunnel. Install and open a development build, then start Expo with --dev-client.');
+      return;
+    }
+    if (googleConfigError) {
+      setError(googleConfigError);
+      return;
+    }
+    setError('');
+    promptAsync();
+  };
+
   return (
     <SafeAreaView style={s.safe}>
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -303,7 +336,7 @@ export default function LoginScreen({ onLogin }: Props) {
                       <View style={s.dividerLine} />
                     </View>
 
-                    <HapticTouchable style={s.googleBtn} onPress={() => { setError(''); promptAsync(); }} activeOpacity={0.88} disabled={loading || !request} haptic="medium">
+                    <HapticTouchable style={s.googleBtn} onPress={handleGoogleSignIn} activeOpacity={0.88} disabled={loading || !request} haptic="medium">
                       <Text style={s.googleIcon}>G</Text>
                       <Text style={s.googleText}>continue with google</Text>
                     </HapticTouchable>

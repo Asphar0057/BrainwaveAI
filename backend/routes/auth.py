@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 import models
 from deps import (
     GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_IDS,
     authenticate_user,
     call_ai,
     create_access_token,
@@ -939,7 +940,8 @@ async def google_auth(request: Request, auth_data: GoogleAuth, db: Session = Dep
         user_info = verify_google_token(auth_data.token)
 
         aud = user_info.get("aud")
-        if GOOGLE_CLIENT_ID and aud != GOOGLE_CLIENT_ID:
+        allowed_google_audiences = GOOGLE_CLIENT_IDS or ([GOOGLE_CLIENT_ID] if GOOGLE_CLIENT_ID else [])
+        if allowed_google_audiences and aud not in allowed_google_audiences:
             raise HTTPException(status_code=400, detail="Token audience mismatch")
 
         email = user_info.get('email')

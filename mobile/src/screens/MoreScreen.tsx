@@ -15,7 +15,8 @@ import { useAppTheme } from '../contexts/ThemeContext';
 import { lightenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
-type Props = { user: AuthUser; onNavigate?: (screen: 'flashcards' | 'notes' | 'aimedia') => void; onNavigateToAI?: () => void };
+type ExploreTarget = 'flashcards' | 'notes' | 'aimedia' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'weaknessPractice' | 'learningPaths';
+type Props = { user: AuthUser; onNavigate?: (screen: ExploreTarget) => void; onNavigateToAI?: () => void };
 
 function BentoMini({
   index,
@@ -123,10 +124,30 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
           </View>
         </HapticTouchable>
 
-        {/* Row 3: calendar + timeline */}
+        {/* Row 3: question bank + learning paths */}
         <View style={s.bentoRow}>
-          <BentoMini index="05" title="calendar" caption="activity heatmap" styles={s} onPress={() => setSubScreen('calendar')} />
-          <BentoMini index="06" title="timeline" caption="everything, in order" styles={s} onPress={() => setSubScreen('activity')} />
+          <BentoMini index="05" title="questions" caption="practice bank" styles={s} onPress={() => onNavigate?.('questionBank')} />
+          <BentoMini index="06" title="paths" caption="guided learning" styles={s} onPress={() => onNavigate?.('learningPaths')} />
+        </View>
+
+        {/* Row 4: knowledge hub + maps */}
+        <View style={s.bentoRow}>
+          <BentoMini index="07" title="hub" caption="sources & context" styles={s} onPress={() => onNavigate?.('knowledgeHub')} />
+          <BentoMini index="08" title="maps" caption="concept graph" styles={s} onPress={() => onNavigate?.('knowledgeMaps')} />
+        </View>
+
+        {/* Row 5: analytics + weakness practice */}
+        <View style={s.bentoRow}>
+          <BentoMini index="09" title="analytics" caption="study signals" styles={s} onPress={() => onNavigate?.('analytics')} />
+          <BentoMini index="10" title="weakness" caption="targeted review" styles={s} onPress={() => onNavigate?.('weaknessPractice')} />
+        </View>
+        <View style={s.bentoRow}>
+          <BentoMini index="11" title="slides" caption="deck explorer" styles={s} onPress={() => onNavigate?.('slideExplorer')} />
+          <BentoMini index="12" title="canvas" caption="sketch hub" styles={s} onPress={() => onNavigate?.('canvasHub')} />
+        </View>
+        <View style={s.bentoRow}>
+          <BentoMini index="13" title="calendar" caption="activity heatmap" styles={s} onPress={() => setSubScreen('calendar')} />
+          <BentoMini index="14" title="timeline" caption="everything, in order" styles={s} onPress={() => setSubScreen('activity')} />
         </View>
       </ScrollView>
     </SafeAreaView>

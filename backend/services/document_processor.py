@@ -4,7 +4,9 @@ from __future__ import annotations
 import io
 import importlib.util
 import logging
+import os
 import re
+import shutil
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -13,6 +15,10 @@ CHUNK_SIZE = 1200
 CHUNK_OVERLAP = 150
 MIN_CHUNK_LEN = 80
 MAX_HEADING_LEN = 90
+PDF_OCR_MIN_TEXT_CHARS = 50
+PDF_OCR_RENDER_DPI = int(os.getenv("PDF_OCR_RENDER_DPI", "220"))
+PDF_OCR_MAX_PAGES = int(os.getenv("PDF_OCR_MAX_PAGES", "120"))
+PDF_OCR_LANG = os.getenv("PDF_OCR_LANG", "eng")
 
 @dataclass
 class PDFExtractionCandidate:
@@ -202,6 +208,96 @@ def _extract_with_pypdf2(file_bytes: bytes) -> PDFExtractionCandidate | None:
         logger.warning(f"PyPDF2 extraction failed: {e}")
         return None
 
+def _ocr_dependency_warnings() -> list[str]:
+    warnings: list[str] = []
+    if importlib.util.find_spec("pytesseract") is None:
+        warnings.append("Missing OCR dependency: pytesseract")
+    if shutil.which("tesseract") is None:
+        warnings.append("Missing OCR system binary: tesseract")
+    if importlib.util.find_spec("PIL") is None:
+        warnings.append("Missing OCR dependency: Pillow")
+    if importlib.util.find_spec("fitz") is None:
+        warnings.append("Missing PDF renderer dependency: PyMuPDF")
+    return warnings
+
+def _extract_with_tesseract_ocr(file_bytes: bytes) -> PDFExtractionCandidate | None:
+    dependency_warnings = _ocr_dependency_warnings()
+    if dependency_warnings:
+        page_count = 0
+        try:
+            import fitz
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            page_count = doc.page_count
+            doc.close()
+        except Exception:
+            page_count = 0
+        return PDFExtractionCandidate(
+            parser="ocr-tesseract",
+            text="",
+            page_count=page_count,
+            non_empty_pages=0,
+            warnings=dependency_warnings,
+        )
+
+    try:
+        import fitz
+        import pytesseract
+        from PIL import Image
+    except Exception as e:
+        logger.warning(f"OCR import failed: {e}")
+        return PDFExtractionCandidate(
+            parser="ocr-tesseract",
+            text="",
+            page_count=0,
+            non_empty_pages=0,
+            warnings=[f"OCR import failed: {e}"],
+        )
+
+    doc = None
+    try:
+        doc = fitz.open(stream=file_bytes, filetype="pdf")
+        matrix = fitz.Matrix(PDF_OCR_RENDER_DPI / 72, PDF_OCR_RENDER_DPI / 72)
+        page_texts: list[str] = []
+        processed_pages = min(doc.page_count, PDF_OCR_MAX_PAGES)
+
+        for page_index in range(processed_pages):
+            page = doc.load_page(page_index)
+            pix = page.get_pixmap(matrix=matrix, alpha=False)
+            image = Image.open(io.BytesIO(pix.tobytes("png"))).convert("L")
+            text = pytesseract.image_to_string(
+                image,
+                lang=PDF_OCR_LANG,
+                config="--psm 6",
+            )
+            page_texts.append(_clean_pdf_page_text(text))
+
+        cleaned_pages = _strip_repeating_page_artifacts(page_texts)
+        warnings: list[str] = []
+        if doc.page_count > processed_pages:
+            warnings.append(
+                f"OCR limited to first {processed_pages} pages; set PDF_OCR_MAX_PAGES to process more"
+            )
+
+        return PDFExtractionCandidate(
+            parser="ocr-tesseract",
+            text=_clean_pdf_page_text("\n\n".join(cleaned_pages)),
+            page_count=doc.page_count,
+            non_empty_pages=sum(1 for p in cleaned_pages if len(p) > 10),
+            warnings=warnings,
+        )
+    except Exception as e:
+        logger.warning(f"Tesseract OCR extraction failed: {e}")
+        return PDFExtractionCandidate(
+            parser="ocr-tesseract",
+            text="",
+            page_count=doc.page_count if doc is not None else 0,
+            non_empty_pages=0,
+            warnings=[f"OCR extraction failed: {e}"],
+        )
+    finally:
+        if doc is not None:
+            doc.close()
+
 def extract_text_from_pdf_detailed(file_bytes: bytes) -> dict:
     candidates: list[PDFExtractionCandidate] = []
     warnings: list[str] = []
@@ -215,6 +311,17 @@ def extract_text_from_pdf_detailed(file_bytes: bytes) -> dict:
         candidate = extractor(file_bytes)
         if candidate is not None:
             candidates.append(candidate)
+
+    best_text_len = max((len((candidate.text or "").strip()) for candidate in candidates), default=0)
+    ocr_candidate: PDFExtractionCandidate | None = None
+    if best_text_len < PDF_OCR_MIN_TEXT_CHARS:
+        logger.info("PDF text extraction was empty or very short; trying OCR fallback")
+        ocr_candidate = _extract_with_tesseract_ocr(file_bytes)
+        if ocr_candidate is not None:
+            if len((ocr_candidate.text or "").strip()) >= PDF_OCR_MIN_TEXT_CHARS:
+                candidates.append(ocr_candidate)
+            else:
+                warnings.extend(ocr_candidate.warnings)
 
     if not candidates:
         missing = []
@@ -326,6 +433,53 @@ def _extract_pages_with_pypdf2(file_bytes: bytes) -> list[dict] | None:
         logger.warning(f"PyPDF2 per-page extraction failed: {e}")
         return None
 
+def _extract_pages_with_tesseract_ocr(file_bytes: bytes) -> list[dict] | None:
+    dependency_warnings = _ocr_dependency_warnings()
+    if dependency_warnings:
+        return None
+
+    try:
+        import fitz
+        import pytesseract
+        from PIL import Image
+    except Exception as e:
+        logger.warning(f"OCR per-page import failed: {e}")
+        return None
+
+    doc = None
+    try:
+        doc = fitz.open(stream=file_bytes, filetype="pdf")
+        matrix = fitz.Matrix(PDF_OCR_RENDER_DPI / 72, PDF_OCR_RENDER_DPI / 72)
+        processed_pages = min(doc.page_count, PDF_OCR_MAX_PAGES)
+        pages: list[dict] = []
+
+        for page_index in range(processed_pages):
+            page = doc.load_page(page_index)
+            pix = page.get_pixmap(matrix=matrix, alpha=False)
+            image = Image.open(io.BytesIO(pix.tobytes("png"))).convert("L")
+            text = pytesseract.image_to_string(
+                image,
+                lang=PDF_OCR_LANG,
+                config="--psm 6",
+            )
+            cleaned = _clean_pdf_page_text(text)
+            pages.append({
+                "page_num": page_index + 1,
+                "text": cleaned,
+                "char_count": len(cleaned),
+                "parser": "ocr-tesseract",
+            })
+
+        if sum(p["char_count"] for p in pages) < PDF_OCR_MIN_TEXT_CHARS:
+            return None
+        return pages
+    except Exception as e:
+        logger.warning(f"Tesseract OCR per-page extraction failed: {e}")
+        return None
+    finally:
+        if doc is not None:
+            doc.close()
+
 def _score_pages(pages: list[dict]) -> float:
     if not pages:
         return -1.0
@@ -353,6 +507,17 @@ def extract_pages_from_pdf(file_bytes: bytes) -> list[dict]:
 
     best_name, best_pages = max(candidates, key=lambda x: _score_pages(x[1]))
     score = _score_pages(best_pages)
+    total_chars = sum(p["char_count"] for p in best_pages)
+    if total_chars < PDF_OCR_MIN_TEXT_CHARS:
+        logger.info("Per-page PDF extraction was empty or very short; trying OCR fallback")
+        ocr_pages = _extract_pages_with_tesseract_ocr(file_bytes)
+        if ocr_pages:
+            best_name = "ocr-tesseract"
+            best_pages = ocr_pages
+            score = _score_pages(best_pages)
+        else:
+            return []
+
     logger.info(
         "Per-page extraction selected parser=%s pages=%d score=%.1f",
         best_name, len(best_pages), score,
@@ -740,10 +905,19 @@ def process_upload(
             for w in extraction_warnings
         ):
             error = "PDF parsing dependencies are missing on the server."
+        elif lower_name.endswith(".pdf") and any(
+            "ocr" in w.lower() or "tesseract" in w.lower()
+            for w in extraction_warnings
+        ):
+            error = (
+                "No extractable text found in this scanned or image-only PDF, "
+                "and OCR is not available on the server. Install Tesseract OCR "
+                "and the pytesseract Python package, then retry the upload."
+            )
         elif lower_name.endswith(".pdf") and pdf_page_count > 0:
             error = (
                 "No extractable text found in this PDF. "
-                "It appears to be image-only or scanned content without OCR text."
+                "It appears to be image-only or scanned content."
             )
         else:
             error = "No text could be extracted from this file."

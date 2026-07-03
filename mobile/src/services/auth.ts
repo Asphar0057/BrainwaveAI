@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { login as apiLogin, getMe, googleAuth } from './api';
 
 export type AuthUser = {
+  id?: number;
   username: string;
   email: string;
   first_name?: string;

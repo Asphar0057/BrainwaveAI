@@ -512,7 +512,7 @@ async def search_content(
 
                 for qset in question_sets:
                     question_count = db.query(models.Question).filter(
-                        models.Question.set_id == qset.id
+                        models.Question.question_set_id == qset.id
                     ).count()
 
                     results.append({
@@ -522,8 +522,8 @@ async def search_content(
                         "description": qset.description or "",
                         "created_at": qset.created_at.isoformat() if qset.created_at else None,
                         "question_count": question_count,
-                        "difficulty": qset.difficulty_level,
-                        "subject": qset.subject
+                        "difficulty": getattr(qset, "difficulty_level", None) or getattr(qset, "difficulty", None),
+                        "subject": getattr(qset, "subject", None) or getattr(qset, "topic", None),
                     })
             except Exception as e:
                 logger.error(f"Error searching question sets: {str(e)}")

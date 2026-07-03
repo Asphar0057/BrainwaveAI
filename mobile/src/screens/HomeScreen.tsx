@@ -16,7 +16,7 @@ import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 const AnimatedView = Animated.createAnimatedComponent(View);
 
-type HomeTarget = 'flashcards' | 'notes' | 'aimedia';
+type HomeTarget = 'flashcards' | 'notes' | 'aimedia' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'weaknessPractice' | 'learningPaths';
 type Props = {
   user: AuthUser;
   onNavigate?: (screen: HomeTarget) => void;
@@ -246,9 +246,16 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
 
   const quickActions = [
     { label: 'ai chat', detail: 'ask, draft, iterate', icon: 'sparkles-outline' as const, action: () => onNavigateToAI?.() },
+    { label: 'knowledge', detail: 'sources & context', icon: 'file-tray-stacked-outline' as const, action: () => onNavigate?.('knowledgeHub') },
+    { label: 'slides', detail: 'deck analysis', icon: 'easel-outline' as const, action: () => onNavigate?.('slideExplorer') },
+    { label: 'questions', detail: 'practice bank', icon: 'help-circle-outline' as const, action: () => onNavigate?.('questionBank') },
+    { label: 'paths', detail: 'guided learning', icon: 'map-outline' as const, action: () => onNavigate?.('learningPaths') },
+    { label: 'maps', detail: 'concept graph', icon: 'git-network-outline' as const, action: () => onNavigate?.('knowledgeMaps') },
+    { label: 'canvas', detail: 'sketch ideas', icon: 'brush-outline' as const, action: () => onNavigate?.('canvasHub') },
     { label: 'flashcards', detail: 'review memory', icon: 'layers-outline' as const, action: () => onNavigate?.('flashcards') },
     { label: 'notes', detail: 'save the lesson', icon: 'document-text-outline' as const, action: () => onNavigate?.('notes') },
     { label: 'media notes', detail: 'from video to notes', icon: 'videocam-outline' as const, action: () => onNavigate?.('aimedia') },
+    { label: 'analytics', detail: 'study signal', icon: 'bar-chart-outline' as const, action: () => onNavigate?.('analytics') },
   ];
 
   const todayRows = [
@@ -355,6 +362,25 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
         )}
 
         <View style={styles.bodySection}>
+          <View style={styles.sectionBlock}>
+            <View style={styles.sectionHeadRow}>
+              <Text style={styles.sectionTitle}>study tools</Text>
+              <Text style={styles.sectionSubtitle}>core website features, rebuilt for mobile</Text>
+            </View>
+            <View style={styles.quickGrid}>
+              {quickActions.map((item) => (
+                <HapticTouchable key={item.label} style={styles.quickCard} onPress={item.action} haptic="selection" activeOpacity={0.82}>
+                  <View style={styles.quickIconWrap}>
+                    <Ionicons name={item.icon} size={17} color={selectedTheme.accentHover} />
+                  </View>
+                  <View>
+                    <Text style={styles.quickLabel} numberOfLines={1}>{item.label}</Text>
+                    <Text style={styles.quickDetail} numberOfLines={2}>{item.detail}</Text>
+                  </View>
+                </HapticTouchable>
+              ))}
+            </View>
+          </View>
 
           <View style={styles.duoRow}>
             <View style={[styles.sectionCard, styles.todaySectionCard, styles.duoCard]}>

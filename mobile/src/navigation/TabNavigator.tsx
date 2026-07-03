@@ -17,7 +17,16 @@ import FlashcardsScreen from '../screens/FlashcardsScreen';
 import NotesScreen from '../screens/NotesScreen';
 import AIMediaNotesScreen from '../screens/AIMediaNotesScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import QuestionBankScreen from '../screens/QuestionBankScreen';
+import KnowledgeMapsScreen from '../screens/KnowledgeMapsScreen';
+import AnalyticsScreen from '../screens/AnalyticsScreen';
+import WeaknessPracticeScreen from '../screens/WeaknessPracticeScreen';
+import KnowledgeHubScreen from '../screens/KnowledgeHubScreen';
+import SlideExplorerScreen from '../screens/SlideExplorerScreen';
+import CanvasHubScreen from '../screens/CanvasHubScreen';
+import LearningPathsScreen from '../screens/social/LearningPathsScreen';
 import HapticTouchable from '../components/HapticTouchable';
+import ScreenErrorBoundary from '../components/ScreenErrorBoundary';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
@@ -29,6 +38,14 @@ type RootStackParamList = {
   Notes: undefined;
   AIMedia: undefined;
   Settings: undefined;
+  QuestionBank: undefined;
+  KnowledgeMaps: undefined;
+  KnowledgeHub: undefined;
+  SlideExplorer: undefined;
+  CanvasHub: undefined;
+  Analytics: undefined;
+  WeaknessPractice: undefined;
+  LearningPaths: undefined;
 };
 
 const TABS: { label: string; icon: IoniconsName; activeIcon: IoniconsName }[] = [
@@ -42,7 +59,9 @@ const TABS: { label: string; icon: IoniconsName; activeIcon: IoniconsName }[] = 
 type Props = { user: AuthUser; onLogout: () => void };
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-function MainTabs({ user, onLogout, onNavigate }: Props & { onNavigate: (screen: 'flashcards' | 'notes' | 'aimedia' | 'settings') => void }) {
+type AppTarget = 'flashcards' | 'notes' | 'aimedia' | 'settings' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'weaknessPractice' | 'learningPaths';
+
+function MainTabs({ user, onLogout, onNavigate }: Props & { onNavigate: (screen: AppTarget) => void }) {
   const insets = useSafeAreaInsets();
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
@@ -99,11 +118,11 @@ function MainTabs({ user, onLogout, onNavigate }: Props & { onNavigate: (screen:
             overdrag={false}
             scrollEnabled={true}
           >
-            <View key="0" style={{ flex: 1 }}><AIChatScreen user={user} /></View>
-            <View key="1" style={{ flex: 1 }}><MoreScreen user={user} onNavigate={onNavigate} onNavigateToAI={() => goTo(0)} /></View>
-            <View key="2" style={{ flex: 1 }}><HomeScreen user={user} onNavigate={onNavigate} onNavigateToAI={() => goTo(0)} onSwipeLeftPage={() => goTo(3)} onSwipeRightPage={() => goTo(1)} /></View>
-            <View key="3" style={{ flex: 1 }}><SocialScreen user={user} /></View>
-            <View key="4" style={{ flex: 1 }}><ProfileScreen user={user} onLogout={onLogout} onNavigate={onNavigate} /></View>
+            <View key="0" collapsable={false} style={s.page}><AIChatScreen user={user} /></View>
+            <View key="1" collapsable={false} style={s.page}><MoreScreen user={user} onNavigate={onNavigate} onNavigateToAI={() => goTo(0)} /></View>
+            <View key="2" collapsable={false} style={s.page}><HomeScreen user={user} onNavigate={onNavigate} onNavigateToAI={() => goTo(0)} onSwipeLeftPage={() => goTo(3)} onSwipeRightPage={() => goTo(1)} /></View>
+            <View key="3" collapsable={false} style={s.page}><SocialScreen user={user} /></View>
+            <View key="4" collapsable={false} style={s.page}><ProfileScreen user={user} onLogout={onLogout} onNavigate={onNavigate} /></View>
           </PagerView>
 
           {!useSideRail ? (
@@ -162,28 +181,106 @@ export default function TabNavigator({ user, onLogout }: Props) {
                   if (screen === 'notes') navigation.navigate('Notes');
                   if (screen === 'aimedia') navigation.navigate('AIMedia');
                   if (screen === 'settings') navigation.navigate('Settings');
+                  if (screen === 'questionBank') navigation.navigate('QuestionBank');
+                  if (screen === 'knowledgeMaps') navigation.navigate('KnowledgeMaps');
+                  if (screen === 'knowledgeHub') navigation.navigate('KnowledgeHub');
+                  if (screen === 'slideExplorer') navigation.navigate('SlideExplorer');
+                  if (screen === 'canvasHub') navigation.navigate('CanvasHub');
+                  if (screen === 'analytics') navigation.navigate('Analytics');
+                  if (screen === 'weaknessPractice') navigation.navigate('WeaknessPractice');
+                  if (screen === 'learningPaths') navigation.navigate('LearningPaths');
                 }}
               />
             )}
           </Stack.Screen>
           <Stack.Screen name="Flashcards">
             {({ navigation }) => (
-              <FlashcardsScreen user={user} onBack={() => navigation.goBack()} />
+              <ScreenErrorBoundary label="Flashcards"><FlashcardsScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
             )}
           </Stack.Screen>
           <Stack.Screen name="Notes">
             {({ navigation }) => (
-              <NotesScreen user={user} onBack={() => navigation.goBack()} />
+              <ScreenErrorBoundary label="Notes"><NotesScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
             )}
           </Stack.Screen>
           <Stack.Screen name="AIMedia">
             {({ navigation }) => (
-              <AIMediaNotesScreen user={user} onBack={() => navigation.goBack()} />
+              <ScreenErrorBoundary label="Media Notes"><AIMediaNotesScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
             )}
           </Stack.Screen>
           <Stack.Screen name="Settings">
             {({ navigation }) => (
-              <SettingsScreen user={user} onBack={() => navigation.goBack()} />
+              <ScreenErrorBoundary label="Settings"><SettingsScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="QuestionBank">
+            {({ navigation }) => (
+              <ScreenErrorBoundary label="Question Bank"><QuestionBankScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="KnowledgeMaps">
+            {({ navigation }) => (
+              <ScreenErrorBoundary label="Knowledge Maps"><KnowledgeMapsScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="KnowledgeHub">
+            {({ navigation }) => (
+              <ScreenErrorBoundary label="Knowledge Hub">
+                <KnowledgeHubScreen
+                  user={user}
+                  onBack={() => navigation.goBack()}
+                  onNavigate={(screen) => {
+                    if (screen === 'flashcards') navigation.navigate('Flashcards');
+                    if (screen === 'notes') navigation.navigate('Notes');
+                    if (screen === 'aimedia') navigation.navigate('AIMedia');
+                    if (screen === 'settings') navigation.navigate('Settings');
+                    if (screen === 'questionBank') navigation.navigate('QuestionBank');
+                    if (screen === 'knowledgeMaps') navigation.navigate('KnowledgeMaps');
+                    if (screen === 'slideExplorer') navigation.navigate('SlideExplorer');
+                    if (screen === 'canvasHub') navigation.navigate('CanvasHub');
+                    if (screen === 'analytics') navigation.navigate('Analytics');
+                    if (screen === 'weaknessPractice') navigation.navigate('WeaknessPractice');
+                    if (screen === 'learningPaths') navigation.navigate('LearningPaths');
+                  }}
+                />
+              </ScreenErrorBoundary>
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="SlideExplorer">
+            {({ navigation }) => (
+              <ScreenErrorBoundary label="Slide Explorer">
+                <SlideExplorerScreen
+                  user={user}
+                  onBack={() => navigation.goBack()}
+                  onOpenQuestionBank={() => navigation.navigate('QuestionBank')}
+                />
+              </ScreenErrorBoundary>
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="CanvasHub">
+            {({ navigation }) => (
+              <ScreenErrorBoundary label="Canvas Hub">
+                <CanvasHubScreen
+                  user={user}
+                  onBack={() => navigation.goBack()}
+                  onOpenNotes={() => navigation.navigate('Notes')}
+                />
+              </ScreenErrorBoundary>
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="Analytics">
+            {({ navigation }) => (
+              <ScreenErrorBoundary label="Analytics"><AnalyticsScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="WeaknessPractice">
+            {({ navigation }) => (
+              <ScreenErrorBoundary label="Weakness Practice"><WeaknessPracticeScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="LearningPaths">
+            {({ navigation }) => (
+              <ScreenErrorBoundary label="Learning Paths"><LearningPathsScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
             )}
           </Stack.Screen>
         </Stack.Navigator>
@@ -198,6 +295,11 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     shell: {
       flex: 1,
       flexDirection: layout.sideRailTabs ? 'row' : 'column',
+    },
+    page: {
+      flex: 1,
+      width: '100%',
+      height: '100%',
     },
     sideRailWrap: {
       width: 116,

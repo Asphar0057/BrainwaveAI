@@ -16,7 +16,7 @@ import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 type Props = {
   user: AuthUser;
   onLogout?: () => void;
-  onNavigate?: (screen: 'flashcards' | 'notes' | 'aimedia' | 'settings') => void;
+  onNavigate?: (screen: 'flashcards' | 'notes' | 'aimedia' | 'settings' | 'questionBank' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'learningPaths' | 'weaknessPractice') => void;
 };
 
 export default function ProfileScreen({ user, onLogout, onNavigate }: Props) {
@@ -51,6 +51,13 @@ export default function ProfileScreen({ user, onLogout, onNavigate }: Props) {
   const handleAccountPress = (label: string) => {
     if (label === 'My Flashcards') { onNavigate?.('flashcards'); return; }
     if (label === 'My Notes')      { onNavigate?.('notes');      return; }
+    if (label === 'Knowledge Hub') { onNavigate?.('knowledgeHub'); return; }
+    if (label === 'Slide Explorer') { onNavigate?.('slideExplorer'); return; }
+    if (label === 'Canvas Hub') { onNavigate?.('canvasHub'); return; }
+    if (label === 'Question Bank') { onNavigate?.('questionBank'); return; }
+    if (label === 'Learning Paths') { onNavigate?.('learningPaths'); return; }
+    if (label === 'Study Analytics') { onNavigate?.('analytics'); return; }
+    if (label === 'Weakness Practice') { onNavigate?.('weaknessPractice'); return; }
     Alert.alert('Not available yet', `${label} is not available on mobile yet.`);
   };
 
@@ -126,12 +133,17 @@ export default function ProfileScreen({ user, onLogout, onNavigate }: Props) {
           {[
             { label: 'My Flashcards', icon: 'layers-outline' },
             { label: 'My Notes',      icon: 'document-text-outline' },
-            { label: 'Quiz History',  icon: 'bar-chart-outline' },
-            { label: 'Import / Export', icon: 'swap-horizontal-outline' },
+            { label: 'Knowledge Hub',  icon: 'file-tray-stacked-outline' },
+            { label: 'Slide Explorer', icon: 'easel-outline' },
+            { label: 'Canvas Hub', icon: 'brush-outline' },
+            { label: 'Question Bank',  icon: 'help-circle-outline' },
+            { label: 'Learning Paths', icon: 'map-outline' },
+            { label: 'Study Analytics',  icon: 'bar-chart-outline' },
+            { label: 'Weakness Practice', icon: 'pulse-outline' },
           ].map((item, index) => (
             <HapticTouchable
               key={item.label}
-              style={[styles.linkRow, index < 3 && styles.rowDivider]}
+              style={[styles.linkRow, index < 8 && styles.rowDivider]}
               activeOpacity={0.8}
               haptic="light"
               onPress={() => handleAccountPress(item.label)}

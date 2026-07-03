@@ -31,6 +31,11 @@ ALGORITHM = "HS256"
 JWT_ISSUER = "brainwave-backend"
 JWT_AUDIENCE = "brainwave-client"
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_IDS = [
+    client_id.strip()
+    for client_id in (os.getenv("GOOGLE_CLIENT_IDS") or GOOGLE_CLIENT_ID or "").split(",")
+    if client_id.strip()
+]
 
 ph = PasswordHasher()
 security = HTTPBearer()
@@ -284,13 +289,18 @@ def authenticate_user(db: Session, username: str, password: str):
 def verify_google_token(token: str):
     from google.oauth2 import id_token
     from google.auth.transport import requests as google_requests
-    try:
-        idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), GOOGLE_CLIENT_ID)
-        if idinfo["iss"] not in ["accounts.google.com", "https://accounts.google.com"]:
-            raise ValueError("Wrong issuer.")
-        return idinfo
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail="Invalid token")
+    audiences = GOOGLE_CLIENT_IDS or [GOOGLE_CLIENT_ID]
+    last_error = None
+    for audience in audiences:
+        try:
+            idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), audience)
+            if idinfo["iss"] not in ["accounts.google.com", "https://accounts.google.com"]:
+                raise ValueError("Wrong issuer.")
+            return idinfo
+        except ValueError as e:
+            last_error = e
+    logger.warning("Google token verification failed: %s", last_error)
+    raise HTTPException(status_code=400, detail="Invalid token")
 
 def get_comprehensive_profile_safe(db: Session, user_id: int):
     try:
