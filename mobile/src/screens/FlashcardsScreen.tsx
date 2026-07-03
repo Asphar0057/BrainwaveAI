@@ -20,6 +20,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import PagerView from 'react-native-pager-view';
 import HapticTouchable from '../components/HapticTouchable';
 import AmbientBubbles from '../components/AmbientBubbles';
+import GeoBackground from '../components/GeoBackground';
 import { AuthUser } from '../services/auth';
 import { useAppTheme } from '../contexts/ThemeContext';
 import {
@@ -31,7 +32,7 @@ import {
   getFlashcardStatistics,
 } from '../services/api';
 import { triggerHaptic } from '../utils/haptics';
-import { darkenColor, getDefaultTheme, rgbaFromHex } from '../utils/theme';
+import { darkenColor, getDefaultTheme, lightenColor, rgbaFromHex } from '../utils/theme';
 import { getResponsiveLayout, useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
 const DEFAULT_THEME = getDefaultTheme();
@@ -41,6 +42,7 @@ let CURRENT_LAYOUT = DEFAULT_LAYOUT;
 let BG = DEFAULT_THEME.bgPrimary;
 let SURFACE = DEFAULT_THEME.panel;
 let SURFACE_2 = DEFAULT_THEME.panelAlt;
+let SURFACE_RAISED = DEFAULT_THEME.isLight ? DEFAULT_THEME.panel : lightenColor(DEFAULT_THEME.panelAlt, 6);
 let QUESTION_SURFACE = DEFAULT_THEME.isLight ? DEFAULT_THEME.accent : DEFAULT_THEME.primary;
 let ANSWER_SURFACE = DEFAULT_THEME.isLight ? DEFAULT_THEME.panel : DEFAULT_THEME.accent;
 let ACCENT = DEFAULT_THEME.accent;
@@ -109,6 +111,7 @@ function applyTheme(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
   BG = theme.bgPrimary;
   SURFACE = theme.panel;
   SURFACE_2 = theme.panelAlt;
+  SURFACE_RAISED = theme.isLight ? theme.panel : lightenColor(theme.panelAlt, 6);
   QUESTION_SURFACE = theme.isLight ? theme.accent : theme.primary;
   ANSWER_SURFACE = theme.isLight ? theme.panel : theme.accent;
   ACCENT = theme.accent;
@@ -158,6 +161,7 @@ function ResultsView({
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
+      <GeoBackground />
       <AmbientBubbles theme={CURRENT_THEME} variant="flashcards" opacity={0.84} />
       <View style={s.studyHeader}>
         <HapticTouchable onPress={onBack} haptic="selection">
@@ -265,6 +269,7 @@ function StudyView({
   if (!card) {
     return (
       <SafeAreaView style={s.safe} edges={['top']}>
+        <GeoBackground />
         <AmbientBubbles theme={CURRENT_THEME} variant="flashcards" opacity={0.84} />
         <View style={s.studyHeader}>
           <HapticTouchable onPress={onBack} haptic="selection">
@@ -400,6 +405,7 @@ function StudyView({
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
+      <GeoBackground />
       <AmbientBubbles theme={CURRENT_THEME} variant="flashcards" opacity={0.84} />
       <View style={s.studyHeader}>
         <HapticTouchable onPress={onBack} haptic="selection">
@@ -585,6 +591,7 @@ function FlashcardsCreate({
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
+      <GeoBackground />
       <AmbientBubbles theme={CURRENT_THEME} variant="flashcards" opacity={0.84} />
       <KeyboardAvoidingView
         style={s.safe}
@@ -594,11 +601,7 @@ function FlashcardsCreate({
           <HapticTouchable onPress={onBack} style={{ marginRight: 12 }} haptic="selection">
             <Ionicons name="chevron-back" size={22} color={GOLD_L} />
           </HapticTouchable>
-          <View style={{ flex: 1 }}>
-            <Text style={s.title}>create set</Text>
-            <Text style={s.subtitle}>mobile-first creator</Text>
-          </View>
-          <Ionicons name="sparkles-outline" size={20} color={GOLD_D} />
+          <Text style={[s.title, { flex: 1 }]}>create set</Text>
         </View>
 
         <ScrollView
@@ -606,32 +609,39 @@ function FlashcardsCreate({
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={s.modeSwitch}>
-            <OptionPill label="AI Generate" active={mode === 'ai'} onPress={() => setMode('ai')} />
-            <OptionPill label="Manual" active={mode === 'manual'} onPress={() => setMode('manual')} />
+          <View style={s.segmented}>
+            <HapticTouchable
+              style={[s.segment, mode === 'ai' && s.segmentActive]}
+              onPress={() => setMode('ai')}
+              activeOpacity={0.8}
+              haptic="selection"
+            >
+              <Ionicons name="sparkles" size={14} color={mode === 'ai' ? INK : DIM2} />
+              <Text style={[s.segmentText, mode === 'ai' && s.segmentTextActive]}>AI generate</Text>
+            </HapticTouchable>
+            <HapticTouchable
+              style={[s.segment, mode === 'manual' && s.segmentActive]}
+              onPress={() => setMode('manual')}
+              activeOpacity={0.8}
+              haptic="selection"
+            >
+              <Ionicons name="create" size={14} color={mode === 'manual' ? INK : DIM2} />
+              <Text style={[s.segmentText, mode === 'manual' && s.segmentTextActive]}>manual</Text>
+            </HapticTouchable>
           </View>
 
           {mode === 'ai' ? (
-            <>
-              <View style={s.heroCreateCard}>
-                <Text style={s.heroEyebrow}>SMART BUILD</Text>
-                <Text style={s.heroTitle}>Generate a ready-to-study set from one topic.</Text>
-                <Text style={s.heroBody}>
-                  Uses the same flashcard generation endpoint as the browser flow, but in a compact mobile form.
-                </Text>
-              </View>
+            <View style={s.formCard}>
+              <TextInput
+                value={topic}
+                onChangeText={setTopic}
+                placeholder="What do you want to study?"
+                placeholderTextColor={DIM2}
+                style={[s.input, s.topicInput]}
+              />
 
-              <View style={s.formCard}>
-                <Text style={[s.inputLabel, s.topicInputLabel]}>topic</Text>
-                <TextInput
-                  value={topic}
-                  onChangeText={setTopic}
-                  placeholder="Cell biology, world war 2, derivatives..."
-                  placeholderTextColor={DIM2}
-                  style={[s.input, s.topicInput]}
-                />
-
-                <Text style={s.inputLabel}>card count</Text>
+              <View style={s.pillGroup}>
+                <Text style={s.pillGroupCaption}>cards</Text>
                 <View style={s.optionRow}>
                   {cardCountOptions.map((value) => (
                     <OptionPill
@@ -642,8 +652,10 @@ function FlashcardsCreate({
                     />
                   ))}
                 </View>
+              </View>
 
-                <Text style={s.inputLabel}>difficulty</Text>
+              <View style={s.pillGroup}>
+                <Text style={s.pillGroupCaption}>difficulty</Text>
                 <View style={s.optionRow}>
                   {difficultyOptions.map((value) => (
                     <OptionPill
@@ -654,35 +666,25 @@ function FlashcardsCreate({
                     />
                   ))}
                 </View>
-
-                <Text style={s.inputLabel}>extra instructions</Text>
-                <TextInput
-                  value={additionalSpecs}
-                  onChangeText={setAdditionalSpecs}
-                  placeholder="Optional: focus on formulas, definitions, exam-style recall..."
-                  placeholderTextColor={DIM2}
-                  style={[s.input, s.inputMultiline]}
-                  multiline
-                  textAlignVertical="top"
-                />
               </View>
-            </>
+
+              <TextInput
+                value={additionalSpecs}
+                onChangeText={setAdditionalSpecs}
+                placeholder="Optional: focus on formulas, definitions, exam-style recall..."
+                placeholderTextColor={DIM2}
+                style={[s.input, s.inputMultiline, { marginTop: 14 }]}
+                multiline
+                textAlignVertical="top"
+              />
+            </View>
           ) : (
             <>
-              <View style={s.heroCreateCard}>
-                <Text style={s.heroEyebrow}>MANUAL BUILD</Text>
-                <Text style={s.heroTitle}>Write your own set with quick card blocks sized for phone editing.</Text>
-                <Text style={s.heroBody}>
-                  This uses the same set and card creation endpoints as the browser flow.
-                </Text>
-              </View>
-
               <View style={s.formCard}>
-                <Text style={s.inputLabel}>set title</Text>
                 <TextInput
                   value={manualTitle}
                   onChangeText={setManualTitle}
-                  placeholder="AP Biology Unit 3"
+                  placeholder="Set title, e.g. AP Biology Unit 3"
                   placeholderTextColor={DIM2}
                   style={s.input}
                 />
@@ -691,10 +693,13 @@ function FlashcardsCreate({
               {manualCards.map((card, index) => (
                 <View key={index} style={s.manualCard}>
                   <View style={s.manualCardHeader}>
-                    <Text style={s.manualCardIndex}>card {index + 1}</Text>
+                    <View style={s.manualCardBadge}>
+                      <Text style={s.manualCardBadgeText}>{index + 1}</Text>
+                    </View>
+                    <View style={{ flex: 1 }} />
                     {manualCards.length > 1 ? (
-                      <HapticTouchable onPress={() => removeManualCard(index)} haptic="warning">
-                        <Text style={s.removeText}>remove</Text>
+                      <HapticTouchable onPress={() => removeManualCard(index)} haptic="warning" style={s.manualCardRemove}>
+                        <Ionicons name="trash-outline" size={15} color={RED} />
                       </HapticTouchable>
                     ) : null}
                   </View>
@@ -712,7 +717,7 @@ function FlashcardsCreate({
                     onChangeText={(value) => updateManualCard(index, 'answer', value)}
                     placeholder="Answer"
                     placeholderTextColor={DIM2}
-                    style={[s.input, s.inputMultiline, { marginTop: 12 }]}
+                    style={[s.input, s.inputMultiline, { marginTop: 10 }]}
                     multiline
                     textAlignVertical="top"
                   />
@@ -721,7 +726,7 @@ function FlashcardsCreate({
 
               <HapticTouchable style={s.addCardBtn} onPress={addManualCard} activeOpacity={0.85} haptic="light">
                 <Ionicons name="add" size={18} color={GOLD_L} />
-                <Text style={s.addCardText}>add another card</Text>
+                <Text style={s.addCardText}>add card</Text>
               </HapticTouchable>
             </>
           )}
@@ -736,14 +741,9 @@ function FlashcardsCreate({
             {submitting ? (
               <ActivityIndicator color={BASE_ACTION_TEXT} />
             ) : (
-              <>
-                <Text style={s.createSubmitText}>
-                  {mode === 'ai' ? 'generate flashcards' : 'create flashcard set'}
-                </Text>
-                <Text style={s.createSubmitSubtext}>
-                  {mode === 'ai' ? 'generate and open study mode' : 'save cards and open study mode'}
-                </Text>
-              </>
+              <Text style={s.createSubmitText}>
+                {mode === 'ai' ? 'generate flashcards' : 'create flashcard set'}
+              </Text>
             )}
           </HapticTouchable>
         </ScrollView>
@@ -799,6 +799,7 @@ function FlashcardsSets({
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
+      <GeoBackground />
       <AmbientBubbles theme={CURRENT_THEME} variant="flashcards" opacity={0.84} />
       <View style={s.header}>
         {onBack ? (
@@ -1104,23 +1105,25 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     gap: 14,
     paddingBottom: 120,
   },
-  heroCreateCard: {
-    backgroundColor: rgbaFromHex(SURFACE, 0.94),
-    borderRadius: 20,
+  segmented: {
+    flexDirection: 'row',
+    backgroundColor: SURFACE_2,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: softAccentBorder,
-    padding: 18,
-    shadowColor: ACCENT,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 26,
-    elevation: 5,
+    borderColor: BORDER,
+    padding: 4,
+    gap: 4,
   },
-  heroEyebrow: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: GOLD_L, letterSpacing: 2, marginBottom: 10 },
-  heroTitle: { fontFamily: 'Inter_900Black', fontSize: 24, lineHeight: 30, color: GOLD_L },
-  heroBody: { fontFamily: 'Inter_400Regular', fontSize: 13, lineHeight: 21, color: DIM2, marginTop: 8 },
-  modeSwitch: { flexDirection: 'row', gap: 10 },
-  optionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 },
+  segment: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 11, borderRadius: 12,
+  },
+  segmentActive: { backgroundColor: ACCENT },
+  segmentText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: DIM2, textTransform: 'lowercase' },
+  segmentTextActive: { color: INK },
+  pillGroup: { marginTop: 16 },
+  pillGroupCaption: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: GOLD_D, textTransform: 'lowercase', marginBottom: 8 },
+  optionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   optionPill: {
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -1133,7 +1136,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   optionPillText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: GOLD_L, textTransform: 'lowercase' },
   optionPillTextActive: { color: INK },
   formCard: {
-    backgroundColor: rgbaFromHex(SURFACE, 0.94),
+    backgroundColor: SURFACE_RAISED,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: BORDER,
@@ -1144,8 +1147,6 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     shadowRadius: 26,
     elevation: 5,
   },
-  inputLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: GOLD_D, letterSpacing: 1.8, textTransform: 'uppercase', marginTop: 14 },
-  topicInputLabel: { color: ACCENT, marginTop: 2 },
   input: {
     marginTop: 10,
     backgroundColor: INPUT_BG,
@@ -1159,7 +1160,8 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     fontSize: 14,
   },
   topicInput: {
-    backgroundColor: rgbaFromHex(SURFACE, 0.99),
+    marginTop: 0,
+    backgroundColor: INPUT_BG,
     borderColor: BASE_ACTION_BORDER,
     borderRadius: 20,
     paddingHorizontal: 18,
@@ -1170,7 +1172,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   },
   inputMultiline: { minHeight: 112 },
   manualCard: {
-    backgroundColor: SURFACE,
+    backgroundColor: SURFACE_RAISED,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: BORDER,
@@ -1181,9 +1183,18 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     shadowRadius: 22,
     elevation: 4,
   },
-  manualCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  manualCardIndex: { fontFamily: 'Inter_900Black', fontSize: 15, color: GOLD_L, textTransform: 'lowercase' },
-  removeText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: RED, textTransform: 'lowercase' },
+  manualCardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  manualCardBadge: {
+    width: 22, height: 22, borderRadius: 11,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: rgbaFromHex(GOLD_L, 0.14),
+  },
+  manualCardBadgeText: { fontFamily: 'Inter_700Bold', fontSize: 11, color: GOLD_L },
+  manualCardRemove: {
+    width: 28, height: 28, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: rgbaFromHex(RED, 0.1),
+  },
   addCardBtn: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -1214,7 +1225,6 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   },
   createSubmitBtnDisabled: { opacity: 0.7 },
   createSubmitText: { fontFamily: 'Inter_900Black', fontSize: 15, color: BASE_ACTION_TEXT, textTransform: 'lowercase' },
-  createSubmitSubtext: { fontFamily: 'Inter_400Regular', fontSize: 11, color: BASE_ACTION_TEXT, opacity: 0.7, marginTop: 4, textTransform: 'lowercase' },
 
   studyHeader: {
     width: '100%',
