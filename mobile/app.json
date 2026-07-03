@@ -43,7 +43,14 @@
     },
     "plugins": [
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Cerbyl needs access to your photos so you can attach images in AI chat.",
+          "cameraPermission": "Cerbyl needs access to your camera so you can attach a photo in AI chat."
+        }
+      ]
     ],
     "extra": {
       "eas": {
