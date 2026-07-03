@@ -2,17 +2,22 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TextInput,
   FlatList, KeyboardAvoidingView, Platform, Animated,
-  Modal, ScrollView, ActivityIndicator, PanResponder,
+  Modal, ScrollView, ActivityIndicator, PanResponder, Alert, Image,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import * as ImagePicker from 'expo-image-picker';
 import MarkdownText from '../components/MarkdownText';
 import HapticTouchable from '../components/HapticTouchable';
 import AmbientBubbles from '../components/AmbientBubbles';
+import GeoBackground from '../components/GeoBackground';
+import ContextSelector from '../components/ContextSelector';
+import ContextPanel from '../components/ContextPanel';
 import { AuthUser } from '../services/auth';
-import { createChatSession, askAI, getChatSessions, getChatMessages, getSearchHubSuggestions } from '../services/api';
+import { createChatSession, askAI, askAIWithFile, getChatSessions, getChatMessages, getSearchHubSuggestions } from '../services/api';
+import { getHsModeEnabled, getSelectedDocIds } from '../services/contextService';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
@@ -29,6 +34,27 @@ const DEFAULT_PROMPTS = [
   'Quiz me on my weak areas',
   'Help me plan a study session',
 ];
+
+const CHAT_GREETINGS = [
+  'Welcome back. How can I help you today?',
+  'Ready to explore new topics together?',
+  "Let's dive into learning something new",
+  'What would you like to learn today?',
+  'Hello {name}! I\'m excited to help you learn',
+  '{name}, ready to unlock new knowledge?',
+  'Welcome back, {name}. Let\'s continue your learning',
+  'Hey {name}! What would you like to explore?',
+  '{name}, let\'s make today a learning adventure',
+  'Good day, {name}. Ready to expand your horizons?',
+  'Hi {name}! Let\'s tackle your questions together',
+  '{name}, let\'s turn curiosity into understanding',
+  'Hello {name}! What fascinating topic shall we discuss?',
+];
+
+function getRandomGreeting(name: string): string {
+  const raw = CHAT_GREETINGS[Math.floor(Math.random() * CHAT_GREETINGS.length)];
+  return raw.replace(/\{name\}/g, name);
+}
 
 function mapSearchHubSuggestionToPrompt(raw: string): string | null {
   const value = raw.trim();
@@ -134,11 +160,23 @@ export default function AIChatScreen({ user }: Props) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [attachment, setAttachment] = useState<{ uri: string; name: string; type: string } | null>(null);
   const [chatId, setChatId] = useState<number | undefined>();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [sidebarSearch, setSidebarSearch] = useState('');
+  const [sidebarSearchOpen, setSidebarSearchOpen] = useState(false);
+  const [contextPanelOpen, setContextPanelOpen] = useState(false);
+  const [hsMode, setHsMode] = useState(false);
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    getHsModeEnabled().then(setHsMode).catch(() => {});
+    getSelectedDocIds().then(setSelectedDocIds).catch(() => {});
+  }, []);
   const [starterPrompts, setStarterPrompts] = useState<string[]>(DEFAULT_PROMPTS);
+  const greeting = useMemo(() => getRandomGreeting(user.first_name || user.username), [user.first_name, user.username]);
   const listRef = useRef<FlatList>(null);
   const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(-sidebarWidth)).current;
@@ -158,7 +196,11 @@ export default function AIChatScreen({ user }: Props) {
   }, [sidebarWidth, slideAnim, user.username]);
 
   const closeSidebar = useCallback(() => {
-    Animated.timing(slideAnim, { toValue: -sidebarWidth, duration: 220, useNativeDriver: true }).start(() => setSidebarOpen(false));
+    Animated.timing(slideAnim, { toValue: -sidebarWidth, duration: 220, useNativeDriver: true }).start(() => {
+      setSidebarOpen(false);
+      setSidebarSearch('');
+      setSidebarSearchOpen(false);
+    });
   }, [sidebarWidth, slideAnim]);
 
   const closePanResponder = useMemo(() => (
@@ -215,21 +257,26 @@ export default function AIChatScreen({ user }: Props) {
 
   const send = async (text: string = input) => {
     const trimmed = text.trim();
-    if (!trimmed || loading) return;
+    const currentAttachment = attachment;
+    if ((!trimmed && !currentAttachment) || loading) return;
 
-    const userMessage: Msg = { id: Date.now().toString(), role: 'user', text: trimmed };
+    const questionText = trimmed || 'Please analyze the attached image.';
+    const userMessage: Msg = { id: Date.now().toString(), role: 'user', text: trimmed || 'Sent an image' };
     setMessages((current) => [...current, userMessage]);
     setInput('');
+    setAttachment(null);
     setLoading(true);
 
     try {
       let currentChatId = chatId;
       if (!currentChatId) {
-        const session = await createChatSession(user.username, trimmed.slice(0, 60));
+        const session = await createChatSession(user.username, questionText.slice(0, 60));
         currentChatId = session.id;
         setChatId(currentChatId);
       }
-      const data = await askAI(user.username, trimmed, currentChatId);
+      const data = currentAttachment
+        ? await askAIWithFile(user.username, questionText, currentAttachment, currentChatId, hsMode, selectedDocIds)
+        : await askAI(user.username, questionText, currentChatId, hsMode, selectedDocIds);
       setMessages((current) => [
         ...current,
         {
@@ -252,6 +299,35 @@ export default function AIChatScreen({ user }: Props) {
     setMessages([]);
     setChatId(undefined);
   };
+
+  const pickAttachment = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Allow photo access to attach an image.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+    });
+    if (result.canceled || !result.assets?.length) return;
+    const asset = result.assets[0];
+    const name = asset.fileName || asset.uri.split('/').pop() || 'photo.jpg';
+    const type = asset.mimeType || 'image/jpeg';
+    setAttachment({ uri: asset.uri, name, type });
+  };
+
+  const removeAttachment = () => setAttachment(null);
+
+  const onMicPress = () => {
+    Alert.alert('Voice input', 'Voice input is coming soon.');
+  };
+
+  const filteredSessions = useMemo(() => {
+    const query = sidebarSearch.trim().toLowerCase();
+    if (!query) return sessions;
+    return sessions.filter((session) => (session.title || '').toLowerCase().includes(query));
+  }, [sessions, sidebarSearch]);
   const isEmpty = messages.length === 0 && !loading;
 
   useEffect(() => {
@@ -276,6 +352,7 @@ export default function AIChatScreen({ user }: Props) {
   return (
     <SafeAreaView style={s.safe} edges={[]}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFill} />
+      <GeoBackground />
       <AmbientBubbles theme={selectedTheme} variant="chat" opacity={0.84} />
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={insets.top}>
@@ -288,35 +365,32 @@ export default function AIChatScreen({ user }: Props) {
               <Text style={s.headerTitle}>ai</Text>
               <View style={s.onlineDot} />
             </View>
-            <Text style={s.headerEyebrow}>conversation studio</Text>
           </View>
-          <HapticTouchable onPress={newChat} activeOpacity={0.8} style={s.headerBtn} haptic="light">
-            <Ionicons name="add-outline" size={20} color={selectedTheme.textPrimary} />
-          </HapticTouchable>
+          <View style={s.headerRight}>
+            <ContextSelector hsMode={hsMode} selectedCount={selectedDocIds.length} onPress={() => setContextPanelOpen(true)} />
+            <HapticTouchable onPress={newChat} activeOpacity={0.8} style={s.headerBtn} haptic="light">
+              <Ionicons name="add-outline" size={20} color={selectedTheme.textPrimary} />
+            </HapticTouchable>
+          </View>
         </View>
 
         {isEmpty ? (
-          <ScrollView contentContainerStyle={s.emptyScroll} showsVerticalScrollIndicator={false}>
-              <LinearGradient colors={[rgbaFromHex(selectedTheme.accent, 0.10), rgbaFromHex(selectedTheme.panel, 0.985), rgbaFromHex(selectedTheme.bgPrimary, 0.995)]} locations={[0, 0.62, 1]} style={s.emptyHero}>
-              <Text style={s.emptyEyebrow}>always ready</Text>
-              <Text style={s.emptyTitle}>Ask bigger questions.</Text>
-              <Text style={s.emptySub}>
-                Use Cerbyl like a fast-thinking tutor, editor, explainer, and study strategist.
-              </Text>
+          <View style={s.emptyWrap}>
+            <Text style={s.emptyTitle}>{greeting}</Text>
 
-              <View style={s.promptGrid}>
-                {starterPrompts.map((prompt) => (
-                  <HapticTouchable key={prompt} style={s.promptChip} onPress={() => send(prompt)} haptic="selection" activeOpacity={0.86}>
-                    <Ionicons name="sparkles-outline" size={14} color={selectedTheme.accentHover} />
-                    <Text style={s.promptText}>{prompt}</Text>
-                  </HapticTouchable>
-                ))}
-              </View>
-            </LinearGradient>
-          </ScrollView>
+            <View style={s.promptGrid}>
+              {starterPrompts.slice(0, 3).map((prompt) => (
+                <HapticTouchable key={prompt} style={s.promptChip} onPress={() => send(prompt)} haptic="selection" activeOpacity={0.86}>
+                  <Text style={s.promptText}>{prompt}</Text>
+                  <Ionicons name="chevron-forward" size={13} color={selectedTheme.accentHover} />
+                </HapticTouchable>
+              ))}
+            </View>
+          </View>
         ) : (
           <FlatList
             ref={listRef}
+            style={{ flex: 1 }}
             data={loading ? [...messages, { id: 'typing', role: 'ai' as const, text: '__typing__' }] : messages}
             keyExtractor={(message) => message.id}
             contentContainerStyle={s.list}
@@ -360,8 +434,20 @@ export default function AIChatScreen({ user }: Props) {
           />
         )}
 
-        <View style={[s.composerWrap, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+        <View style={[s.composerWrap, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+          {attachment ? (
+            <View style={s.attachmentPreview}>
+              <Image source={{ uri: attachment.uri }} style={s.attachmentThumb} />
+              <Text style={s.attachmentName} numberOfLines={1}>{attachment.name}</Text>
+              <HapticTouchable onPress={removeAttachment} style={s.attachmentRemove} haptic="light">
+                <Ionicons name="close" size={13} color={selectedTheme.textPrimary} />
+              </HapticTouchable>
+            </View>
+          ) : null}
           <View style={s.composerCard}>
+            <HapticTouchable onPress={pickAttachment} style={s.composerIconBtn} activeOpacity={0.7} haptic="light">
+              <Ionicons name="attach" size={19} color={selectedTheme.textSecondary} />
+            </HapticTouchable>
             <TextInput
               style={s.input}
               value={input}
@@ -370,15 +456,18 @@ export default function AIChatScreen({ user }: Props) {
               placeholderTextColor={selectedTheme.textSecondary}
               multiline
             />
+            <HapticTouchable onPress={onMicPress} style={s.composerIconBtn} activeOpacity={0.7} haptic="light">
+              <Ionicons name="mic-outline" size={19} color={selectedTheme.textSecondary} />
+            </HapticTouchable>
             <HapticTouchable
-              style={[s.sendBtn, (!input.trim() || loading) && s.sendDisabled]}
+              style={[s.sendBtn, ((!input.trim() && !attachment) || loading) && s.sendDisabled]}
               onPress={() => send()}
               activeOpacity={0.85}
-              disabled={!input.trim() || loading}
+              disabled={(!input.trim() && !attachment) || loading}
               haptic="medium"
             >
               <LinearGradient colors={[selectedTheme.accentHover, selectedTheme.accent]} style={s.sendGrad}>
-                <Ionicons name="arrow-up" size={18} color={selectedTheme.isLight ? darkenColor(selectedTheme.accent, 32) : selectedTheme.bgPrimary} />
+                <Ionicons name="chevron-up" size={17} color={selectedTheme.isLight ? darkenColor(selectedTheme.accent, 32) : selectedTheme.bgPrimary} />
               </LinearGradient>
             </HapticTouchable>
           </View>
@@ -398,23 +487,42 @@ export default function AIChatScreen({ user }: Props) {
                 <LinearGradient colors={[darkenColor(selectedTheme.bgTop, selectedTheme.isLight ? 4 : 0), selectedTheme.panelAlt, selectedTheme.bgPrimary]} style={StyleSheet.absoluteFill} />
                 <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
                   <View style={s.sidebarHeader}>
-                    <View>
-                      <Text style={s.sidebarEyebrow}>history</Text>
-                      <Text style={s.sidebarTitle}>chats</Text>
-                    </View>
+                    <Text style={s.sidebarTitle}>chats</Text>
+                    <HapticTouchable
+                      onPress={() => setSidebarSearchOpen((open) => !open)}
+                      style={[s.sidebarSearchBtn, sidebarSearchOpen && s.sidebarSearchBtnActive]}
+                      activeOpacity={0.8}
+                      haptic="selection"
+                    >
+                      <Ionicons name="search" size={16} color={sidebarSearchOpen ? selectedTheme.bgPrimary : selectedTheme.textPrimary} />
+                    </HapticTouchable>
                   </View>
+
+                  {sidebarSearchOpen ? (
+                    <View style={s.sidebarSearchWrap}>
+                      <TextInput
+                        value={sidebarSearch}
+                        onChangeText={setSidebarSearch}
+                        placeholder="search chats..."
+                        placeholderTextColor={selectedTheme.textSecondary}
+                        style={s.sidebarSearchInput}
+                        autoFocus
+                      />
+                    </View>
+                  ) : null}
+
                   <View style={s.sidebarDivider} />
 
                   {sessionsLoading ? (
                     <ActivityIndicator color={selectedTheme.accent} style={{ marginTop: 32 }} />
-                  ) : sessions.length === 0 ? (
+                  ) : filteredSessions.length === 0 ? (
                     <View style={s.sidebarEmptyWrap}>
                       <Ionicons name="chatbubbles-outline" size={28} color={selectedTheme.textSecondary} />
-                      <Text style={s.sidebarEmpty}>No chats yet</Text>
+                      <Text style={s.sidebarEmpty}>{sidebarSearch ? 'No matches' : 'No chats yet'}</Text>
                     </View>
                   ) : (
-                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 10 }}>
-                      {sessions.map((session) => {
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 6 }}>
+                      {filteredSessions.map((session) => {
                         const active = chatId === session.id;
                         return (
                           <HapticTouchable
@@ -445,6 +553,15 @@ export default function AIChatScreen({ user }: Props) {
           </SafeAreaProvider>
         </Modal>
       ) : null}
+
+      <ContextPanel
+        visible={contextPanelOpen}
+        onClose={() => setContextPanelOpen(false)}
+        onChange={({ hsMode: nextHsMode, selectedDocIds: nextIds }) => {
+          setHsMode(nextHsMode);
+          setSelectedDocIds(nextIds);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -500,9 +617,9 @@ function createStyles(
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingTop: 18,
-    paddingBottom: 12,
+    paddingHorizontal: 6,
+    paddingTop: 14,
+    paddingBottom: 10,
   },
   headerBtn: {
     width: 40,
@@ -514,75 +631,45 @@ function createStyles(
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerCenter: { alignItems: 'center', gap: 2 },
-  headerEyebrow: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 10,
-    color: DIM,
-    letterSpacing: 1.8,
-    textTransform: 'uppercase',
-  },
+  headerCenter: { flex: 1, marginLeft: 12 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitle: { fontFamily: 'Inter_900Black', fontSize: 30, color: GOLD_L, letterSpacing: -0.8 },
+  headerTitle: { fontFamily: 'Inter_900Black', fontSize: 24, color: GOLD_L, letterSpacing: -0.8 },
   onlineDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: GOLD_M },
 
-  emptyScroll: {
-    flexGrow: 1,
+  emptyWrap: {
+    flex: 1,
     width: '100%',
     maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
-    paddingHorizontal: 18,
-    paddingTop: 12,
-    paddingBottom: 24,
-  },
-  emptyHero: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: BORDER,
-    padding: 22,
-    minHeight: layout.isLandscape ? 300 : 360,
-    overflow: 'hidden',
-  },
-  emptyEyebrow: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 10,
-    color: GOLD_L,
-    letterSpacing: 1.8,
-    textTransform: 'uppercase',
+    paddingHorizontal: 6,
+    justifyContent: 'center',
+    gap: 22,
   },
   emptyTitle: {
     fontFamily: 'Inter_900Black',
-    fontSize: 34,
-    lineHeight: 38,
+    fontSize: 26,
+    lineHeight: 31,
     color: GOLD_L,
-    marginTop: 14,
-    letterSpacing: -1,
-  },
-  emptySub: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 14,
-    color: GOLD_M,
-    lineHeight: 22,
-    marginTop: 12,
-    maxWidth: '88%',
+    letterSpacing: -0.7,
+    textAlign: 'center',
+    alignSelf: 'center',
+    maxWidth: '92%',
   },
   promptGrid: {
-    flexDirection: layout.twoColumn ? 'row' : 'column',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginTop: 28,
+    gap: 8,
   },
   promptChip: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 10,
-    width: layout.twoColumn ? '48.5%' : '100%',
     borderWidth: 1,
     borderColor: BORDER,
     backgroundColor: CARD_ALT,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingVertical: 13,
   },
   promptText: {
     fontFamily: 'Inter_600SemiBold',
@@ -595,7 +682,7 @@ function createStyles(
     width: '100%',
     maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
-    paddingHorizontal: 18,
+    paddingHorizontal: 6,
     paddingTop: 8,
     paddingBottom: 18,
     gap: 14,
@@ -635,36 +722,47 @@ function createStyles(
     width: '100%',
     maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
-    paddingHorizontal: 14,
-    paddingTop: 10,
+    paddingHorizontal: 6,
+    paddingTop: 6,
   },
   composerCard: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 10,
-    borderRadius: 16,
+    gap: 4,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: BORDER,
     backgroundColor: rgbaFromHex(CARD_ALT, 0.94),
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+  },
+  composerIconBtn: {
+    width: 34, height: 34, borderRadius: 17,
+    alignItems: 'center', justifyContent: 'center',
   },
   input: {
     flex: 1,
-    backgroundColor: CARD_ALT,
-    borderWidth: 1,
-    borderColor: BORDER,
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 4,
+    paddingVertical: 8,
     fontFamily: 'Inter_400Regular',
     fontSize: 14,
     color: GOLD_L,
     maxHeight: 120,
   },
-  sendBtn: { width: 46, height: 46, borderRadius: 23, overflow: 'hidden' },
+  sendBtn: { width: 40, height: 40, borderRadius: 20, overflow: 'hidden' },
   sendDisabled: { opacity: 0.34 },
   sendGrad: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+
+  attachmentPreview: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    borderRadius: 12, borderWidth: 1, borderColor: BORDER,
+    backgroundColor: rgbaFromHex(CARD_ALT, 0.94),
+    paddingHorizontal: 8, paddingVertical: 8, marginBottom: 6,
+  },
+  attachmentThumb: { width: 32, height: 32, borderRadius: 8 },
+  attachmentName: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 12, color: DIM },
+  attachmentRemove: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
 
   overlay: { flex: 1, flexDirection: 'row' },
   sidebar: {
@@ -680,30 +778,40 @@ function createStyles(
     overflow: 'hidden',
   },
   sidebarHeader: {
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 16,
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    paddingBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  sidebarEyebrow: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 10,
-    color: DIM,
-    letterSpacing: 1.8,
-    textTransform: 'uppercase',
+  sidebarTitle: { fontFamily: 'Inter_900Black', fontSize: 22, color: GOLD_L },
+  sidebarSearchBtn: {
+    width: 32, height: 32, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: BORDER,
+    backgroundColor: rgbaFromHex(CARD_ALT, 0.7),
   },
-  sidebarTitle: { fontFamily: 'Inter_900Black', fontSize: 24, color: GOLD_L, marginTop: 6 },
-  sidebarDivider: { height: 1, backgroundColor: BORDER, marginHorizontal: 20, marginBottom: 6 },
+  sidebarSearchBtnActive: { backgroundColor: theme.accent, borderColor: theme.accent },
+  sidebarSearchWrap: { paddingHorizontal: 18, paddingBottom: 8 },
+  sidebarSearchInput: {
+    borderWidth: 1, borderColor: BORDER, borderRadius: 12,
+    backgroundColor: rgbaFromHex(CARD_ALT, 0.7),
+    paddingHorizontal: 12, paddingVertical: 9,
+    fontFamily: 'Inter_400Regular', fontSize: 13, color: GOLD_L,
+  },
+  sidebarDivider: { height: 1, backgroundColor: BORDER, marginHorizontal: 18, marginBottom: 2 },
   sidebarEmptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   sidebarEmpty: { fontFamily: 'Inter_400Regular', fontSize: 13, color: DIM },
   sessionItem: {
     flexDirection: 'row',
     gap: 10,
     alignItems: 'center',
-    marginHorizontal: 10,
-    marginVertical: 4,
+    marginHorizontal: 8,
+    marginVertical: 2,
     paddingHorizontal: 12,
-    paddingVertical: 13,
-    borderRadius: 16,
+    paddingVertical: 10,
+    borderRadius: 14,
     overflow: 'hidden',
   },
   sessionItemActive: {
