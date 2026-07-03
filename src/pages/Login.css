@@ -87,6 +87,18 @@
   flex-shrink: 0;
 }
 
+.lg-card-register {
+  max-width: 460px;
+  padding-top: 40px;
+  padding-bottom: 36px;
+}
+
+.lg-name-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
 .lg-brand {
   text-align: center;
   margin-bottom: 36px;
@@ -315,6 +327,14 @@
   .lg-card {
     padding: 32px 24px 28px;
     margin: 0 12px;
+  }
+
+  .lg-card-register {
+    max-height: calc(100vh - 32px);
+  }
+
+  .lg-name-row {
+    grid-template-columns: 1fr;
   }
 
   .lg-back-link {

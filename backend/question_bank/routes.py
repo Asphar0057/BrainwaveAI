@@ -5,6 +5,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from fastapi import HTTPException, Depends, UploadFile, File, Query, Body
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from .models import (

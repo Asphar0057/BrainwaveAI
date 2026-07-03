@@ -988,6 +988,8 @@ async def google_auth(request: Request, auth_data: GoogleAuth, db: Session = Dep
                 "google_user": True
             }
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Google auth error: {str(e)}")
         raise HTTPException(status_code=500, detail="Authentication failed. Please try again.")

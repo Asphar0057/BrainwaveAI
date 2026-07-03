@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from typing import Any, Optional, TypedDict
 
 from langgraph.graph import StateGraph, END
@@ -33,6 +34,7 @@ class QuizGenState(TypedDict, total=False):
     _db_factory: Any
 
 async def fetch_context(state: QuizGenState) -> dict:
+    started = time.perf_counter()
     user_id = state.get("user_id", "")
     db_factory = state.get("_db_factory")
     weaknesses = []
@@ -89,10 +91,18 @@ async def fetch_context(state: QuizGenState) -> dict:
                 db.close()
         except Exception as e:
             logger.warning(f"DB context fetch failed in quiz graph: {e}")
+    logger.info(
+        "[QUIZ TIMING] fetch_context db stage elapsed=%.2fs weaknesses=%s strengths=%s history=%s",
+        time.perf_counter() - started,
+        len(weaknesses),
+        len(strengths),
+        len(quiz_history),
+    )
 
     concept_prerequisites: list[str] = []
     common_mistakes: list[str] = []
 
+    neo4j_started = time.perf_counter()
     from tutor import neo4j_store
     if neo4j_store.available():
         try:
@@ -112,6 +122,12 @@ async def fetch_context(state: QuizGenState) -> dict:
                 common_mistakes = ctx.get("mistakes", [])
         except Exception as e:
             logger.warning(f"Neo4j context fetch failed in quiz graph: {e}")
+    logger.info(
+        "[QUIZ TIMING] fetch_context neo4j stage elapsed=%.2fs prerequisites=%s mistakes=%s",
+        time.perf_counter() - neo4j_started,
+        len(concept_prerequisites),
+        len(common_mistakes),
+    )
 
     rag_chunks: list[str] = []
     topic = state.get("topic", "")
@@ -123,16 +139,24 @@ async def fetch_context(state: QuizGenState) -> dict:
     )
     should_query_context = bool(topic and (use_hs or context_doc_ids))
     if should_query_context:
+        rag_started = time.perf_counter()
         try:
             from services import context_store
             if context_store.available():
-                results = context_store.search_context(
-                    query=topic,
-                    user_id=user_id,
-                    use_hs=bool(use_hs),
-                    top_k=8,
-                    doc_ids=context_doc_ids or None,
-                )
+                if context_doc_ids:
+                    results = context_store.get_document_chunks(
+                        user_id=user_id,
+                        doc_ids=context_doc_ids,
+                        max_chunks_per_doc=5,
+                        max_chars_per_chunk=1400,
+                    )
+                else:
+                    results = context_store.search_context(
+                        query=topic,
+                        user_id=user_id,
+                        use_hs=bool(use_hs),
+                        top_k=4,
+                    )
                 rag_chunks = [r["text"] for r in results]
                 if rag_chunks:
                     logger.info(
@@ -142,7 +166,8 @@ async def fetch_context(state: QuizGenState) -> dict:
                     for i, r in enumerate(results):
                         preview = r["text"][:120].replace("\n", " ")
                         logger.info(
-                            f"[QUIZ RAG]   chunk[{i}] source={r['source']} dist={r['distance']:.4f} | {preview}..."
+                            f"[QUIZ RAG]   chunk[{i}] source={r.get('source')} "
+                            f"dist={float(r.get('distance', 0.0)):.4f} | {preview}..."
                         )
                 else:
                     logger.info(f"[QUIZ RAG] No matching chunks found for '{topic}' in curriculum/docs")
@@ -150,9 +175,19 @@ async def fetch_context(state: QuizGenState) -> dict:
                 logger.info("[QUIZ RAG] context_store not available — skipping RAG")
         except Exception as e:
             logger.warning(f"RAG context fetch failed: {e}")
+        logger.info(
+            "[QUIZ TIMING] fetch_context rag stage elapsed=%.2fs chunks=%s chars=%s",
+            time.perf_counter() - rag_started,
+            len(rag_chunks),
+            sum(len(chunk or "") for chunk in rag_chunks),
+        )
     else:
         logger.info("[QUIZ RAG] No context query (missing topic and no selected docs)")
 
+    logger.info(
+        "[QUIZ TIMING] fetch_context total elapsed=%.2fs",
+        time.perf_counter() - started,
+    )
     return {
         "student_weaknesses": weaknesses,
         "student_strengths": strengths,
@@ -275,7 +310,7 @@ def build_prompt(state: QuizGenState) -> dict:
     rag_context = state.get("rag_context", [])
     if rag_context:
         logger.info(f"[QUIZ PROMPT] *** INJECTING {len(rag_context)} RAG chunk(s) into prompt ***")
-        context_block = "\n---\n".join(rag_context[:5])
+        context_block = "\n---\n".join((chunk or "")[:1400] for chunk in rag_context[:4])
         parts.append(
             f"RELEVANT CURRICULUM CONTEXT (from student's documents and HS curriculum):\n"
             f"{context_block}\n\n"
@@ -306,7 +341,14 @@ def build_prompt(state: QuizGenState) -> dict:
         "- No markdown fences or extra text — return only the JSON array"
     )
 
-    return {"built_prompt": "\n".join(parts)}
+    prompt = "\n".join(parts)
+    logger.info(
+        "[QUIZ TIMING] build_prompt prompt_chars=%s rag_chunks=%s content_chars=%s",
+        len(prompt),
+        len(rag_context),
+        len(content or ""),
+    )
+    return {"built_prompt": prompt}
 
 def generate_questions_node(state: QuizGenState) -> dict:
     rag_active = bool(state.get("rag_context"))
@@ -325,8 +367,21 @@ def generate_questions_node(state: QuizGenState) -> dict:
     question_count = state.get("question_count", 10)
     topic = state.get("topic", "")
 
-    try:
-        response = ai_client.generate(prompt, max_tokens=4000, temperature=0.7)
+    def _generate_with(client) -> list[dict]:
+        started = time.perf_counter()
+        provider = "hs_context" if client is hs_ai else "main"
+        logger.info(
+            "[QUIZ TIMING] model call start provider=%s prompt_chars=%s max_tokens=4000",
+            provider,
+            len(prompt or ""),
+        )
+        response = client.generate(prompt, max_tokens=4000, temperature=0.7)
+        logger.info(
+            "[QUIZ TIMING] model call complete provider=%s elapsed=%.2fs response_chars=%s",
+            provider,
+            time.perf_counter() - started,
+            len(response or ""),
+        )
         data = parse_json_array_response(response)
 
         valid = []
@@ -360,10 +415,25 @@ def generate_questions_node(state: QuizGenState) -> dict:
                 "explanation": explanation,
                 "topic": (q.get("topic") or topic)[:100],
             })
+        logger.info(
+            "[QUIZ TIMING] parsed questions provider=%s valid=%s raw=%s",
+            provider,
+            len(valid),
+            len(data),
+        )
+        return valid
 
-        return {"questions_json": valid}
+    try:
+        return {"questions_json": _generate_with(ai_client)}
 
     except Exception as e:
+        main_ai = state.get("_ai_client")
+        if ai_client is hs_ai and main_ai and main_ai is not ai_client:
+            logger.error(f"HS quiz generation failed; falling back to main AI client: {e}")
+            try:
+                return {"questions_json": _generate_with(main_ai)}
+            except Exception as fallback_error:
+                logger.error(f"Main AI quiz fallback failed: {fallback_error}")
         logger.error(f"Quiz generation failed: {e}")
         return {"questions_json": []}
 
@@ -415,8 +485,18 @@ class QuizGraph:
             "_db_factory": self.db_factory,
         }
         try:
+            started = time.perf_counter()
             result = await self._graph.ainvoke(initial_state)
-            return result.get("questions_json", [])
+            questions = result.get("questions_json", [])
+            logger.info(
+                "[QUIZ TIMING] graph invoke complete elapsed=%.2fs questions=%s topic='%s' hs=%s docs=%s",
+                time.perf_counter() - started,
+                len(questions),
+                topic[:80],
+                use_hs_context,
+                len(context_doc_ids or []),
+            )
+            return questions
         except Exception as e:
             logger.error(f"Quiz graph failed: {e}")
             return []

@@ -78,22 +78,23 @@ def _init_ai_client() -> UnifiedAIClient:
         groq_vision_model=GROQ_VISION_MODEL,
     )
 
-def _init_hs_context_ai() -> UnifiedAIClient:
+def _init_hs_context_ai(fallback_client: UnifiedAIClient | None = None) -> UnifiedAIClient:
     hs_key_pool = build_key_pool("hs_context", ("HS_CONTEXT_API_KEYS", "HS_CONTEXT_API_KEY"))
     effective_hs_key = HS_CONTEXT_API_KEY or (hs_key_pool.entries[0].token if hs_key_pool.enabled else None)
     if not effective_hs_key:
         logger.warning("HS_CONTEXT_API_KEY not set — HS context AI will use main client")
-        return _init_ai_client()
+        return fallback_client or _init_ai_client()
     logger.info(f"HS context AI initialised: model={HS_AI_MODEL} base_url={HS_AI_BASE_URL}")
     return UnifiedAIClient(
         openai_compat_api_key=effective_hs_key,
         openai_compat_key_pool=hs_key_pool,
         openai_compat_base_url=HS_AI_BASE_URL,
         openai_compat_model=HS_AI_MODEL,
+        fallback_ai_client=fallback_client,
     )
 
 unified_ai    = _init_ai_client()
-hs_context_ai = _init_hs_context_ai()
+hs_context_ai = _init_hs_context_ai(unified_ai)
 
 def call_ai(prompt: str, max_tokens: int = 2000, temperature: float = 0.7,
             use_cache: bool = False, conversation_id: str = None) -> str:

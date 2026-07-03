@@ -369,6 +369,42 @@ def _coerce_bool(value, default=False):
         return value.strip().lower() in ("true", "1", "yes", "y", "on")
     return default
 
+def _collect_context_doc_chunks_for_prompt(user_id: int, doc_ids: list[str], max_chars: int = 16000) -> str:
+    if not doc_ids:
+        return ""
+    try:
+        from services import context_store
+        rows = context_store.get_document_chunks(
+            user_id=str(user_id),
+            doc_ids=doc_ids,
+            max_chunks_per_doc=12,
+            max_chars_per_chunk=1800,
+        )
+    except Exception as e:
+        logger.warning(f"Flashcard context chunk collection failed: {e}")
+        rows = []
+    if not rows:
+        return ""
+
+    blocks: list[str] = []
+    used = 0
+    for row in rows:
+        meta = row.get("metadata") or {}
+        label = meta.get("filename") or meta.get("doc_id") or "context document"
+        chunk_index = meta.get("chunk_index", "")
+        text = (row.get("text") or "").strip()
+        if not text:
+            continue
+        block = f"[{label} chunk {chunk_index}]\n{text}"
+        if used + len(block) > max_chars:
+            remaining = max_chars - used
+            if remaining > 800:
+                blocks.append(block[:remaining])
+            break
+        blocks.append(block)
+        used += len(block)
+    return "\n\n".join(blocks).strip()
+
 def _clean_flashcard_text(value: object, limit: int = 420) -> str:
     text = re.sub(r"\s+", " ", str(value or "")).strip()
     if len(text) > limit:
@@ -487,6 +523,7 @@ async def generate_flashcards_endpoint(
     hs_flag = bool(_coerce_bool(_unwrap_form_value(use_hs_context), default=True))
     doc_ids_list = [x.strip() for x in context_doc_ids.split(",") if x.strip()] if context_doc_ids else []
     source_document_names = []
+    context_prompt_content = ""
 
     if generation_type == "document_sources":
         if not document_ids:
@@ -560,6 +597,9 @@ async def generate_flashcards_endpoint(
     elif generation_type == "topic" and not topic:
         raise HTTPException(status_code=400, detail="Provide topic")
 
+    if doc_ids_list:
+        context_prompt_content = _collect_context_doc_chunks_for_prompt(user.id, doc_ids_list)
+
     from graphs.flashcard_graph import get_flashcard_graph
 
     graph = get_flashcard_graph()
@@ -582,9 +622,10 @@ async def generate_flashcards_endpoint(
             logger.exception(f"Flashcard graph invocation failed; falling back to direct generation: {e}")
 
     if not flashcards_data:
+        source_content = chat_content or context_prompt_content
         prompt = (
             f"Generate {card_count} flashcards about: {topic or chat_content[:500]}\n"
-            f"{'Use this source content: ' + chat_content[:3500] if chat_content else ''}\n"
+            f"{'Use this source content from the selected context file chunks: ' + source_content[:12000] if source_content else ''}\n"
             f"Difficulty: {difficulty}\n\n"
             f"Return ONLY a valid JSON array. Each object: "
             f'{{"question": "...", "answer": "...", "difficulty": "{difficulty}", '
@@ -598,7 +639,7 @@ async def generate_flashcards_endpoint(
             logger.exception(f"Direct flashcard generation failed; using local fallback: {e}")
 
     if not flashcards_data:
-        flashcards_data = _build_local_flashcards(topic or "", chat_content or content or "", card_count, difficulty)
+        flashcards_data = _build_local_flashcards(topic or "", chat_content or context_prompt_content or content or "", card_count, difficulty)
 
     if not flashcards_data:
         raise HTTPException(status_code=500, detail="Failed to generate flashcards")

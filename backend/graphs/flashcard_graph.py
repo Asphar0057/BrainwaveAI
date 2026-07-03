@@ -104,13 +104,20 @@ async def fetch_context(state: FlashcardGenState) -> dict:
         try:
             from services import context_store
             if context_store.available():
-                results = context_store.search_context(
-                    query=topic,
-                    user_id=user_id,
-                    use_hs=bool(use_hs),
-                    top_k=8,
-                    doc_ids=context_doc_ids or None,
-                )
+                if context_doc_ids:
+                    results = context_store.get_document_chunks(
+                        user_id=user_id,
+                        doc_ids=context_doc_ids,
+                        max_chunks_per_doc=10,
+                        max_chars_per_chunk=1800,
+                    )
+                else:
+                    results = context_store.search_context(
+                        query=topic,
+                        user_id=user_id,
+                        use_hs=bool(use_hs),
+                        top_k=8,
+                    )
                 rag_chunks = [r["text"] for r in results]
                 if rag_chunks:
                     logger.info(
@@ -120,7 +127,8 @@ async def fetch_context(state: FlashcardGenState) -> dict:
                     for i, r in enumerate(results):
                         preview = r["text"][:120].replace("\n", " ")
                         logger.info(
-                            f"[FLASHCARD RAG]   chunk[{i}] source={r['source']} dist={r['distance']:.4f} | {preview}..."
+                            f"[FLASHCARD RAG]   chunk[{i}] source={r.get('source')} "
+                            f"dist={float(r.get('distance', 0.0)):.4f} | {preview}..."
                         )
                 else:
                     logger.info(f"[FLASHCARD RAG] No matching chunks found for '{topic}' in curriculum/docs")
@@ -286,8 +294,8 @@ def generate_cards(state: FlashcardGenState) -> dict:
     difficulty = state.get("difficulty", "medium")
     card_count = state.get("card_count", 10)
 
-    try:
-        response = ai_client.generate(prompt, max_tokens=3000, temperature=0.7)
+    def _generate_with(client) -> list[dict]:
+        response = client.generate(prompt, max_tokens=3000, temperature=0.7)
         data = parse_json_array_response(response)
 
         valid = []
@@ -307,9 +315,18 @@ def generate_cards(state: FlashcardGenState) -> dict:
                     "difficulty": card.get("difficulty", difficulty),
                     "wrong_options": wrong_options,
                 })
+        return valid
 
-        return {"flashcards_json": valid}
+    try:
+        return {"flashcards_json": _generate_with(ai_client)}
     except Exception as e:
+        main_ai = state.get("_ai_client")
+        if ai_client is hs_ai and main_ai and main_ai is not ai_client:
+            logger.error(f"HS flashcard generation failed; falling back to main AI client: {e}")
+            try:
+                return {"flashcards_json": _generate_with(main_ai)}
+            except Exception as fallback_error:
+                logger.error(f"Main AI flashcard fallback failed: {fallback_error}")
         logger.error(f"Flashcard generation failed: {e}")
         return {"flashcards_json": []}
 

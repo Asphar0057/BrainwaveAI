@@ -102,13 +102,20 @@ async def fetch_context(state: NoteGenState) -> dict:
         try:
             from services import context_store
             if context_store.available():
-                results = context_store.search_context(
-                    query=topic,
-                    user_id=user_id,
-                    use_hs=bool(use_hs),
-                    top_k=8,
-                    doc_ids=context_doc_ids or None,
-                )
+                if context_doc_ids:
+                    results = context_store.get_document_chunks(
+                        user_id=user_id,
+                        doc_ids=context_doc_ids,
+                        max_chunks_per_doc=12,
+                        max_chars_per_chunk=1800,
+                    )
+                else:
+                    results = context_store.search_context(
+                        query=topic,
+                        user_id=user_id,
+                        use_hs=bool(use_hs),
+                        top_k=8,
+                    )
                 rag_chunks = [r["text"] for r in results]
                 if rag_chunks:
                     logger.info(
@@ -118,7 +125,8 @@ async def fetch_context(state: NoteGenState) -> dict:
                     for i, r in enumerate(results):
                         preview = r["text"][:120].replace("\n", " ")
                         logger.info(
-                            f"[NOTE RAG]   chunk[{i}] source={r['source']} dist={r['distance']:.4f} | {preview}..."
+                            f"[NOTE RAG]   chunk[{i}] source={r.get('source')} "
+                            f"dist={float(r.get('distance', 0.0)):.4f} | {preview}..."
                         )
                 else:
                     logger.info(f"[NOTE RAG] No matching chunks found for '{topic}' in curriculum/docs")
@@ -275,6 +283,14 @@ def generate_note(state: NoteGenState) -> dict:
         content = ai_client.generate(prompt, max_tokens=max_tokens, temperature=0.65)
         return {"note_content": content.strip()}
     except Exception as e:
+        main_ai = state.get("_ai_client")
+        if ai_client is hs_ai and main_ai and main_ai is not ai_client:
+            logger.error(f"HS NoteGraph generation failed; falling back to main AI client: {e}")
+            try:
+                content = main_ai.generate(prompt, max_tokens=max_tokens, temperature=0.65)
+                return {"note_content": content.strip()}
+            except Exception as fallback_error:
+                logger.error(f"Main AI NoteGraph fallback failed: {fallback_error}")
         logger.error(f"NoteGraph generation failed: {e}")
         return {"note_content": ""}
 

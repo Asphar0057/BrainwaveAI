@@ -1,6 +1,7 @@
 import base64
 import logging
 import json
+import os
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -36,6 +37,7 @@ class UnifiedAIClient:
         openai_compat_base_url: str = "https://api.openai.com/v1",
         openai_compat_model: str = "gpt-4o-mini",
         groq_vision_model: str = "meta-llama/llama-4-scout-17b-16e-instruct",
+        fallback_ai_client=None,
     ):
         self.gemini_module = gemini_client
         self.groq_client = groq_client
@@ -48,7 +50,20 @@ class UnifiedAIClient:
         self.openai_compat_key_pool = openai_compat_key_pool
         self.openai_compat_base_url = openai_compat_base_url.rstrip("/")
         self.openai_compat_model = openai_compat_model
+        self.openai_compat_timeout_seconds = self._env_int(
+            "OPENAI_COMPAT_TIMEOUT_SECONDS",
+            self._env_int("HS_AI_TIMEOUT_SECONDS", 25, 5, 120),
+            5,
+            120,
+        )
+        self.openai_compat_max_attempts = self._env_int(
+            "OPENAI_COMPAT_MAX_ATTEMPTS",
+            self._env_int("HS_AI_MAX_ATTEMPTS", 1, 1, 3),
+            1,
+            3,
+        )
         self.groq_vision_model = groq_vision_model
+        self.fallback_ai_client = fallback_ai_client
 
         if (openai_compat_api_key or self._has_pool(openai_compat_key_pool)) and not gemini_client and not groq_client and not self._has_pool(gemini_key_pool) and not self._has_pool(groq_key_pool):
             self.gemini_client = None
@@ -72,6 +87,14 @@ class UnifiedAIClient:
     @staticmethod
     def _has_pool(pool: ApiKeyPool = None) -> bool:
         return bool(pool and pool.enabled)
+
+    @staticmethod
+    def _env_int(name: str, default: int, minimum: int, maximum: int) -> int:
+        try:
+            value = int(os.getenv(name, str(default)) or default)
+        except (TypeError, ValueError):
+            value = default
+        return max(minimum, min(value, maximum))
 
     def generate(
         self,
@@ -199,14 +222,29 @@ class UnifiedAIClient:
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
                 }
-                for attempt in range(3):
+                for attempt in range(self.openai_compat_max_attempts):
                     try:
-                        resp = requests.post(url, json=payload, headers=headers, timeout=90)
+                        started = time.perf_counter()
+                        resp = requests.post(
+                            url,
+                            json=payload,
+                            headers=headers,
+                            timeout=self.openai_compat_timeout_seconds,
+                        )
+                        elapsed = time.perf_counter() - started
                         if resp.status_code == 200:
                             data = resp.json()
                             usage = extract_usage_from_openai_like(data)
                             self._record_key_success(self.openai_compat_key_pool, lease, usage)
                             text = data["choices"][0]["message"]["content"].strip()
+                            logger.info(
+                                "OpenAI-compatible AI completed provider=hs_context "
+                                "model=%s elapsed=%.2fs prompt_chars=%s max_tokens=%s",
+                                self.openai_compat_model,
+                                elapsed,
+                                len(prompt or ""),
+                                max_tokens,
+                            )
                             self._log_usage(usage, model=self.openai_compat_model, provider="hs_context", prompt=prompt, completion=text)
                             return text
                         if resp.status_code == 429:
@@ -216,8 +254,17 @@ class UnifiedAIClient:
                             break
                         self._release_key(self.openai_compat_key_pool, lease)
                         raise Exception(f"HS context AI error {resp.status_code}: {resp.text[:200]}")
-                    except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
-                        if attempt == 2:
+                    except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as exc:
+                        is_last_attempt = attempt >= self.openai_compat_max_attempts - 1
+                        logger.warning(
+                            "OpenAI-compatible AI attempt failed provider=hs_context "
+                            "attempt=%s/%s timeout=%ss error=%s",
+                            attempt + 1,
+                            self.openai_compat_max_attempts,
+                            self.openai_compat_timeout_seconds,
+                            exc,
+                        )
+                        if is_last_attempt:
                             self._release_key(self.openai_compat_key_pool, lease)
                             raise
                         time.sleep(2)
@@ -226,6 +273,8 @@ class UnifiedAIClient:
         raise Exception("HS context AI request failed after all configured keys were exhausted")
 
     def _fallback(self, prompt: str, max_tokens: int, temperature: float) -> str:
+        if self.fallback_ai_client is not None and self.fallback_ai_client is not self:
+            return self.fallback_ai_client.generate(prompt, max_tokens, temperature)
         if self.primary_ai == "openai_compat":
             if self.gemini_api_key or self._has_pool(self.gemini_key_pool):
                 return self._call_gemini(prompt, max_tokens, temperature)

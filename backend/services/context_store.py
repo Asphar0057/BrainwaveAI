@@ -122,6 +122,26 @@ def _bm25_scores(query_tokens: list[str], corpus: list[str], k1: float = 1.5, b:
         scores.append(score)
     return scores
 
+def _chunk_index(metadata: dict) -> int:
+    raw = str((metadata or {}).get("chunk_index", "0")).strip()
+    return int(raw) if raw.isdigit() else 0
+
+def _spread_rows(rows: list[dict], limit: int) -> list[dict]:
+    if limit <= 0 or len(rows) <= limit:
+        return rows[:limit] if limit > 0 else []
+    if limit == 1:
+        return [rows[0]]
+    step = (len(rows) - 1) / (limit - 1)
+    selected: list[dict] = []
+    seen: set[int] = set()
+    for i in range(limit):
+        idx = round(i * step)
+        if idx in seen:
+            continue
+        seen.add(idx)
+        selected.append(rows[idx])
+    return selected
+
 def initialize(*args, **kwargs):
     pass
 
@@ -385,6 +405,49 @@ def search_context(
         pass
 
     return cleaned
+
+def get_document_chunks(
+    user_id: str,
+    doc_ids: list[str],
+    max_chunks_per_doc: int = 10,
+    max_chars_per_chunk: int = 1800,
+) -> list[dict]:
+    if not available():
+        return []
+
+    normalized_doc_ids = [str(d).strip() for d in (doc_ids or []) if str(d).strip()]
+    if not normalized_doc_ids:
+        return []
+
+    chunks: list[dict] = []
+    seen_docs: set[str] = set()
+    for doc_id in normalized_doc_ids:
+        if doc_id in seen_docs:
+            continue
+        seen_docs.add(doc_id)
+        try:
+            rows = vs.get_by_metadata("user_docs", {"doc_id": doc_id}, user_id=str(user_id))
+        except Exception as e:
+            logger.warning(f"get_document_chunks failed for doc_id={doc_id}: {e}")
+            rows = []
+        if not rows:
+            continue
+
+        rows.sort(key=lambda r: _chunk_index(r.get("metadata") or {}))
+        for row in _spread_rows(rows, max(1, int(max_chunks_per_doc or 10))):
+            text = (row.get("content") or "").strip()
+            if not text:
+                continue
+            if max_chars_per_chunk and len(text) > max_chars_per_chunk:
+                text = text[:max_chars_per_chunk].rsplit(" ", 1)[0].strip()
+            metadata = row.get("metadata") or {}
+            chunks.append({
+                "text": text,
+                "metadata": metadata,
+                "source": "private",
+                "distance": 0.0,
+            })
+    return chunks
 
 def list_user_docs(user_id: str) -> list[dict]:
     if not available():

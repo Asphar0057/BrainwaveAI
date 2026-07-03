@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict
 from collections import Counter
@@ -53,7 +54,7 @@ def _collect_context_doc_content(
     db: Session,
     user_id: int,
     doc_ids: list[str],
-    max_chars: int = 24000,
+    max_chars: int = 12000,
     focus_topic: str = "",
 ) -> tuple[str, str]:
     docs = (
@@ -240,6 +241,7 @@ def build_user_profile_dict(user, comprehensive_profile=None) -> Dict[str, Any]:
 async def generate_practice_questions(
     payload: dict = Body(...), db: Session = Depends(get_db)
 ):
+    request_started = time.perf_counter()
     try:
         user_id = payload.get("user_id")
         topic = payload.get("topic") or payload.get("content", "")
@@ -265,10 +267,12 @@ async def generate_practice_questions(
 
         logger.info(
             f"[QUIZ ROUTE] generate request | topic='{topic}' user={user.id} "
-            f"HS_MODE={'ON  <-- curriculum RAG will run' if use_hs_context else 'OFF <-- no RAG, model-only'}"
+            f"HS_MODE={'ON  <-- curriculum RAG will run' if use_hs_context else 'OFF <-- no RAG, model-only'} "
+            f"count={question_count} docs={len(doc_ids_list)} content_chars={len(content or '')}"
         )
 
         if doc_ids_list:
+            collect_started = time.perf_counter()
             merged_content, inferred_topic = _collect_context_doc_content(
                 db,
                 user.id,
@@ -282,7 +286,13 @@ async def generate_practice_questions(
                 generation_type = "chat_history"
                 logger.info(
                     f"[QUIZ ROUTE] Using selected context_doc_ids content for generation "
-                    f"(docs={len(doc_ids_list)}, content_chars={len(content)})"
+                    f"(docs={len(doc_ids_list)}, content_chars={len(content)}, "
+                    f"elapsed={time.perf_counter() - collect_started:.2f}s)"
+                )
+            else:
+                logger.info(
+                    f"[QUIZ ROUTE] Selected context_doc_ids produced no merged content "
+                    f"(docs={len(doc_ids_list)}, elapsed={time.perf_counter() - collect_started:.2f}s)"
                 )
 
         if not topic and not content:
@@ -293,6 +303,7 @@ async def generate_practice_questions(
             from graphs.quiz_graph import get_quiz_graph
             quiz_graph = get_quiz_graph()
             if quiz_graph:
+                graph_started = time.perf_counter()
                 questions_data = await quiz_graph.invoke(
                     user_id=str(user.id),
                     topic=topic,
@@ -305,10 +316,16 @@ async def generate_practice_questions(
                     use_hs_context=use_hs_context,
                     context_doc_ids=doc_ids_list,
                 )
+                logger.info(
+                    "[QUIZ ROUTE] quiz graph returned questions=%s elapsed=%.2fs",
+                    len(questions_data or []),
+                    time.perf_counter() - graph_started,
+                )
         except Exception as graph_err:
             logger.warning(f"Quiz graph invoke failed, falling back to direct: {graph_err}")
 
         if not questions_data:
+            fallback_started = time.perf_counter()
             difficulty_mix = payload.get("difficulty_mix", {"easy": 3, "medium": 5, "hard": 2})
             type_instructions = []
             if "multiple_choice" in question_types:
@@ -353,6 +370,11 @@ Generate exactly {question_count} high-quality questions:"""
             questions_data = parse_json_array_response(response_text)
             if not questions_data:
                 raise HTTPException(status_code=500, detail="Failed to parse AI response")
+            logger.info(
+                "[QUIZ ROUTE] direct fallback generated questions=%s elapsed=%.2fs",
+                len(questions_data),
+                time.perf_counter() - fallback_started,
+            )
 
         if not questions_data:
             raise HTTPException(status_code=500, detail="No questions were generated")
@@ -367,6 +389,7 @@ Generate exactly {question_count} high-quality questions:"""
         db.add(question_set)
         db.commit()
         db.refresh(question_set)
+        save_started = time.perf_counter()
 
         for idx, q_data in enumerate(questions_data):
             question = models.Question(
@@ -384,6 +407,12 @@ Generate exactly {question_count} high-quality questions:"""
 
         db.commit()
         db.refresh(question_set)
+        logger.info(
+            "[QUIZ ROUTE] saved question set id=%s questions=%s elapsed=%.2fs",
+            question_set.id,
+            len(questions_data),
+            time.perf_counter() - save_started,
+        )
 
         try:
             from tutor import chroma_store
@@ -414,7 +443,8 @@ Generate exactly {question_count} high-quality questions:"""
         )
 
         logger.info(
-            f"Generated {len(questions)} practice questions for user {user.id} on topic: {topic[:50]}"
+            f"Generated {len(questions)} practice questions for user {user.id} on topic: {topic[:50]} "
+            f"total_elapsed={time.perf_counter() - request_started:.2f}s"
         )
 
         return {
