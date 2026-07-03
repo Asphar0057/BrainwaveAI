@@ -107,19 +107,52 @@ export async function createChatSession(userId: string, title = 'New Chat') {
   return res.json(); // { id, title, ... }
 }
 
-export async function askAI(userId: string, question: string, chatId?: number) {
+export async function askAI(
+  userId: string,
+  question: string,
+  chatId?: number,
+  useHsContext: boolean = false,
+  docIds: string[] = []
+) {
+  const headers = await authHeaders();
   const body = new URLSearchParams({
     user_id: userId,
     question,
-    use_hs_context: 'false',
+    use_hs_context: String(useHsContext),
     ...(chatId ? { chat_id: String(chatId) } : {}),
+    ...(docIds.length ? { context_doc_ids: docIds.join(',') } : {}),
   });
   const res = await fetch(`${API_URL}/ask/`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString(),
   });
   return res.json(); // { response, chat_id, ... }
+}
+
+export async function askAIWithFile(
+  userId: string,
+  question: string,
+  file: { uri: string; name: string; type: string },
+  chatId?: number,
+  useHsContext: boolean = false,
+  docIds: string[] = []
+) {
+  const headers = await authHeaders();
+  const body = new FormData();
+  body.append('user_id', userId);
+  body.append('question', question);
+  body.append('use_hs_context', String(useHsContext));
+  if (chatId) body.append('chat_id', String(chatId));
+  if (docIds.length) body.append('context_doc_ids', docIds.join(','));
+  body.append('files', { uri: file.uri, name: file.name, type: file.type } as any);
+
+  const res = await fetch(`${API_URL}/ask_with_files/`, {
+    method: 'POST',
+    headers,
+    body,
+  });
+  return res.json(); // { answer, chat_id, ... }
 }
 
 export async function getSearchHubSuggestions(userId: string, query = '') {
