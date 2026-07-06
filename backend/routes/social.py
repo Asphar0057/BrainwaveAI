@@ -240,28 +240,6 @@ async def complete_solo_quiz(
         except Exception as chroma_err:
             logger.warning(f"Chroma write failed on solo quiz complete: {chroma_err}")
 
-        try:
-            from agents.agent_api import get_user_kg
-            user_kg = get_user_kg()
-            if user_kg and answers:
-                for answer in answers:
-                    question_text = answer.get("question", "")
-                    is_correct = answer.get("is_correct", False)
-                    concept = question_text[:50].strip() if question_text else f"Quiz_{quiz.topic}"
-
-                    await user_kg.record_concept_interaction(
-                        user_id=current_user.id,
-                        concept=concept,
-                        correct=is_correct,
-                        source="quiz",
-                        difficulty=0.3 if quiz.difficulty == "easy" else 0.5 if quiz.difficulty == "medium" else 0.7
-                    )
-                logger.info(f"KG: Recorded {len(answers)} quiz interactions for user {current_user.id}")
-        except ImportError as import_error:
-            logger.warning(f"Agent API module not available: {import_error}")
-        except Exception as kg_error:
-            logger.warning(f"Failed to record KG quiz interactions: {kg_error}")
-
         from services.gamification_system import award_points, calculate_solo_quiz_points
 
         points_result = award_points(db, current_user.id, "solo_quiz", {

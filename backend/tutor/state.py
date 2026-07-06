@@ -14,14 +14,6 @@ class StudentState:
     current_subject: str = ""
 
 @dataclass
-class Neo4jInsights:
-    relevant_concepts: list[str] = field(default_factory=list)
-    prerequisites: list[str] = field(default_factory=list)
-    common_mistakes: list[str] = field(default_factory=list)
-    effective_strategies: list[str] = field(default_factory=list)
-    mastery_levels: dict[str, float] = field(default_factory=dict)
-
-@dataclass
 class EvalResult:
     confusion_persists: bool = False
     strategy_worked: Optional[bool] = None
@@ -60,7 +52,6 @@ class TutorState(TypedDict, total=False):
     intent: str
     comprehension_check: Optional[str]
     student_state: StudentState
-    neo4j_insights: Neo4jInsights
     episodic_memories: list[str]
     structured_context: list[str]
     rag_context: list[str]
@@ -86,7 +77,6 @@ class TutorState(TypedDict, total=False):
     instructional_task: str
     response: str
     evaluation: EvalResult
-    neo4j_updates: list[dict]
     chroma_writes: list[dict]
     error: Optional[str]
     intelligence_context: Optional[str]

@@ -33,9 +33,6 @@ langgraph>=0.2.0
 langchain>=0.3.0
 langchain-core>=0.3.0
 
-# Knowledge Graph - Neo4j
-neo4j>=5.0.0
-
 # Observability (optional - for LangSmith tracing)
 langsmith>=0.1.0
 

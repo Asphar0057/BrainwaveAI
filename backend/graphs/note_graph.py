@@ -18,8 +18,6 @@ class NoteGenState(TypedDict, total=False):
     additional_specs: str
     student_weaknesses: list[str]
     student_strengths: list[str]
-    concept_prerequisites: list[str]
-    common_mistakes: list[str]
     rag_context: list[str]
     use_hs_context: bool
     context_doc_ids: list[str]
@@ -36,8 +34,6 @@ async def fetch_context(state: NoteGenState) -> dict:
 
     weaknesses: list[str] = []
     strengths: list[str] = []
-    prerequisites: list[str] = []
-    mistakes: list[str] = []
 
     if db_factory:
         try:
@@ -70,25 +66,6 @@ async def fetch_context(state: NoteGenState) -> dict:
                 db.close()
         except Exception as e:
             logger.warning(f"NoteGraph DB context fetch failed: {e}")
-
-    from tutor import neo4j_store
-    if neo4j_store.available():
-        try:
-            concepts = await neo4j_store.get_student_concepts(user_id)
-            for c in concepts.get("struggling", []):
-                if c not in weaknesses:
-                    weaknesses.append(c)
-            for c in concepts.get("mastered", []):
-                if c not in strengths:
-                    strengths.append(c)
-
-            topic_concepts = [w for w in topic.split() if len(w) > 3]
-            if topic_concepts:
-                ctx = await neo4j_store.get_concept_context(topic_concepts[:4])
-                prerequisites = ctx.get("prerequisites", [])
-                mistakes = ctx.get("mistakes", [])
-        except Exception as e:
-            logger.warning(f"NoteGraph Neo4j context fetch failed: {e}")
 
     rag_chunks: list[str] = []
     use_hs = state.get("use_hs_context", True)
@@ -140,8 +117,6 @@ async def fetch_context(state: NoteGenState) -> dict:
     return {
         "student_weaknesses": weaknesses,
         "student_strengths": strengths,
-        "concept_prerequisites": prerequisites,
-        "common_mistakes": mistakes,
         "rag_context": rag_chunks,
     }
 
@@ -183,8 +158,6 @@ def build_prompt(state: NoteGenState) -> dict:
     additional_specs = (state.get("additional_specs") or "").strip()
     weaknesses = state.get("student_weaknesses", [])
     strengths = state.get("student_strengths", [])
-    prerequisites = state.get("concept_prerequisites", [])
-    mistakes = state.get("common_mistakes", [])
 
     if depth not in DEPTH_GUIDES:
         depth = "standard"
@@ -216,18 +189,6 @@ def build_prompt(state: NoteGenState) -> dict:
                 f"STUDENT WEAK AREAS: {', '.join(relevant_weak)}\n"
                 "Emphasise and explain these areas more thoroughly in the notes.\n"
             )
-
-    if prerequisites:
-        parts.append(
-            f"PREREQUISITE CONCEPTS (from knowledge graph): {', '.join(prerequisites[:5])}\n"
-            "Briefly cover or reference these so the student has the necessary foundation.\n"
-        )
-
-    if mistakes:
-        parts.append(
-            f"COMMON MISTAKES STUDENTS MAKE: {', '.join(mistakes[:5])}\n"
-            "Include a 'Common Pitfalls' section explicitly addressing these.\n"
-        )
 
     if strengths:
         parts.append(

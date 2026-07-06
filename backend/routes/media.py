@@ -1064,38 +1064,6 @@ async def analyze_slide(
             force_reanalyze=force_reanalyze,
         )
 
-        try:
-            from tutor.neo4j_store import neo4j_store
-            if neo4j_store.available():
-                all_concepts = []
-                for s in analysis_result.get("slides", []):
-                    for concept in s.get("key_concepts", []):
-                        if concept and len(concept.strip()) > 2:
-                            all_concepts.append(concept.strip())
-                seen = set()
-                unique_concepts = [c for c in all_concepts if not (c in seen or seen.add(c))]
-                import asyncio
-                async def _seed():
-                    for concept in unique_concepts[:20]:
-                        try:
-                            await neo4j_store.seed_concept(
-                                name=concept,
-                                domain=slide.original_filename,
-                                difficulty="intermediate"
-                            )
-                        except Exception:
-                            pass
-                try:
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
-                        asyncio.ensure_future(_seed())
-                    else:
-                        loop.run_until_complete(_seed())
-                except Exception:
-                    pass
-        except Exception:
-            pass
-
         return {
             "status": "success",
             "filename": slide.original_filename,

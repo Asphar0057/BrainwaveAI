@@ -5,7 +5,7 @@ import logging
 from typing import Optional
 
 from services.ai_utils import UnifiedAIClient
-from tutor.state import EvalResult, StudentState, Neo4jInsights
+from tutor.state import EvalResult, StudentState
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,6 @@ EVAL_PROMPT = """You are a learning evaluator. Given a student-tutor exchange, d
 
 Student profile:
 - Weaknesses: {weaknesses}
-- Current topic context: {concepts}
 
 Student said: {user_input}
 
@@ -40,14 +39,11 @@ def evaluate(
     user_input: str,
     response: str,
     student_state: Optional[StudentState] = None,
-    neo4j_insights: Optional[Neo4jInsights] = None,
 ) -> EvalResult:
     weaknesses = ", ".join(student_state.weaknesses) if student_state else "unknown"
-    concepts = ", ".join(neo4j_insights.relevant_concepts) if neo4j_insights else "unknown"
 
     prompt = EVAL_PROMPT.format(
         weaknesses=weaknesses,
-        concepts=concepts,
         user_input=user_input,
         response=response[:1000],
     )
