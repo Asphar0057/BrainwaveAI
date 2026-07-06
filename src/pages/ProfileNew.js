@@ -132,6 +132,8 @@ const toProfileFormData = (profile = {}, username = '') => ({
   })(),
   showStudyInsights: profile.showStudyInsights !== false,
   notificationsEnabled: profile.notificationsEnabled !== false,
+  quizCompleted: profile.quizCompleted === true || profile.quiz_completed === true,
+  quizSkipped: profile.quizSkipped === true || profile.quiz_skipped === true,
 });
 
 const scheduleProfileIdle = (callback) => {
@@ -1259,6 +1261,12 @@ const ProfileNew = () => {
 
           <section className="pn-section" id="pn-section-goals">
             <div className="pn-section-label">LEARNING GOALS</div>
+            {profileData.quizSkipped && !profileData.quizCompleted && !profileData.fieldOfStudy && profileData.preferredSubjects.length === 0 && (
+              <button className="pn-discover-btn" onClick={() => navigate('/profile-quiz')}>
+                <span className="pn-discover-title">Complete Your Profile</span>
+                <span className="pn-discover-sub">You skipped onboarding — set your subject and goals so the AI tutor can personalize your experience, or fill them in below</span>
+              </button>
+            )}
             <div className="pn-field pn-field--full">
               <label className="pn-field-label">Main Subject</label>
               <select className="pn-select" value={profileData.fieldOfStudy} onChange={e => setField('fieldOfStudy', e.target.value)}>
