@@ -1396,12 +1396,32 @@ def _build_instructional_task(state: TutorState) -> str:
         )
 
     if intent == "off_topic":
+        last_summary  = state.get("last_session_summary")
+        recent_topics = (last_summary or {}).get("topics") or []
+
+        if not recent_topics:
+            db_factory = state.get("_db_factory")
+            current_session = _fetch_last_session_summary(db_factory, state.get("user_id", ""), current_chat_id=None)
+            recent_topics = (current_session or {}).get("topics") or []
+
+        recent_topics = recent_topics[:3]
+
+        if recent_topics:
+            topics_str = "; ".join(recent_topics)
+            return (
+                "The student sent a message that is not about a learning topic. "
+                "Respond warmly and redirect them toward learning. "
+                f"Their most recent real topics (from STRUCTURED LEARNING DATA) are: {topics_str}. "
+                "Suggest picking up ONE of these specific recent topics, or ask what they'd like to study instead. "
+                "Do NOT reference any other topic, weak area, or subject — only what is listed here or "
+                "explicitly present elsewhere in STRUCTURED LEARNING DATA. Never invent a topic."
+            )
+
         return (
             "The student sent a message that is not about a learning topic. "
             "Respond warmly and redirect them toward learning. "
-            "If STRUCTURED LEARNING DATA contains their weak areas, past topics, notes, or flashcard sets — "
-            "reference those specifically to suggest what to work on next. "
-            "If there is NO data about them yet, just ask what they want to study — do NOT invent topics."
+            "You have no reliable record of their recent topics right now — "
+            "do NOT invent or guess any topic, subject, or weak area. Just ask what they'd like to study."
         )
 
     if intent == "project_build":
