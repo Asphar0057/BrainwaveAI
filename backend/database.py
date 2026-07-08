@@ -111,8 +111,8 @@ if DATABASE_URL.startswith("sqlite"):
     logger.info("Using SQLite database (WAL mode)")
     
 else:
-    pool_size = int(os.getenv("DB_POOL_SIZE", "2"))
-    max_overflow = int(os.getenv("DB_MAX_OVERFLOW", "0"))
+    pool_size = int(os.getenv("DB_POOL_SIZE", "5"))
+    max_overflow = int(os.getenv("DB_MAX_OVERFLOW", "5"))
     pool_timeout = int(os.getenv("DB_POOL_TIMEOUT", "30"))
     pool_recycle = int(os.getenv("DB_POOL_RECYCLE_SECONDS", "1800"))
     connect_timeout = int(os.getenv("DB_CONNECT_TIMEOUT_SECONDS", "10"))
