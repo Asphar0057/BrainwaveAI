@@ -4,6 +4,7 @@ import { signInWithPopup } from 'firebase/auth';
 import axios from 'axios';
 import { auth, googleProvider } from '../firebase/config';
 import LoadingSpinner from '../components/LoadingSpinner';
+import GeometricGrid from '../components/GeometricGrid';
 import logo from '../assets/logo.svg';
 import './Login.css';
 import { API_URL } from '../config/api';
@@ -171,7 +172,10 @@ function Register() {
     <>
       {(loading || googleLoading) && <LoadingSpinner />}
       <div className="lg-page">
-        <div className="lg-dots" />
+        <div className="lg-orb lg-orb-1" />
+        <div className="lg-orb lg-orb-2" />
+        <GeometricGrid className="lg-bg-geo" linesClassName="lg-bg-geo-lines" numsClassName="lg-bg-geo-nums" />
+        <div className="lg-grain" />
         <div className="lg-watermark">
           <img src={logo} alt="" className="lg-watermark-img" />
         </div>
