@@ -5,16 +5,16 @@ import {
   Brain, Layers, BookOpen, Target, Award, Mic, Swords,
   ArrowRight, ChevronLeft, ChevronRight, Check, X, GitBranch,
 } from 'lucide-react';
-import logo from '../assets/logo.svg';
 import adiImg from '../assets/Adi.jpeg';
 import parthavImg from '../assets/Parthav.png';
+import GeometricGrid from '../components/GeometricGrid';
 import './Home.css';
 
 /* ---------- content ported from the original investor-deck Landing page.
    Neo4j is gone from the stack, so every Neo4j-specific claim (the
    "Learning Graph" system, the two "Knowledge Maps"/prerequisite-graph
    features, the concept-dependency diff row) has been dropped rather than
-   replaced — nothing here is new copy, only trimmed. ChromaDB likewise
+   replaced. Nothing here is new copy, only trimmed. ChromaDB likewise
    became pgvector, so the label was updated in place. ---------- */
 
 const TEAM = [
@@ -28,7 +28,7 @@ const BUILT_ITEMS = [
   'FSRS-6 spaced repetition scheduler (DSR memory model)',
   'Real-time WebSocket quiz battles & social layer',
   'Atlas 3D WebGL interface for the full product experience',
-  'FastAPI + React full-stack platform — fully containerized',
+  'FastAPI + React full-stack platform, fully containerized',
   'Product roadmap, investor narrative & go-to-market strategy',
 ];
 
@@ -40,7 +40,7 @@ const CURVE_BARS = [
 const SYSTEMS = [
   {
     num: '01', title: 'EPISODIC MEMORY', tech: 'pgvector', icon: <Layers size={12} />,
-    desc: 'Every session — note, chat, quiz, flashcard review — is embedded as a semantic vector. The AI retrieves your relevant history before every new interaction.',
+    desc: 'Every session, whether it is a note, a chat, a quiz, or a flashcard review, gets embedded as a semantic vector. The AI pulls up your relevant history before every new interaction.',
     points: ['Structured per-user collections: episodic, important, quiz history', 'Semantic retrieval across all past session types', 'AI reads your context before generating anything'],
   },
   {
@@ -52,7 +52,7 @@ const SYSTEMS = [
 
 const FEATURES = [
   { icon: <Brain size={19} />, title: 'Memory-Aware AI Tutor', desc: 'Reads your past sessions and weak topics before every reply. A tutor with actual memory.' },
-  { icon: <BookOpen size={19} />, title: 'FSRS-6 Flashcards', desc: 'DSR algorithm schedules every card by memory stability — not arbitrary intervals.' },
+  { icon: <BookOpen size={19} />, title: 'FSRS-6 Flashcards', desc: 'The DSR algorithm schedules every card by memory stability, not arbitrary intervals.' },
   { icon: <Target size={19} />, title: 'Adaptive Quizzes', desc: 'Difficulty calibrates to your mastery. Every score updates your progress live.' },
   { icon: <Layers size={19} />, title: 'Smart Notes', desc: 'Depth (brief / standard / deep) + tone control. AI knows your gaps before writing.' },
   { icon: <Mic size={19} />, title: 'AI Podcasts', desc: 'Coach, Story, Rapid Review, or Socratic mode. Any topic becomes an on-demand lesson.' },
@@ -62,14 +62,14 @@ const FEATURES = [
 
 const WHY_REASONS = [
   { num: '01', title: 'Built by students', desc: 'We were the students losing hours to four apps that never talked to each other. Cerbyl is the single workspace we wished existed.' },
-  { num: '02', title: 'AI that remembers you', desc: 'Every quiz score, note, and chat session is stored in your permanent profile. The AI reads your actual history before every reply — not just the current message.' },
+  { num: '02', title: 'AI that remembers you', desc: 'Every quiz score, note, and chat session is stored in your permanent profile. The AI reads your actual history before every reply, not just the current message.' },
   { num: '03', title: 'The full study loop', desc: 'Tutor → Notes → Flashcards → Quizzes → Battles. One platform, one profile, zero app switching.' },
-  { num: '04', title: 'Science-backed scheduling', desc: 'FSRS-6 spaced repetition ensures you study the right thing at the right time — always.' },
+  { num: '04', title: 'Science-backed scheduling', desc: 'FSRS-6 spaced repetition makes sure you study the right thing at the right time, every time.' },
 ];
 
 const DIFF_ROWS = [
-  ['What it stores', 'Facts you typed that session', 'Every quiz score, note, chat, flashcard — linked to your permanent profile'],
-  ['How memory is used', 'Passive — nothing carries over', 'Active — drives what content you see next and at what difficulty'],
+  ['What it stores', 'Facts you typed that session', 'Every quiz score, note, chat, and flashcard, linked to your permanent profile'],
+  ['How memory is used', 'Passive, nothing carries over', 'Active, it drives what content you see next and at what difficulty'],
   ['Spaced repetition', 'None', 'FSRS-6 DSR model built into flashcard and quiz scheduling'],
   ['Acts on your gaps', 'Waits for you to ask', 'Proactively surfaces weak topics across every session type'],
 ];
@@ -94,28 +94,16 @@ const SECTIONS = [
 
 const INTRO_KEY = 'cb_intro_seen';
 
-function GeometricGrid() {
-  const W = 1600, H = 1000, STEP = 80;
-  const lines = [];
-  const nums = [];
-  let lineKey = 0;
-  for (let x = 0; x <= W; x += STEP) {
-    lines.push(<line key={`v${lineKey++}`} x1={x} y1={0} x2={x} y2={H} />);
-  }
-  for (let y = 0; y <= H; y += STEP) {
-    lines.push(<line key={`h${lineKey++}`} x1={0} y1={y} x2={W} y2={y} />);
-  }
-  let n = 1;
-  for (let r = 0; r <= H; r += STEP * 3) {
-    for (let c = 0; c <= W; c += STEP * 3) {
-      nums.push(<text key={`n${c}${r}`} x={c + 3} y={r + 11}>{String(n++ % 99 + 1).padStart(2, '0')}</text>);
-    }
-  }
+function BgFx() {
   return (
-    <svg className="cb-bg-geo" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" aria-hidden>
-      <g className="cb-bg-geo-lines">{lines}</g>
-      <g className="cb-bg-geo-nums">{nums}</g>
-    </svg>
+    <>
+      <div className="cb-bg-wash" />
+      <div className="cb-bg-orb cb-bg-orb-1" />
+      <div className="cb-bg-orb cb-bg-orb-2" />
+      <GeometricGrid />
+      <div className="cb-bg-grain" />
+      <div className="cb-bg-vignette" />
+    </>
   );
 }
 
@@ -141,7 +129,7 @@ function SectionDetail({ id, navigate }) {
         </div>
         <div className="cb-quote">
           <span className="cb-quote-mark">"</span>
-          <p>We're not outsiders. We were the students — losing hours to four different apps, forgetting what we studied last week, and asking AI that forgot us every morning. We built the tool we wished existed.</p>
+          <p>We're not outsiders. We were the students, losing hours to four different apps, forgetting what we studied last week, and asking AI that forgot us every morning. We built the tool we wished existed.</p>
         </div>
       </>
     );
@@ -163,8 +151,8 @@ function SectionDetail({ id, navigate }) {
           ))}
         </div>
         <p className="cb-modal-footnote">
-          Humans forget ~50% of new information within an hour and ~90% within a month without active retrieval practice.
-          Traditional learning treats every session as isolated. Most AI tools do too — they answer your question and forget you exist.
+          Humans forget about 50% of new information within an hour and about 90% within a month without active retrieval practice.
+          Traditional learning treats every session as isolated, and most AI tools do too. They answer your question and forget you exist.
           Cerbyl's spaced repetition is <em>built into the core</em>, not bolted on.
         </p>
       </>
@@ -288,7 +276,6 @@ export default function Home() {
   const introMarkRef = useRef(null);
   const introWordRef = useRef(null);
   const introTagRef = useRef(null);
-  const introSkipRef = useRef(null);
   const navRef = useRef(null);
   const tileRefs = useRef({});
   const tlRef = useRef(null);
@@ -339,20 +326,9 @@ export default function Home() {
       .to(introMarkRef.current, { opacity: 0, scale: 0.5, duration: 0.5, ease: 'power2.in' }, '+=0.25')
       .to(letterEls, { clipPath: 'inset(0 0% 0 0)', duration: 0.6, stagger: 0.045, ease: 'power3.out' }, '-=0.3')
       .to(introTagRef.current, { clipPath: 'inset(0 0% 0 0)', duration: 0.7, ease: 'power3.out' }, '-=0.15')
-      .to(introSkipRef.current, { opacity: 1, duration: 0.4 }, '-=0.5')
-      .to({}, { duration: 0.9 });
+      .to({}, { duration: 1.1 });
 
-    const skip = () => {
-      if (tlRef.current) tlRef.current.progress(1).kill();
-      finishIntro();
-    };
-    introRef.current.addEventListener('click', skip);
-    window.addEventListener('keydown', skip, { once: true });
-
-    return () => {
-      tl.kill();
-      window.removeEventListener('keydown', skip);
-    };
+    return () => { tl.kill(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -411,37 +387,37 @@ export default function Home() {
   return (
     <div className="cb-root" ref={rootRef}>
       <div className="cb-bg-fx" aria-hidden>
-        <div className="cb-bg-orb cb-bg-orb-1" />
-        <div className="cb-bg-orb cb-bg-orb-2" />
-        <GeometricGrid />
-        <div className="cb-bg-vignette" />
+        <BgFx />
       </div>
 
       <div className="cb-intro" ref={introRef}>
-        <img src={logo} alt="" className="cb-intro-mark" ref={introMarkRef} />
+        <div className="cb-intro-bg-fx" aria-hidden>
+          <BgFx />
+        </div>
+        <div className="cb-intro-mark" ref={introMarkRef} aria-hidden />
         <div className="cb-intro-word" ref={introWordRef}>
           {'cerbyl'.split('').map((ch, i) => <span key={i}>{ch}</span>)}
         </div>
         <div className="cb-intro-tagline" ref={introTagRef}>
-          Learning, <em>unified.</em>
+          <span className="cb-nav-mark-dot" />LEARNING UNIFIED
         </div>
-        <div className="cb-intro-skip" ref={introSkipRef}>Click or press any key to continue</div>
       </div>
 
       <nav className="cb-nav" ref={navRef}>
         <div className="cb-nav-mark">
-          <span className="cb-nav-mark-dot" />
           LEARNING UNIFIED
         </div>
         <div className="cb-nav-right">
           <button onClick={() => navigate('/register')}>Get Started</button>
-          <button className="cb-nav-login" onClick={() => navigate('/login')}>Log In</button>
+          <button onClick={() => navigate('/login')}>Log In</button>
         </div>
       </nav>
 
       <div className="cb-grid-wrap">
         <div className="cb-grid">
           <div className="cb-tile cb-tile-mark" ref={(el) => { tileRefs.current.mark = el; }}>
+            <GeometricGrid />
+            <div className="cb-bg-grain" />
             <div className="cb-mark-logo" />
             <span className="cb-mark-word">cerbyl</span>
           </div>
@@ -458,8 +434,9 @@ export default function Home() {
               tabIndex={0}
               onKeyDown={(e) => { if (e.key === 'Enter') openSection(i); }}
             >
+              <div className="cb-tile-texture" />
               <span className="cb-tile-num">{s.num}</span>
-              <h3 className="cb-tile-title">{s.label}</h3>
+              <h3 className="cb-tile-title"><span className="cb-tile-title-dot" />{s.label}</h3>
             </div>
           ))}
         </div>
@@ -468,6 +445,10 @@ export default function Home() {
       {activeIdx !== null && (
         <div className={`cb-modal-overlay${closing ? ' cb-modal-overlay--closing' : ''}`} onClick={closeModal}>
           <div className={`cb-modal${closing ? ' cb-modal--closing' : ''}`} onClick={(e) => e.stopPropagation()}>
+            <div className="cb-modal-texture">
+              <GeometricGrid />
+              <div className="cb-bg-grain" />
+            </div>
             <button className="cb-modal-close" onClick={closeModal} aria-label="Close"><X size={18} /></button>
             {activeIdx > 0 && (
               <button className="cb-modal-arrow cb-modal-arrow--left" onClick={prevSection} aria-label="Previous"><ChevronLeft size={18} /></button>
@@ -475,8 +456,10 @@ export default function Home() {
             {activeIdx < SECTIONS.length - 1 && (
               <button className="cb-modal-arrow cb-modal-arrow--right" onClick={nextSection} aria-label="Next"><ChevronRight size={18} /></button>
             )}
-            <div className="cb-modal-body" key={activeIdx} data-dir={dir}>
-              <SectionDetail id={SECTIONS[activeIdx].id} navigate={navigate} />
+            <div className="cb-modal-scroll">
+              <div className="cb-modal-body" key={activeIdx} data-dir={dir}>
+                <SectionDetail id={SECTIONS[activeIdx].id} navigate={navigate} />
+              </div>
             </div>
           </div>
         </div>
