@@ -65,6 +65,11 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
   const fcSets = fcStats?.total_sets ?? 0;
   const fcMastered = fcStats?.cards_mastered ?? 0;
   const masteryPct = fcTotal > 0 ? Math.round((fcMastered / fcTotal) * 100) : 0;
+  const aboutCards = [
+    { index: '01', title: 'built by students', copy: 'made for the study loop we kept rebuilding across four different apps' },
+    { index: '02', title: 'ai that remembers', copy: 'chats, notes, quizzes, flashcards, and sources feed one profile' },
+    { index: '03', title: 'full workflow', copy: 'tutor, notes, flashcards, question bank, media, paths, battles' },
+  ];
 
   return (
     <SafeAreaView style={s.safe} edges={[]}>
@@ -76,6 +81,30 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
         <View style={s.titleRow}>
           <Text style={s.title}>explore</Text>
           <View style={s.titleRule} />
+        </View>
+
+        <View style={s.manifesto}>
+          <LinearGradient
+            colors={[rgbaFromHex(selectedTheme.accentHover, 0.18), rgbaFromHex(selectedTheme.panel, 0.96), rgbaFromHex(selectedTheme.bgPrimary, 0.98)]}
+            locations={[0, 0.48, 1]}
+            style={StyleSheet.absoluteFillObject}
+          />
+          <Text style={s.manifestoKicker}>why cerbyl</Text>
+          <Text style={s.manifestoTitle}>one workspace that actually knows how you learn.</Text>
+          <View style={s.manifestoGrid}>
+            {aboutCards.map((card) => (
+              <View key={card.index} style={s.manifestoCard}>
+                <Text style={s.manifestoIndex}>{card.index}</Text>
+                <Text style={s.manifestoCardTitle}>{card.title}</Text>
+                <Text style={s.manifestoCopy}>{card.copy}</Text>
+              </View>
+            ))}
+          </View>
+          <View style={s.founderRow}>
+            <View style={s.founderMark}><Text style={s.founderInitials}>AL</Text></View>
+            <View style={s.founderMark}><Text style={s.founderInitials}>PE</Text></View>
+            <Text style={s.founderText}>founder-built learning system</Text>
+          </View>
         </View>
 
         {/* Row 1: AI chat hero + notes/media stack */}
@@ -177,6 +206,101 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     fontFamily: 'Inter_900Black', fontSize: 38, color: GOLD_L, letterSpacing: -1.6,
   },
   titleRule: { flex: 1, height: 1, backgroundColor: BORDER, marginTop: 6 },
+
+  manifesto: {
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: SURFACE_RAISED,
+    padding: 18,
+    overflow: 'hidden',
+    gap: 16,
+    shadowColor: theme.bgPrimary,
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: theme.isLight ? 0.08 : 0.28,
+    shadowRadius: 28,
+    elevation: 12,
+  },
+  manifestoKicker: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 10,
+    color: DIM,
+    letterSpacing: 2.2,
+    textTransform: 'uppercase',
+  },
+  manifestoTitle: {
+    fontFamily: 'Inter_900Black',
+    fontSize: layout.width >= 700 ? 34 : 28,
+    lineHeight: layout.width >= 700 ? 36 : 30,
+    color: GOLD_L,
+    letterSpacing: -1.1,
+    maxWidth: layout.width >= 700 ? '78%' : '96%',
+  },
+  manifestoGrid: {
+    flexDirection: layout.width >= 700 ? 'row' : 'column',
+    gap: 10,
+  },
+  manifestoCard: {
+    flex: 1,
+    minHeight: 112,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.16 : 0.18),
+    backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.48 : 0.54),
+    padding: 14,
+  },
+  manifestoIndex: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 10,
+    color: DIM,
+    letterSpacing: 1.6,
+    marginBottom: 16,
+  },
+  manifestoCardTitle: {
+    fontFamily: 'Inter_900Black',
+    fontSize: 16,
+    color: GOLD_L,
+    letterSpacing: -0.25,
+    marginBottom: 5,
+  },
+  manifestoCopy: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    lineHeight: 16,
+    color: DIM,
+  },
+  founderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.12 : 0.14),
+    paddingTop: 14,
+  },
+  founderMark: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: rgbaFromHex(GOLD_L, 0.10),
+  },
+  founderInitials: {
+    fontFamily: 'Inter_900Black',
+    fontSize: 11,
+    color: GOLD_L,
+    letterSpacing: 0.8,
+  },
+  founderText: {
+    flex: 1,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 11,
+    color: DIM,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+  },
 
   bentoRow: { flexDirection: 'row', gap: 12 },
 
