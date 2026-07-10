@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import learningPathService from '../services/learningPathService';
 import GeoBackground from '../components/GeoBackground';
@@ -105,6 +105,24 @@ const LearningPaths = () => {
   const [goals, setGoals] = useState('');
   const [difficultyOpen, setDifficultyOpen] = useState(false);
   const [lengthOpen, setLengthOpen] = useState(false);
+
+  const handleTileMove = useCallback((e) => {
+    const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const cx = x / rect.width - 0.5;
+    const cy = y / rect.height - 0.5;
+    card.style.setProperty('--mx', `${x}px`);
+    card.style.setProperty('--my', `${y}px`);
+    card.style.setProperty('--rx', `${(-cy * 7).toFixed(2)}deg`);
+    card.style.setProperty('--ry', `${(cx * 9).toFixed(2)}deg`);
+  }, []);
+  const handleTileLeave = useCallback((e) => {
+    const card = e.currentTarget;
+    card.style.setProperty('--rx', '0deg');
+    card.style.setProperty('--ry', '0deg');
+  }, []);
 
   useEffect(() => { loadPaths(); }, []);
 
@@ -507,7 +525,10 @@ const LearningPaths = () => {
                           key={path.id}
                           className="fc-set-card-new lp-path-card"
                           onClick={() => navigate(`/learning-paths/${path.id}`)}
+                          onMouseMove={handleTileMove}
+                          onMouseLeave={handleTileLeave}
                         >
+                          <div className="cb-tile-texture" />
                           {/* Thumbnail */}
                           <div
                             className="fc-set-thumbnail lp-path-thumb"

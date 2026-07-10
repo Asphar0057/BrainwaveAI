@@ -1,5 +1,35 @@
 /* ─── NEW SHELL LAYOUT (overrides old lpd-container/lpd-main/lpd-sidebar) ── */
 
+/* ── Neumorphic bento tile texture (shared recipe, see Home.css .cb-tile-texture) ── */
+.cb-tile-texture {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
+}
+.cb-tile-texture::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 88% 94%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 55%),
+    repeating-linear-gradient(115deg, transparent 0 22px, color-mix(in srgb, var(--accent) 5.5%, transparent) 22px 23px),
+    repeating-linear-gradient(25deg, transparent 0 26px, color-mix(in srgb, var(--accent) 3.5%, transparent) 26px 27px);
+}
+.cb-tile-texture::after {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  width: 140%;
+  height: 140%;
+  opacity: 0.16;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+}
+
 .lpd-shell {
   position: fixed;
   inset: 0;
@@ -907,7 +937,11 @@
 }
 
 .lpd-overview-card {
-  background: var(--bg-tertiary);
+  --rx: 0deg;
+  --ry: 0deg;
+  --mx: 50%;
+  --my: 50%;
+  background: linear-gradient(155deg, #0b0c0f 0%, #050506 100%);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 18px;
@@ -917,6 +951,13 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  cursor: default;
+  transform: perspective(1000px) rotateX(var(--rx)) rotateY(var(--ry));
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
+  box-shadow:
+    12px 12px 26px rgba(0, 0, 0, 0.62),
+    -8px -8px 20px rgba(255, 255, 255, 0.03),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 5.5%, transparent);
 }
 
 .lpd-overview-next {
@@ -924,18 +965,52 @@
 }
 
 .lpd-overview-focus {
-  background: color-mix(in srgb, var(--accent) 10%, var(--bg-tertiary));
+  background: linear-gradient(155deg, #0b0c0f 0%, #050506 100%);
+}
+
+.lpd-overview-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 2;
 }
 
 .lpd-overview-card::after {
   content: '';
   position: absolute;
-  inset: -60% auto auto -40%;
-  width: 180px;
-  height: 180px;
-  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 18%, transparent), transparent 70%);
-  opacity: 0.7;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: radial-gradient(240px circle at var(--mx) var(--my), color-mix(in srgb, var(--accent) 95%, transparent), transparent 68%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s ease;
   pointer-events: none;
+}
+
+.lpd-overview-card:hover {
+  transform: perspective(1000px) rotateX(var(--rx)) rotateY(var(--ry)) translateY(-8px);
+  box-shadow:
+    18px 18px 38px rgba(0, 0, 0, 0.62),
+    -10px -10px 26px rgba(255, 255, 255, 0.03),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+.lpd-overview-card:hover::before { transform: scaleX(1); }
+.lpd-overview-card:hover::after { opacity: 1; }
+
+.lpd-overview-card > *:not(.cb-tile-texture) {
+  z-index: 1;
 }
 
 .lpd-overview-label {
@@ -1036,17 +1111,58 @@
 }
 
 .lpd-toolkit-card {
+  --rx: 0deg;
+  --ry: 0deg;
+  --mx: 50%;
+  --my: 50%;
+  position: relative;
   display: flex;
   gap: 12px;
   align-items: center;
   padding: 14px;
-  background: var(--bg-tertiary);
+  background: linear-gradient(155deg, #0b0c0f 0%, #050506 100%);
   border: 1px solid var(--border);
   border-radius: 12px;
   color: var(--text-primary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  overflow: hidden;
+  transform: perspective(1000px) rotateX(var(--rx)) rotateY(var(--ry));
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
   text-align: left;
+  box-shadow:
+    12px 12px 26px rgba(0, 0, 0, 0.62),
+    -8px -8px 20px rgba(255, 255, 255, 0.03),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 5.5%, transparent);
+}
+
+.lpd-toolkit-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 2;
+}
+
+.lpd-toolkit-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: radial-gradient(240px circle at var(--mx) var(--my), color-mix(in srgb, var(--accent) 95%, transparent), transparent 68%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
 }
 
 .lpd-toolkit-card:disabled {
@@ -1056,13 +1172,22 @@
 
 .lpd-toolkit-card:hover:not(:disabled) {
   border-color: var(--accent);
-  background: var(--bg-elevated);
-  transform: translateY(-2px);
+  transform: perspective(1000px) rotateX(var(--rx)) rotateY(var(--ry)) translateY(-8px);
+  box-shadow:
+    18px 18px 38px rgba(0, 0, 0, 0.62),
+    -10px -10px 26px rgba(255, 255, 255, 0.03),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent);
 }
+
+.lpd-toolkit-card:hover:not(:disabled)::before { transform: scaleX(1); }
+.lpd-toolkit-card:hover:not(:disabled)::after { opacity: 1; }
 
 .lpd-toolkit-card.is-complete {
   border-color: color-mix(in srgb, #22c55e 50%, var(--border));
-  background: color-mix(in srgb, #22c55e 8%, var(--bg-tertiary));
+}
+
+.lpd-toolkit-card > *:not(.cb-tile-texture) {
+  z-index: 1;
 }
 
 .lpd-toolkit-icon {

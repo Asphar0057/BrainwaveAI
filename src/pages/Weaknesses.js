@@ -363,6 +363,25 @@ export default Weaknesses;
 
 // ==================== WEAKNESS CARD ====================
 
+const handleTileMove = (e) => {
+  const card = e.currentTarget;
+  const rect = card.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const cx = x / rect.width - 0.5;
+  const cy = y / rect.height - 0.5;
+  card.style.setProperty('--mx', `${x}px`);
+  card.style.setProperty('--my', `${y}px`);
+  card.style.setProperty('--rx', `${(-cy * 7).toFixed(2)}deg`);
+  card.style.setProperty('--ry', `${(cx * 9).toFixed(2)}deg`);
+};
+
+const handleTileLeave = (e) => {
+  const card = e.currentTarget;
+  card.style.setProperty('--rx', '0deg');
+  card.style.setProperty('--ry', '0deg');
+};
+
 const WeaknessCard = ({ area, onClick }) => {
   const navigate = useNavigate();
   const cat = area.category;
@@ -390,7 +409,8 @@ const WeaknessCard = ({ area, onClick }) => {
   const correct = (area.total_attempts || 0) - (area.total_wrong || 0);
 
   return (
-    <div className={`wk-card wk-card--${cat}`} onClick={onClick}>
+    <div className={`wk-card wk-card--${cat}`} onClick={onClick} onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+      <div className="cb-tile-texture" />
       <div
         className="wk-card-cover"
         style={{

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './StudyInsights.css';
 import '../components/SocialHubChrome.css';
@@ -78,6 +78,25 @@ const StudyInsights = () => {
       setLoading(false);
     }
   };
+
+  const handleTileMove = useCallback((e) => {
+    const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const cx = x / rect.width - 0.5;
+    const cy = y / rect.height - 0.5;
+    card.style.setProperty('--mx', `${x}px`);
+    card.style.setProperty('--my', `${y}px`);
+    card.style.setProperty('--rx', `${(-cy * 7).toFixed(2)}deg`);
+    card.style.setProperty('--ry', `${(cx * 9).toFixed(2)}deg`);
+  }, []);
+
+  const handleTileLeave = useCallback((e) => {
+    const card = e.currentTarget;
+    card.style.setProperty('--rx', '0deg');
+    card.style.setProperty('--ry', '0deg');
+  }, []);
 
   const scrollToSection = (id) => {
     const el = document.getElementById(id);
@@ -310,12 +329,14 @@ const StudyInsights = () => {
 
           <main className="si-main si-qb-main">
         <div className="si-bento-grid">
-          <div className="si-bento si-summary" id="si-section-summary">
+          <div className="si-bento si-summary" id="si-section-summary" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+            <div className="cb-tile-texture" />
             <span className="view-kicker si-bento-title">AI SUMMARY</span>
             <p className="si-summary-text">{insights.ai_summary}</p>
           </div>
 
-          <div className="si-bento si-time-stats" id="si-section-time">
+          <div className="si-bento si-time-stats" id="si-section-time" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+            <div className="cb-tile-texture" />
             <span className="view-kicker si-bento-title">STUDY TIME</span>
             <div className="si-stats-grid">
               <div className="si-stat">
@@ -333,7 +354,8 @@ const StudyInsights = () => {
             </div>
           </div>
 
-          <div className="si-bento si-activity" id="si-section-activity">
+          <div className="si-bento si-activity" id="si-section-activity" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+            <div className="cb-tile-texture" />
             <span className="view-kicker si-bento-title">WEEKLY ACTIVITY</span>
             <div className="si-activity-list">
               <div className="si-activity-row">
@@ -359,7 +381,8 @@ const StudyInsights = () => {
             </div>
           </div>
 
-          <div className="si-bento si-quiz" id="si-section-quiz">
+          <div className="si-bento si-quiz" id="si-section-quiz" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+            <div className="cb-tile-texture" />
             <span className="view-kicker si-bento-title">QUIZ PERFORMANCE</span>
             {insights.quizzes?.total_quizzes > 0 ? (
               <>
@@ -396,7 +419,8 @@ const StudyInsights = () => {
             )}
           </div>
 
-          <div className="si-bento si-flashcards" id="si-section-flashcards">
+          <div className="si-bento si-flashcards" id="si-section-flashcards" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+            <div className="cb-tile-texture" />
             <span className="view-kicker si-bento-title">FLASHCARD MASTERY</span>
             {insights.flashcards?.total > 0 ? (
               <>
@@ -434,7 +458,8 @@ const StudyInsights = () => {
             )}
           </div>
 
-          <div className="si-bento si-weak" id="si-section-weak">
+          <div className="si-bento si-weak" id="si-section-weak" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+            <div className="cb-tile-texture" />
             <span className="view-kicker si-bento-title">WEAK AREAS TO IMPROVE</span>
             {insights.weak_areas && insights.weak_areas.length > 0 ? (
               <div className="si-weak-list">
@@ -464,7 +489,8 @@ const StudyInsights = () => {
           </div>
 
           {insights.quizzes?.recent_quizzes && insights.quizzes.recent_quizzes.length > 0 && (
-            <div className="si-bento si-recent-quizzes">
+            <div className="si-bento si-recent-quizzes" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+              <div className="cb-tile-texture" />
               <span className="view-kicker si-bento-title">RECENT QUIZ RESULTS</span>
               <div className="si-quiz-list">
                 {insights.quizzes.recent_quizzes.slice(0, 5).map((quiz, idx) => (
@@ -484,7 +510,8 @@ const StudyInsights = () => {
             </div>
           )}
 
-          <div className="si-bento si-qb" id="si-section-qb">
+          <div className="si-bento si-qb" id="si-section-qb" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+            <div className="cb-tile-texture" />
             <span className="view-kicker si-bento-title">QUESTION BANK</span>
             {insights.question_bank?.total_questions > 0 ? (
               <div className="si-qb-stats">
@@ -510,7 +537,8 @@ const StudyInsights = () => {
           </div>
 
           {insights.session_data?.specific_topics && insights.session_data.specific_topics.length > 0 && (
-            <div className="si-bento si-topics">
+            <div className="si-bento si-topics" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+              <div className="cb-tile-texture" />
               <span className="view-kicker si-bento-title">TOPICS STUDIED</span>
               <div className="si-topics-list">
                 {insights.session_data.specific_topics.slice(0, 6).map((topic, idx) => (
@@ -526,7 +554,8 @@ const StudyInsights = () => {
           )}
 
           {insights.notes?.recent_notes && insights.notes.recent_notes.length > 0 && (
-            <div className="si-bento si-notes">
+            <div className="si-bento si-notes" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+              <div className="cb-tile-texture" />
               <span className="view-kicker si-bento-title">RECENT NOTES</span>
               <div className="si-notes-list">
                 {insights.notes.recent_notes.map((note) => (
@@ -539,7 +568,8 @@ const StudyInsights = () => {
           )}
 
           {!hasData && (
-            <div className="si-bento si-empty-state">
+            <div className="si-bento si-empty-state" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+              <div className="cb-tile-texture" />
               <span className="view-kicker si-bento-title">GET STARTED</span>
               <p className="si-empty-text">Start studying to see your comprehensive insights here.</p>
               <button className="si-btn-large" onClick={() => navigate('/ai-chat')}>START STUDYING</button>

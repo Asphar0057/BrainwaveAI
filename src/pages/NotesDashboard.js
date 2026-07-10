@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Search, Filter, FileText, Layout, Settings, ArrowLeft, MessageSquare, LayoutDashboard, LogOut, Menu} from 'lucide-react';
@@ -174,6 +174,24 @@ const NotesDashboard = () => {
     }).join('\n');
   };
 
+  const handleTileMove = useCallback((e) => {
+    const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const cx = x / rect.width - 0.5;
+    const cy = y / rect.height - 0.5;
+    card.style.setProperty('--mx', `${x}px`);
+    card.style.setProperty('--my', `${y}px`);
+    card.style.setProperty('--rx', `${(-cy * 7).toFixed(2)}deg`);
+    card.style.setProperty('--ry', `${(cx * 9).toFixed(2)}deg`);
+  }, []);
+  const handleTileLeave = useCallback((e) => {
+    const card = e.currentTarget;
+    card.style.setProperty('--rx', '0deg');
+    card.style.setProperty('--ry', '0deg');
+  }, []);
+
   const handleFontChange = (font) => {
     setSelectedFont(font);
     localStorage.setItem('preferredFont', font);
@@ -319,15 +337,18 @@ const NotesDashboard = () => {
               <div className="ndb-qb-side-block">
                 <div className="ndb-qb-side-label">Overview</div>
                 <div className="ndb-qb-stat-grid">
-                  <div className="ndb-qb-stat-card">
+                  <div className="ndb-qb-stat-card" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+                    <div className="cb-tile-texture" />
                     <span>{notes.length}</span>
                     <small>Notes</small>
                   </div>
-                  <div className="ndb-qb-stat-card">
+                  <div className="ndb-qb-stat-card" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+                    <div className="cb-tile-texture" />
                     <span>{folders.length}</span>
                     <small>Folders</small>
                   </div>
-                  <div className="ndb-qb-stat-card">
+                  <div className="ndb-qb-stat-card" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+                    <div className="cb-tile-texture" />
                     <span>{thisWeekCount}</span>
                     <small>This Week</small>
                   </div>

@@ -119,13 +119,51 @@
   max-width: 400px;
   max-height: calc(100vh - 48px);
   overflow-y: auto;
-  background: rgba(18,17,16,0.82);
-  border: 1px solid color-mix(in srgb, var(--accent) 14%, transparent);
-  border-radius: 20px;
+  background: linear-gradient(155deg, #16140f 0%, #050506 100%);
+  border-radius: 26px;
   padding: 48px 44px 40px;
   box-sizing: border-box;
-  backdrop-filter: blur(28px);
   flex-shrink: 0;
+  box-shadow:
+    18px 18px 40px rgba(0, 0, 0, 0.72),
+    -12px -12px 30px rgba(255, 255, 255, 0.05),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
+}
+
+.lg-card:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    22px 22px 46px rgba(0, 0, 0, 0.78),
+    -14px -14px 34px rgba(255, 255, 255, 0.07),
+    inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+.lg-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 88% 96%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 60%),
+    radial-gradient(circle at 12% 4%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 58%),
+    repeating-linear-gradient(115deg, transparent 0 22px, color-mix(in srgb, var(--accent) 6%, transparent) 22px 23px),
+    repeating-linear-gradient(25deg, transparent 0 26px, color-mix(in srgb, var(--accent) 4%, transparent) 26px 27px);
+}
+
+.lg-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.26;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.78' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 140px 140px;
 }
 
 .lg-card-register {
