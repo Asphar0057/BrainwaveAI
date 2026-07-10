@@ -519,20 +519,104 @@
 }
 
 .user-card {
-  background:
-    radial-gradient(120% 80% at 100% 0%, color-mix(in srgb, var(--sh-accent) 6%, transparent) 0%, transparent 55%),
-    var(--sh-bg-2);
-  border: 1px solid var(--sh-line);
+  --rx: 0deg;
+  --ry: 0deg;
+  --mx: 50%;
+  --my: 50%;
+  position: relative;
+  cursor: pointer;
+  background: linear-gradient(155deg, #0b0c0f 0%, #050506 100%);
+  border: none;
   border-radius: 16px;
   overflow: hidden;
   min-width: 0;
-  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  transform: perspective(1000px) rotateX(var(--rx)) rotateY(var(--ry));
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
+  box-shadow:
+    12px 12px 26px rgba(0, 0, 0, 0.62),
+    -8px -8px 20px rgba(255, 255, 255, 0.03),
+    inset 0 0 0 1px color-mix(in srgb, var(--sh-accent) 5.5%, transparent);
+}
+
+.user-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--sh-accent), transparent);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 2;
+}
+
+.user-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: radial-gradient(240px circle at var(--mx) var(--my), color-mix(in srgb, var(--sh-accent) 95%, transparent), transparent 68%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
 }
 
 .user-card:hover {
-  border-color: var(--sh-line-strong);
-  transform: translateY(-2px);
-  box-shadow: 0 12px 32px rgba(0,0,0,0.35);
+  transform: perspective(1000px) rotateX(var(--rx)) rotateY(var(--ry)) translateY(-8px);
+  box-shadow:
+    18px 18px 38px rgba(0, 0, 0, 0.62),
+    -10px -10px 26px rgba(255, 255, 255, 0.03),
+    inset 0 0 0 1px color-mix(in srgb, var(--sh-accent) 32%, transparent);
+}
+
+.user-card:hover::before { transform: scaleX(1); }
+.user-card:hover::after { opacity: 1; }
+
+.user-card:active {
+  transform: perspective(1000px) rotateX(var(--rx)) rotateY(var(--ry)) translateY(-3px) scale(0.99);
+  box-shadow:
+    inset 6px 6px 14px rgba(0, 0, 0, 0.55),
+    inset -4px -4px 10px rgba(255, 255, 255, 0.02);
+}
+
+.user-card > *:not(.cb-tile-texture) {
+  z-index: 1;
+}
+
+.cb-tile-texture {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.cb-tile-texture::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 88% 94%, color-mix(in srgb, var(--sh-accent) 18%, transparent), transparent 55%),
+    repeating-linear-gradient(115deg, transparent 0 22px, color-mix(in srgb, var(--sh-accent) 5.5%, transparent) 22px 23px),
+    repeating-linear-gradient(25deg, transparent 0 26px, color-mix(in srgb, var(--sh-accent) 3.5%, transparent) 26px 27px);
+}
+
+.cb-tile-texture::after {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  width: 140%;
+  height: 140%;
+  opacity: 0.16;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
 }
 
 .user-card-header {
@@ -795,6 +879,76 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 14px;
+}
+
+.shared-item-card {
+  --rx: 0deg;
+  --ry: 0deg;
+  --mx: 50%;
+  --my: 50%;
+  position: relative;
+  cursor: pointer;
+  background: linear-gradient(155deg, #0b0c0f 0%, #050506 100%);
+  border: none;
+  border-radius: 16px;
+  overflow: hidden;
+  min-width: 0;
+  transform: perspective(1000px) rotateX(var(--rx)) rotateY(var(--ry));
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
+  box-shadow:
+    12px 12px 26px rgba(0, 0, 0, 0.62),
+    -8px -8px 20px rgba(255, 255, 255, 0.03),
+    inset 0 0 0 1px color-mix(in srgb, var(--sh-accent) 5.5%, transparent);
+}
+
+.shared-item-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--sh-accent), transparent);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 2;
+}
+
+.shared-item-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: radial-gradient(240px circle at var(--mx) var(--my), color-mix(in srgb, var(--sh-accent) 95%, transparent), transparent 68%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.shared-item-card:hover {
+  transform: perspective(1000px) rotateX(var(--rx)) rotateY(var(--ry)) translateY(-8px);
+  box-shadow:
+    18px 18px 38px rgba(0, 0, 0, 0.62),
+    -10px -10px 26px rgba(255, 255, 255, 0.03),
+    inset 0 0 0 1px color-mix(in srgb, var(--sh-accent) 32%, transparent);
+}
+
+.shared-item-card:hover::before { transform: scaleX(1); }
+.shared-item-card:hover::after { opacity: 1; }
+
+.shared-item-card:active {
+  transform: perspective(1000px) rotateX(var(--rx)) rotateY(var(--ry)) translateY(-3px) scale(0.99);
+  box-shadow:
+    inset 6px 6px 14px rgba(0, 0, 0, 0.55),
+    inset -4px -4px 10px rgba(255, 255, 255, 0.02);
+}
+
+.shared-item-card > *:not(.cb-tile-texture) {
+  z-index: 1;
 }
 
 .shared-item {

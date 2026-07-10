@@ -1411,6 +1411,8 @@ async def get_comprehensive_profile(user_id: str = Query(...), db: Session = Dep
             "billingCycle": "monthly",
             "subscriptionStatus": "active",
             "subscriptionStartedAt": None,
+            "quizCompleted": False,
+            "quizSkipped": False,
         }
 
         if comprehensive_profile:
@@ -1434,6 +1436,8 @@ async def get_comprehensive_profile(user_id: str = Query(...), db: Session = Dep
                     comprehensive_profile.subscription_started_at.isoformat()
                     if comprehensive_profile.subscription_started_at else None
                 ),
+                "quizCompleted": bool(comprehensive_profile.quiz_completed),
+                "quizSkipped": bool(comprehensive_profile.quiz_skipped),
             })
 
             try:

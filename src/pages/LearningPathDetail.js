@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Loader as LoaderIcon,
@@ -128,6 +128,24 @@ const LearningPathDetail = () => {
   const [isResizingPathPanel, setIsResizingPathPanel] = useState(false);
   const pathMainRef = useRef(null);
   const resizeFrameRef = useRef(null);
+
+  const handleTileMove = useCallback((e) => {
+    const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const cx = x / rect.width - 0.5;
+    const cy = y / rect.height - 0.5;
+    card.style.setProperty('--mx', `${x}px`);
+    card.style.setProperty('--my', `${y}px`);
+    card.style.setProperty('--rx', `${(-cy * 7).toFixed(2)}deg`);
+    card.style.setProperty('--ry', `${(cx * 9).toFixed(2)}deg`);
+  }, []);
+  const handleTileLeave = useCallback((e) => {
+    const card = e.currentTarget;
+    card.style.setProperty('--rx', '0deg');
+    card.style.setProperty('--ry', '0deg');
+  }, []);
 
   useEffect(() => {
     loadPathDetails();
@@ -1089,7 +1107,8 @@ const LearningPathDetail = () => {
               </div>
 
               <div className="lpd-overview">
-                <div className="lpd-overview-card lpd-overview-next">
+                <div className="lpd-overview-card lpd-overview-next" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+                  <div className="cb-tile-texture" />
                   <div className="lpd-overview-label">
                     {nextActivity ? getActivityIcon(nextActivity.type) : <CheckCircle size={14} />}
                     Next Task
@@ -1109,7 +1128,8 @@ const LearningPathDetail = () => {
                     {nextActivity ? 'Launch Activity' : 'All Done'}
                   </button>
                 </div>
-                <div className="lpd-overview-card lpd-overview-focus">
+                <div className="lpd-overview-card lpd-overview-focus" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+                  <div className="cb-tile-texture" />
                   <div className="lpd-overview-label">
                     <Timer size={14} />
                     Focus Session
@@ -1148,7 +1168,8 @@ const LearningPathDetail = () => {
                     <div className="lpd-focus-toast">Logged {sessionLoggedMinutes} min</div>
                   ) : null}
                 </div>
-                <div className="lpd-overview-card lpd-overview-progress">
+                <div className="lpd-overview-card lpd-overview-progress" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+                  <div className="cb-tile-texture" />
                   <div className="lpd-overview-label">
                     <BarChart3 size={14} />
                     Node Pulse
@@ -1186,9 +1207,12 @@ const LearningPathDetail = () => {
                       key={item.type}
                       className={`lpd-toolkit-card ${item.completed ? 'is-complete' : ''}`}
                       onClick={() => handleActivityClick(item.activity)}
+                      onMouseMove={handleTileMove}
+                      onMouseLeave={handleTileLeave}
                       disabled={actionLoading}
                       type="button"
                     >
+                      <div className="cb-tile-texture" />
                       <div className="lpd-toolkit-icon">
                         {getActivityIcon(item.type)}
                       </div>

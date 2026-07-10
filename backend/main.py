@@ -43,8 +43,6 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("huggingface_hub").setLevel(logging.WARNING)
 logging.getLogger("huggingface_hub.file_download").setLevel(logging.WARNING)
-logging.getLogger("neo4j").setLevel(logging.ERROR)
-logging.getLogger("neo4j.notifications").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -307,16 +305,6 @@ async def lifespan(app: FastAPI):
         logger.info("Note graph initialized")
     except Exception as e:
         logger.warning(f"Note graph init failed: {e}")
-
-    try:
-        from tutor import neo4j_store
-        await neo4j_store.connect()
-        if neo4j_store.available():
-            logger.info("Neo4j connected")
-        else:
-            logger.warning("Neo4j not available - knowledge graph features disabled")
-    except Exception as e:
-        logger.warning(f"Neo4j connection failed: {e}")
 
     startup_embeddings_enabled = os.getenv(
         "ENABLE_STARTUP_EMBEDDINGS",

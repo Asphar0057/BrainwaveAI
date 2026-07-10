@@ -134,11 +134,6 @@ ALLOWED_ORIGINS=https://yourdomain.com,http://localhost:3000
 
 # Optional: Redis for caching
 REDIS_URL=redis://localhost:6379
-
-# Optional: Neo4j for knowledge graph
-NEO4J_URI=bolt://localhost:7687
-NEO4J_USER=neo4j
-NEO4J_PASSWORD=your-password
 ```
 
 Save with `Ctrl+X`, then `Y`, then `Enter`.

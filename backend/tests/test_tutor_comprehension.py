@@ -20,10 +20,6 @@ evaluator_stub = types.ModuleType("tutor.evaluator")
 evaluator_stub.evaluate = lambda **kwargs: None
 sys.modules["tutor.evaluator"] = evaluator_stub
 
-neo4j_stub = types.ModuleType("tutor.neo4j_store")
-neo4j_stub.available = lambda: False
-sys.modules["tutor.neo4j_store"] = neo4j_stub
-
 chroma_stub = types.ModuleType("tutor.chroma_store")
 chroma_stub.available = lambda: False
 chroma_stub.retrieve_important = lambda *args, **kwargs: []

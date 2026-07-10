@@ -979,20 +979,6 @@ async def submit_question_answers(
             logger.warning(f"Chroma write failed on quiz submit: {chroma_err}")
 
         try:
-            from tutor import neo4j_store
-            if neo4j_store.available() and topic:
-                if score >= 80:
-                    await neo4j_store.update_mastery(
-                        str(question_set.user_id),
-                        topic[:100],
-                        confidence=min(score / 100.0, 1.0),
-                    )
-                elif score < 60:
-                    await neo4j_store.update_struggle(str(question_set.user_id), topic[:100])
-        except Exception as neo4j_err:
-            logger.warning(f"Neo4j mastery write failed on quiz submit: {neo4j_err}")
-
-        try:
             from services.context_agent import get_context_agent, LearningEvent
             _agent = get_context_agent()
             if _agent and topic:

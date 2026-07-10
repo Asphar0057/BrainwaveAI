@@ -20,8 +20,6 @@ class FlashcardGenState(TypedDict, total=False):
     additional_specs: str
     student_weaknesses: list[str]
     student_strengths: list[str]
-    concept_prerequisites: list[str]
-    common_mistakes: list[str]
     rag_context: list[str]
     use_hs_context: bool
     context_doc_ids: list[str]
@@ -67,29 +65,6 @@ async def fetch_context(state: FlashcardGenState) -> dict:
                 db.close()
         except Exception as e:
             logger.warning(f"DB context fetch failed: {e}")
-
-    prerequisites: list[str] = []
-    mistakes: list[str] = []
-
-    from tutor import neo4j_store
-    if neo4j_store.available():
-        try:
-            concepts = await neo4j_store.get_student_concepts(user_id)
-            for c in concepts.get("struggling", []):
-                if c not in weaknesses:
-                    weaknesses.append(c)
-            for c in concepts.get("mastered", []):
-                if c not in strengths:
-                    strengths.append(c)
-
-            topic = state.get("topic", "")
-            topic_concepts = [w for w in topic.split() if len(w) > 3]
-            if topic_concepts:
-                ctx = await neo4j_store.get_concept_context(topic_concepts[:4])
-                prerequisites = ctx.get("prerequisites", [])
-                mistakes = ctx.get("mistakes", [])
-        except Exception as e:
-            logger.warning(f"Neo4j context fetch failed: {e}")
 
     rag_chunks: list[str] = []
     topic = state.get("topic", "")
@@ -142,8 +117,6 @@ async def fetch_context(state: FlashcardGenState) -> dict:
     return {
         "student_weaknesses": weaknesses,
         "student_strengths": strengths,
-        "concept_prerequisites": prerequisites,
-        "common_mistakes": mistakes,
         "rag_context": rag_chunks,
     }
 
@@ -201,8 +174,6 @@ def build_prompt(state: FlashcardGenState) -> dict:
         additional_specs = ""
     weaknesses = state.get("student_weaknesses", [])
     strengths = state.get("student_strengths", [])
-    prerequisites = state.get("concept_prerequisites", [])
-    mistakes = state.get("common_mistakes", [])
 
     parts = []
 
@@ -229,18 +200,6 @@ def build_prompt(state: FlashcardGenState) -> dict:
         parts.append(
             f"STUDENT STRENGTHS: {', '.join(strengths[:5])}\n"
             "Skip overly basic questions on these topics — challenge the student.\n"
-        )
-
-    if prerequisites:
-        parts.append(
-            f"PREREQUISITE CONCEPTS (from knowledge graph): {', '.join(prerequisites[:5])}\n"
-            "Include 1-2 cards covering these foundational concepts so the student has the necessary base.\n"
-        )
-
-    if mistakes:
-        parts.append(
-            f"COMMON MISTAKES STUDENTS MAKE: {', '.join(mistakes[:5])}\n"
-            "Include cards specifically testing these pitfalls so the student learns to avoid them.\n"
         )
 
     if additional_specs.strip():

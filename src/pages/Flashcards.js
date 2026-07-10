@@ -1448,7 +1448,25 @@ const Flashcards = () => {
     setHasMoreSets(currentLength + SETS_PER_PAGE < allSets.length);
   }, [displayedSets, flashcardHistory, searchQuery, sortBy]);
 
-  
+  const handleTileMove = useCallback((e) => {
+    const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const cx = x / rect.width - 0.5;
+    const cy = y / rect.height - 0.5;
+    card.style.setProperty('--mx', `${x}px`);
+    card.style.setProperty('--my', `${y}px`);
+    card.style.setProperty('--rx', `${(-cy * 7).toFixed(2)}deg`);
+    card.style.setProperty('--ry', `${(cx * 9).toFixed(2)}deg`);
+  }, []);
+  const handleTileLeave = useCallback((e) => {
+    const card = e.currentTarget;
+    card.style.setProperty('--rx', '0deg');
+    card.style.setProperty('--ry', '0deg');
+  }, []);
+
+
   useEffect(() => {
     if (activePanel !== 'cards') return;
     
@@ -3158,7 +3176,8 @@ const Flashcards = () => {
                         ];
                         const cardColor = colors[index % colors.length];
                         return (
-                          <div key={set.id} className="fc-set-card-new">
+                          <div key={set.id} className="fc-set-card-new" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+                            <div className="cb-tile-texture" />
                             <div className="fc-set-thumbnail" style={{ background: `linear-gradient(135deg, ${cardColor} 0%, ${cardColor}dd 100%)` }}>
                               <div className="fc-set-thumbnail-content">
                                 {editingSetId === set.id ? (

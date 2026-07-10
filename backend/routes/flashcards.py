@@ -817,17 +817,6 @@ async def mark_flashcard_for_review(
             models.FlashcardSet.id == card.set_id
         ).first()
         if flashcard_set:
-            from tutor import neo4j_store
-            if neo4j_store.available():
-                try:
-                    concept = flashcard_set.title.replace("Flashcards: ", "") if flashcard_set.title else ""
-                    if concept:
-                        await neo4j_store.update_struggle(
-                            str(flashcard_set.user_id), concept
-                        )
-                except Exception as e:
-                    logger.warning(f"Neo4j struggle write on mark_for_review failed: {e}")
-
             from tutor import chroma_store
             if chroma_store.available():
                 try:
@@ -893,16 +882,6 @@ async def update_flashcard_review(request: FlashcardReviewRequest, db: Session =
             )
         except Exception as e:
             logger.warning(f"Chroma write failed on flashcard review: {e}")
-
-    if not request.was_correct and owner_id:
-        from tutor import neo4j_store
-        if neo4j_store.available():
-            try:
-                concept = set_title.replace("Flashcards: ", "") if set_title else ""
-                if concept:
-                    await neo4j_store.update_struggle(owner_id, concept)
-            except Exception as e:
-                logger.warning(f"Neo4j struggle write failed: {e}")
 
     return {
         "status": "success",
@@ -1079,16 +1058,6 @@ async def sr_review(request: SRReviewRequest, db: Session = Depends(get_db)):
             )
         except Exception as e:
             logger.warning(f"Chroma write failed on SR review: {e}")
-
-    if grade_str == "again":
-        from tutor import neo4j_store
-        if neo4j_store.available():
-            try:
-                concept = set_title.replace("Flashcards: ", "") if set_title else ""
-                if concept:
-                    await neo4j_store.update_struggle(str(user.id), concept)
-            except Exception as e:
-                logger.warning(f"Neo4j struggle write failed: {e}")
 
     try:
         from services.context_agent import get_context_agent, LearningEvent

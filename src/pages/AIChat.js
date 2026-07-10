@@ -1989,6 +1989,24 @@ const AIChat = ({ sharedMode = false }) => {
     }
   }, [API_URL, activateChatDock, activeChatId, getChatActionContext, navigate, showSmartActionNotice, userName]);
 
+  const handleTileMove = useCallback((e) => {
+    const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const cx = x / rect.width - 0.5;
+    const cy = y / rect.height - 0.5;
+    card.style.setProperty('--mx', `${x}px`);
+    card.style.setProperty('--my', `${y}px`);
+    card.style.setProperty('--rx', `${(-cy * 7).toFixed(2)}deg`);
+    card.style.setProperty('--ry', `${(cx * 9).toFixed(2)}deg`);
+  }, []);
+  const handleTileLeave = useCallback((e) => {
+    const card = e.currentTarget;
+    card.style.setProperty('--rx', '0deg');
+    card.style.setProperty('--ry', '0deg');
+  }, []);
+
   const renderSmartActionIcon = (icon) => {
     switch (icon) {
       case 'note':
@@ -3486,8 +3504,11 @@ const AIChat = ({ sharedMode = false }) => {
                               type="button"
                               className="ac-tutor-option-btn"
                               onClick={() => handleTutorOptionClick(option)}
+                              onMouseMove={handleTileMove}
+                              onMouseLeave={handleTileLeave}
                               disabled={loading}
                             >
+                              <div className="cb-tile-texture" />
                               <span className="ac-tutor-option-label">{option.label}</span>
                               <div className="ac-tutor-option-text">
                                 {renderMessageContent(option.text)}
@@ -3507,8 +3528,11 @@ const AIChat = ({ sharedMode = false }) => {
                                 key={actionKey}
                                 className={`ac-smart-action ac-smart-action-${action.icon || 'default'}`}
                                 onClick={() => runSmartAction(action, message)}
+                                onMouseMove={handleTileMove}
+                                onMouseLeave={handleTileLeave}
                                 disabled={busy || loading}
                               >
+                                <div className="cb-tile-texture" />
                                 <span className="ac-smart-action-icon">{busy ? '...' : renderSmartActionIcon(action.icon)}</span>
                                 <span className="ac-smart-action-copy">
                                   <span className="ac-smart-action-label">{action.label}</span>
@@ -3519,7 +3543,7 @@ const AIChat = ({ sharedMode = false }) => {
                           })}
                         </div>
                       )}
-                      
+
                       {/* Intelligent Action Grid */}
                       {message.type === 'ai' && !isTutorMessage && smartActions.length > 0 && (
                         <div className="ac-smart-actions">
@@ -3531,8 +3555,11 @@ const AIChat = ({ sharedMode = false }) => {
                                 key={actionKey}
                                 className={`ac-smart-action ac-smart-action-${action.icon || 'default'}`}
                                 onClick={() => runSmartAction(action, message)}
+                                onMouseMove={handleTileMove}
+                                onMouseLeave={handleTileLeave}
                                 disabled={busy || loading}
                               >
+                                <div className="cb-tile-texture" />
                                 <span className="ac-smart-action-icon">{busy ? '...' : renderSmartActionIcon(action.icon)}</span>
                                 <span className="ac-smart-action-copy">
                                   <span className="ac-smart-action-label">{action.label}</span>

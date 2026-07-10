@@ -8,8 +8,8 @@ from typing import Any, Optional
 
 from starlette.concurrency import run_in_threadpool
 
-from tutor.state import TutorState, StudentState, Neo4jInsights, EvalResult, AttemptEvaluation, TutorPlan
-from tutor import neo4j_store, chroma_store
+from tutor.state import TutorState, StudentState, EvalResult, AttemptEvaluation, TutorPlan
+from tutor import chroma_store
 from tutor.prompt import build_tutor_prompt
 from tutor.evaluator import evaluate
 
@@ -562,28 +562,6 @@ async def fetch_student_state(state: TutorState) -> dict:
         "is_new_session":       is_new_session,
         "last_session_summary": last_session_summary,
     }
-
-async def reason_from_graph(state: TutorState) -> dict:
-    user_input = state.get("user_input", "")
-    user_id = state.get("user_id", "")
-    insights = Neo4jInsights()
-
-    words = set(re.findall(r"\b[a-zA-Z]{3,}\b", user_input.lower()))
-    concepts = list(words)[:10]
-    insights.relevant_concepts = concepts
-
-    if neo4j_store.available() and concepts:
-        try:
-            context = await neo4j_store.get_concept_context(concepts)
-            insights.prerequisites = context.get("prerequisites", [])
-            insights.common_mistakes = context.get("mistakes", [])
-
-            strategies = await neo4j_store.get_effective_strategies(user_id, concepts[0])
-            insights.effective_strategies = strategies
-        except Exception as e:
-            logger.warning(f"Neo4j reasoning failed: {e}")
-
-    return {"neo4j_insights": insights}
 
 def _fetch_flashcard_context(db_factory, user_id: str, top_k: int = 10) -> list[str]:
     if not db_factory:
@@ -1396,12 +1374,32 @@ def _build_instructional_task(state: TutorState) -> str:
         )
 
     if intent == "off_topic":
+        last_summary  = state.get("last_session_summary")
+        recent_topics = (last_summary or {}).get("topics") or []
+
+        if not recent_topics:
+            db_factory = state.get("_db_factory")
+            current_session = _fetch_last_session_summary(db_factory, state.get("user_id", ""), current_chat_id=None)
+            recent_topics = (current_session or {}).get("topics") or []
+
+        recent_topics = recent_topics[:3]
+
+        if recent_topics:
+            topics_str = "; ".join(recent_topics)
+            return (
+                "The student sent a message that is not about a learning topic. "
+                "Respond warmly and redirect them toward learning. "
+                f"Their most recent real topics (from STRUCTURED LEARNING DATA) are: {topics_str}. "
+                "Suggest picking up ONE of these specific recent topics, or ask what they'd like to study instead. "
+                "Do NOT reference any other topic, weak area, or subject — only what is listed here or "
+                "explicitly present elsewhere in STRUCTURED LEARNING DATA. Never invent a topic."
+            )
+
         return (
             "The student sent a message that is not about a learning topic. "
             "Respond warmly and redirect them toward learning. "
-            "If STRUCTURED LEARNING DATA contains their weak areas, past topics, notes, or flashcard sets — "
-            "reference those specifically to suggest what to work on next. "
-            "If there is NO data about them yet, just ask what they want to study — do NOT invent topics."
+            "You have no reliable record of their recent topics right now — "
+            "do NOT invent or guess any topic, subject, or weak area. Just ask what they'd like to study."
         )
 
     if intent == "project_build":
@@ -1766,20 +1764,6 @@ async def evaluate_tutor_attempt(state: TutorState) -> dict:
         return {"attempt_evaluation": AttemptEvaluation(verdict="not_applicable", confidence=0.0)}
 
     rag_context = "\n".join(str(chunk)[:800] for chunk in (state.get("rag_context") or [])[:4])
-    insights = state.get("neo4j_insights") or Neo4jInsights()
-    if isinstance(insights, dict):
-        relevant_concepts = list(insights.get("relevant_concepts") or [])
-        prerequisites = list(insights.get("prerequisites") or [])
-        common_mistakes = list(insights.get("common_mistakes") or [])
-    else:
-        relevant_concepts = list(insights.relevant_concepts or [])
-        prerequisites = list(insights.prerequisites or [])
-        common_mistakes = list(insights.common_mistakes or [])
-    graph_context = (
-        f"Relevant concepts: {', '.join(relevant_concepts[:8]) or 'none'}\n"
-        f"Prerequisites: {', '.join(prerequisites[:8]) or 'none'}\n"
-        f"Common mistakes: {', '.join(common_mistakes[:8]) or 'none'}"
-    )
 
     prompt = f"""
 You are the hidden grading node inside an educational tutor graph.
@@ -1822,9 +1806,6 @@ Current step expected answer/key idea:
 
 Known final answer:
 {final_answer or "none"}
-
-Graph concept context:
-{graph_context}
 
 Retrieved document context:
 {rag_context or "none"}
@@ -2088,7 +2069,6 @@ async def evaluate_response(state: TutorState) -> dict:
         user_input=state.get("user_input", ""),
         response=state.get("response", ""),
         student_state=state.get("student_state"),
-        neo4j_insights=state.get("neo4j_insights"),
     )
     return {"evaluation": result}
 
@@ -2101,7 +2081,6 @@ async def persist_updates(state: TutorState) -> dict:
     analysis      = state.get("language_analysis") or {}
     chat_id       = state.get("chat_id")
     db_factory    = state.get("_db_factory")
-    neo4j_updates = []
     chroma_writes = []
 
     signal_type      = analysis.get("signal_type", "neutral")
@@ -2273,4 +2252,4 @@ async def persist_updates(state: TutorState) -> dict:
         except Exception as e:
             logger.warning(f"Chroma persistence failed: {e}")
 
-    return {"neo4j_updates": neo4j_updates, "chroma_writes": chroma_writes}
+    return {"chroma_writes": chroma_writes}

@@ -3,14 +3,13 @@ from __future__ import annotations
 import logging
 
 from tutor.contract import TUTOR_BASE_RULES, tutor_reply_style_rules
-from tutor.state import TutorState, StudentState, Neo4jInsights
+from tutor.state import TutorState, StudentState
 from dkt.style_bandit import STYLE_INSTRUCTIONS
 
 logger = logging.getLogger(__name__)
 
 def build_tutor_prompt(state: TutorState) -> str:
     student            = state.get("student_state")
-    insights           = state.get("neo4j_insights")
     memories           = state.get("episodic_memories", [])
     structured_context = state.get("structured_context", [])
     chat_history       = state.get("chat_history", [])
@@ -46,7 +45,6 @@ def build_tutor_prompt(state: TutorState) -> str:
         else:
             if chat_history:
                 sections.append(_chat_history_section(chat_history))
-            sections.append(_concept_section(insights))
             if structured_context:
                 sections.append(_structured_context_section(structured_context))
             if other_memories:
@@ -100,27 +98,6 @@ def _chat_history_section(history: list[dict]) -> str:
             ai_resp = ai_resp[:200] + "..."
         lines.append(f"Cerbyl: {ai_resp}")
     lines.append("---")
-    return "\n".join(lines)
-
-def _concept_section(insights: Neo4jInsights | None) -> str:
-    lines = ["[CONCEPT CONTEXT]"]
-    if not insights or (
-        not insights.prerequisites
-        and not insights.common_mistakes
-        and not insights.effective_strategies
-    ):
-        lines.append("No specific concept context available.")
-        return "\n".join(lines)
-    if insights.prerequisites:
-        lines.append(f"- Prerequisites: {', '.join(insights.prerequisites)}")
-    if insights.common_mistakes:
-        lines.append("- Common mistakes to watch for:")
-        for m in insights.common_mistakes:
-            lines.append(f"  * {m}")
-    if insights.effective_strategies:
-        lines.append("- Strategies that worked before:")
-        for s in insights.effective_strategies:
-            lines.append(f"  * {s}")
     return "\n".join(lines)
 
 def _structured_context_section(context_lines: list[str]) -> str:

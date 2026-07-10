@@ -22,8 +22,6 @@ class QuizGenState(TypedDict, total=False):
     student_weaknesses: list[str]
     student_strengths: list[str]
     quiz_history: list[dict]
-    concept_prerequisites: list[str]
-    common_mistakes: list[str]
     rag_context: list[str]
     use_hs_context: bool
     context_doc_ids: list[str]
@@ -99,36 +97,6 @@ async def fetch_context(state: QuizGenState) -> dict:
         len(quiz_history),
     )
 
-    concept_prerequisites: list[str] = []
-    common_mistakes: list[str] = []
-
-    neo4j_started = time.perf_counter()
-    from tutor import neo4j_store
-    if neo4j_store.available():
-        try:
-            concepts = await neo4j_store.get_student_concepts(user_id)
-            for c in concepts.get("struggling", []):
-                if c not in weaknesses:
-                    weaknesses.append(c)
-            for c in concepts.get("mastered", []):
-                if c not in strengths:
-                    strengths.append(c)
-
-            topic = state.get("topic", "")
-            topic_concepts = [w for w in topic.split() if len(w) > 3]
-            if topic_concepts:
-                ctx = await neo4j_store.get_concept_context(topic_concepts[:4])
-                concept_prerequisites = ctx.get("prerequisites", [])
-                common_mistakes = ctx.get("mistakes", [])
-        except Exception as e:
-            logger.warning(f"Neo4j context fetch failed in quiz graph: {e}")
-    logger.info(
-        "[QUIZ TIMING] fetch_context neo4j stage elapsed=%.2fs prerequisites=%s mistakes=%s",
-        time.perf_counter() - neo4j_started,
-        len(concept_prerequisites),
-        len(common_mistakes),
-    )
-
     rag_chunks: list[str] = []
     topic = state.get("topic", "")
     use_hs = state.get("use_hs_context", True)
@@ -192,8 +160,6 @@ async def fetch_context(state: QuizGenState) -> dict:
         "student_weaknesses": weaknesses,
         "student_strengths": strengths,
         "quiz_history": quiz_history,
-        "concept_prerequisites": concept_prerequisites,
-        "common_mistakes": common_mistakes,
         "rag_context": rag_chunks,
     }
 
@@ -235,8 +201,6 @@ def build_prompt(state: QuizGenState) -> dict:
     weaknesses = state.get("student_weaknesses", [])
     strengths = state.get("student_strengths", [])
     quiz_history = state.get("quiz_history", [])
-    prerequisites = state.get("concept_prerequisites", [])
-    mistakes = state.get("common_mistakes", [])
 
     if difficulty not in DIFFICULTY_GUIDES:
         difficulty = "mixed"
@@ -290,18 +254,6 @@ def build_prompt(state: QuizGenState) -> dict:
         parts.append(
             f"RECENT QUIZ PERFORMANCE:\n" + "\n".join(f"  • {l}" for l in history_lines) + "\n"
             "Use this to calibrate question difficulty and focus.\n"
-        )
-
-    if prerequisites:
-        parts.append(
-            f"PREREQUISITE CONCEPTS (from knowledge graph): {', '.join(prerequisites[:5])}\n"
-            "Include 1-2 questions testing these foundational concepts before the main topic.\n"
-        )
-
-    if mistakes:
-        parts.append(
-            f"COMMON MISTAKES STUDENTS MAKE: {', '.join(mistakes[:5])}\n"
-            "Include questions specifically designed to surface and correct these pitfalls.\n"
         )
 
     if additional_specs:

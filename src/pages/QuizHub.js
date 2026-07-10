@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Swords, ChevronRight, Zap, Trophy, Target, MessageSquare, LayoutDashboard, LogOut } from 'lucide-react';
 import './QuizHub.css';
@@ -36,6 +36,24 @@ const QuizHub = () => {
     setHsMode(val);
     localStorage.setItem('hs_mode_enabled', String(val));
   };
+
+  const handleTileMove = useCallback((e) => {
+    const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const cx = x / rect.width - 0.5;
+    const cy = y / rect.height - 0.5;
+    card.style.setProperty('--mx', `${x}px`);
+    card.style.setProperty('--my', `${y}px`);
+    card.style.setProperty('--rx', `${(-cy * 7).toFixed(2)}deg`);
+    card.style.setProperty('--ry', `${(cx * 9).toFixed(2)}deg`);
+  }, []);
+  const handleTileLeave = useCallback((e) => {
+    const card = e.currentTarget;
+    card.style.setProperty('--rx', '0deg');
+    card.style.setProperty('--ry', '0deg');
+  }, []);
 
   return (
     <div className="qh">
@@ -89,8 +107,10 @@ const QuizHub = () => {
           className={`qh-section qh-section-solo ${hoveredSection === 'solo' ? 'qh-section-hovered' : ''}`}
           onClick={() => navigate('/solo-quiz')}
           onMouseEnter={() => setHoveredSection('solo')}
-          onMouseLeave={() => setHoveredSection(null)}
+          onMouseMove={handleTileMove}
+          onMouseLeave={(e) => { setHoveredSection(null); handleTileLeave(e); }}
         >
+          <div className="cb-tile-texture" />
           <div className="qh-section-glow"></div>
           <div className="qh-section-inner">
             <div className="qh-section-icon">
@@ -135,8 +155,10 @@ const QuizHub = () => {
           className={`qh-section qh-section-battle ${hoveredSection === 'battle' ? 'qh-section-hovered' : ''}`}
           onClick={() => navigate('/quiz-battles')}
           onMouseEnter={() => setHoveredSection('battle')}
-          onMouseLeave={() => setHoveredSection(null)}
+          onMouseMove={handleTileMove}
+          onMouseLeave={(e) => { setHoveredSection(null); handleTileLeave(e); }}
         >
+          <div className="cb-tile-texture" />
           <div className="qh-section-glow"></div>
           <div className="qh-section-inner">
             <div className="qh-section-icon">

@@ -24,7 +24,6 @@ class TutorGraph:
         g.add_node("detect_intent",          nodes.detect_intent)
         g.add_node("analyze_message",         nodes.analyze_message)
         g.add_node("fetch_student_state",     nodes.fetch_student_state)
-        g.add_node("reason_from_graph",       nodes.reason_from_graph)
         g.add_node("gate_and_retrieve",       nodes.gate_and_retrieve)
         g.add_node("plan_tutor_steps",        nodes.plan_tutor_steps)
         g.add_node("evaluate_tutor_attempt",  nodes.evaluate_tutor_attempt)
@@ -36,8 +35,7 @@ class TutorGraph:
         g.set_entry_point("detect_intent")
         g.add_edge("detect_intent",           "analyze_message")
         g.add_edge("analyze_message",         "fetch_student_state")
-        g.add_edge("fetch_student_state",     "reason_from_graph")
-        g.add_edge("reason_from_graph",       "gate_and_retrieve")
+        g.add_edge("fetch_student_state",     "gate_and_retrieve")
         g.add_edge("gate_and_retrieve",       "plan_tutor_steps")
         g.add_edge("plan_tutor_steps",        "evaluate_tutor_attempt")
         g.add_edge("evaluate_tutor_attempt",  "update_tutor_plan_progress")
@@ -89,7 +87,6 @@ class TutorGraph:
                 "tutor_plan": result.get("tutor_plan"),
                 "attempt_evaluation": result.get("attempt_evaluation"),
                 "evaluation": result.get("evaluation"),
-                "neo4j_updates": result.get("neo4j_updates", []),
                 "chroma_writes": result.get("chroma_writes", []),
             }
         except Exception as e:

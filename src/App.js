@@ -9,6 +9,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
 import GlobalNotifications from './components/GlobalNotifications';
 import RateLimitHandler from './components/RateLimitHandler';
+import Home from './pages/Home';
 import { getChatDockState, listenChatDockUpdates } from './utils/chatDock';
 import {
   formatUsageLimitMessage,
@@ -62,7 +63,6 @@ const Profile = lazyRoute(() => import('./pages/ProfileNew'));
 const UsageStats = lazyRoute(() => import('./pages/UsageStats'));
 const ProfileQuiz = lazyRoute(() => import('./pages/ProfileQuiz'));
 const SearchHub = lazyRoute(() => import('./pages/SearchHub'));
-const Landing = lazyRoute(() => import('./pages/Landing'));
 const StudyInsights = lazyRoute(() => import('./pages/StudyInsights'));
 const Weaknesses = lazyRoute(() => import('./pages/Weaknesses'));
 const WeaknessPractice = lazyRoute(() => import('./pages/WeaknessPractice'));
@@ -270,7 +270,7 @@ function App() {
             <ErrorBoundary>
               <Suspense fallback={<LoadingSpinner />}>
                 <Routes>
-                  <Route path="/" element={<Landing />} />
+                  <Route path="/" element={<Home />} />
                   <Route path="/search-hub" element={<ProtectedRoute><SearchHub /></ProtectedRoute>} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />

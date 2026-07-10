@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload, Youtube, FileText, Save, Copy, RefreshCw, Mic, Loader, ArrowLeft, MessageSquare, LayoutDashboard, LogOut, Headphones, FolderOpen, Menu } from 'lucide-react';
 import './AudioVideoNotes.css';
@@ -146,6 +146,24 @@ const AudioVideoNotes = () => {
     generateNotesFromMedia();
   };
 
+  const handleTileMove = useCallback((e) => {
+    const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const cx = x / rect.width - 0.5;
+    const cy = y / rect.height - 0.5;
+    card.style.setProperty('--mx', `${x}px`);
+    card.style.setProperty('--my', `${y}px`);
+    card.style.setProperty('--rx', `${(-cy * 7).toFixed(2)}deg`);
+    card.style.setProperty('--ry', `${(cx * 9).toFixed(2)}deg`);
+  }, []);
+  const handleTileLeave = useCallback((e) => {
+    const card = e.currentTarget;
+    card.style.setProperty('--rx', '0deg');
+    card.style.setProperty('--ry', '0deg');
+  }, []);
+
   return (
     <div className="audio-video-notes-page">
       <div className="shc-topbar">
@@ -286,7 +304,8 @@ const AudioVideoNotes = () => {
       </div>
 
       <div className="content-grid">
-        <div className="upload-panel">
+        <div className="upload-panel" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+          <div className="cb-tile-texture" />
           <h2>Upload Media</h2>
           
           <div

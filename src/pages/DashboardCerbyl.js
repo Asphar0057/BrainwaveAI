@@ -503,6 +503,27 @@ const DashboardCerbyl = () => {
   const moduleDragMovedRef = useRef(false);
   const [isModuleDragging, setIsModuleDragging] = useState(false);
 
+  // exact copy of Home.js's handleTileMove/handleTileLeave, driving the same
+  // --mx/--my/--rx/--ry tilt + spotlight custom properties on the bento cards
+  const handleTileMove = useCallback((e) => {
+    const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const cx = x / rect.width - 0.5;
+    const cy = y / rect.height - 0.5;
+    card.style.setProperty('--mx', `${x}px`);
+    card.style.setProperty('--my', `${y}px`);
+    card.style.setProperty('--rx', `${(-cy * 7).toFixed(2)}deg`);
+    card.style.setProperty('--ry', `${(cx * 9).toFixed(2)}deg`);
+  }, []);
+
+  const handleTileLeave = useCallback((e) => {
+    const card = e.currentTarget;
+    card.style.setProperty('--rx', '0deg');
+    card.style.setProperty('--ry', '0deg');
+  }, []);
+
   const normalizeModuleOffset = (offset) => {
     const segmentWidth = moduleSegmentWidthRef.current;
     if (!segmentWidth) return offset;
@@ -1576,13 +1597,15 @@ const DashboardCerbyl = () => {
   };
 
   return (
-    <div className="cb-root">
+    <div className="cbd-root">
       {}
       <div className="cb-bg-fx" aria-hidden>
+        <div className="cb-bg-wash" />
         <div className="cb-bg-orb cb-bg-orb-1" />
         <div className="cb-bg-orb cb-bg-orb-2" />
         <div className="cb-bg-orb cb-bg-orb-3" />
         <div className="cb-bg-dots" />
+        <div className="cb-bg-grain" />
         <div className="cb-bg-vignette" />
       </div>
 
@@ -1738,6 +1761,7 @@ const DashboardCerbyl = () => {
         {isSidebarOpen && (
         <div className="cb-side-slot">
         <aside className="cb-side">
+          <div className="cb-tile-texture" />
           <div className="cb-brand">
             <span className="cb-brand-name">cerbyl</span>
           </div>
@@ -1877,23 +1901,28 @@ const DashboardCerbyl = () => {
             </div>
 
             <div className="cb-stat-row">
-              <div className="cb-stat">
+              <div className="cb-stat" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+                <div className="cb-tile-texture" />
                 <div className="cb-stat-num">{String(stats.level).padStart(2, '0')}</div>
                 <div className="cb-stat-lbl">LEVEL</div>
               </div>
-              <div className="cb-stat">
+              <div className="cb-stat" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+                <div className="cb-tile-texture" />
                 <div className="cb-stat-num">{stats.xp}<span className="cb-stat-tiny"> XP</span></div>
                 <div className="cb-stat-lbl">OF {stats.nextXp}</div>
               </div>
-              <div className="cb-stat">
+              <div className="cb-stat" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+                <div className="cb-tile-texture" />
                 <div className="cb-stat-num">#{stats.rank || 1}</div>
                 <div className="cb-stat-lbl">GLOBAL</div>
               </div>
-              <div className="cb-stat">
+              <div className="cb-stat" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+                <div className="cb-tile-texture" />
                 <div className="cb-stat-num">{stats.streak}</div>
                 <div className="cb-stat-lbl">STREAK</div>
               </div>
-              <div className="cb-stat">
+              <div className="cb-stat" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+                <div className="cb-tile-texture" />
                 <div className="cb-stat-num">{stats.questions}</div>
                 <div className="cb-stat-lbl">QUESTIONS</div>
               </div>
@@ -1915,11 +1944,13 @@ const DashboardCerbyl = () => {
             <div
               className="cb-feat cb-feat--chat"
               onMouseEnter={runChatCardHoverAnimation}
-              onMouseLeave={stopChatCardHoverAnimation}
+              onMouseMove={handleTileMove}
+              onMouseLeave={(e) => { stopChatCardHoverAnimation(e); handleTileLeave(e); }}
               onClick={() => navigate('/ai-chat')}
               role="button"
               tabIndex={0}
             >
+              <div className="cb-tile-texture" />
               <div className="cb-feat-tag">AI CHAT</div>
               <div className="cb-feat-title">Ask<br />Anything</div>
               <div className="cb-feat-desc">Instant AI guidance on any topic</div>
@@ -1943,11 +1974,13 @@ const DashboardCerbyl = () => {
             <div
               className={`cb-feat cb-feat--flash ${isFlashAnimating ? 'is-animating' : ''}`}
               onMouseEnter={runFlashcardsCardHoverAnimation}
-              onMouseLeave={stopFlashcardsCardHoverAnimation}
+              onMouseMove={handleTileMove}
+              onMouseLeave={(e) => { stopFlashcardsCardHoverAnimation(e); handleTileLeave(e); }}
               onClick={(e) => openFlashcardMasterTopic(e, recentSets[0]?.title || '')}
               role="button"
               tabIndex={0}
             >
+              <div className="cb-tile-texture" />
               <div className="cb-feat-tag">FLASHCARDS</div>
               <div className="cb-feat-title">Master<br />Any Topic</div>
               <div className="cb-feat-desc">Spaced repetition · AI card sets</div>
@@ -1992,11 +2025,13 @@ const DashboardCerbyl = () => {
             <div
               className={`cb-feat cb-feat--notes ${isNotesAnimating ? 'is-animating' : ''}`}
               onMouseEnter={runNotesCardHoverAnimation}
-              onMouseLeave={stopNotesCardHoverAnimation}
+              onMouseMove={handleTileMove}
+              onMouseLeave={(e) => { stopNotesCardHoverAnimation(e); handleTileLeave(e); }}
               onClick={() => navigate('/notes')}
               role="button"
               tabIndex={0}
             >
+              <div className="cb-tile-texture" />
               <div className="cb-feat-tag">NOTES</div>
               <div className="cb-feat-title">Your<br />Knowledge</div>
               <div className="cb-feat-desc">Written notes · AI media notes</div>
@@ -2088,7 +2123,10 @@ const DashboardCerbyl = () => {
                     className="cb-mod"
                     draggable={false}
                     onClick={(event) => openModule(event, m.route)}
+                    onMouseMove={handleTileMove}
+                    onMouseLeave={handleTileLeave}
                   >
+                    <div className="cb-tile-texture" />
                     <div className="cb-mod-num">{m.num}</div>
                     <div className="cb-mod-label">{m.label}</div>
                     <div className="cb-mod-sub">{m.sub}</div>
@@ -2104,6 +2142,8 @@ const DashboardCerbyl = () => {
             <div
               className="cb-panel cb-panel--act cb-panel--interactive"
               onMouseEnter={runWeeklyHoverAnimation}
+              onMouseMove={handleTileMove}
+              onMouseLeave={handleTileLeave}
               onClick={() => navigate('/analytics')}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
@@ -2114,6 +2154,7 @@ const DashboardCerbyl = () => {
               role="button"
               tabIndex={0}
             >
+              <div className="cb-tile-texture" />
               <div className="cb-panel-head">
                 <span className="cb-panel-title">Past Week Activity</span>
                 <button
@@ -2145,7 +2186,13 @@ const DashboardCerbyl = () => {
               </svg>
             </div>
 
-            <div className="cb-panel cb-panel--prog" onMouseEnter={runProgressHoverAnimation}>
+            <div
+              className="cb-panel cb-panel--prog"
+              onMouseEnter={runProgressHoverAnimation}
+              onMouseMove={handleTileMove}
+              onMouseLeave={handleTileLeave}
+            >
+              <div className="cb-tile-texture" />
               <div className="cb-panel-head">
                 <span className="cb-panel-title">Progress</span>
               </div>
@@ -2172,7 +2219,13 @@ const DashboardCerbyl = () => {
               </div>
             </div>
 
-            <div className={`cb-panel cb-panel--rank ${isRankAnimating ? 'is-animating' : ''}`} onMouseEnter={runRankHoverAnimation}>
+            <div
+              className={`cb-panel cb-panel--rank ${isRankAnimating ? 'is-animating' : ''}`}
+              onMouseEnter={runRankHoverAnimation}
+              onMouseMove={handleTileMove}
+              onMouseLeave={handleTileLeave}
+            >
+              <div className="cb-tile-texture" />
               <div className="cb-panel-head">
                 <span className="cb-panel-title">Global Rank</span>
                 <span className="cb-rank-num">#{rankDisplay}</span>
@@ -2201,7 +2254,12 @@ const DashboardCerbyl = () => {
           </section>
 
           {}
-          <section className="cb-panel cb-panel--heat cb-heat-full">
+          <section
+            className="cb-panel cb-panel--heat cb-heat-full"
+            onMouseMove={handleTileMove}
+            onMouseLeave={handleTileLeave}
+          >
+            <div className="cb-tile-texture" />
             <div className="cb-panel-head">
               <span className="cb-panel-title">Heatmap</span>
               <span className="cb-panel-sub">Activity over the last year</span>
