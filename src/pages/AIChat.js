@@ -32,6 +32,7 @@ import { marked } from 'marked';
 import './AIChat.css';
 import ContextSelector from '../components/ContextSelector';
 import ContextPanel from '../components/ContextPanel';
+import GeometricGrid from '../components/GeometricGrid';
 import contextService from '../services/contextService';
 import { enableChatDock } from '../utils/chatDock';
 import { queueChatCompletion, queueLegacyAIFileEndpoint, queuedAIJsonFetch, USE_AI_JOB_QUEUE } from '../services/aiJobService';
@@ -2994,6 +2995,14 @@ const AIChat = ({ sharedMode = false }) => {
 
   return (
     <div className="ai-chat-page ac-qb-page">
+      <div className="ac-qb-bg-fx" aria-hidden>
+        <div className="cb-bg-wash" />
+        <div className="cb-bg-orb cb-bg-orb-1" />
+        <div className="cb-bg-orb cb-bg-orb-2" />
+        <GeometricGrid />
+        <div className="cb-bg-grain" />
+        <div className="cb-bg-vignette" />
+      </div>
       <div className="ac-qb-topbar">
         <div className="ac-qb-topbar-left">
           <button
@@ -3041,6 +3050,7 @@ const AIChat = ({ sharedMode = false }) => {
         )}
         {/* Sidebar */}
         <aside className={`ac-sidebar ac-qb-sidebar ${sidebarOpen ? '' : 'ac-qb-sidebar--collapsed'}`} aria-label="AI Chat navigation">
+          <div className="cb-tile-texture" aria-hidden />
           {!sidebarOpen ? (
             <div className="ac-qb-collapsed-strip">
               <button className="ac-qb-strip-btn" data-tip="Open sidebar" onClick={() => setSidebarOpen(true)} type="button">
@@ -3340,6 +3350,7 @@ const AIChat = ({ sharedMode = false }) => {
 
         {/* Main Content */}
         <main className={`ac-main ${messages.length === 0 ? 'empty-state' : ''}`}>
+          <div className="cb-tile-texture" aria-hidden />
           {/* Persistent vector background */}
           <svg className="ac-hero-bg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
                   <circle cx="600" cy="400" r="360" fill="none" stroke="currentColor" strokeWidth="1"/>

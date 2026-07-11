@@ -46,6 +46,7 @@ const SocialHubChrome = ({
       <div className={`shc-body ${noSidebar ? 'shc-body--no-sidebar' : collapsed ? 'shc-body--collapsed' : ''}`}>
         {!noSidebar && (
           <aside className={`shc-sidebar ${collapsed ? 'shc-sidebar--collapsed' : ''}`}>
+            <div className="cb-tile-texture" aria-hidden />
 
             {collapsed ? (
               <div className="shc-strip">
@@ -141,6 +142,7 @@ const SocialHubChrome = ({
         )}
 
         <main className="shc-main">
+          <div className="cb-tile-texture" aria-hidden />
           {children}
         </main>
       </div>

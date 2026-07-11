@@ -3046,6 +3046,7 @@ const NotesRedesign = ({ sharedMode = false }) => {
           <div className={`nr-qb-shell ${sidebarOpen && !isSharedContent ? "" : "nr-qb-shell--collapsed"}`}>
             {sidebarOpen && !isSharedContent && (
               <aside className="nr-qb-sidebar" aria-label="Notes tools">
+                <div className="cb-tile-texture" aria-hidden />
                 <div className="nr-qb-side-brand">
                   <div className="nr-qb-brand-wrap">
                     <div className="nr-qb-brand">cerbyl</div>

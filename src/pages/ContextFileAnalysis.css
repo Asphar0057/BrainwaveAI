@@ -105,12 +105,49 @@
 }
 
 .cfp-hero {
-  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  position: relative;
   border-radius: 18px;
   padding: 28px 28px 22px;
-  background: color-mix(in srgb, var(--accent) 4%, rgba(12,12,14,0.88));
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: linear-gradient(155deg, #0b0c0f 0%, #050506 100%);
+  box-shadow:
+    12px 12px 26px rgba(0, 0, 0, 0.62),
+    -8px -8px 20px rgba(255, 255, 255, 0.03),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 5.5%, transparent);
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
+}
+
+.cfp-hero:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    18px 18px 38px rgba(0, 0, 0, 0.62),
+    -10px -10px 26px rgba(255, 255, 255, 0.03),
+    inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+.cfp-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 88% 94%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 55%),
+    repeating-linear-gradient(115deg, transparent 0 22px, color-mix(in srgb, var(--accent) 5.5%, transparent) 22px 23px),
+    repeating-linear-gradient(25deg, transparent 0 26px, color-mix(in srgb, var(--accent) 3.5%, transparent) 26px 27px);
+}
+
+.cfp-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.16;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
 }
 
 .cfp-eyebrow {

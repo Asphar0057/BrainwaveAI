@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Map, HelpCircle, BookOpen, TrendingUp, Target, ChevronRight, Play } from 'lucide-react';
 import './LearningReviewHub.css';
@@ -13,6 +13,24 @@ const LearningReviewHub = () => {
   useEffect(() => {
     fetchUserProfile();
   }, [token]);
+
+  const handleTileMove = useCallback((e) => {
+    const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const cx = x / rect.width - 0.5;
+    const cy = y / rect.height - 0.5;
+    card.style.setProperty('--mx', `${x}px`);
+    card.style.setProperty('--my', `${y}px`);
+    card.style.setProperty('--rx', `${(-cy * 7).toFixed(2)}deg`);
+    card.style.setProperty('--ry', `${(cx * 9).toFixed(2)}deg`);
+  }, []);
+  const handleTileLeave = useCallback((e) => {
+    const card = e.currentTarget;
+    card.style.setProperty('--rx', '0deg');
+    card.style.setProperty('--ry', '0deg');
+  }, []);
 
   const fetchUserProfile = async () => {
     try {
@@ -94,14 +112,16 @@ const LearningReviewHub = () => {
                 className={`lrh-card ${tool.featured ? 'lrh-card-featured' : ''} ${isHovered ? 'lrh-card-hovered' : ''}`}
                 onClick={() => navigate(tool.path)}
                 onMouseEnter={() => setHoveredCard(tool.id)}
-                onMouseLeave={() => setHoveredCard(null)}
+                onMouseMove={handleTileMove}
+                onMouseLeave={(e) => { setHoveredCard(null); handleTileLeave(e); }}
                 style={{ '--card-index': index }}
               >
                 <div className="lrh-card-glow"></div>
-                
+
                 <div className="lrh-card-border"></div>
 
                 <div className="lrh-card-inner">
+                  <div className="cb-tile-texture" />
                   <div className="lrh-card-top">
                     <div className="lrh-card-icon-wrapper">
                       <div className="lrh-card-icon">

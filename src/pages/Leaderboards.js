@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Trophy, Users } from 'lucide-react';
 import './Leaderboards.css';
 import SocialHubChrome from '../components/SocialHubChrome';

@@ -3035,6 +3035,7 @@ const Flashcards = () => {
       <div className="fc-layout fc-qb-body">
         <div className={`fc-qb-shell ${sidebarCollapsed ? 'fc-qb-shell--collapsed' : ''}`}>
           <aside className={`fc-qb-sidebar ${sidebarCollapsed ? 'fc-qb-sidebar--collapsed' : ''}`} aria-label="Flashcards navigation">
+            <div className="cb-tile-texture" aria-hidden />
             {sidebarCollapsed ? (
               <div className="fc-qb-collapsed-strip">
                 <button className="fc-qb-strip-btn fc-qb-strip-logo" data-tip="Open sidebar" onClick={() => setSidebarCollapsed(false)} type="button">
