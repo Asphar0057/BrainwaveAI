@@ -101,7 +101,7 @@ function MainTabs({ user, onLogout, onNavigate }: Props & { onNavigate: (screen:
                     <View style={[s.iconWrap, active && s.iconWrapActive]}>
                       <Ionicons name={active ? t.activeIcon : t.icon} size={18} color={active ? selectedTheme.bgPrimary : selectedTheme.textSecondary} />
                     </View>
-                    <Text style={[s.tabLabel, s.tabLabelRail, { color: active ? selectedTheme.textPrimary : selectedTheme.textSecondary }]}>{t.label}</Text>
+                    <Text allowFontScaling={false} style={[s.tabLabel, s.tabLabelRail, { color: active ? selectedTheme.textPrimary : selectedTheme.textSecondary }]}>{t.label}</Text>
                   </HapticTouchable>
                 );
               })}
@@ -143,7 +143,7 @@ function MainTabs({ user, onLogout, onNavigate }: Props & { onNavigate: (screen:
                       <View style={[s.iconWrap, active && s.iconWrapActive]}>
                         <Ionicons name={active ? t.activeIcon : t.icon} size={18} color={active ? selectedTheme.bgPrimary : selectedTheme.textSecondary} />
                       </View>
-                      <Text style={[s.tabLabel, { color: active ? selectedTheme.textPrimary : selectedTheme.textSecondary }]}>{t.label}</Text>
+                      <Text allowFontScaling={false} style={[s.tabLabel, { color: active ? selectedTheme.textPrimary : selectedTheme.textSecondary }]}>{t.label}</Text>
                     </HapticTouchable>
                   );
                 })}
@@ -309,31 +309,31 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       flex: 1,
     },
     tabBarWrap: {
-      paddingHorizontal: 14,
-      paddingTop: 10,
+      paddingHorizontal: 12,
+      paddingTop: 9,
     },
     tabBar: {
       flexDirection: 'row',
       alignItems: 'center',
       borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 20,
-      paddingHorizontal: 8,
-      paddingTop: 8,
-      paddingBottom: 8,
+      borderColor: rgbaFromHex(theme.accent, theme.isLight ? 0.24 : 0.26),
+      borderRadius: 24,
+      paddingHorizontal: 7,
+      paddingTop: 7,
+      paddingBottom: 7,
       shadowColor: SHADOW,
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: theme.isLight ? 0.08 : 0.16,
-      shadowRadius: 18,
-      elevation: 12,
-      backgroundColor: rgbaFromHex(theme.panel, theme.isLight ? 0.96 : 0.90),
+      shadowOffset: { width: 0, height: 18 },
+      shadowOpacity: theme.isLight ? 0.10 : 0.34,
+      shadowRadius: 26,
+      elevation: 18,
+      backgroundColor: rgbaFromHex(theme.panel, theme.isLight ? 0.97 : 0.92),
     },
     tabBarRail: {
       flex: 1,
       flexDirection: 'column',
       justifyContent: 'center',
       gap: 8,
-      borderRadius: 20,
+      borderRadius: 24,
       paddingHorizontal: 10,
       paddingVertical: 12,
     },
@@ -342,7 +342,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       alignItems: 'center',
       justifyContent: 'center',
       gap: 5,
-      borderRadius: 12,
+      borderRadius: 16,
       paddingVertical: 4,
     },
     tabRail: {
@@ -351,23 +351,29 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       gap: 8,
     },
     tabActive: {
-      backgroundColor: rgbaFromHex(theme.accent, theme.isLight ? 0.1 : 0.12),
+      backgroundColor: rgbaFromHex(theme.accent, theme.isLight ? 0.11 : 0.15),
+      borderWidth: 1,
+      borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.20 : 0.24),
     },
     iconWrap: {
-      width: 32,
-      height: 32,
-      borderRadius: 10,
+      width: 34,
+      height: 34,
+      borderRadius: 12,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: rgbaFromHex(theme.textPrimary, theme.isLight ? 0.035 : 0.05),
+      borderWidth: 1,
+      borderColor: rgbaFromHex(theme.accent, theme.isLight ? 0.10 : 0.14),
+      backgroundColor: rgbaFromHex(theme.textPrimary, theme.isLight ? 0.035 : 0.055),
     },
     iconWrapActive: {
       backgroundColor: theme.accent,
+      borderColor: theme.accentHover,
     },
     tabLabel: {
       fontSize: 10,
-      fontWeight: '700',
-      letterSpacing: 0.2,
+      fontWeight: '800',
+      letterSpacing: 0.8,
+      textTransform: 'uppercase',
     },
     tabLabelRail: {
       fontSize: 11,

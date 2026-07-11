@@ -131,6 +131,21 @@ def get_token_limit_state(db: Session, user: models.User) -> dict[str, Any]:
     plan = get_plan(plan_id)
     included_tokens = int(plan.get("included_tokens_monthly") or 0)
     unlimited = bool(plan.get("unlimited")) or included_tokens <= 0
+    if unlimited:
+        return {
+            "allowed": True,
+            "plan_id": plan_id,
+            "plan_name": plan.get("name") or plan_id.title(),
+            "included_tokens": included_tokens,
+            "used_tokens": 0,
+            "remaining_tokens": None,
+            "unlimited": True,
+            "window_days": TOKEN_LIMIT_WINDOW_DAYS,
+            "reset_at": None,
+            "reset_after_seconds": None,
+            "reset_after_hours": None,
+        }
+
     used_tokens = get_user_token_usage(db, user.id)
     remaining_tokens = None if unlimited else max(0, included_tokens - used_tokens)
     allowed = unlimited or used_tokens < included_tokens

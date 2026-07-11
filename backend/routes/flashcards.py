@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import re
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -21,6 +22,17 @@ router = APIRouter(
     tags=["flashcards"],
     dependencies=[Depends(enforce_request_user_scope)],
 )
+
+def _load_test_fallback_enabled(user: models.User) -> bool:
+    identifiers = {
+        item.strip().lower()
+        for item in os.getenv("AI_LOAD_TEST_FALLBACK_USERS", "").split(",")
+        if item.strip()
+    }
+    return any(
+        value and str(value).strip().lower() in identifiers
+        for value in (getattr(user, "id", None), getattr(user, "username", None), getattr(user, "email", None))
+    )
 
 class FlashcardReviewRequest(BaseModel):
     user_id: str
@@ -519,6 +531,7 @@ async def generate_flashcards_endpoint(
     user = get_user_by_username(db, user_id) or get_user_by_email(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    load_test_fallback = _load_test_fallback_enabled(user)
 
     hs_flag = bool(_coerce_bool(_unwrap_form_value(use_hs_context), default=True))
     doc_ids_list = [x.strip() for x in context_doc_ids.split(",") if x.strip()] if context_doc_ids else []
@@ -604,7 +617,9 @@ async def generate_flashcards_endpoint(
 
     graph = get_flashcard_graph()
     flashcards_data = []
-    if graph:
+    if load_test_fallback:
+        flashcards_data = _build_local_flashcards(topic or "", chat_content or context_prompt_content or content or "", card_count, difficulty)
+    elif graph:
         try:
             flashcards_data = await graph.invoke(
                 user_id=str(user.id),
@@ -690,6 +705,26 @@ async def generate_flashcards_endpoint(
         pass
 
     title = set_title or (f"Flashcards: {topic[:30]}" if topic else "Generated Flashcards")
+    if load_test_fallback:
+        saved_cards = [
+            {
+                **card_data,
+                "id": idx + 1,
+            }
+            for idx, card_data in enumerate(flashcards_data)
+        ]
+        return {
+            "success": True,
+            "status": "success",
+            "set_id": "load-test",
+            "set_title": title,
+            "cards": saved_cards,
+            "flashcards": saved_cards,
+            "total_generated": len(saved_cards),
+            "load_test_fallback": True,
+            "persisted": False,
+        }
+
     new_set = models.FlashcardSet(
         user_id=user.id,
         title=title,

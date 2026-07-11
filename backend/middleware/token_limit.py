@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Optional
 
 from fastapi import Request
@@ -19,6 +20,27 @@ from services.token_limits import get_token_limit_state, token_limit_error_paylo
 logger = logging.getLogger(__name__)
 
 TOKEN_LIMIT_TIERS = {"ai_heavy", "ai_light"}
+
+
+def _identifiers_from_csv(raw: str | None) -> set[str]:
+    return {
+        item.strip().lower()
+        for item in (raw or "").split(",")
+        if item.strip()
+    }
+
+
+def _subject_bypasses_token_limit(subject: str) -> bool:
+    normalized = (subject or "").strip().lower()
+    if not normalized:
+        return False
+    bypass_identifiers = (
+        _identifiers_from_csv(os.getenv("AI_LOAD_TEST_FALLBACK_USERS"))
+        | _identifiers_from_csv(os.getenv("RATE_LIMIT_UNLIMITED_EMAILS"))
+        | _identifiers_from_csv(os.getenv("ADMIN_EMAILS"))
+        | _identifiers_from_csv(os.getenv("API_USAGE_ADMIN_EMAILS"))
+    )
+    return normalized in bypass_identifiers
 
 
 def _jwt_subject(request: Request) -> Optional[str]:
@@ -73,18 +95,25 @@ class TokenLimitMiddleware(BaseHTTPMiddleware):
         subject = _request_subject(request)
         if not subject:
             return await call_next(request)
+        if _subject_bypasses_token_limit(subject):
+            return await call_next(request)
 
-        db = SessionLocal()
+        state = None
+        user_id = None
         try:
-            user = _find_user(db, subject)
-            if not user:
+            with SessionLocal() as db:
+                user = _find_user(db, subject)
+                if user:
+                    user_id = user.id
+                    state = get_token_limit_state(db, user)
+
+            if state is None:
                 return await call_next(request)
 
-            state = get_token_limit_state(db, user)
             if not state.get("allowed", True):
                 logger.warning(
                     "AI token limit exceeded | user_id=%s plan=%s used=%s limit=%s path=%s",
-                    user.id,
+                    user_id,
                     state.get("plan_id"),
                     state.get("used_tokens"),
                     state.get("included_tokens"),
@@ -112,19 +141,20 @@ class TokenLimitMiddleware(BaseHTTPMiddleware):
                 clear_provider_usage_delta(provider_delta_token)
 
             # The AI call may have recorded usage in a separate session while the
-            # request was running. End this session's read transaction and query
-            # again so response headers represent the tokens just consumed.
-            try:
-                db.rollback()
-                refreshed_user = _find_user(db, subject)
-                if refreshed_user:
-                    state = get_token_limit_state(db, refreshed_user)
-            except Exception as refresh_exc:
-                logger.warning(
-                    "Could not refresh token usage headers for %s: %s",
-                    request.url.path,
-                    refresh_exc,
-                )
+            # request was running. Use a fresh short-lived session for headers so
+            # long-running generations do not pin a DB connection in middleware.
+            if not state.get("unlimited"):
+                try:
+                    with SessionLocal() as db:
+                        refreshed_user = _find_user(db, subject)
+                        if refreshed_user:
+                            state = get_token_limit_state(db, refreshed_user)
+                except Exception as refresh_exc:
+                    logger.warning(
+                        "Could not refresh token usage headers for %s: %s",
+                        request.url.path,
+                        refresh_exc,
+                    )
 
             if not state.get("unlimited"):
                 response.headers["X-TokenLimit-Limit"] = str(state.get("included_tokens", 0))
@@ -150,5 +180,3 @@ class TokenLimitMiddleware(BaseHTTPMiddleware):
                     "code": "ai_token_limit_check_unavailable",
                 },
             )
-        finally:
-            db.close()

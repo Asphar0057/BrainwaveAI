@@ -109,7 +109,6 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
   }, [user.username]);
 
   const streak = stats?.streak ?? 0;
-  const GOLD_XL = selectedTheme.textPrimary;
   const GOLD_L = selectedTheme.accentHover;
   const GOLD_MID = selectedTheme.accent;
   const GOLD_SOFT = selectedTheme.textPrimary;
@@ -288,10 +287,16 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
           <HapticTouchable activeOpacity={1} onPress={cycleHero} haptic="selection">
             <View style={styles.heroSection} {...heroSwipeResponder.panHandlers}>
               <LinearGradient colors={[rgbaFromHex(selectedTheme.accent, 0.10), rgbaFromHex(selectedTheme.panel, 0.985), rgbaFromHex(selectedTheme.bgPrimary, 0.995)]} locations={[0, 0.58, 1]} style={StyleSheet.absoluteFillObject} />
+              <View style={styles.neoUpperGlow} />
+              <View style={styles.neoLowerShadow} />
               <View style={styles.heroBorder} />
 
               {stats === null ? (
-                <ActivityIndicator color={selectedTheme.accent} size="large" style={{ marginTop: 40 }} />
+                <View style={styles.heroLoading}>
+                  <Text style={styles.heroLoadingBrand}>cerbyl</Text>
+                  <ActivityIndicator color={selectedTheme.accent} size="small" />
+                  <Text style={styles.heroLoadingText}>syncing your learning signal</Text>
+                </View>
               ) : (
                 <AnimatedView style={[styles.heroContent, { opacity: heroSwap, transform: [{ scale: heroSwap.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }) }] }]}>
                   <Text style={styles.heroLabel}>{hero.title}</Text>
@@ -368,8 +373,16 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
               <Text style={styles.sectionSubtitle}>core website features, rebuilt for mobile</Text>
             </View>
             <View style={styles.quickGrid}>
-              {quickActions.map((item) => (
+              {quickActions.map((item, index) => (
                 <HapticTouchable key={item.label} style={styles.quickCard} onPress={item.action} haptic="selection" activeOpacity={0.82}>
+                  <LinearGradient
+                    colors={[rgbaFromHex(selectedTheme.accentHover, 0.08), rgbaFromHex(selectedTheme.panelAlt, 0.98), rgbaFromHex(selectedTheme.bgPrimary, 0.98)]}
+                    locations={[0, 0.55, 1]}
+                    style={StyleSheet.absoluteFillObject}
+                  />
+                  <View style={styles.cardSheen} />
+                  <View style={styles.neoInnerShade} />
+                  <Text style={styles.quickGhostNum}>{String(index + 1).padStart(2, '0')}</Text>
                   <View style={styles.quickIconWrap}>
                     <Ionicons name={item.icon} size={17} color={selectedTheme.accentHover} />
                   </View>
@@ -384,6 +397,13 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
 
           <View style={styles.duoRow}>
             <View style={[styles.sectionCard, styles.todaySectionCard, styles.duoCard]}>
+              <LinearGradient
+                colors={[rgbaFromHex(selectedTheme.accentHover, 0.08), rgbaFromHex(selectedTheme.panelAlt, 0.96), rgbaFromHex(selectedTheme.bgPrimary, 0.92)]}
+                locations={[0, 0.56, 1]}
+                style={StyleSheet.absoluteFillObject}
+              />
+              <View style={styles.neoUpperGlow} />
+              <View style={styles.neoLowerShadow} />
               <View style={styles.sectionHeadRow}>
                 <Text style={styles.sectionTitle}>today</Text>
                 <Text style={styles.sectionSubtitle}>live progress</Text>
@@ -407,6 +427,13 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
             </View>
 
             <View style={[styles.sectionCard, styles.duoCard]}>
+              <LinearGradient
+                colors={[rgbaFromHex(selectedTheme.accentHover, 0.07), rgbaFromHex(selectedTheme.panel, 0.97), rgbaFromHex(selectedTheme.bgPrimary, 0.93)]}
+                locations={[0, 0.58, 1]}
+                style={StyleSheet.absoluteFillObject}
+              />
+              <View style={styles.neoUpperGlow} />
+              <View style={styles.neoLowerShadow} />
               <View style={styles.sectionHeadRow}>
                 <Text style={styles.sectionTitle}>weekly orbit</Text>
                 <Text style={styles.sectionSubtitle}>signal strength</Text>
@@ -431,8 +458,16 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
                 { val: totalChats, label: 'chat sessions' },
                 { val: totalFlashcards, label: 'flashcards built' },
                 { val: totalNotes, label: 'notes saved' },
-              ].map((item) => (
+              ].map((item, index) => (
                 <View key={item.label} style={styles.totalCard}>
+                  <LinearGradient
+                    colors={[rgbaFromHex(selectedTheme.accentHover, 0.07), rgbaFromHex(selectedTheme.panelAlt, 0.96), rgbaFromHex(selectedTheme.bgPrimary, 0.94)]}
+                    locations={[0, 0.58, 1]}
+                    style={StyleSheet.absoluteFillObject}
+                  />
+                  <View style={styles.cardSheen} />
+                  <View style={styles.neoInnerShade} />
+                  <Text style={styles.totalGhostNum}>{String(index + 1).padStart(2, '0')}</Text>
                   <Text style={styles.totalValue}>{item.val}</Text>
                   <Text style={styles.totalLabel}>{item.label}</Text>
                 </View>
@@ -448,7 +483,6 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
 function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>, windowHeight: number) {
   const SURFACE = theme.panel;
   const SURFACE_ALT = theme.panelAlt;
-  const GOLD_XL = theme.textPrimary;
   const GOLD_L = theme.accentHover;
   const GOLD_MID = theme.accent;
   const GOLD_D = darkenColor(theme.accent, theme.isLight ? 16 : 34);
@@ -460,8 +494,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   const cardGap = 10;
   const bodyInnerWidth = Math.max(layout.contentMaxWidth - horizontalPadding * 2, 280);
   const heroMinHeight = layout.isLandscape
-    ? Math.min(500, Math.max(360, layout.height * 0.80))
-    : Math.min(520, Math.max(380, layout.height * 0.62));
+    ? Math.min(440, Math.max(330, layout.height * 0.68))
+    : Math.min(440, Math.max(330, layout.height * 0.48));
   const quickColumns = layout.width >= 700 ? 4 : 2;
   const quickCardWidth = (bodyInnerWidth - cardGap * (quickColumns - 1)) / quickColumns;
   const totalColumns = layout.width >= 700 ? 3 : 2;
@@ -515,6 +549,18 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   topDateChip: {
     alignItems: 'flex-end',
     justifyContent: 'center',
+    minWidth: 92,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.18 : 0.22),
+    backgroundColor: rgbaFromHex(SURFACE, theme.isLight ? 0.82 : 0.72),
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    shadowColor: SHADOW,
+    shadowOffset: { width: 12, height: 14 },
+    shadowOpacity: theme.isLight ? 0.08 : 0.30,
+    shadowRadius: 24,
+    elevation: 12,
   },
   topDateDay: {
     fontFamily: 'Inter_900Black',
@@ -542,12 +588,17 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     minHeight: heroMinHeight,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
     overflow: 'hidden',
-    borderRadius: 20,
+    borderRadius: 28,
     marginHorizontal: 4,
     backgroundColor: rgbaFromHex(SURFACE, 0.96),
+    shadowColor: SHADOW,
+    shadowOffset: { width: 18, height: 24 },
+    shadowOpacity: theme.isLight ? 0.10 : 0.42,
+    shadowRadius: 38,
+    elevation: 18,
   },
   heroBorder: {
     position: 'absolute',
@@ -555,9 +606,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: 20,
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: CARD_BORDER,
+    borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.20 : 0.22),
   },
   heroTopRow: {
     flexDirection: 'row',
@@ -596,6 +647,25 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   },
   heroContent: {
     alignItems: 'center',
+  },
+  heroLoading: {
+    minHeight: 220,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+  },
+  heroLoadingBrand: {
+    fontFamily: 'Inter_900Black',
+    fontSize: 46,
+    color: GOLD_L,
+    letterSpacing: -1.6,
+  },
+  heroLoadingText: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 10,
+    color: DIM,
+    letterSpacing: 2.4,
+    textTransform: 'uppercase',
   },
   heroLabel: {
     fontFamily: 'Inter_600SemiBold',
@@ -636,13 +706,18 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   },
   metricCapsule: {
     minWidth: layout.isLandscape ? 82 : 76,
-    borderRadius: 18,
+    borderRadius: 22,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: rgbaFromHex(theme.accent, 0.10),
+    backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.52 : 0.68),
     borderWidth: 1,
-    borderColor: CARD_BORDER,
+    borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.16 : 0.20),
     alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: -4, height: -4 },
+    shadowOpacity: theme.isLight ? 0.03 : 0.18,
+    shadowRadius: 10,
+    elevation: 4,
   },
   metricValue: {
     fontFamily: 'Inter_900Black',
@@ -769,13 +844,19 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   },
   sectionCard: {
     backgroundColor: rgbaFromHex(SURFACE, 0.93),
-    borderRadius: 20,
+    borderRadius: 26,
     borderWidth: 1,
-    borderColor: CARD_BORDER,
+    borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.14 : 0.18),
     padding: 16,
+    overflow: 'hidden',
+    shadowColor: SHADOW,
+    shadowOffset: { width: 16, height: 20 },
+    shadowOpacity: theme.isLight ? 0.08 : 0.34,
+    shadowRadius: 30,
+    elevation: 15,
   },
   todaySectionCard: {
-    backgroundColor: rgbaFromHex(theme.panelAlt, 0.86),
+    backgroundColor: rgbaFromHex(theme.panelAlt, 0.92),
   },
   duoRow: {
     flexDirection: layout.width >= 760 ? 'row' : 'column',
@@ -809,24 +890,76 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   quickCard: {
     width: quickCardWidth,
     backgroundColor: SURFACE_ALT,
-    borderRadius: 16,
+    borderRadius: 26,
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderWidth: 1,
-    borderColor: CARD_BORDER,
+    borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.16 : 0.18),
     minHeight: layout.width >= 700 ? 118 : 110,
     justifyContent: 'space-between',
     overflow: 'hidden',
+    shadowColor: SHADOW,
+    shadowOffset: { width: 16, height: 18 },
+    shadowOpacity: theme.isLight ? 0.09 : 0.36,
+    shadowRadius: 28,
+    elevation: 15,
+  },
+  neoUpperGlow: {
+    position: 'absolute',
+    top: 1,
+    left: 18,
+    right: 18,
+    height: 1,
+    backgroundColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.55 : 0.42),
+  },
+  neoLowerShadow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '44%',
+    backgroundColor: rgbaFromHex('#000000', theme.isLight ? 0.04 : 0.28),
+  },
+  neoInnerShade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '46%',
+    backgroundColor: rgbaFromHex('#000000', theme.isLight ? 0.035 : 0.24),
+  },
+  cardSheen: {
+    position: 'absolute',
+    top: 0,
+    left: 18,
+    right: 18,
+    height: 1,
+    backgroundColor: rgbaFromHex(GOLD_L, 0.52),
+  },
+  quickGhostNum: {
+    position: 'absolute',
+    right: -4,
+    top: -8,
+    fontFamily: 'Inter_900Black',
+    fontSize: layout.width >= 700 ? 64 : 54,
+    lineHeight: layout.width >= 700 ? 68 : 58,
+    color: rgbaFromHex(GOLD_SOFT, theme.isLight ? 0.045 : 0.065),
+    letterSpacing: -2,
   },
   quickIconWrap: {
     width: 36,
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: CARD_BORDER,
-    backgroundColor: rgbaFromHex(theme.accent, 0.10),
+    borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.18 : 0.24),
+    backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.46 : 0.60),
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: SHADOW,
+    shadowOffset: { width: 7, height: 8 },
+    shadowOpacity: theme.isLight ? 0.05 : 0.24,
+    shadowRadius: 14,
+    elevation: 7,
   },
   quickLabel: {
     fontFamily: 'Inter_900Black',
@@ -889,10 +1022,12 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   },
   todayRail: {
     width: '100%',
-    height: 4,
+    height: 7,
     borderRadius: 999,
-    backgroundColor: GOLD_D + '22',
+    backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.45 : 0.72),
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.10 : 0.12),
   },
   todayRailFill: {
     height: '100%',
@@ -919,12 +1054,28 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   totalCard: {
     width: totalCardWidth,
     backgroundColor: SURFACE_ALT,
-    borderRadius: 22,
+    borderRadius: 26,
     padding: 16,
     borderWidth: 1,
-    borderColor: CARD_BORDER,
+    borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.14 : 0.18),
     minHeight: 128,
     justifyContent: 'space-between',
+    overflow: 'hidden',
+    shadowColor: SHADOW,
+    shadowOffset: { width: 14, height: 18 },
+    shadowOpacity: theme.isLight ? 0.08 : 0.32,
+    shadowRadius: 28,
+    elevation: 14,
+  },
+  totalGhostNum: {
+    position: 'absolute',
+    right: -6,
+    top: -12,
+    fontFamily: 'Inter_900Black',
+    fontSize: layout.width >= 700 ? 72 : 62,
+    lineHeight: layout.width >= 700 ? 76 : 66,
+    color: rgbaFromHex(GOLD_SOFT, theme.isLight ? 0.04 : 0.065),
+    letterSpacing: -2,
   },
   totalValue: {
     fontFamily: 'Inter_900Black',
@@ -970,7 +1121,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: rgbaFromHex(theme.accentHover, 0.12),
+    backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.52 : 0.64),
     borderWidth: 1,
     borderColor: rgbaFromHex(theme.accentHover, 0.25),
     alignItems: 'center',
@@ -984,13 +1135,18 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   },
   timelineCard: {
     flex: 1,
-    backgroundColor: rgbaFromHex(SURFACE, 0.7),
-    borderRadius: 14,
+    backgroundColor: rgbaFromHex(SURFACE, 0.94),
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: CARD_BORDER,
+    borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.12 : 0.16),
     padding: 12,
     marginBottom: 8,
     gap: 3,
+    shadowColor: SHADOW,
+    shadowOffset: { width: 10, height: 12 },
+    shadowOpacity: theme.isLight ? 0.06 : 0.22,
+    shadowRadius: 20,
+    elevation: 8,
   },
   timelineLabel: {
     fontFamily: 'Inter_600SemiBold',

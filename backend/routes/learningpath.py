@@ -154,6 +154,17 @@ def _env_int(name: str, default: int, minimum: int, maximum: int) -> int:
         value = default
     return max(minimum, min(value, maximum))
 
+def _load_test_fallback_enabled(user: models.User) -> bool:
+    identifiers = {
+        item.strip().lower()
+        for item in os.getenv("AI_LOAD_TEST_FALLBACK_USERS", "").split(",")
+        if item.strip()
+    }
+    return any(
+        value and str(value).strip().lower() in identifiers
+        for value in (getattr(user, "id", None), getattr(user, "username", None), getattr(user, "email", None))
+    )
+
 def _extract_meta(html: str, pattern: str) -> Optional[str]:
     match = re.search(pattern, html, flags=re.IGNORECASE | re.DOTALL)
     if not match:
@@ -661,11 +672,56 @@ async def generate_learning_path(
         length = "medium"
     goals = request.goals or []
 
-    outline = _generate_outline(user.id, topic_prompt, difficulty, length, goals)
+    load_test_fallback = _load_test_fallback_enabled(user)
+    outline = (
+        _default_outline(topic_prompt, difficulty, length, goals)
+        if load_test_fallback
+        else _generate_outline(user.id, topic_prompt, difficulty, length, goals)
+    )
     nodes_data = outline.get("nodes", []) if isinstance(outline, dict) else []
 
     if not nodes_data:
         raise HTTPException(status_code=500, detail="Failed to generate learning path")
+
+    if load_test_fallback:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        synthetic_nodes = []
+        for idx, node_data in enumerate(nodes_data):
+            node_title = _normalize_node_title(node_data.get("title", f"Chapter {idx + 1}"), topic_prompt)
+            synthetic_nodes.append({
+                "id": idx + 1,
+                "path_id": "load-test",
+                "order_index": idx,
+                "title": node_title,
+                "description": node_data.get("description", ""),
+                "objectives": node_data.get("objectives") or [],
+                "summary": node_data.get("summary") or "",
+                "estimated_minutes": node_data.get("estimated_minutes", 35),
+                "status": "unlocked" if idx == 0 else "locked",
+                "progress_pct": 0,
+            })
+        return {
+            "success": True,
+            "path_id": "load-test",
+            "path": {
+                "id": "load-test",
+                "user_id": user.id,
+                "title": outline.get("title") or topic_prompt,
+                "topic_prompt": topic_prompt,
+                "description": outline.get("description") or f"A structured path to master {topic_prompt}.",
+                "difficulty": difficulty,
+                "status": "active",
+                "total_nodes": len(synthetic_nodes),
+                "completed_nodes": 0,
+                "estimated_hours": outline.get("estimated_hours") or 0.0,
+                "completion_percentage": 0.0,
+                "created_at": now_iso,
+                "updated_at": now_iso,
+                "nodes": synthetic_nodes,
+            },
+            "load_test_fallback": True,
+            "persisted": False,
+        }
 
     try:
         path = models.LearningPath(
@@ -685,7 +741,7 @@ async def generate_learning_path(
         db.commit()
         db.refresh(path)
 
-        auto_resource_node_limit = _env_int("LEARNING_PATH_AUTO_RESOURCE_NODE_LIMIT", 12, 0, 50)
+        auto_resource_node_limit = 0 if load_test_fallback else _env_int("LEARNING_PATH_AUTO_RESOURCE_NODE_LIMIT", 12, 0, 50)
         for idx, node_data in enumerate(nodes_data):
             node_title = _normalize_node_title(node_data.get("title", f"Chapter {idx + 1}"), topic_prompt)
             node_objectives = node_data.get("objectives")

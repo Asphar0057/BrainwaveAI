@@ -1,5 +1,7 @@
 import os
 import logging
+import time
+from threading import Lock
 from contextvars import copy_context
 from datetime import datetime, timezone, timedelta
 import json
@@ -40,6 +42,11 @@ GOOGLE_CLIENT_IDS = [
 ph = PasswordHasher()
 security = HTTPBearer()
 optional_security = HTTPBearer(auto_error=False)
+_AUTH_USER_CACHE_TTL_SECONDS = max(0, int(os.getenv("AUTH_USER_CACHE_TTL_SECONDS", "30")))
+_auth_user_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+_auth_user_cache_lock = Lock()
+_auth_user_lookup_locks: dict[str, Lock] = {}
+_auth_user_lookup_locks_guard = Lock()
 
 GEMINI_API_KEY = os.getenv("GOOGLE_GENERATIVE_AI_KEY") or os.getenv("GEMINI_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -158,10 +165,77 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) 
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid authentication credentials")
 
-def get_current_user(db: Session = Depends(get_db), token: str = Depends(verify_token)):
-    user = db.query(models.User).filter(models.User.username == token).first()
+def _user_cache_key(subject: str) -> str:
+    return (subject or "").strip().lower()
+
+def _auth_lookup_lock(subject: str) -> Lock:
+    key = _user_cache_key(subject)
+    with _auth_user_lookup_locks_guard:
+        lock = _auth_user_lookup_locks.get(key)
+        if lock is None:
+            lock = Lock()
+            _auth_user_lookup_locks[key] = lock
+        return lock
+
+def _serialize_user(user: models.User) -> dict[str, Any]:
+    return {column.name: getattr(user, column.name) for column in models.User.__table__.columns}
+
+def _hydrate_user(data: dict[str, Any]) -> models.User:
+    return models.User(**data)
+
+def _get_cached_auth_user(subject: str) -> models.User | None:
+    if _AUTH_USER_CACHE_TTL_SECONDS <= 0:
+        return None
+    key = _user_cache_key(subject)
+    now = time.monotonic()
+    with _auth_user_cache_lock:
+        cached = _auth_user_cache.get(key)
+        if not cached:
+            return None
+        expires_at, data = cached
+        if expires_at <= now:
+            _auth_user_cache.pop(key, None)
+            return None
+        return _hydrate_user(data)
+
+def _set_cached_auth_user(subject: str, user: models.User) -> None:
+    if _AUTH_USER_CACHE_TTL_SECONDS <= 0:
+        return
+    expires_at = time.monotonic() + _AUTH_USER_CACHE_TTL_SECONDS
+    data = _serialize_user(user)
+    keys = {
+        _user_cache_key(subject),
+        _user_cache_key(str(getattr(user, "id", ""))),
+        _user_cache_key(getattr(user, "username", "")),
+        _user_cache_key(getattr(user, "email", "")),
+    }
+    with _auth_user_cache_lock:
+        for key in keys:
+            if key:
+                _auth_user_cache[key] = (expires_at, data)
+
+def _find_user_for_subject(db: Session, subject: str) -> models.User | None:
+    user = db.query(models.User).filter(models.User.username == subject).first()
     if not user:
-        user = db.query(models.User).filter(models.User.email == token).first()
+        user = db.query(models.User).filter(models.User.email == subject).first()
+    return user
+
+def _get_or_query_user_for_subject(db: Session, subject: str) -> models.User | None:
+    user = _get_cached_auth_user(subject)
+    if user:
+        return user
+
+    with _auth_lookup_lock(subject):
+        user = _get_cached_auth_user(subject)
+        if user:
+            return user
+        user = _find_user_for_subject(db, subject)
+        if user:
+            _set_cached_auth_user(subject, user)
+        return user
+
+def get_current_user(db: Session = Depends(get_db), token: str = Depends(verify_token)):
+    user = _get_or_query_user_for_subject(db, token)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
@@ -187,9 +261,7 @@ def get_current_user_optional(
     if not username:
         raise HTTPException(status_code=401, detail="Invalid authentication credentials")
 
-    user = db.query(models.User).filter(models.User.username == username).first()
-    if not user:
-        user = db.query(models.User).filter(models.User.email == username).first()
+    user = _get_or_query_user_for_subject(db, username)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
@@ -269,10 +341,10 @@ async def enforce_request_user_scope(
     return current_user
 
 def get_user_by_username(db: Session, username: str):
-    return db.query(models.User).filter(models.User.username == username).first()
+    return _get_or_query_user_for_subject(db, username)
 
 def get_user_by_email(db: Session, email: str):
-    return db.query(models.User).filter(models.User.email == email).first()
+    return _get_or_query_user_for_subject(db, email)
 
 def authenticate_user(db: Session, username: str, password: str):
     user = get_user_by_username(db, username)

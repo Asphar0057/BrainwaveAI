@@ -24,7 +24,8 @@ import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
 const EDGE_SWIPE_WIDTH = 20;
 
-type Msg = { id: string; role: 'user' | 'ai'; text: string };
+type ChatAttachment = { uri: string; name: string; type: string };
+type Msg = { id: string; role: 'user' | 'ai'; text: string; attachmentUri?: string };
 type Session = { id: number; title: string; updated_at: string | null };
 type Props = { user: AuthUser };
 
@@ -150,6 +151,12 @@ function preprocessText(text: string): string {
     .replace(/\$([^$\n]+)\$/g, (_, eq) => `\`${eq.trim()}\``);
 }
 
+function attachmentFromImageAsset(asset: ImagePicker.ImagePickerAsset, fallbackName: string): ChatAttachment {
+  const name = asset.fileName || asset.uri.split('/').pop() || fallbackName;
+  const type = asset.mimeType || (name.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg');
+  return { uri: asset.uri, name, type };
+}
+
 export default function AIChatScreen({ user }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
@@ -160,7 +167,7 @@ export default function AIChatScreen({ user }: Props) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [attachment, setAttachment] = useState<{ uri: string; name: string; type: string } | null>(null);
+  const [attachment, setAttachment] = useState<ChatAttachment | null>(null);
   const [chatId, setChatId] = useState<number | undefined>();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -261,7 +268,12 @@ export default function AIChatScreen({ user }: Props) {
     if ((!trimmed && !currentAttachment) || loading) return;
 
     const questionText = trimmed || 'Please analyze the attached image.';
-    const userMessage: Msg = { id: Date.now().toString(), role: 'user', text: trimmed || 'Sent an image' };
+    const userMessage: Msg = {
+      id: Date.now().toString(),
+      role: 'user',
+      text: trimmed || 'Sent an image',
+      attachmentUri: currentAttachment?.uri,
+    };
     setMessages((current) => [...current, userMessage]);
     setInput('');
     setAttachment(null);
@@ -311,10 +323,22 @@ export default function AIChatScreen({ user }: Props) {
       quality: 0.7,
     });
     if (result.canceled || !result.assets?.length) return;
-    const asset = result.assets[0];
-    const name = asset.fileName || asset.uri.split('/').pop() || 'photo.jpg';
-    const type = asset.mimeType || 'image/jpeg';
-    setAttachment({ uri: asset.uri, name, type });
+    setAttachment(attachmentFromImageAsset(result.assets[0], 'photo.jpg'));
+  };
+
+  const takePhoto = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Allow camera access to take a photo for AI chat.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      quality: 0.72,
+    });
+    if (result.canceled || !result.assets?.length) return;
+    setAttachment(attachmentFromImageAsset(result.assets[0], `camera-${Date.now()}.jpg`));
   };
 
   const removeAttachment = () => setAttachment(null);
@@ -376,6 +400,10 @@ export default function AIChatScreen({ user }: Props) {
 
         {isEmpty ? (
           <View style={s.emptyWrap}>
+            <View style={s.emptyBrand}>
+              <Text style={s.emptyBrandMark}>cerbyl</Text>
+              <Text style={s.emptyBrandSub}>learning unified</Text>
+            </View>
             <Text style={s.emptyTitle}>{greeting}</Text>
 
             <View style={s.promptGrid}>
@@ -422,6 +450,7 @@ export default function AIChatScreen({ user }: Props) {
                           }
                           style={[StyleSheet.absoluteFillObject, { borderRadius: 22 }]}
                         />
+                        {item.attachmentUri ? <Image source={{ uri: item.attachmentUri }} style={s.messageImage} /> : null}
                         <Text style={s.userText}>{item.text}</Text>
                       </>
                     ) : (
@@ -447,6 +476,9 @@ export default function AIChatScreen({ user }: Props) {
           <View style={s.composerCard}>
             <HapticTouchable onPress={pickAttachment} style={s.composerIconBtn} activeOpacity={0.7} haptic="light">
               <Ionicons name="attach" size={19} color={selectedTheme.textSecondary} />
+            </HapticTouchable>
+            <HapticTouchable onPress={takePhoto} style={s.composerIconBtn} activeOpacity={0.7} haptic="medium">
+              <Ionicons name="camera-outline" size={19} color={selectedTheme.textSecondary} />
             </HapticTouchable>
             <TextInput
               style={s.input}
@@ -644,12 +676,30 @@ function createStyles(
     alignSelf: 'center',
     paddingHorizontal: 6,
     justifyContent: 'center',
-    gap: 22,
+    gap: 18,
+  },
+  emptyBrand: {
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  emptyBrandMark: {
+    fontFamily: 'Inter_900Black',
+    fontSize: 42,
+    color: GOLD_L,
+    letterSpacing: -1.8,
+  },
+  emptyBrandSub: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 9,
+    color: DIM,
+    letterSpacing: 3.4,
+    textTransform: 'uppercase',
+    marginTop: 4,
   },
   emptyTitle: {
     fontFamily: 'Inter_900Black',
-    fontSize: 26,
-    lineHeight: 31,
+    fontSize: 24,
+    lineHeight: 29,
     color: GOLD_L,
     letterSpacing: -0.7,
     textAlign: 'center',
@@ -665,11 +715,11 @@ function createStyles(
     justifyContent: 'space-between',
     gap: 10,
     borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: CARD_ALT,
-    borderRadius: 12,
+    borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.16 : 0.20),
+    backgroundColor: rgbaFromHex(CARD_ALT, 0.92),
+    borderRadius: 16,
     paddingHorizontal: 14,
-    paddingVertical: 13,
+    paddingVertical: 14,
   },
   promptText: {
     fontFamily: 'Inter_600SemiBold',
@@ -716,6 +766,14 @@ function createStyles(
     borderWidth: 1,
     borderColor: rgbaFromHex(theme.accent, theme.isLight ? 0.18 : 0.28),
   },
+  messageImage: {
+    width: 190,
+    maxWidth: '100%',
+    height: 150,
+    borderRadius: 12,
+    marginBottom: 10,
+    backgroundColor: CARD_ALT,
+  },
   userText: { fontFamily: 'Inter_400Regular', fontSize: 14, lineHeight: 22, color: GOLD_XL },
 
   composerWrap: {
@@ -729,16 +787,24 @@ function createStyles(
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 4,
-    borderRadius: 20,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: rgbaFromHex(CARD_ALT, 0.94),
+    borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.18 : 0.24),
+    backgroundColor: rgbaFromHex(CARD_ALT, 0.96),
     paddingHorizontal: 6,
     paddingVertical: 6,
+    shadowColor: SHADOW,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: theme.isLight ? 0.07 : 0.25,
+    shadowRadius: 24,
+    elevation: 14,
   },
   composerIconBtn: {
-    width: 34, height: 34, borderRadius: 17,
+    width: 34, height: 34, borderRadius: 14,
     alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.10 : 0.14),
+    backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.32 : 0.42),
   },
   input: {
     flex: 1,

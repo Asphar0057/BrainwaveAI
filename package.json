@@ -40,6 +40,9 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:e2e": "playwright test",
+    "test:load": "node scripts/playwright-load-test.js",
+    "test:ai-load": "node scripts/ai-concurrency-load-test.js",
     "eject": "react-scripts eject",
     "fix:positioning-sourcemaps": "node scripts/fix-positioning-sourcemaps.js",
     "postinstall": "npm run fix:positioning-sourcemaps"
@@ -90,6 +93,8 @@
     ]
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@types/node": "^26.1.0",
     "ajv": "^8.17.1",
     "autoprefixer": "^10.4.20",
     "baseline-browser-mapping": "^2.9.19",

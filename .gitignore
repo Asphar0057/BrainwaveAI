@@ -53,3 +53,10 @@ fix_catch.mjs
 fix_css.mjs
 fix_css_vars.mjs
 QUIZ_FIXES_SUMMARY.md
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
