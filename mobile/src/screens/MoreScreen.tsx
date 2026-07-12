@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import CalendarScreen from './CalendarScreen';
 import ActivityTimelineScreen from './ActivityTimelineScreen';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,8 +11,9 @@ import { getFlashcardStatistics } from '../services/api';
 import HapticTouchable from '../components/HapticTouchable';
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
+import NeumorphicTexture, { cbCardGradient, cbTileShadow } from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
-import { darkenColor, rgbaFromHex } from '../utils/theme';
+import { rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
 type ExploreTarget = 'flashcards' | 'notes' | 'aimedia' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'weaknessPractice' | 'learningPaths';
@@ -23,25 +24,18 @@ function BentoMini({
   title,
   caption,
   styles,
-  theme,
   onPress,
 }: {
   index: string;
   title: string;
   caption: string;
   styles: ReturnType<typeof createStyles>;
-  theme: ReturnType<typeof useAppTheme>['selectedTheme'];
   onPress?: () => void;
 }) {
   return (
     <HapticTouchable style={styles.miniTile} onPress={onPress} haptic="selection" activeOpacity={0.7}>
-      <LinearGradient
-        colors={[rgbaFromHex(theme.accentHover, 0.08), rgbaFromHex(theme.panelAlt, 0.98), rgbaFromHex(theme.bgPrimary, 0.98)]}
-        locations={[0, 0.55, 1]}
-        style={StyleSheet.absoluteFillObject}
-      />
-      <View style={styles.cardSheen} />
-      <View style={styles.neoInnerShade} />
+      <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
+      <NeumorphicTexture />
       <View style={styles.miniTopRow}>
         <Text style={styles.miniIndex}>{index}</Text>
         <Ionicons name="chevron-forward" size={15} color={styles.miniArrow.color} />
@@ -93,25 +87,13 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
         </View>
 
         <View style={s.manifesto}>
-          <LinearGradient
-            colors={[rgbaFromHex(selectedTheme.accentHover, 0.08), rgbaFromHex(selectedTheme.panelAlt, 0.98), rgbaFromHex(selectedTheme.bgPrimary, 0.98)]}
-            locations={[0, 0.55, 1]}
-            style={StyleSheet.absoluteFillObject}
-          />
-          <View style={s.cardSheen} />
-          <View style={s.neoInnerShade} />
+          <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
+          <NeumorphicTexture grainOpacity={0.13} />
           <Text style={s.manifestoKicker}>why cerbyl</Text>
           <Text style={s.manifestoTitle}>one workspace that actually knows how you learn.</Text>
           <View style={s.manifestoGrid}>
             {aboutCards.map((card) => (
               <View key={card.index} style={s.manifestoCard}>
-                <LinearGradient
-                  colors={[rgbaFromHex(selectedTheme.accentHover, 0.08), rgbaFromHex(selectedTheme.panelAlt, 0.98), rgbaFromHex(selectedTheme.bgPrimary, 0.98)]}
-                  locations={[0, 0.55, 1]}
-                  style={StyleSheet.absoluteFillObject}
-                />
-                <View style={s.cardSheen} />
-                <View style={s.neoInnerShade} />
                 <Text style={s.manifestoIndex}>{card.index}</Text>
                 <Text style={s.manifestoCardTitle}>{card.title}</Text>
                 <Text style={s.manifestoCopy}>{card.copy}</Text>
@@ -134,8 +116,7 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
               end={{ x: 0.95, y: 1 }}
               style={StyleSheet.absoluteFillObject}
             />
-            <View style={s.cardSheen} />
-            <View style={s.neoInnerShade} />
+            <NeumorphicTexture />
             <Text style={s.heroIndex}>01</Text>
             <View style={{ flex: 1 }} />
             <Text style={s.heroTitle}>AI{'\n'}chat</Text>
@@ -146,20 +127,15 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
           </HapticTouchable>
 
           <View style={s.stackCol}>
-            <BentoMini index="02" title="notes" caption="capture what matters" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('notes')} />
-            <BentoMini index="03" title="media" caption="video to notes" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('aimedia')} />
+            <BentoMini index="02" title="notes" caption="capture what matters" styles={s} onPress={() => onNavigate?.('notes')} />
+            <BentoMini index="03" title="media" caption="video to notes" styles={s} onPress={() => onNavigate?.('aimedia')} />
           </View>
         </View>
 
         {/* Row 2: Flashcards banner — one hero stat, no clutter */}
         <HapticTouchable style={s.flashcardCard} onPress={() => onNavigate?.('flashcards')} haptic="medium" activeOpacity={0.85}>
-          <LinearGradient
-            colors={[rgbaFromHex(selectedTheme.accentHover, 0.08), rgbaFromHex(selectedTheme.panelAlt, 0.98), rgbaFromHex(selectedTheme.bgPrimary, 0.98)]}
-            locations={[0, 0.55, 1]}
-            style={StyleSheet.absoluteFillObject}
-          />
-          <View style={s.cardSheen} />
-          <View style={s.neoInnerShade} />
+          <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
+          <NeumorphicTexture />
           <View style={s.fcLeft}>
             <Text style={s.fcIndex}>04</Text>
             <Text style={s.fcTitle}>flashcards</Text>
@@ -176,28 +152,28 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
 
         {/* Row 3: question bank + learning paths */}
         <View style={s.bentoRow}>
-          <BentoMini index="05" title="questions" caption="practice bank" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('questionBank')} />
-          <BentoMini index="06" title="paths" caption="guided learning" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('learningPaths')} />
+          <BentoMini index="05" title="questions" caption="practice bank" styles={s} onPress={() => onNavigate?.('questionBank')} />
+          <BentoMini index="06" title="paths" caption="guided learning" styles={s} onPress={() => onNavigate?.('learningPaths')} />
         </View>
 
         {/* Row 4: knowledge hub + maps */}
         <View style={s.bentoRow}>
-          <BentoMini index="07" title="hub" caption="sources & context" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('knowledgeHub')} />
-          <BentoMini index="08" title="maps" caption="concept graph" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('knowledgeMaps')} />
+          <BentoMini index="07" title="hub" caption="sources & context" styles={s} onPress={() => onNavigate?.('knowledgeHub')} />
+          <BentoMini index="08" title="maps" caption="concept graph" styles={s} onPress={() => onNavigate?.('knowledgeMaps')} />
         </View>
 
         {/* Row 5: analytics + weakness practice */}
         <View style={s.bentoRow}>
-          <BentoMini index="09" title="analytics" caption="study signals" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('analytics')} />
-          <BentoMini index="10" title="weakness" caption="targeted review" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('weaknessPractice')} />
+          <BentoMini index="09" title="analytics" caption="study signals" styles={s} onPress={() => onNavigate?.('analytics')} />
+          <BentoMini index="10" title="weakness" caption="targeted review" styles={s} onPress={() => onNavigate?.('weaknessPractice')} />
         </View>
         <View style={s.bentoRow}>
-          <BentoMini index="11" title="slides" caption="deck explorer" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('slideExplorer')} />
-          <BentoMini index="12" title="canvas" caption="sketch hub" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('canvasHub')} />
+          <BentoMini index="11" title="slides" caption="deck explorer" styles={s} onPress={() => onNavigate?.('slideExplorer')} />
+          <BentoMini index="12" title="canvas" caption="sketch hub" styles={s} onPress={() => onNavigate?.('canvasHub')} />
         </View>
         <View style={s.bentoRow}>
-          <BentoMini index="13" title="calendar" caption="activity heatmap" styles={s} theme={selectedTheme} onPress={() => setSubScreen('calendar')} />
-          <BentoMini index="14" title="timeline" caption="everything, in order" styles={s} theme={selectedTheme} onPress={() => setSubScreen('activity')} />
+          <BentoMini index="13" title="calendar" caption="activity heatmap" styles={s} onPress={() => setSubScreen('calendar')} />
+          <BentoMini index="14" title="timeline" caption="everything, in order" styles={s} onPress={() => setSubScreen('activity')} />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -206,11 +182,9 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
 
 function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
   const BG = theme.bgPrimary;
-  const SURFACE_ALT = theme.panelAlt;
   const GOLD_L = theme.accentHover;
   const DIM = theme.textSecondary;
   const BORDER = rgbaFromHex(GOLD_L, theme.isLight ? 0.16 : 0.18);
-  const SHADOW = darkenColor(theme.primary, theme.isLight ? 72 : 4);
   const heroRowHeight = 210;
   return StyleSheet.create({
   safe: { flex: 1, backgroundColor: BG },
@@ -230,35 +204,12 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   titleRule: { flex: 1, height: 1, backgroundColor: BORDER, marginTop: 6 },
 
   manifesto: {
-    borderRadius: 26,
-    borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: SURFACE_ALT,
+    borderRadius: 30,
     padding: 18,
     overflow: 'hidden',
     gap: 16,
-    shadowColor: SHADOW,
-    shadowOffset: { width: 16, height: 18 },
-    shadowOpacity: theme.isLight ? 0.09 : 0.36,
-    shadowRadius: 28,
-    elevation: 15,
-  },
-  neoInnerShade: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '46%',
-    backgroundColor: rgbaFromHex('#000000', theme.isLight ? 0.035 : 0.24),
-  },
-  cardSheen: {
-    position: 'absolute',
-    top: 0,
-    left: 18,
-    right: 18,
-    height: 1,
-    backgroundColor: rgbaFromHex(GOLD_L, 0.52),
-  },
+    boxShadow: cbTileShadow(0.14),
+  } as ViewStyle,
   manifestoKicker: {
     fontFamily: 'Inter_700Bold',
     fontSize: 10,
@@ -281,18 +232,11 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   manifestoCard: {
     flex: 1,
     minHeight: 112,
-    borderRadius: 26,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: SURFACE_ALT,
-    padding: 14,
-    shadowColor: SHADOW,
-    shadowOffset: { width: 16, height: 18 },
-    shadowOpacity: theme.isLight ? 0.09 : 0.36,
-    shadowRadius: 28,
-    elevation: 15,
-  },
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.015)',
+    padding: 20,
+    boxShadow: [{ offsetX: 0, offsetY: 0, blurRadius: 0, spreadDistance: 1, color: 'rgba(216, 179, 141, 0.14)', inset: true }],
+  } as ViewStyle,
   manifestoIndex: {
     fontFamily: 'Inter_700Bold',
     fontSize: 10,
@@ -351,12 +295,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   heroTile: {
     flex: 1.4, minHeight: heroRowHeight, borderRadius: 26, padding: 20,
     overflow: 'hidden',
-    shadowColor: SHADOW,
-    shadowOffset: { width: 16, height: 18 },
-    shadowOpacity: theme.isLight ? 0.09 : 0.36,
-    shadowRadius: 28,
-    elevation: 15,
-  },
+    boxShadow: cbTileShadow(0.055),
+  } as ViewStyle,
   heroIndex: {
     fontFamily: 'Inter_700Bold', fontSize: 12, letterSpacing: 2,
     color: rgbaFromHex(theme.bgPrimary, 0.55),
@@ -370,14 +310,10 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
 
   stackCol: { flex: 1, gap: 12 },
   miniTile: {
-    flex: 1, borderRadius: 26, overflow: 'hidden', borderWidth: 1, borderColor: BORDER,
-    backgroundColor: SURFACE_ALT, paddingHorizontal: 16, paddingVertical: 16,
-    shadowColor: SHADOW,
-    shadowOffset: { width: 16, height: 18 },
-    shadowOpacity: theme.isLight ? 0.09 : 0.36,
-    shadowRadius: 28,
-    elevation: 15,
-  },
+    flex: 1, borderRadius: 26, overflow: 'hidden',
+    paddingHorizontal: 16, paddingVertical: 16,
+    boxShadow: cbTileShadow(0.055),
+  } as ViewStyle,
   miniTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   miniIndex: { fontFamily: 'Inter_700Bold', fontSize: 11, letterSpacing: 1.5, color: DIM },
   miniArrow: { color: GOLD_L },
@@ -385,15 +321,11 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   miniCaption: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM, marginTop: 2 },
 
   flashcardCard: {
-    borderRadius: 26, overflow: 'hidden', borderWidth: 1, borderColor: BORDER,
-    backgroundColor: SURFACE_ALT, padding: 20,
+    borderRadius: 26, overflow: 'hidden',
+    padding: 20,
     flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end',
-    shadowColor: SHADOW,
-    shadowOffset: { width: 16, height: 18 },
-    shadowOpacity: theme.isLight ? 0.09 : 0.36,
-    shadowRadius: 28,
-    elevation: 15,
-  },
+    boxShadow: cbTileShadow(0.055),
+  } as ViewStyle,
   fcLeft: { flex: 1, minWidth: 160 },
   fcIndex: { fontFamily: 'Inter_700Bold', fontSize: 11, letterSpacing: 1.5, color: DIM, marginBottom: 10 },
   fcTitle: { fontFamily: 'Inter_900Black', fontSize: 28, color: GOLD_L, letterSpacing: -1 },

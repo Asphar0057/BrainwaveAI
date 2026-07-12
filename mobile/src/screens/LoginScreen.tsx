@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
@@ -11,6 +11,7 @@ import { confirmPasswordReset, register, requestPasswordReset, verifyRegistratio
 import HapticTouchable from '../components/HapticTouchable';
 import GeoBackground from '../components/GeoBackground';
 import AmbientBubbles from '../components/AmbientBubbles';
+import NeumorphicTexture, { cbCardGradient, cbModalShadow } from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
@@ -264,13 +265,8 @@ export default function LoginScreen({ onLogin }: Props) {
             </View>
 
             <View style={s.panel}>
-              <LinearGradient
-                colors={[rgbaFromHex(selectedTheme.accentHover, 0.08), rgbaFromHex(selectedTheme.panelAlt, 0.98), rgbaFromHex(selectedTheme.bgPrimary, 0.98)]}
-                locations={[0, 0.55, 1]}
-                style={StyleSheet.absoluteFillObject}
-              />
-              <View style={s.cardSheen} />
-              <View style={s.neoInnerShade} />
+              <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
+              <NeumorphicTexture />
               <View style={s.tabs}>
                 <HapticTouchable style={[s.tab, mode === 'login' && s.tabActive]} onPress={() => switchMode('login')} haptic="selection">
                   <Text style={[s.tabText, mode === 'login' && s.tabTextActive]}>sign in</Text>
@@ -445,34 +441,11 @@ return StyleSheet.create({
 
   panel: {
     width: '100%',
-    backgroundColor: theme.panelAlt,
-    borderRadius: 26,
-    borderWidth: 1,
-    borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.16 : 0.18),
+    borderRadius: 30,
     padding: 20,
     overflow: 'hidden',
-    shadowColor: SHADOW,
-    shadowOffset: { width: 16, height: 18 },
-    shadowOpacity: theme.isLight ? 0.09 : 0.36,
-    shadowRadius: 28,
-    elevation: 15,
-  },
-  cardSheen: {
-    position: 'absolute',
-    top: 0,
-    left: 18,
-    right: 18,
-    height: 1,
-    backgroundColor: rgbaFromHex(theme.accentHover, 0.52),
-  },
-  neoInnerShade: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '46%',
-    backgroundColor: rgbaFromHex('#000000', theme.isLight ? 0.035 : 0.24),
-  },
+    boxShadow: cbModalShadow(0.14),
+  } as ViewStyle,
   tabs: { flexDirection: 'row', backgroundColor: rgbaFromHex(theme.textPrimary, 0.03), borderRadius: 14, borderWidth: 1, borderColor: theme.border, marginBottom: 22, overflow: 'hidden', padding: 4 },
   tab:       { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 11 },
   tabActive: { backgroundColor: theme.panelAlt },
