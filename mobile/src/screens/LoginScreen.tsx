@@ -10,6 +10,7 @@ import { signIn, signInWithGoogle, AuthUser } from '../services/auth';
 import { confirmPasswordReset, register, requestPasswordReset, verifyRegistration } from '../services/api';
 import HapticTouchable from '../components/HapticTouchable';
 import GeoBackground from '../components/GeoBackground';
+import AmbientBubbles from '../components/AmbientBubbles';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
@@ -244,6 +245,7 @@ export default function LoginScreen({ onLogin }: Props) {
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
         <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFill} />
         <GeoBackground />
+        <AmbientBubbles theme={selectedTheme} variant="auth" opacity={0.9} />
       </View>
       <KeyboardAvoidingView style={s.kav} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView
@@ -262,6 +264,13 @@ export default function LoginScreen({ onLogin }: Props) {
             </View>
 
             <View style={s.panel}>
+              <LinearGradient
+                colors={[rgbaFromHex(selectedTheme.accentHover, 0.08), rgbaFromHex(selectedTheme.panelAlt, 0.98), rgbaFromHex(selectedTheme.bgPrimary, 0.98)]}
+                locations={[0, 0.55, 1]}
+                style={StyleSheet.absoluteFillObject}
+              />
+              <View style={s.cardSheen} />
+              <View style={s.neoInnerShade} />
               <View style={s.tabs}>
                 <HapticTouchable style={[s.tab, mode === 'login' && s.tabActive]} onPress={() => switchMode('login')} haptic="selection">
                   <Text style={[s.tabText, mode === 'login' && s.tabTextActive]}>sign in</Text>
@@ -436,19 +445,36 @@ return StyleSheet.create({
 
   panel: {
     width: '100%',
-    backgroundColor: rgbaFromHex(theme.panel, 0.92),
-    borderRadius: 20,
+    backgroundColor: theme.panelAlt,
+    borderRadius: 26,
     borderWidth: 1,
-    borderColor: theme.border,
-    padding: 18,
+    borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.16 : 0.18),
+    padding: 20,
+    overflow: 'hidden',
     shadowColor: SHADOW,
-    shadowOffset: { width: 0, height: 18 },
-    shadowOpacity: 0.24,
-    shadowRadius: 30,
-    elevation: 18,
+    shadowOffset: { width: 16, height: 18 },
+    shadowOpacity: theme.isLight ? 0.09 : 0.36,
+    shadowRadius: 28,
+    elevation: 15,
   },
-  tabs: { flexDirection: 'row', backgroundColor: rgbaFromHex(theme.textPrimary, 0.03), borderRadius: 10, borderWidth: 1, borderColor: theme.border, marginBottom: 22, overflow: 'hidden', padding: 4 },
-  tab:       { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8 },
+  cardSheen: {
+    position: 'absolute',
+    top: 0,
+    left: 18,
+    right: 18,
+    height: 1,
+    backgroundColor: rgbaFromHex(theme.accentHover, 0.52),
+  },
+  neoInnerShade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '46%',
+    backgroundColor: rgbaFromHex('#000000', theme.isLight ? 0.035 : 0.24),
+  },
+  tabs: { flexDirection: 'row', backgroundColor: rgbaFromHex(theme.textPrimary, 0.03), borderRadius: 14, borderWidth: 1, borderColor: theme.border, marginBottom: 22, overflow: 'hidden', padding: 4 },
+  tab:       { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 11 },
   tabActive: { backgroundColor: theme.panelAlt },
   tabText:       { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: theme.textSecondary, letterSpacing: 0.5 },
   tabTextActive: { color: theme.accent },
@@ -460,10 +486,11 @@ return StyleSheet.create({
   label: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: theme.textSecondary, letterSpacing: 1.7, marginBottom: 8, textTransform: 'uppercase' },
   spacedLabel: { marginTop: 16 },
   input: {
-    backgroundColor: theme.panelAlt,
+    backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.55 : 0.66),
     borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 10,
+    borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.12 : 0.14),
+    borderTopColor: rgbaFromHex('#000000', theme.isLight ? 0.05 : 0.30),
+    borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontFamily: 'Inter_400Regular',
@@ -474,7 +501,16 @@ return StyleSheet.create({
   error:   { fontFamily: 'Inter_400Regular', fontSize: 12, color: theme.danger, letterSpacing: 0.3, marginBottom: 12, textAlign: 'center' },
   success: { fontFamily: 'Inter_400Regular', fontSize: 12, color: theme.success, letterSpacing: 0.3, marginBottom: 12, textAlign: 'center' },
 
-  btnWrap: { marginTop: 24, borderRadius: 10, overflow: 'hidden' },
+  btnWrap: {
+    marginTop: 24,
+    borderRadius: 14,
+    overflow: 'hidden',
+    shadowColor: SHADOW,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: theme.isLight ? 0.14 : 0.34,
+    shadowRadius: 20,
+    elevation: 10,
+  },
   btn:     { paddingVertical: 17, alignItems: 'center', justifyContent: 'center' },
   btnText: { fontFamily: 'Inter_900Black', fontSize: 14, color: theme.bgPrimary, letterSpacing: 0.6 },
 
@@ -490,11 +526,16 @@ return StyleSheet.create({
   secondaryBtn: {
     marginTop: 16,
     borderWidth: 1,
-    borderColor: rgbaFromHex(theme.accent, 0.28),
-    borderRadius: 10,
+    borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.22 : 0.26),
+    borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
     backgroundColor: theme.panelAlt,
+    shadowColor: SHADOW,
+    shadowOffset: { width: 8, height: 10 },
+    shadowOpacity: theme.isLight ? 0.07 : 0.26,
+    shadowRadius: 18,
+    elevation: 8,
   },
   secondaryBtnText: { fontFamily: 'Inter_900Black', fontSize: 12, color: theme.textPrimary, letterSpacing: 0.7 },
 
@@ -504,7 +545,12 @@ return StyleSheet.create({
 
   googleBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    borderWidth: 1, borderColor: theme.border, borderRadius: 10, paddingVertical: 15, backgroundColor: theme.panelAlt,
+    borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.18 : 0.20), borderRadius: 14, paddingVertical: 15, backgroundColor: theme.panelAlt,
+    shadowColor: SHADOW,
+    shadowOffset: { width: 8, height: 10 },
+    shadowOpacity: theme.isLight ? 0.07 : 0.26,
+    shadowRadius: 18,
+    elevation: 8,
   },
   googleIcon: { fontFamily: 'Inter_900Black', fontSize: 16, color: theme.accent },
   googleText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: theme.textPrimary, letterSpacing: 0.2 },

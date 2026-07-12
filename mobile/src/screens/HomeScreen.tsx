@@ -43,6 +43,7 @@ function MetricCapsule({ label, value }: { label: string; value: string }) {
   const styles = useMemo(() => createStyles(selectedTheme, layout, windowHeight), [selectedTheme, layout, windowHeight]);
   return (
     <View style={styles.metricCapsule}>
+      <View style={styles.cardSheen} />
       <Text style={styles.metricValue}>{value}</Text>
       <Text style={styles.metricLabel}>{label}</Text>
     </View>
@@ -278,6 +279,7 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
             <Text style={styles.greeting}>{greeting}, {firstName}</Text>
           </View>
           <View style={styles.topDateChip}>
+            <View style={styles.cardSheen} />
             <Text style={styles.topDateDay}>{dayLabel}</Text>
             <Text style={styles.topDateText}>{dateLabel}</Text>
           </View>
@@ -355,6 +357,8 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
                       {!isLast && <View style={styles.timelineLine} />}
                     </View>
                     <View style={[styles.timelineCard, isLast && { marginBottom: 0 }]}>
+                      <View style={styles.neoUpperGlow} />
+                      <View style={styles.neoLowerShadow} />
                       <Text style={styles.timelineLabel}>{label}</Text>
                       {subject ? <Text style={styles.timelineSubject} numberOfLines={1}>{subject}</Text> : null}
                       <Text style={styles.timelineActor}>{actor}</Text>
@@ -551,6 +555,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     justifyContent: 'center',
     minWidth: 92,
     borderRadius: 24,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.18 : 0.22),
     backgroundColor: rgbaFromHex(SURFACE, theme.isLight ? 0.82 : 0.72),
@@ -707,6 +712,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   metricCapsule: {
     minWidth: layout.isLandscape ? 82 : 76,
     borderRadius: 22,
+    overflow: 'hidden',
     paddingHorizontal: 12,
     paddingVertical: 10,
     backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.52 : 0.68),
@@ -1137,6 +1143,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     flex: 1,
     backgroundColor: rgbaFromHex(SURFACE, 0.94),
     borderRadius: 20,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.12 : 0.16),
     padding: 12,
