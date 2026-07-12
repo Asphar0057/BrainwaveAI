@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Switch, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Switch, Alert, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,6 +8,7 @@ import { AuthUser, signOut } from '../services/auth';
 import HapticTouchable from '../components/HapticTouchable';
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
+import NeumorphicTexture, { cbCardGradient, cbTileShadow, cbModalShadow } from '../components/NeumorphicTexture';
 import { triggerHaptic } from '../utils/haptics';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
@@ -88,11 +89,10 @@ export default function ProfileScreen({ user, onLogout, onNavigate }: Props) {
           </HapticTouchable>
         </View>
 
-        <LinearGradient
-          colors={[rgbaFromHex(selectedTheme.accent, 0.10), rgbaFromHex(selectedTheme.panel, 0.985), rgbaFromHex(selectedTheme.bgPrimary, 0.995)]}
-          locations={[0, 0.62, 1]}
-          style={styles.heroCard}
-        >
+        <View style={styles.heroCard}>
+          <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
+          <NeumorphicTexture grainOpacity={0.12} />
+          <Text style={styles.heroGhost}>01</Text>
           <LinearGradient
             colors={
               selectedTheme.isLight
@@ -106,10 +106,12 @@ export default function ProfileScreen({ user, onLogout, onNavigate }: Props) {
           <Text style={styles.userName}>{displayName}</Text>
           <Text style={styles.userHandle}>@{user.username} · joined {joinYear}</Text>
           <Text style={styles.heroText}>Focused study, low noise. Keep the essentials close.</Text>
-        </LinearGradient>
+        </View>
 
         <Text style={styles.sectionLabel}>preferences</Text>
         <View style={styles.card}>
+          <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
+          <NeumorphicTexture grainOpacity={0.09} />
           {prefs.map((pref, index) => (
             <View key={pref.label} style={[styles.prefRow, index < prefs.length - 1 && styles.rowDivider]}>
               <View style={styles.iconWrap}>
@@ -130,6 +132,8 @@ export default function ProfileScreen({ user, onLogout, onNavigate }: Props) {
 
         <Text style={styles.sectionLabel}>account</Text>
         <View style={styles.card}>
+          <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
+          <NeumorphicTexture grainOpacity={0.09} />
           {[
             { label: 'My Flashcards', icon: 'layers-outline' },
             { label: 'My Notes',      icon: 'document-text-outline' },
@@ -171,13 +175,12 @@ export default function ProfileScreen({ user, onLogout, onNavigate }: Props) {
 }
 
 function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
-  const CARD     = theme.panel;
   const CARD_ALT = theme.panelAlt;
   const GOLD_LIGHT = theme.accentHover;
   const GOLD_MID   = theme.accent;
   const GOLD_DARK  = darkenColor(theme.accent, theme.isLight ? 16 : 34);
   const DIM    = theme.textSecondary;
-  const BORDER = theme.border;
+  const BORDER = rgbaFromHex(GOLD_LIGHT, theme.isLight ? 0.16 : 0.18);
 
   // Responsive horizontal padding: tighter on phone, more generous on tablet
   const PAD = layout.isTablet ? layout.screenPadding : 12;
@@ -206,33 +209,43 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       paddingHorizontal: PAD - 4,
     },
     settingsButton: {
-      width: 40, height: 40, borderRadius: 10,
-      borderWidth: 1, borderColor: BORDER,
-      backgroundColor: rgbaFromHex(CARD_ALT, 0.88),
+      width: 42, height: 42, borderRadius: 16,
+      borderWidth: 1, borderColor: rgbaFromHex(GOLD_LIGHT, theme.isLight ? 0.18 : 0.22),
+      backgroundColor: rgbaFromHex(CARD_ALT, theme.isLight ? 0.88 : 0.74),
       alignItems: 'center', justifyContent: 'center',
+      boxShadow: cbTileShadow(0.06),
     },
     pageTitle:    { fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 36 : 30, lineHeight: layout.isTablet ? 38 : 32, color: GOLD_LIGHT, letterSpacing: -0.8 },
     pageSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM, letterSpacing: 1.6, marginTop: 4, textTransform: 'uppercase' },
     heroCard: {
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: BORDER,
+      borderRadius: 30,
       padding: 20,
       overflow: 'hidden',
       marginBottom: 22,
       alignItems: 'center',
       gap: 6,
-      backgroundColor: rgbaFromHex(CARD, 0.96),
+      boxShadow: cbModalShadow(0.14),
+    } as ViewStyle,
+    heroGhost: {
+      position: 'absolute',
+      right: 16,
+      top: 2,
+      fontFamily: 'Inter_900Black',
+      fontSize: layout.isTablet ? 94 : 78,
+      lineHeight: layout.isTablet ? 100 : 84,
+      color: rgbaFromHex(theme.textPrimary, theme.isLight ? 0.035 : 0.055),
+      letterSpacing: -4,
     },
     avatarCircle: {
       width: layout.isTablet ? 100 : 88,
       height: layout.isTablet ? 100 : 88,
       borderRadius: layout.isTablet ? 50 : 44,
-      borderWidth: 2,
-      borderColor: GOLD_DARK,
+      borderWidth: 1,
+      borderColor: rgbaFromHex(GOLD_LIGHT, theme.isLight ? 0.26 : 0.34),
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: 8,
+      boxShadow: cbTileShadow(0.10),
     },
     avatarInitials: { fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 34 : 28, color: GOLD_LIGHT },
     userName:   { fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 28 : 24, color: GOLD_LIGHT, letterSpacing: -0.5, textAlign: 'center' },
@@ -240,19 +253,18 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     heroText:   { fontFamily: 'Inter_400Regular', fontSize: 13, lineHeight: 19, color: GOLD_MID, marginTop: 8, textAlign: 'center' },
     sectionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: DIM, letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' },
     card: {
-      backgroundColor: CARD,
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: BORDER,
+      borderRadius: 24,
       marginBottom: 22,
       overflow: 'hidden',
-    },
+      boxShadow: cbTileShadow(0.10),
+    } as ViewStyle,
     rowDivider: { borderBottomWidth: 1, borderBottomColor: BORDER },
     iconWrap: {
       width: 30, height: 30, borderRadius: 15,
-      borderWidth: 1, borderColor: BORDER,
-      backgroundColor: CARD_ALT,
+      borderWidth: 1, borderColor: rgbaFromHex(GOLD_LIGHT, theme.isLight ? 0.18 : 0.22),
+      backgroundColor: rgbaFromHex(CARD_ALT, theme.isLight ? 0.84 : 0.72),
       alignItems: 'center', justifyContent: 'center',
+      boxShadow: [{ offsetX: 0, offsetY: 0, blurRadius: 0, spreadDistance: 1, color: rgbaFromHex(GOLD_LIGHT, 0.08), inset: true }],
     },
     prefRow:   { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
     prefLabel: { fontFamily: 'Inter_400Regular', fontSize: 14, color: GOLD_LIGHT, flex: 1 },

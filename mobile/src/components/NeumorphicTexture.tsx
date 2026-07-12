@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, Pattern, Line, RadialGradient, Stop, Rect, Circle } from 'react-native-svg';
 
 // Ported verbatim from src/pages/Home.css (.cb-tile / .cb-tile-texture / .cb-modal) —
@@ -41,6 +42,15 @@ export function cbModalShadow(borderOpacity: number = 0.14): ViewStyle['boxShado
     { offsetX: -12, offsetY: -12, blurRadius: 30, color: CB_SHADOW_HI },
     { offsetX: 0, offsetY: 0, blurRadius: 0, spreadDistance: 1, color: `rgba(216, 179, 141, ${borderOpacity})`, inset: true },
   ];
+}
+
+export function NeumorphicLayer({ grainOpacity = 0.12 }: { grainOpacity?: number }) {
+  return (
+    <>
+      <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
+      <NeumorphicTexture grainOpacity={grainOpacity} />
+    </>
+  );
 }
 
 let instanceSeed = 0;

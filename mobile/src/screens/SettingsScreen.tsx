@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Switch, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Switch, Alert, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,6 +8,7 @@ import { AuthUser } from '../services/auth';
 import HapticTouchable from '../components/HapticTouchable';
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
+import NeumorphicTexture, { cbCardGradient, cbTileShadow, cbModalShadow } from '../components/NeumorphicTexture';
 import { triggerHaptic } from '../utils/haptics';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex, ThemeMode } from '../utils/theme';
@@ -68,15 +69,20 @@ export default function SettingsScreen({ user, onBack }: Props) {
           <View style={styles.iconButton} />
         </View>
 
-        <LinearGradient colors={[rgbaFromHex(selectedTheme.accent, 0.10), rgbaFromHex(selectedTheme.panel, 0.985), rgbaFromHex(selectedTheme.bgPrimary, 0.995)]} locations={[0, 0.62, 1]} style={styles.heroCard}>
+        <View style={styles.heroCard}>
+          <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
+          <NeumorphicTexture grainOpacity={0.12} />
+          <Text style={styles.heroGhost}>01</Text>
           <Text style={[styles.heroEyebrow, { color: selectedTheme.accentHover }]}>signed in as</Text>
           <Text style={styles.heroName}>{user.first_name || user.username}</Text>
           <Text style={styles.heroMeta}>@{user.username} · {user.email}</Text>
           <Text style={styles.heroBody}>Tune the product around your pace without cluttering the core experience.</Text>
-        </LinearGradient>
+        </View>
 
         <Text style={styles.sectionLabel}>appearance</Text>
         <View style={styles.card}>
+          <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
+          <NeumorphicTexture grainOpacity={0.08} />
           <View style={styles.themeTabRow}>
             <HapticTouchable style={[styles.themeTab, activeTab === 'presets' && styles.themeTabActive]} onPress={() => setActiveTab('presets')} haptic="selection">
               <Text style={[styles.themeTabText, activeTab === 'presets' && styles.themeTabTextActive]}>presets</Text>
@@ -190,6 +196,8 @@ export default function SettingsScreen({ user, onBack }: Props) {
 
         <Text style={styles.sectionLabel}>preferences</Text>
         <View style={styles.card}>
+          <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
+          <NeumorphicTexture grainOpacity={0.08} />
           {[
             {
               label: 'Push Notifications',
@@ -226,6 +234,8 @@ export default function SettingsScreen({ user, onBack }: Props) {
 
         <Text style={styles.sectionLabel}>account</Text>
         <View style={styles.card}>
+          <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
+          <NeumorphicTexture grainOpacity={0.08} />
           {accountRows.map((item, index) => (
             <HapticTouchable
               key={item.label}
@@ -248,6 +258,7 @@ export default function SettingsScreen({ user, onBack }: Props) {
 }
 
 function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
+  const BORDER = rgbaFromHex(theme.accentHover, theme.isLight ? 0.16 : 0.18);
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: theme.bgPrimary },
     scroll: {
@@ -273,45 +284,62 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: rgbaFromHex(theme.panel, 0.88),
+      borderColor: BORDER,
+      backgroundColor: rgbaFromHex(theme.panel, theme.isLight ? 0.88 : 0.72),
+      boxShadow: cbTileShadow(0.06),
     },
     titleWrap: { flex: 1, alignItems: 'center' },
     pageTitle: { fontFamily: 'Inter_900Black', fontSize: 24, color: theme.accentHover, textTransform: 'lowercase', letterSpacing: -0.4 },
     pageSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 10, color: theme.textSecondary, letterSpacing: 1.8, marginTop: 4, textTransform: 'uppercase' },
     heroCard: {
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: theme.border,
+      borderRadius: 30,
       paddingHorizontal: 20,
       paddingVertical: 22,
       marginBottom: 28,
       overflow: 'hidden',
+      boxShadow: cbModalShadow(0.14),
+    } as ViewStyle,
+    heroGhost: {
+      position: 'absolute',
+      right: 16,
+      top: 0,
+      fontFamily: 'Inter_900Black',
+      fontSize: layout.isTablet ? 92 : 76,
+      lineHeight: layout.isTablet ? 98 : 82,
+      color: rgbaFromHex(theme.textPrimary, theme.isLight ? 0.035 : 0.055),
+      letterSpacing: -4,
     },
     heroEyebrow: { fontFamily: 'Inter_600SemiBold', fontSize: 10, letterSpacing: 1.8, textTransform: 'uppercase' },
     heroName: { fontFamily: 'Inter_900Black', fontSize: 22, color: theme.accentHover, marginTop: 8 },
     heroMeta: { fontFamily: 'Inter_400Regular', fontSize: 13, color: theme.accent, marginTop: 6 },
     heroBody: { fontFamily: 'Inter_400Regular', fontSize: 14, lineHeight: 21, color: theme.textSecondary, marginTop: 14 },
     sectionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: theme.textSecondary, letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' },
-    card: { backgroundColor: theme.panel, borderRadius: 16, borderWidth: 1, borderColor: theme.border, marginBottom: 24, overflow: 'hidden' },
+    card: {
+      borderRadius: 24,
+      marginBottom: 24,
+      overflow: 'hidden',
+      boxShadow: cbTileShadow(0.10),
+    } as ViewStyle,
     themeTabRow: {
       flexDirection: 'row',
       padding: 8,
       gap: 8,
       borderBottomWidth: 1,
-      borderBottomColor: theme.border,
+      borderBottomColor: BORDER,
     },
     themeTab: {
       flex: 1,
       borderRadius: 16,
       paddingVertical: 12,
       alignItems: 'center',
-      backgroundColor: theme.panelAlt,
+      borderWidth: 1,
+      borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.10 : 0.12),
+      backgroundColor: rgbaFromHex(theme.panelAlt, theme.isLight ? 0.84 : 0.72),
     },
     themeTabActive: {
       backgroundColor: rgbaFromHex(theme.accent, 0.18),
       borderWidth: 1,
-      borderColor: theme.borderStrong,
+      borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.28 : 0.34),
     },
     themeTabText: {
       fontFamily: 'Inter_600SemiBold',
@@ -344,14 +372,14 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       width: layout.threeColumn ? '31.8%' : '47%',
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: theme.panelAlt,
+      borderColor: BORDER,
+      backgroundColor: rgbaFromHex(theme.panelAlt, theme.isLight ? 0.84 : 0.72),
       paddingHorizontal: 12,
       paddingVertical: 12,
       gap: 10,
     },
     presetBtnActive: {
-      borderColor: theme.borderStrong,
+      borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.28 : 0.34),
       backgroundColor: rgbaFromHex(theme.accent, 0.16),
     },
     presetColors: {
@@ -376,13 +404,13 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       flex: 1,
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: theme.panelAlt,
+      borderColor: BORDER,
+      backgroundColor: rgbaFromHex(theme.panelAlt, theme.isLight ? 0.84 : 0.72),
       alignItems: 'center',
       paddingVertical: 12,
     },
     modeBtnActive: {
-      borderColor: theme.borderStrong,
+      borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.28 : 0.34),
       backgroundColor: rgbaFromHex(theme.accent, 0.16),
     },
     modeBtnText: {
@@ -404,15 +432,15 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       width: layout.threeColumn ? '18%' : layout.twoColumn ? '22%' : '30%',
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: theme.panelAlt,
+      borderColor: BORDER,
+      backgroundColor: rgbaFromHex(theme.panelAlt, theme.isLight ? 0.84 : 0.72),
       alignItems: 'center',
       paddingVertical: 10,
       paddingHorizontal: 6,
       gap: 8,
     },
     swatchBtnActive: {
-      borderColor: theme.borderStrong,
+      borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.28 : 0.34),
       backgroundColor: rgbaFromHex(theme.accent, 0.14),
     },
     swatchCircle: {
@@ -444,7 +472,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     prefRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
     linkRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 15, gap: 12 },
-    rowDivider: { borderBottomWidth: 1, borderBottomColor: theme.border },
+    rowDivider: { borderBottomWidth: 1, borderBottomColor: BORDER },
     prefLabel: { fontFamily: 'Inter_400Regular', fontSize: 14, color: theme.textPrimary, flex: 1 },
     linkLabel: { fontFamily: 'Inter_400Regular', fontSize: 14, color: theme.textPrimary, flex: 1 },
     iconWrap: {
@@ -452,10 +480,11 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       height: 30,
       borderRadius: 15,
       borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: theme.panelAlt,
+      borderColor: BORDER,
+      backgroundColor: rgbaFromHex(theme.panelAlt, theme.isLight ? 0.84 : 0.72),
       alignItems: 'center',
       justifyContent: 'center',
+      boxShadow: [{ offsetX: 0, offsetY: 0, blurRadius: 0, spreadDistance: 1, color: rgbaFromHex(theme.accentHover, 0.08), inset: true }],
     },
   });
 }

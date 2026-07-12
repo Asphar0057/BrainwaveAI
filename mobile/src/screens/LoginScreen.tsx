@@ -2,22 +2,22 @@ import { useState, useEffect, useMemo } from 'react';
 import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
+import { useFonts, Inter_900Black, Inter_700Bold, Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 
 import { signIn, signInWithGoogle, AuthUser } from '../services/auth';
-import { confirmPasswordReset, register, requestPasswordReset, verifyRegistration } from '../services/api';
+import { confirmPasswordReset, register, requestPasswordReset, resendRegistrationOtp, verifyRegistration } from '../services/api';
 import HapticTouchable from '../components/HapticTouchable';
 import GeoBackground from '../components/GeoBackground';
-import AmbientBubbles from '../components/AmbientBubbles';
-import NeumorphicTexture, { cbCardGradient, cbModalShadow } from '../components/NeumorphicTexture';
+import { cbModalShadow, cbTileShadow } from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
 WebBrowser.maybeCompleteAuthSession();
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DEFAULT_WEB_GOOGLE_CLIENT_ID = '44446084594-8jc1vsg08qkt4d35npd2gn33b65b2638.apps.googleusercontent.com';
 const GOOGLE_WEB_CLIENT_ID =
   process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
@@ -42,7 +42,7 @@ export default function LoginScreen({ onLogin }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
   const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
-  const [fontsLoaded] = useFonts({ Inter_900Black, Inter_400Regular, Inter_600SemiBold });
+  const [fontsLoaded] = useFonts({ Inter_900Black, Inter_700Bold, Inter_400Regular, Inter_600SemiBold });
   const [mode, setMode] = useState<'login' | 'register'>('login');
 
   // login fields
@@ -69,6 +69,12 @@ export default function LoginScreen({ onLogin }: Props) {
   const [error, setError]     = useState('');
   const [success, setSuccess] = useState('');
   const googleConfigError = getGoogleConfigError();
+  const panelTitle = verificationPending ? 'verify account' : mode === 'login' ? 'welcome back' : 'create account';
+  const panelSubtitle = verificationPending
+    ? 'enter the code sent to your email'
+    : mode === 'login'
+      ? 'continue your study session'
+      : 'set up your learning profile';
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     webClientId: GOOGLE_WEB_CLIENT_ID,
@@ -118,6 +124,11 @@ export default function LoginScreen({ onLogin }: Props) {
       setError('all fields are required');
       return;
     }
+    const email = regEmail.trim();
+    if (!EMAIL_PATTERN.test(email)) {
+      setError('enter a valid email address');
+      return;
+    }
     setLoading(true);
     setError('');
     setSuccess('');
@@ -125,7 +136,7 @@ export default function LoginScreen({ onLogin }: Props) {
       await register({
         first_name: regFirstName.trim(),
         last_name:  regLastName.trim(),
-        email:      regEmail.trim(),
+        email,
         username:   regUsername.trim(),
         password:   regPassword,
       }).then((data) => {
@@ -142,7 +153,8 @@ export default function LoginScreen({ onLogin }: Props) {
   };
 
   const handleVerifyRegistration = async () => {
-    if (!registrationOtp.trim()) {
+    const otp = registrationOtp.trim();
+    if (!/^\d{6}$/.test(otp)) {
       setError('enter the 6-digit OTP');
       return;
     }
@@ -152,7 +164,7 @@ export default function LoginScreen({ onLogin }: Props) {
     try {
       await verifyRegistration({
         email: regEmail.trim(),
-        otp: registrationOtp.trim(),
+        otp,
       });
       setSuccess('account verified! sign in below');
       setUsername(regUsername.trim());
@@ -162,6 +174,28 @@ export default function LoginScreen({ onLogin }: Props) {
       setMode('login');
     } catch (e: any) {
       setError(e.message || 'verification failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendRegistrationOtp = async () => {
+    const email = regEmail.trim();
+    if (!EMAIL_PATTERN.test(email)) {
+      setError('edit your email address before resending');
+      setVerificationPending(false);
+      return;
+    }
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const data = await resendRegistrationOtp(email);
+      const devOtp = data?.dev_otp ? ` Dev OTP: ${data.dev_otp}` : '';
+      setRegistrationOtp('');
+      setSuccess(`${data?.message || 'new verification OTP sent'}${devOtp}`);
+    } catch (e: any) {
+      setError(e.message || 'could not resend verification code');
     } finally {
       setLoading(false);
     }
@@ -246,7 +280,6 @@ export default function LoginScreen({ onLogin }: Props) {
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
         <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFill} />
         <GeoBackground />
-        <AmbientBubbles theme={selectedTheme} variant="auth" opacity={0.9} />
       </View>
       <KeyboardAvoidingView style={s.kav} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView
@@ -256,17 +289,30 @@ export default function LoginScreen({ onLogin }: Props) {
           keyboardShouldPersistTaps="always"
         >
           <View style={s.content}>
-            <View style={s.top}>
-              <Text style={s.brand}>cerbyl</Text>
-              <Text style={s.tagline}>
-                <Text style={s.taglineAccent}>LEARNING, </Text>
-                <Text style={s.taglineMuted}>UNIFIED</Text>
-              </Text>
+            <View style={s.header}>
+              <View>
+                <Text style={s.brand}>cerbyl</Text>
+                <Text style={s.headerSub}>learning unified</Text>
+              </View>
+              <View style={s.headerRule} />
             </View>
 
             <View style={s.panel}>
-              <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
-              <NeumorphicTexture />
+              <LinearGradient
+                colors={[rgbaFromHex(selectedTheme.accentHover, 0.08), rgbaFromHex(selectedTheme.panel, 0.98), rgbaFromHex(selectedTheme.bgPrimary, 0.98)]}
+                locations={[0, 0.52, 1]}
+                style={StyleSheet.absoluteFillObject}
+              />
+              <View style={s.panelSheen} />
+              <View style={s.panelDepth} />
+              <Text style={s.panelGhost}>{mode === 'login' ? '01' : verificationPending ? '03' : '02'}</Text>
+              <View style={s.panelCornerTop} />
+              <View style={s.panelHeader}>
+                <Text style={s.panelKicker}>{mode === 'login' ? 'account access' : verificationPending ? 'email verification' : 'new account'}</Text>
+                <Text style={s.panelTitle}>{panelTitle}</Text>
+                <Text style={s.panelSubtitle}>{panelSubtitle}</Text>
+              </View>
+
               <View style={s.tabs}>
                 <HapticTouchable style={[s.tab, mode === 'login' && s.tabActive]} onPress={() => switchMode('login')} haptic="selection">
                   <Text style={[s.tabText, mode === 'login' && s.tabTextActive]}>sign in</Text>
@@ -276,8 +322,8 @@ export default function LoginScreen({ onLogin }: Props) {
                 </HapticTouchable>
               </View>
 
-              {success ? <Text style={s.success}>{success}</Text> : null}
-              {error ? <Text style={s.error}>{error}</Text> : null}
+              {success ? <View style={s.successBox}><Text style={s.success}>{success}</Text></View> : null}
+              {error ? <View style={s.errorBox}><Text style={s.error}>{error}</Text></View> : null}
 
               <View style={s.form}>
                 {mode === 'login' ? (
@@ -367,6 +413,16 @@ export default function LoginScreen({ onLogin }: Props) {
 
                     <HapticTouchable
                       style={[s.googleBtn, { marginTop: 12 }]}
+                      onPress={handleResendRegistrationOtp}
+                      activeOpacity={0.88}
+                      disabled={loading}
+                      haptic="selection"
+                    >
+                      <Text style={s.googleText}>resend code</Text>
+                    </HapticTouchable>
+
+                    <HapticTouchable
+                      style={[s.googleBtn, { marginTop: 12 }]}
                       onPress={() => {
                         setVerificationPending(false);
                         setRegistrationOtp('');
@@ -419,113 +475,294 @@ export default function LoginScreen({ onLogin }: Props) {
 }
 
 function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
-const SHADOW = darkenColor(theme.primary, theme.isLight ? 72 : 4);
-return StyleSheet.create({
-  safe:    { flex: 1, backgroundColor: theme.bgPrimary },
-  kav:     { flex: 1 },
-  scrollView: { flex: 1 },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingVertical: 28,
-  },
-  content: {
-    width: '100%',
-    paddingHorizontal: layout.isTablet ? layout.screenPadding : 12,
-  },
-  top: { alignItems: 'center', marginBottom: 22 },
-  brand: { fontFamily: 'Inter_900Black', fontSize: 42, color: theme.accentHover, letterSpacing: -1.4 },
-  tagline: { marginTop: 8, fontFamily: 'Inter_900Black', fontSize: 10, letterSpacing: 4, textTransform: 'uppercase' },
-  taglineAccent: { color: theme.accent },
-  taglineMuted: { color: rgbaFromHex(theme.textPrimary, 0.35) },
+  const SHADOW = darkenColor(theme.primary, theme.isLight ? 72 : 4);
+  const contentMaxWidth = Math.min(layout.contentMaxWidth, 560);
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: theme.bgPrimary },
+    kav: { flex: 1 },
+    scrollView: { flex: 1 },
+    scrollContent: {
+      flexGrow: 1,
+      justifyContent: layout.height < 760 ? 'flex-start' : 'center',
+      paddingTop: layout.height < 760 ? 18 : 28,
+      paddingBottom: 34,
+    },
+    content: {
+      width: '100%',
+      maxWidth: contentMaxWidth,
+      alignSelf: 'center',
+      paddingHorizontal: layout.isTablet ? 18 : 14,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 16,
+      paddingHorizontal: 2,
+    },
+    brand: {
+      fontFamily: 'Inter_900Black',
+      fontSize: 34,
+      lineHeight: 38,
+      color: theme.accentHover,
+      letterSpacing: -1,
+    },
+    headerSub: {
+      fontFamily: 'Inter_600SemiBold',
+      fontSize: 10,
+      color: theme.textSecondary,
+      letterSpacing: 2.4,
+      textTransform: 'uppercase',
+      marginTop: 3,
+    },
+    headerRule: {
+      flex: 1,
+      height: 1,
+      marginLeft: 22,
+      backgroundColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.18 : 0.20),
+    },
 
-  panel: {
-    width: '100%',
-    borderRadius: 30,
-    padding: 20,
-    overflow: 'hidden',
-    boxShadow: cbModalShadow(0.14),
-  } as ViewStyle,
-  tabs: { flexDirection: 'row', backgroundColor: rgbaFromHex(theme.textPrimary, 0.03), borderRadius: 14, borderWidth: 1, borderColor: theme.border, marginBottom: 22, overflow: 'hidden', padding: 4 },
-  tab:       { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 11 },
-  tabActive: { backgroundColor: theme.panelAlt },
-  tabText:       { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: theme.textSecondary, letterSpacing: 0.5 },
-  tabTextActive: { color: theme.accent },
+    panel: {
+      width: '100%',
+      borderRadius: 34,
+      padding: 20,
+      overflow: 'hidden',
+      boxShadow: cbModalShadow(0.13),
+    } as ViewStyle,
+    panelSheen: {
+      position: 'absolute',
+      top: 1,
+      left: 24,
+      right: 24,
+      height: 1,
+      backgroundColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.50 : 0.40),
+    },
+    panelDepth: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: '38%',
+      backgroundColor: rgbaFromHex('#000000', theme.isLight ? 0.03 : 0.22),
+    },
+    panelGhost: {
+      position: 'absolute',
+      right: 12,
+      top: 2,
+      fontFamily: 'Inter_900Black',
+      fontSize: 86,
+      lineHeight: 92,
+      color: rgbaFromHex(theme.textPrimary, theme.isLight ? 0.035 : 0.055),
+      letterSpacing: -4,
+    },
+    panelCornerTop: {
+      position: 'absolute',
+      top: 18,
+      right: 20,
+      width: 52,
+      height: 52,
+      borderTopWidth: 1,
+      borderRightWidth: 1,
+      borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.18 : 0.20),
+    },
+    panelHeader: {
+      marginBottom: 18,
+      paddingRight: 72,
+    },
+    panelKicker: {
+      fontFamily: 'Inter_700Bold',
+      fontSize: 10,
+      color: theme.textSecondary,
+      letterSpacing: 2.2,
+      textTransform: 'uppercase',
+      marginBottom: 8,
+    },
+    panelTitle: {
+      fontFamily: 'Inter_900Black',
+      fontSize: 34,
+      lineHeight: 37,
+      color: theme.accentHover,
+      letterSpacing: -1.2,
+    },
+    panelSubtitle: {
+      fontFamily: 'Inter_400Regular',
+      fontSize: 13,
+      lineHeight: 19,
+      color: theme.textSecondary,
+      marginTop: 6,
+    },
+    tabs: {
+      flexDirection: 'row',
+      backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.45 : 0.68),
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.12 : 0.15),
+      marginBottom: 18,
+      overflow: 'hidden',
+      padding: 4,
+    },
+    tab: {
+      flex: 1,
+      paddingVertical: 11,
+      alignItems: 'center',
+      borderRadius: 14,
+    },
+    tabActive: {
+      backgroundColor: rgbaFromHex(theme.panelAlt, theme.isLight ? 0.86 : 0.78),
+      boxShadow: cbTileShadow(0.05),
+    } as ViewStyle,
+    tabText: {
+      fontFamily: 'Inter_600SemiBold',
+      fontSize: 12,
+      color: theme.textSecondary,
+      letterSpacing: 0.7,
+    },
+    tabTextActive: {
+      color: theme.accentHover,
+    },
 
-  form: {},
-  row:  { flexDirection: layout.width < 420 ? 'column' : 'row', gap: 12 },
-  half: { flex: 1 },
+    form: {},
+    row: { flexDirection: layout.width < 420 ? 'column' : 'row', gap: 12 },
+    half: { flex: 1 },
 
-  label: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: theme.textSecondary, letterSpacing: 1.7, marginBottom: 8, textTransform: 'uppercase' },
-  spacedLabel: { marginTop: 16 },
-  input: {
-    backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.55 : 0.66),
-    borderWidth: 1,
-    borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.12 : 0.14),
-    borderTopColor: rgbaFromHex('#000000', theme.isLight ? 0.05 : 0.30),
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 14,
-    color: theme.textPrimary,
-  },
+    label: {
+      fontFamily: 'Inter_700Bold',
+      fontSize: 10,
+      color: theme.textSecondary,
+      letterSpacing: 1.8,
+      marginBottom: 8,
+      textTransform: 'uppercase',
+    },
+    spacedLabel: { marginTop: 15 },
+    input: {
+      backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.58 : 0.72),
+      borderWidth: 1,
+      borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.12 : 0.16),
+      borderTopColor: rgbaFromHex('#000000', theme.isLight ? 0.05 : 0.34),
+      borderLeftColor: rgbaFromHex('#000000', theme.isLight ? 0.035 : 0.22),
+      borderRadius: 18,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      fontFamily: 'Inter_400Regular',
+      fontSize: 15,
+      color: theme.textPrimary,
+    },
 
-  error:   { fontFamily: 'Inter_400Regular', fontSize: 12, color: theme.danger, letterSpacing: 0.3, marginBottom: 12, textAlign: 'center' },
-  success: { fontFamily: 'Inter_400Regular', fontSize: 12, color: theme.success, letterSpacing: 0.3, marginBottom: 12, textAlign: 'center' },
+    errorBox: {
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: rgbaFromHex(theme.danger, 0.30),
+      backgroundColor: rgbaFromHex(theme.danger, 0.08),
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      marginBottom: 14,
+    },
+    successBox: {
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: rgbaFromHex(theme.success, 0.28),
+      backgroundColor: rgbaFromHex(theme.success, 0.08),
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      marginBottom: 14,
+    },
+    error: {
+      fontFamily: 'Inter_600SemiBold',
+      fontSize: 12,
+      color: theme.danger,
+      letterSpacing: 0.2,
+      textAlign: 'center',
+    },
+    success: {
+      fontFamily: 'Inter_600SemiBold',
+      fontSize: 12,
+      color: theme.success,
+      letterSpacing: 0.2,
+      textAlign: 'center',
+    },
 
-  btnWrap: {
-    marginTop: 24,
-    borderRadius: 14,
-    overflow: 'hidden',
-    shadowColor: SHADOW,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: theme.isLight ? 0.14 : 0.34,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  btn:     { paddingVertical: 17, alignItems: 'center', justifyContent: 'center' },
-  btnText: { fontFamily: 'Inter_900Black', fontSize: 14, color: theme.bgPrimary, letterSpacing: 0.6 },
+    btnWrap: {
+      marginTop: 22,
+      borderRadius: 18,
+      overflow: 'hidden',
+      shadowColor: SHADOW,
+      shadowOffset: { width: 12, height: 14 },
+      shadowOpacity: theme.isLight ? 0.10 : 0.36,
+      shadowRadius: 24,
+      elevation: 12,
+    },
+    btn: {
+      paddingVertical: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    btnText: {
+      fontFamily: 'Inter_900Black',
+      fontSize: 14,
+      color: theme.bgPrimary,
+      letterSpacing: 0.6,
+    },
 
-  textButton: { alignItems: 'center', paddingTop: 14 },
-  textButtonLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: theme.accent, letterSpacing: 0.2 },
+    textButton: { alignItems: 'center', paddingTop: 14 },
+    textButtonLabel: {
+      fontFamily: 'Inter_600SemiBold',
+      fontSize: 12,
+      color: theme.accentHover,
+      letterSpacing: 0.2,
+    },
 
-  resetPanel: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: theme.border,
-  },
-  secondaryBtn: {
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.22 : 0.26),
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-    backgroundColor: theme.panelAlt,
-    shadowColor: SHADOW,
-    shadowOffset: { width: 8, height: 10 },
-    shadowOpacity: theme.isLight ? 0.07 : 0.26,
-    shadowRadius: 18,
-    elevation: 8,
-  },
-  secondaryBtnText: { fontFamily: 'Inter_900Black', fontSize: 12, color: theme.textPrimary, letterSpacing: 0.7 },
+    resetPanel: {
+      marginTop: 16,
+      padding: 14,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.12 : 0.16),
+      backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.36 : 0.48),
+    },
+    secondaryBtn: {
+      marginTop: 16,
+      borderWidth: 1,
+      borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.18 : 0.24),
+      borderRadius: 18,
+      paddingVertical: 14,
+      alignItems: 'center',
+      backgroundColor: rgbaFromHex(theme.panelAlt, theme.isLight ? 0.86 : 0.74),
+      boxShadow: cbTileShadow(0.06),
+    } as ViewStyle,
+    secondaryBtnText: {
+      fontFamily: 'Inter_900Black',
+      fontSize: 12,
+      color: theme.textPrimary,
+      letterSpacing: 0.7,
+    },
 
-  dividerRow:  { flexDirection: 'row', alignItems: 'center', marginVertical: 20, gap: 12 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: theme.border },
-  dividerText: { fontFamily: 'Inter_400Regular', fontSize: 11, color: theme.textSecondary, letterSpacing: 1.2 },
+    dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 19, gap: 12 },
+    dividerLine: { flex: 1, height: 1, backgroundColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.12 : 0.15) },
+    dividerText: {
+      fontFamily: 'Inter_400Regular',
+      fontSize: 11,
+      color: theme.textSecondary,
+      letterSpacing: 1.3,
+    },
 
-  googleBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.18 : 0.20), borderRadius: 14, paddingVertical: 15, backgroundColor: theme.panelAlt,
-    shadowColor: SHADOW,
-    shadowOffset: { width: 8, height: 10 },
-    shadowOpacity: theme.isLight ? 0.07 : 0.26,
-    shadowRadius: 18,
-    elevation: 8,
-  },
-  googleIcon: { fontFamily: 'Inter_900Black', fontSize: 16, color: theme.accent },
-  googleText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: theme.textPrimary, letterSpacing: 0.2 },
-});
+    googleBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      borderWidth: 1,
+      borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.16 : 0.20),
+      borderRadius: 18,
+      paddingVertical: 15,
+      backgroundColor: rgbaFromHex(theme.panelAlt, theme.isLight ? 0.84 : 0.74),
+      boxShadow: cbTileShadow(0.055),
+    } as ViewStyle,
+    googleIcon: { fontFamily: 'Inter_900Black', fontSize: 16, color: theme.accentHover },
+    googleText: {
+      fontFamily: 'Inter_600SemiBold',
+      fontSize: 13,
+      color: theme.textPrimary,
+      letterSpacing: 0.2,
+    },
+  });
 }

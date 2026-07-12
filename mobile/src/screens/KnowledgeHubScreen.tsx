@@ -11,8 +11,10 @@ import {
   Text,
   TextInput,
   View,
+  ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -50,6 +52,7 @@ import {
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
+import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
@@ -90,7 +93,8 @@ function docTopic(doc: ContextDocument) {
 export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
-  const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
+  const insets = useSafeAreaInsets();
+  const s = useMemo(() => createStyles(selectedTheme, layout, insets.top), [selectedTheme, layout, insets.top]);
   const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black });
 
   const [tab, setTab] = useState<HubTab>('vault');
@@ -453,6 +457,8 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
         </View>
 
         <View style={s.hero}>
+          <NeumorphicLayer grainOpacity={0.12} />
+          <Text style={s.heroGhost}>01</Text>
           <Text style={s.eyebrow}>source intelligence</Text>
           <Text style={s.heroTitle}>knowledge hub</Text>
           <Text style={s.heroCopy}>{readyDocs.length} ready sources · {concepts.length} concepts · {reviews.length} reviews</Text>
@@ -815,46 +821,47 @@ function Empty({ icon, title, text, styles }: { icon: React.ComponentProps<typeo
   );
 }
 
-function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
+function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>, topInset: number) {
   const surface = theme.panel;
-  const border = theme.borderStrong;
+  const border = rgbaFromHex(theme.accentHover, theme.isLight ? 0.16 : 0.18);
   const accentInk = theme.isLight ? darkenColor(theme.accent, 38) : theme.bgPrimary;
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bgPrimary },
-    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 18, paddingTop: 12, paddingBottom: 118, gap: 14 },
+    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 18, paddingTop: Math.max(topInset + 12, 52), paddingBottom: 118, gap: 14 },
     topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    iconBtn: { width: 38, height: 38, borderRadius: 12, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.92), alignItems: 'center', justifyContent: 'center' },
-    hsToggle: { height: 38, borderRadius: 12, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.92), paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 7 },
+    iconBtn: { width: 40, height: 40, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.06) },
+    hsToggle: { height: 40, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 7, boxShadow: cbTileShadow(0.055) },
     hsToggleActive: { backgroundColor: theme.accentHover, borderColor: theme.accentHover },
     hsToggleText: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 11, textTransform: 'lowercase' },
     hsToggleTextActive: { color: theme.bgPrimary },
-    hero: { borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.94), borderRadius: 16, padding: 20 },
+    hero: { borderRadius: 30, padding: 20, overflow: 'hidden', boxShadow: cbModalShadow(0.14) } as ViewStyle,
+    heroGhost: { position: 'absolute', right: 15, top: 0, fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 92 : 76, lineHeight: layout.isTablet ? 98 : 82, color: rgbaFromHex(theme.textPrimary, theme.isLight ? 0.035 : 0.055), letterSpacing: -4 },
     eyebrow: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 10, letterSpacing: 1.8, textTransform: 'uppercase' },
     heroTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 36, letterSpacing: 0, marginTop: 8 },
     heroCopy: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 13, marginTop: 4 },
     heroMetrics: { flexDirection: 'row', gap: 9, marginTop: 16 },
-    metric: { flex: 1, borderWidth: 1, borderColor: theme.border, borderRadius: 13, padding: 10, backgroundColor: rgbaFromHex(theme.panelAlt, 0.74) },
+    metric: { flex: 1, borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.12), borderRadius: 16, padding: 10, backgroundColor: rgbaFromHex(theme.panelAlt, 0.74) },
     metricValue: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 20, letterSpacing: 0 },
     metricLabel: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 9, textTransform: 'uppercase', letterSpacing: 1.1, marginTop: 2 },
     tabStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    tab: { flexGrow: 1, minWidth: layout.width >= 760 ? 110 : 94, height: 42, borderRadius: 13, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.88), flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+    tab: { flexGrow: 1, minWidth: layout.width >= 760 ? 110 : 94, height: 42, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, boxShadow: cbTileShadow(0.045) },
     tabActive: { backgroundColor: theme.accentHover, borderColor: theme.accentHover },
     tabText: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 11, textTransform: 'lowercase' },
     tabTextActive: { color: theme.bgPrimary },
     sectionStack: { gap: 13 },
-    actionPanel: { borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.92), padding: 15, flexDirection: layout.twoColumn ? 'row' : 'column', gap: 14, alignItems: layout.twoColumn ? 'center' : 'stretch' },
+    actionPanel: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 15, flexDirection: layout.twoColumn ? 'row' : 'column', gap: 14, alignItems: layout.twoColumn ? 'center' : 'stretch', boxShadow: cbTileShadow(0.08) } as ViewStyle,
     sectionTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 17, letterSpacing: 0 },
     sectionHint: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, marginTop: 3, lineHeight: 18 },
     actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    actionIcon: { minWidth: 62, borderRadius: 13, borderWidth: 1, borderColor: theme.border, backgroundColor: rgbaFromHex(theme.accent, 0.1), paddingHorizontal: 10, paddingVertical: 10, alignItems: 'center', gap: 5 },
+    actionIcon: { minWidth: 62, borderRadius: 16, borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.14), backgroundColor: rgbaFromHex(theme.accent, 0.1), paddingHorizontal: 10, paddingVertical: 10, alignItems: 'center', gap: 5 },
     actionIconText: { color: theme.accentHover },
     actionIconLabel: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 9, textTransform: 'uppercase', letterSpacing: 1 },
-    relatedBox: { borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.88), padding: 15, gap: 12 },
+    relatedBox: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 15, gap: 12, boxShadow: cbTileShadow(0.07) } as ViewStyle,
     chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     chip: { borderRadius: 999, borderWidth: 1, borderColor: theme.border, backgroundColor: rgbaFromHex(theme.panelAlt, 0.82), paddingHorizontal: 12, paddingVertical: 9 },
     chipText: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 12 },
     cardList: { gap: 11 },
-    docCard: { borderRadius: 15, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.92), padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
+    docCard: { borderRadius: 20, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10, boxShadow: cbTileShadow(0.055) } as ViewStyle,
     docCardActive: { borderColor: theme.accent, backgroundColor: rgbaFromHex(theme.accent, 0.09) },
     docMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
     check: { width: 24, height: 24, borderRadius: 8, borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' },
@@ -862,7 +869,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     docTitle: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 14 },
     docMeta: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11, marginTop: 3 },
     deleteBtn: { width: 34, height: 34, borderRadius: 11, borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' },
-    composer: { borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.92), padding: 14, gap: 12 },
+    composer: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 14, gap: 12, boxShadow: cbTileShadow(0.08) } as ViewStyle,
     composerInput: { minHeight: 96, color: theme.textPrimary, fontFamily: 'Inter_600SemiBold', fontSize: 15, textAlignVertical: 'top' },
     composerActions: { flexDirection: 'row', gap: 10 },
     secondaryBtn: { flex: 1, height: 45, borderRadius: 13, borderWidth: 1, borderColor: border, alignItems: 'center', justifyContent: 'center' },
@@ -870,17 +877,17 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     primarySmallBtn: { flex: 1, height: 45, borderRadius: 13, backgroundColor: theme.accentHover, alignItems: 'center', justifyContent: 'center' },
     primaryBtn: { height: 50, borderRadius: 14, backgroundColor: theme.accentHover, alignItems: 'center', justifyContent: 'center' },
     primaryText: { fontFamily: 'Inter_900Black', color: accentInk, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 },
-    answerCard: { borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.94), padding: 16, gap: 10 },
+    answerCard: { borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 16, gap: 10, boxShadow: cbTileShadow(0.07) } as ViewStyle,
     answerText: { fontFamily: 'Inter_400Regular', color: theme.textPrimary, fontSize: 14, lineHeight: 22 },
     sourceList: { gap: 8, marginTop: 4 },
     sourceRow: { borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 8 },
     sourceTitle: { fontFamily: 'Inter_700Bold', color: theme.accentHover, fontSize: 12 },
     sourceMeta: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 10, marginTop: 2 },
-    resultCard: { borderRadius: 14, borderWidth: 1, borderColor: theme.border, backgroundColor: rgbaFromHex(surface, 0.88), padding: 14, gap: 7 },
+    resultCard: { borderRadius: 18, borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.12), backgroundColor: rgbaFromHex(surface, 0.72), padding: 14, gap: 7, boxShadow: cbTileShadow(0.045) } as ViewStyle,
     resultTitle: { fontFamily: 'Inter_700Bold', color: theme.accentHover, fontSize: 13 },
     resultText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, lineHeight: 18 },
-    suggestionPanel: { borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.88), padding: 15, gap: 12 },
-    conceptCard: { borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.92), padding: 15, gap: 11 },
+    suggestionPanel: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 15, gap: 12, boxShadow: cbTileShadow(0.07) } as ViewStyle,
+    conceptCard: { borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 15, gap: 11, boxShadow: cbTileShadow(0.07) } as ViewStyle,
     conceptTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     conceptTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 16, letterSpacing: 0 },
     conceptMeta: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11, marginTop: 3 },
@@ -890,11 +897,11 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     conceptActions: { flexDirection: 'row', gap: 8 },
     miniAction: { flex: 1, height: 38, borderRadius: 12, borderWidth: 1, borderColor: theme.border, backgroundColor: rgbaFromHex(theme.panelAlt, 0.78), alignItems: 'center', justifyContent: 'center' },
     miniActionText: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8 },
-    reviewCard: { borderRadius: 15, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.92), padding: 15, flexDirection: 'row', alignItems: 'center', gap: 12 },
+    reviewCard: { borderRadius: 20, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 15, flexDirection: 'row', alignItems: 'center', gap: 12, boxShadow: cbTileShadow(0.055) } as ViewStyle,
     reviewTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 16, letterSpacing: 0 },
     reviewMeta: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11, marginTop: 4 },
     commandInput: { minHeight: 46, color: theme.textPrimary, fontFamily: 'Inter_700Bold', fontSize: 15 },
-    commandCard: { borderRadius: 14, borderWidth: 1, borderColor: theme.border, backgroundColor: rgbaFromHex(surface, 0.88), padding: 14 },
+    commandCard: { borderRadius: 18, borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.12), backgroundColor: rgbaFromHex(surface, 0.72), padding: 14, boxShadow: cbTileShadow(0.045) } as ViewStyle,
     commandName: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 14 },
     commandDescription: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, marginTop: 4 },
     empty: { alignItems: 'center', paddingVertical: 48, gap: 9 },

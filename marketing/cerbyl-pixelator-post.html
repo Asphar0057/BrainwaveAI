@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cerbyl Social Launch Post</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+    :root {
+      --bg: #060607;
+      --bg-raised: #0b0c0e;
+      --card: #0b0c0f;
+      --panel: #11100e;
+      --fg: #f3f2ee;
+      --dim: #86868c;
+      --faint: #47474c;
+      --accent: #d8b38d;
+      --accent-2: #f0d2b0;
+      --line: rgba(216, 179, 141, 0.16);
+      --line-soft: rgba(216, 179, 141, 0.07);
+      --shadow-lo: rgba(0, 0, 0, 0.62);
+      --shadow-hi: rgba(255, 255, 255, 0.03);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--bg);
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--fg);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+    }
+
+    .canvas {
+      position: relative;
+      width: var(--w);
+      height: var(--h);
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--fg);
+    }
+
+    .bg-fx {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .bg-wash {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 47% 20%, rgba(216, 179, 141, 0.16) 0%, transparent 60%),
+        radial-gradient(circle at 7% 12%, rgba(216, 179, 141, 0.22) 0%, transparent 32%),
+        radial-gradient(circle at 94% 86%, rgba(216, 179, 141, 0.18) 0%, transparent 34%);
+    }
+
+    .bg-geo {
+      position: absolute;
+      inset: 0;
+      opacity: 0.13;
+      mask-image: radial-gradient(ellipse at 52% 42%, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.55) 50%, transparent 84%);
+      -webkit-mask-image: radial-gradient(ellipse at 52% 42%, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.55) 50%, transparent 84%);
+    }
+
+    .bg-geo line,
+    .bg-geo path,
+    .bg-geo circle {
+      stroke: var(--accent);
+      stroke-width: 0.8;
+      fill: none;
+    }
+
+    .bg-geo text {
+      fill: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+
+    .bg-dots {
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(rgba(216, 179, 141, 0.25) 1px, transparent 1px);
+      background-size: 22px 22px;
+      opacity: 0.28;
+      mask-image: radial-gradient(ellipse at 50% 36%, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.5) 44%, transparent 78%);
+      -webkit-mask-image: radial-gradient(ellipse at 50% 36%, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.5) 44%, transparent 78%);
+    }
+
+    .bg-grain,
+    .texture::after {
+      position: absolute;
+      content: "";
+      inset: -10%;
+      width: 120%;
+      height: 120%;
+      opacity: 0.13;
+      mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.68' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 180px 180px;
+    }
+
+    .bg-vignette {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(0, 0, 0, 0.34) 0%, transparent 25%, transparent 72%, rgba(0, 0, 0, 0.58) 100%),
+        radial-gradient(ellipse at 50% 0%, rgba(216, 179, 141, 0.08) 0%, transparent 60%);
+    }
+
+    .hero {
+      position: absolute;
+      left: var(--pad);
+      top: var(--hero-top);
+      width: var(--hero-w);
+      z-index: 4;
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      font-size: var(--eyebrow);
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: var(--h1-mt) 0 0;
+      color: var(--accent);
+      font-size: var(--h1);
+      line-height: 0.98;
+      font-weight: 900;
+      letter-spacing: -0.055em;
+      text-wrap: balance;
+    }
+
+    h1 .accent {
+      color: var(--accent);
+    }
+
+    .hero-line {
+      margin: var(--line-copy-mt) 0 0;
+      color: var(--fg);
+      font-size: var(--hero-line);
+      line-height: 0.98;
+      font-weight: 900;
+      letter-spacing: -0.055em;
+      text-wrap: balance;
+    }
+
+    .copy {
+      margin: var(--copy-mt) 0 0;
+      width: var(--copy-w);
+      color: rgba(243, 242, 238, 0.78);
+      font-size: var(--copy);
+      line-height: 1.32;
+      font-weight: 500;
+      letter-spacing: -0.015em;
+    }
+
+    .rule {
+      width: var(--rule-w);
+      height: 1px;
+      margin-top: var(--rule-mt);
+      background: linear-gradient(90deg, var(--accent), rgba(216, 179, 141, 0));
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--chip-gap);
+      margin-top: var(--chip-mt);
+      width: var(--chips-w);
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: var(--chip-h);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 0 var(--chip-px);
+      background: rgba(11, 12, 15, 0.72);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.035),
+        10px 12px 30px rgba(0, 0, 0, 0.22);
+      color: rgba(243, 242, 238, 0.86);
+      font-size: var(--chip);
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .chip-dot {
+      width: 6px;
+      height: 6px;
+      margin-right: 10px;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+
+    .product {
+      position: absolute;
+      z-index: 3;
+      right: var(--product-r);
+      bottom: var(--product-b);
+      width: var(--product-w);
+      display: grid;
+      gap: var(--product-gap);
+    }
+
+    .panel,
+    .phone,
+    .mini-card {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(145deg, rgba(216, 179, 141, 0.06), rgba(11, 12, 15, 0.94) 48%, rgba(6, 6, 7, 0.96)),
+        var(--card);
+      box-shadow:
+        18px 22px 44px rgba(0, 0, 0, 0.42),
+        inset 1px 1px 0 var(--shadow-hi),
+        inset -18px -18px 34px rgba(0, 0, 0, 0.2);
+    }
+
+    .panel {
+      min-height: var(--panel-h);
+      border-radius: 28px;
+      padding: var(--panel-pad);
+    }
+
+    .texture::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        radial-gradient(circle at 88% 94%, rgba(216, 179, 141, 0.18), transparent 55%),
+        repeating-linear-gradient(115deg, transparent 0 22px, rgba(216, 179, 141, 0.055) 22px 23px),
+        repeating-linear-gradient(25deg, transparent 0 26px, rgba(216, 179, 141, 0.035) 26px 27px);
+      pointer-events: none;
+    }
+
+    .panel > *,
+    .phone > *,
+    .mini-card > * {
+      position: relative;
+      z-index: 2;
+    }
+
+    .ghost {
+      position: absolute;
+      right: 18px;
+      top: -8px;
+      z-index: 1;
+      color: rgba(243, 242, 238, 0.045);
+      font-size: var(--ghost);
+      line-height: 1;
+      font-weight: 900;
+      letter-spacing: -0.08em;
+    }
+
+    .panel-kicker {
+      color: var(--dim);
+      font-size: var(--panel-kicker);
+      font-weight: 800;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+
+    .panel-title {
+      margin-top: 12px;
+      color: var(--accent-2);
+      font-size: var(--panel-title);
+      line-height: 1.04;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+    }
+
+    .panel-lines {
+      display: grid;
+      gap: 10px;
+      margin-top: var(--line-mt);
+    }
+
+    .panel-line {
+      height: var(--mock-line);
+      border-radius: 999px;
+      background: rgba(243, 242, 238, 0.12);
+    }
+
+    .panel-line.hot {
+      background: linear-gradient(90deg, var(--accent), rgba(216, 179, 141, 0.18));
+    }
+
+    .mini-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--product-gap);
+    }
+
+    .mini-card {
+      min-height: var(--mini-h);
+      border-radius: 22px;
+      padding: var(--mini-pad);
+    }
+
+    .mini-label {
+      color: var(--dim);
+      font-size: var(--mini-label);
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .mini-value {
+      margin-top: 8px;
+      color: var(--fg);
+      font-size: var(--mini-value);
+      line-height: 1;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+    }
+
+    .phone {
+      position: absolute;
+      right: var(--phone-r);
+      top: var(--phone-t);
+      width: var(--phone-w);
+      height: var(--phone-h);
+      border-radius: 38px;
+      padding: var(--phone-pad);
+      z-index: 2;
+      transform: rotate(var(--phone-rot));
+    }
+
+    .phone-brand {
+      width: auto;
+      height: auto;
+      border-radius: 0;
+      background: transparent;
+      color: var(--accent-2);
+      font-size: var(--phone-brand);
+      line-height: 1;
+      font-weight: 900;
+      letter-spacing: -0.06em;
+      text-transform: lowercase;
+    }
+
+    .phone-sub {
+      margin-top: 6px;
+      color: var(--dim);
+      font-size: var(--phone-sub);
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .phone-card {
+      margin-top: var(--phone-card-mt);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: rgba(6, 6, 7, 0.52);
+      padding: var(--phone-card-pad);
+    }
+
+    .phone-pill {
+      height: var(--phone-pill);
+      border-radius: 999px;
+      background: rgba(216, 179, 141, 0.16);
+      margin-bottom: 10px;
+    }
+
+    .phone-btn {
+      height: var(--phone-btn);
+      margin-top: 16px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--accent-2), var(--accent));
+    }
+
+    .cta {
+      position: absolute;
+      left: var(--pad);
+      bottom: var(--pad);
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      color: var(--accent);
+      font-size: var(--cta);
+      line-height: 1;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+    }
+
+    .cta::before {
+      content: "";
+      width: var(--cta-line);
+      height: 1px;
+      background: var(--accent);
+    }
+
+    .url {
+      color: var(--fg);
+    }
+
+    .instagram {
+      --w: 1080px;
+      --h: 1350px;
+      --pad: 72px;
+      --hero-top: 142px;
+      --hero-w: 920px;
+      --eyebrow: 18px;
+      --h1: 212px;
+      --h1-mt: 24px;
+      --hero-line: 56px;
+      --line-copy-mt: 28px;
+      --copy: 33px;
+      --copy-w: 720px;
+      --copy-mt: 26px;
+      --rule-w: 560px;
+      --rule-mt: 30px;
+      --chips-w: 720px;
+      --chip: 20px;
+      --chip-h: 44px;
+      --chip-px: 18px;
+      --chip-gap: 12px;
+      --chip-mt: 30px;
+      --product-w: 430px;
+      --product-r: 72px;
+      --product-b: 150px;
+      --product-gap: 16px;
+      --panel-h: 292px;
+      --panel-pad: 28px;
+      --ghost: 118px;
+      --panel-kicker: 13px;
+      --panel-title: 38px;
+      --line-mt: 28px;
+      --mock-line: 12px;
+      --mini-h: 122px;
+      --mini-pad: 20px;
+      --mini-label: 11px;
+      --mini-value: 34px;
+      --phone-r: 110px;
+      --phone-t: 715px;
+      --phone-w: 250px;
+      --phone-h: 390px;
+      --phone-pad: 24px;
+      --phone-rot: -4deg;
+      --phone-brand: 34px;
+      --phone-sub: 10px;
+      --phone-card-mt: 30px;
+      --phone-card-pad: 18px;
+      --phone-pill: 12px;
+      --phone-btn: 44px;
+      --cta: 30px;
+      --cta-line: 86px;
+    }
+
+    .linkedin {
+      --w: 1200px;
+      --h: 627px;
+      --pad: 54px;
+      --hero-top: 74px;
+      --hero-w: 680px;
+      --eyebrow: 12px;
+      --h1: 126px;
+      --h1-mt: 18px;
+      --hero-line: 35px;
+      --line-copy-mt: 20px;
+      --copy: 22px;
+      --copy-w: 590px;
+      --copy-mt: 18px;
+      --rule-w: 500px;
+      --rule-mt: 22px;
+      --chips-w: 590px;
+      --chip: 14px;
+      --chip-h: 34px;
+      --chip-px: 14px;
+      --chip-gap: 10px;
+      --chip-mt: 20px;
+      --product-w: 352px;
+      --product-r: 60px;
+      --product-b: 54px;
+      --product-gap: 12px;
+      --panel-h: 220px;
+      --panel-pad: 22px;
+      --ghost: 86px;
+      --panel-kicker: 10px;
+      --panel-title: 29px;
+      --line-mt: 22px;
+      --mock-line: 9px;
+      --mini-h: 84px;
+      --mini-pad: 15px;
+      --mini-label: 8px;
+      --mini-value: 24px;
+      --phone-r: 316px;
+      --phone-t: 190px;
+      --phone-w: 178px;
+      --phone-h: 286px;
+      --phone-pad: 18px;
+      --phone-rot: -5deg;
+      --phone-brand: 25px;
+      --phone-sub: 8px;
+      --phone-card-mt: 22px;
+      --phone-card-pad: 13px;
+      --phone-pill: 9px;
+      --phone-btn: 33px;
+      --cta: 22px;
+      --cta-line: 64px;
+    }
+
+    .linkedin .product {
+      grid-template-columns: 1fr;
+    }
+
+    .linkedin .mini-grid {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <main class="canvas">
+    <div class="bg-fx">
+      <div class="bg-wash"></div>
+      <svg class="bg-geo" viewBox="0 0 1200 1350" preserveAspectRatio="none" aria-hidden="true">
+        <g>
+          <line x1="78" y1="212" x2="368" y2="146"></line>
+          <line x1="368" y1="146" x2="610" y2="326"></line>
+          <line x1="610" y1="326" x2="935" y2="212"></line>
+          <line x1="935" y1="212" x2="1106" y2="438"></line>
+          <line x1="170" y1="855" x2="510" y2="742"></line>
+          <line x1="510" y1="742" x2="796" y2="894"></line>
+          <line x1="796" y1="894" x2="1080" y2="762"></line>
+          <path d="M84 618 C246 492 406 508 560 614 S864 738 1090 566"></path>
+          <circle cx="78" cy="212" r="5"></circle>
+          <circle cx="368" cy="146" r="5"></circle>
+          <circle cx="610" cy="326" r="5"></circle>
+          <circle cx="935" cy="212" r="5"></circle>
+          <circle cx="510" cy="742" r="5"></circle>
+          <circle cx="796" cy="894" r="5"></circle>
+          <text x="985" y="144">02</text>
+          <text x="104" y="918">STUDY</text>
+          <text x="870" y="1012">LEARN</text>
+        </g>
+      </svg>
+      <div class="bg-dots"></div>
+      <div class="bg-grain"></div>
+      <div class="bg-vignette"></div>
+    </div>
+
+    <section class="hero">
+      <div class="eyebrow">introducing</div>
+      <h1>cerbyl</h1>
+      <div class="hero-line">learn smarter. remember longer.</div>
+      <p class="copy">One place to learn, practice, revise, and remember everything you study.</p>
+      <div class="rule"></div>
+      <div class="chips">
+        <div class="chip"><span class="chip-dot"></span>learn smarter</div>
+        <div class="chip"><span class="chip-dot"></span>practice faster</div>
+        <div class="chip"><span class="chip-dot"></span>remember more</div>
+        <div class="chip"><span class="chip-dot"></span>study anywhere</div>
+      </div>
+    </section>
+
+    <section class="phone texture" aria-label="Mobile product panel">
+      <div class="phone-brand">cerbyl</div>
+      <div class="phone-sub">account access</div>
+      <div class="phone-card">
+        <div class="phone-pill" style="width: 58%;"></div>
+        <div class="phone-pill" style="width: 100%; opacity: .62;"></div>
+        <div class="phone-pill" style="width: 88%; opacity: .45;"></div>
+        <div class="phone-btn"></div>
+      </div>
+    </section>
+
+    <section class="product" aria-label="Cerbyl feature panel">
+      <div class="panel texture">
+        <div class="ghost">01</div>
+        <div class="panel-kicker">all in one</div>
+        <div class="panel-title">study made simple</div>
+        <div class="panel-lines">
+          <div class="panel-line hot" style="width: 82%;"></div>
+          <div class="panel-line" style="width: 96%;"></div>
+          <div class="panel-line" style="width: 72%;"></div>
+        </div>
+      </div>
+      <div class="mini-grid">
+        <div class="mini-card texture">
+          <div class="mini-label">learn</div>
+          <div class="mini-value">Smarter</div>
+        </div>
+        <div class="mini-card texture">
+          <div class="mini-label">remember</div>
+          <div class="mini-value">Longer</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="cta"><span>start learning at</span> <span class="url">cerbyl.com</span></div>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const variant = params.get("variant") === "linkedin" ? "linkedin" : "instagram";
+    document.querySelector(".canvas").classList.add(variant);
+  </script>
+</body>
+</html>

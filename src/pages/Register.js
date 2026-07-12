@@ -9,6 +9,8 @@ import logo from '../assets/logo.svg';
 import './Login.css';
 import { API_URL } from '../config/api';
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function Register() {
   const [formData, setFormData] = useState({
     firstName: '',
@@ -86,6 +88,12 @@ function Register() {
       return;
     }
 
+    const email = formData.email.trim();
+    if (!EMAIL_PATTERN.test(email)) {
+      alert('Enter a valid email address.');
+      return;
+    }
+
     if (!/^[A-Za-z0-9_.-]{3,50}$/.test(formData.username.trim())) {
       alert('Username must be 3-50 characters and can only use letters, numbers, dots, underscores, or hyphens.');
       return;
@@ -105,7 +113,7 @@ function Register() {
         body: JSON.stringify({
           first_name: formData.firstName,
           last_name: formData.lastName,
-          email: formData.email.trim(),
+          email,
           username: formData.username.trim(),
           password: formData.password
         })
@@ -129,8 +137,9 @@ function Register() {
   const handleVerifyRegistration = async (e) => {
     e.preventDefault();
 
-    if (!registrationOtp.trim()) {
-      setRegistrationStatus('Enter the OTP sent to your email.');
+    const otp = registrationOtp.trim();
+    if (!/^\d{6}$/.test(otp)) {
+      setRegistrationStatus('Enter the 6-digit OTP sent to your email.');
       return;
     }
 
@@ -142,7 +151,7 @@ function Register() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: formData.email.trim(),
-          otp: registrationOtp.trim()
+          otp
         })
       });
 
@@ -161,6 +170,39 @@ function Register() {
       setTimeout(() => navigate('/login'), 900);
     } catch (err) {
       setRegistrationStatus('Verification failed: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendRegistrationOtp = async () => {
+    const email = formData.email.trim();
+    if (!EMAIL_PATTERN.test(email)) {
+      setVerificationStep('form');
+      setRegistrationOtp('');
+      setRegistrationStatus('Edit your email address before resending the code.');
+      return;
+    }
+
+    setLoading(true);
+    setRegistrationStatus('');
+    try {
+      const res = await fetch(`${API_URL}/register/resend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || `HTTP ${res.status}`);
+      }
+
+      const devOtp = data.dev_otp ? ` Dev OTP: ${data.dev_otp}` : '';
+      setRegistrationOtp('');
+      setRegistrationStatus(`${data.message || 'New verification OTP sent.'}${devOtp}`);
+    } catch (err) {
+      setRegistrationStatus('Could not resend code: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -317,6 +359,14 @@ function Register() {
               </div>
               <button type="submit" className="lg-submit" disabled={disabled}>
                 {loading ? 'Verifying...' : 'Verify Account'}
+              </button>
+              <button
+                type="button"
+                className="lg-forgot-btn"
+                onClick={handleResendRegistrationOtp}
+                disabled={disabled}
+              >
+                Resend code
               </button>
               <button
                 type="button"

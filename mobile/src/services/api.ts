@@ -1456,6 +1456,19 @@ export async function verifyRegistration(data: {
   return res.json();
 }
 
+export async function resendRegistrationOtp(email: string) {
+  const res = await fetch(`${API_URL}/register/resend`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Could not resend verification code');
+  }
+  return res.json();
+}
+
 export async function requestPasswordReset(email: string) {
   const res = await fetch(`${API_URL}/password-reset/request`, {
     method: 'POST',

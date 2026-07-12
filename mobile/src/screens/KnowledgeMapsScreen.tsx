@@ -11,8 +11,10 @@ import {
   Text,
   TextInput,
   View,
+  ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../services/auth';
@@ -34,6 +36,7 @@ import {
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
+import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
@@ -51,7 +54,8 @@ function nodeTitle(node: KnowledgeNode | null) {
 export default function KnowledgeMapsScreen({ user, onBack }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
-  const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
+  const insets = useSafeAreaInsets();
+  const s = useMemo(() => createStyles(selectedTheme, layout, insets.top), [selectedTheme, layout, insets.top]);
   const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black });
   const [maps, setMaps] = useState<KnowledgeRoadmap[]>([]);
   const [xpRoadmap, setXpRoadmap] = useState<any>(null);
@@ -315,6 +319,8 @@ export default function KnowledgeMapsScreen({ user, onBack }: Props) {
           </View>
 
           <View style={s.hero}>
+            <NeumorphicLayer grainOpacity={0.12} />
+            <Text style={s.heroGhost}>01</Text>
             <Text style={s.eyebrow}>visual explorer</Text>
             <Text style={s.heroTitle} numberOfLines={2}>{detail?.roadmap?.title || selectedMap.title}</Text>
             <Text style={s.heroCopy}>{orderedNodes.length} nodes · depth {detail?.roadmap?.max_depth_reached ?? selectedMap.max_depth_reached ?? 0}</Text>
@@ -441,6 +447,8 @@ export default function KnowledgeMapsScreen({ user, onBack }: Props) {
         </View>
 
         <View style={s.hero}>
+          <NeumorphicLayer grainOpacity={0.12} />
+          <Text style={s.heroGhost}>01</Text>
           <Text style={s.eyebrow}>concept graph</Text>
           <Text style={s.heroTitle}>knowledge maps</Text>
           <Text style={s.heroCopy}>{maps.length} maps · {maps.reduce((sum, map) => sum + (map.total_nodes || 0), 0)} nodes tracked</Text>
@@ -521,20 +529,21 @@ function ActionIcon({ icon, label, onPress, busy, styles }: { icon: React.Compon
   );
 }
 
-function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
+function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>, topInset: number) {
   const surface = theme.panel;
-  const border = theme.borderStrong;
+  const border = rgbaFromHex(theme.accentHover, theme.isLight ? 0.16 : 0.18);
   const accentInk = theme.isLight ? darkenColor(theme.accent, 38) : theme.bgPrimary;
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bgPrimary },
-    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 18, paddingTop: 12, paddingBottom: 118, gap: 14 },
+    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 18, paddingTop: Math.max(topInset + 12, 52), paddingBottom: 118, gap: 14 },
     topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    iconBtn: { width: 38, height: 38, borderRadius: 12, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.92), alignItems: 'center', justifyContent: 'center' },
-    hero: { borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.94), borderRadius: 16, padding: 20 },
+    iconBtn: { width: 40, height: 40, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.06) },
+    hero: { borderRadius: 30, padding: 20, overflow: 'hidden', boxShadow: cbModalShadow(0.14) } as ViewStyle,
+    heroGhost: { position: 'absolute', right: 15, top: 0, fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 92 : 76, lineHeight: layout.isTablet ? 98 : 82, color: rgbaFromHex(theme.textPrimary, theme.isLight ? 0.035 : 0.055), letterSpacing: -4 },
     eyebrow: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 10, letterSpacing: 1.8, textTransform: 'uppercase' },
     heroTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 32, letterSpacing: 0, marginTop: 8 },
     heroCopy: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 13, marginTop: 4 },
-    section: { borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), borderRadius: 16, padding: 15, gap: 12 },
+    section: { borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), borderRadius: 24, padding: 15, gap: 12, boxShadow: cbTileShadow(0.08) } as ViewStyle,
     sectionTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 17, letterSpacing: 0 },
     sectionHint: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, marginTop: 3, lineHeight: 18 },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -545,7 +554,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     emptyTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 22 },
     emptyText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 13, textAlign: 'center' },
     list: { gap: 12 },
-    mapCard: { borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.94), padding: 16, gap: 15 },
+    mapCard: { borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 16, gap: 15, boxShadow: cbTileShadow(0.07) } as ViewStyle,
     mapTop: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
     mapTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 18, letterSpacing: 0 },
     mapTopic: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, marginTop: 4 },
@@ -554,19 +563,19 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     metric: { flex: 1, borderRadius: 13, borderWidth: 1, borderColor: theme.border, backgroundColor: rgbaFromHex(theme.panelAlt, 0.8), padding: 11 },
     metricValue: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 17, letterSpacing: 0 },
     metricLabel: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 9, textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 3 },
-    nodeMap: { borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.92), padding: 12, gap: 8 },
-    nodeRow: { minHeight: 58, borderRadius: 14, borderWidth: 1, borderColor: theme.border, backgroundColor: rgbaFromHex(theme.panelAlt, 0.78), paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
+    nodeMap: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 12, gap: 8, boxShadow: cbTileShadow(0.08) } as ViewStyle,
+    nodeRow: { minHeight: 58, borderRadius: 18, borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.12), backgroundColor: rgbaFromHex(theme.panelAlt, 0.78), paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
     nodeRowActive: { borderColor: theme.accentHover, backgroundColor: rgbaFromHex(theme.accent, 0.12) },
     nodeRail: { width: 24, alignItems: 'center' },
     nodeDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: theme.textSecondary, backgroundColor: rgbaFromHex(surface, 0.9) },
     nodeDotDone: { borderColor: theme.accentHover, backgroundColor: rgbaFromHex(theme.accentHover, 0.25) },
     nodeTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 14, letterSpacing: 0 },
     nodeMeta: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11, marginTop: 3 },
-    detailPanel: { borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.94), padding: 16, gap: 13 },
+    detailPanel: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 16, gap: 13, boxShadow: cbTileShadow(0.08) } as ViewStyle,
     detailHead: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
     bodyText: { fontFamily: 'Inter_400Regular', color: theme.textPrimary, fontSize: 13, lineHeight: 21 },
     actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    actionIcon: { minWidth: 74, borderRadius: 13, borderWidth: 1, borderColor: theme.border, backgroundColor: rgbaFromHex(theme.accent, 0.1), paddingHorizontal: 10, paddingVertical: 10, alignItems: 'center', gap: 5 },
+    actionIcon: { minWidth: 74, borderRadius: 16, borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.14), backgroundColor: rgbaFromHex(theme.accent, 0.1), paddingHorizontal: 10, paddingVertical: 10, alignItems: 'center', gap: 5 },
     actionIconText: { color: theme.accentHover },
     actionIconLabel: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 9, textTransform: 'uppercase', letterSpacing: 1 },
     label: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 10, letterSpacing: 1.6, textTransform: 'uppercase' },
@@ -574,7 +583,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     textArea: { minHeight: 118, paddingTop: 13, textAlignVertical: 'top' },
     primaryBtn: { height: 52, borderRadius: 14, backgroundColor: theme.accentHover, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
     primaryText: { fontFamily: 'Inter_900Black', color: accentInk, fontSize: 13, textTransform: 'uppercase', letterSpacing: 1.1 },
-    answerCard: { borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.94), padding: 16, gap: 10 },
+    answerCard: { borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 16, gap: 10, boxShadow: cbTileShadow(0.07) } as ViewStyle,
     modalRoot: { flex: 1, backgroundColor: theme.bgPrimary },
     modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 22, paddingBottom: 12, gap: 12 },
     modalTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 23, flex: 1 },

@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import secrets
+import socket
 import smtplib
 import threading
 from collections import defaultdict
@@ -140,7 +141,7 @@ class Token(BaseModel):
 class RegisterPayload(BaseModel):
     first_name: str
     last_name: str
-    email: EmailStr
+    email: str
     username: str
     password: str
     age: Optional[int] = None
@@ -151,6 +152,9 @@ class RegisterPayload(BaseModel):
 class RegisterVerifyPayload(BaseModel):
     email: EmailStr
     otp: str
+
+class RegisterResendPayload(BaseModel):
+    email: str
 
 class UserCreate(BaseModel):
     first_name: str
@@ -207,9 +211,93 @@ class UserProfileUpdate(BaseModel):
 _VALID_BILLING_CYCLES = {"monthly", "yearly"}
 _VALID_SUBSCRIPTION_STATUSES = {"active", "trial", "grace", "paused", "cancelled"}
 _USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{3,50}$")
+_TRUE_ENV_VALUES = {"1", "true", "yes", "on"}
+
+def _env_flag(name: str, default: str = "false") -> bool:
+    return os.getenv(name, default).strip().lower() in _TRUE_ENV_VALUES
 
 def _normalize_email(email: str) -> str:
     return (email or "").strip().lower()
+
+def _validate_deliverable_email(email: str) -> str:
+    try:
+        from email_validator import EmailNotValidError, validate_email
+    except ImportError:
+        raise HTTPException(
+            status_code=503,
+            detail="Email validation is not available. Install backend email validation dependencies.",
+        )
+
+    try:
+        result = validate_email(email, check_deliverability=True)
+    except EmailNotValidError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Enter a real email address that can receive mail. {str(e)}",
+        )
+    return _normalize_email(result.normalized)
+
+def _validate_mailbox_if_enabled(email: str) -> None:
+    if not _env_flag("REGISTRATION_SMTP_MAILBOX_CHECK"):
+        return
+
+    try:
+        import dns.resolver
+    except Exception:
+        raise HTTPException(
+            status_code=503,
+            detail="Mailbox verification is not available. Install backend email validation dependencies.",
+        )
+
+    domain = email.rsplit("@", 1)[-1]
+    try:
+        mx_records = sorted(
+            dns.resolver.resolve(domain, "MX", lifetime=5),
+            key=lambda record: record.preference,
+        )
+    except Exception as e:
+        logger.info("Registration mailbox MX lookup failed for %s: %s", email, e)
+        raise HTTPException(
+            status_code=400,
+            detail="Enter a real email address that can receive mail.",
+        )
+
+    smtp_from = (
+        os.getenv("SMTP_FROM_EMAIL")
+        or os.getenv("SMTP_FROM")
+        or os.getenv("SMTP_USERNAME")
+        or f"verify@{socket.getfqdn() or 'localhost'}"
+    )
+    helo_host = os.getenv("SMTP_HELO_HOST") or socket.getfqdn() or "localhost"
+    timeout = int(os.getenv("REGISTRATION_SMTP_MAILBOX_TIMEOUT_SECONDS", "8"))
+    last_error = None
+
+    for record in mx_records:
+        host = str(record.exchange).rstrip(".")
+        try:
+            with smtplib.SMTP(host, 25, timeout=timeout) as server:
+                server.ehlo(helo_host)
+                server.mail(smtp_from)
+                code, message = server.rcpt(email)
+                if code in {250, 251}:
+                    return
+                if code in {550, 551, 553}:
+                    logger.info("Registration mailbox rejected for %s by %s: %s %s", email, host, code, message)
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Email address could not be reached. Use a real inbox you can access.",
+                    )
+                last_error = f"{host}: {code} {message!r}"
+        except HTTPException:
+            raise
+        except Exception as e:
+            last_error = f"{host}: {e}"
+
+    logger.warning("Registration mailbox check inconclusive for %s: %s", email, last_error)
+    raise HTTPException(
+        status_code=503,
+        detail="Could not verify that email inbox right now. Please try again later.",
+    )
 
 def _validate_username(username: str) -> str:
     normalized = (username or "").strip()
@@ -295,6 +383,34 @@ def _otp_response(email_sent: bool, message: str) -> dict:
     if not email_sent and os.getenv("APP_ENV", "development").lower() != "production":
         response["message"] = "OTP generated. Configure SMTP_HOST and SMTP_FROM_EMAIL to send real email."
     return response
+
+def _send_registration_otp_or_raise(email: str, otp: str) -> bool:
+    try:
+        email_sent = _send_registration_email(email, otp)
+    except smtplib.SMTPRecipientsRefused as e:
+        logger.info("Registration OTP recipient refused for %s: %s", email, e)
+        raise HTTPException(
+            status_code=400,
+            detail="Email address could not be reached. Use a real inbox you can access.",
+        )
+    except smtplib.SMTPResponseException as e:
+        logger.warning("Registration OTP SMTP response for %s: %s %s", email, e.smtp_code, e.smtp_error)
+        if e.smtp_code in {550, 551, 553, 554}:
+            raise HTTPException(
+                status_code=400,
+                detail="Email address could not be reached. Use a real inbox you can access.",
+            )
+        email_sent = False
+    except Exception as e:
+        logger.error("Failed to send registration OTP to %s: %s", email, e)
+        email_sent = False
+
+    if not email_sent and os.getenv("APP_ENV", "development").lower() == "production":
+        raise HTTPException(
+            status_code=503,
+            detail="Could not send verification email right now. Please try again later.",
+        )
+    return email_sent
 
 def _quote_identifier(name: str) -> str:
     return f'"{name.replace(chr(34), chr(34) + chr(34))}"'
@@ -588,7 +704,8 @@ async def register(request: Request, payload: RegisterPayload, db: Session = Dep
 
     _validate_password(payload.password)
     username = _validate_username(payload.username)
-    email = _normalize_email(payload.email)
+    email = _validate_deliverable_email(payload.email)
+    _validate_mailbox_if_enabled(email)
 
     if get_user_by_username(db, username):
         raise HTTPException(status_code=400, detail="Username already registered")
@@ -626,17 +743,93 @@ async def register(request: Request, payload: RegisterPayload, db: Session = Dep
     ))
     db.commit()
 
+    pending = db.query(models.RegistrationOTP).filter(
+        models.RegistrationOTP.email == email,
+        models.RegistrationOTP.username == username,
+        models.RegistrationOTP.consumed == False,
+    ).order_by(models.RegistrationOTP.created_at.desc()).first()
     try:
-        email_sent = _send_registration_email(email, otp)
-    except Exception as e:
-        logger.error("Failed to send registration OTP to %s: %s", email, e)
-        email_sent = False
+        email_sent = _send_registration_otp_or_raise(email, otp)
+    except HTTPException as e:
+        if pending and e.status_code == 400:
+            pending.consumed = True
+            db.commit()
+        raise
 
     response = _otp_response(
         email_sent=email_sent,
         message="Verification OTP sent. Enter it to finish creating your account.",
     )
     response["verification_required"] = True
+    if not email_sent and os.getenv("APP_ENV", "development").lower() != "production":
+        response["dev_otp"] = otp
+    return response
+
+@router.post("/register/resend")
+async def resend_registration_otp(request: Request, payload: RegisterResendPayload, db: Session = Depends(get_db)):
+    _check_auth_rate_limit(request, max_attempts=3, window_seconds=300)
+    email = _validate_deliverable_email(payload.email)
+
+    pending = db.query(models.RegistrationOTP).filter(
+        models.RegistrationOTP.email == email,
+        models.RegistrationOTP.consumed == False,
+    ).order_by(models.RegistrationOTP.created_at.desc()).first()
+
+    now = datetime.now(timezone.utc)
+    if not pending:
+        raise HTTPException(
+            status_code=400,
+            detail="No pending verification found. Edit your registration details and create the account again.",
+        )
+
+    if pending.attempts >= 5:
+        pending.consumed = True
+        db.commit()
+        raise HTTPException(
+            status_code=400,
+            detail="Too many incorrect verification attempts. Edit your registration details and create the account again.",
+        )
+
+    try:
+        registration_data = json.loads(pending.registration_data)
+    except Exception:
+        pending.consumed = True
+        db.commit()
+        raise HTTPException(
+            status_code=400,
+            detail="Registration session expired. Edit your registration details and try again.",
+        )
+
+    username = _validate_username(registration_data.get("username"))
+    if get_user_by_username(db, username):
+        pending.consumed = True
+        db.commit()
+        raise HTTPException(status_code=400, detail="Username already registered")
+
+    if get_user_by_email(db, email):
+        pending.consumed = True
+        db.commit()
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    otp = f"{secrets.randbelow(1000000):06d}"
+    pending.otp_hash = get_password_hash(otp)
+    pending.attempts = 0
+    pending.expires_at = now + timedelta(minutes=10)
+    pending.created_at = now
+    db.commit()
+
+    try:
+        email_sent = _send_registration_otp_or_raise(email, otp)
+    except HTTPException as e:
+        if e.status_code == 400:
+            pending.consumed = True
+            db.commit()
+        raise
+
+    response = _otp_response(
+        email_sent=email_sent,
+        message="New verification OTP sent. Use the latest code to finish creating your account.",
+    )
     if not email_sent and os.getenv("APP_ENV", "development").lower() != "production":
         response["dev_otp"] = otp
     return response

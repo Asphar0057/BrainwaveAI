@@ -11,8 +11,10 @@ import {
   Text,
   TextInput,
   View,
+  ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../services/auth';
@@ -28,6 +30,7 @@ import {
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
+import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
@@ -47,7 +50,8 @@ function normalizeOptions(question: PracticeQuestion) {
 export default function QuestionBankScreen({ user, onBack }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
-  const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
+  const insets = useSafeAreaInsets();
+  const s = useMemo(() => createStyles(selectedTheme, layout, insets.top), [selectedTheme, layout, insets.top]);
   const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black });
   const [sets, setSets] = useState<QuestionSetSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -281,6 +285,8 @@ export default function QuestionBankScreen({ user, onBack }: Props) {
         </View>
 
         <View style={s.hero}>
+          <NeumorphicLayer grainOpacity={0.12} />
+          <Text style={s.heroGhost}>01</Text>
           <Text style={s.eyebrow}>practice engine</Text>
           <Text style={s.heroTitle}>question bank</Text>
           <Text style={s.heroCopy}>{sets.length} sets · {sets.reduce((sum, set) => sum + questionCount(set), 0)} questions</Text>
@@ -352,17 +358,18 @@ export default function QuestionBankScreen({ user, onBack }: Props) {
   );
 }
 
-function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
+function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>, topInset: number) {
   const surface = theme.panel;
-  const border = theme.borderStrong;
+  const border = rgbaFromHex(theme.accentHover, theme.isLight ? 0.16 : 0.18);
   const accentInk = theme.isLight ? darkenColor(theme.accent, 38) : theme.bgPrimary;
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bgPrimary },
-    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 18, paddingTop: 12, paddingBottom: 118, gap: 14 },
+    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 18, paddingTop: Math.max(topInset + 12, 52), paddingBottom: 118, gap: 14 },
     topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     topMeta: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase' },
-    iconBtn: { width: 38, height: 38, borderRadius: 12, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.92), alignItems: 'center', justifyContent: 'center' },
-    hero: { borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.94), borderRadius: 16, padding: 20, overflow: 'hidden' },
+    iconBtn: { width: 40, height: 40, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.06) },
+    hero: { borderRadius: 30, padding: 20, overflow: 'hidden', boxShadow: cbModalShadow(0.14) } as ViewStyle,
+    heroGhost: { position: 'absolute', right: 15, top: 0, fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 92 : 76, lineHeight: layout.isTablet ? 98 : 82, color: rgbaFromHex(theme.textPrimary, theme.isLight ? 0.035 : 0.055), letterSpacing: -4 },
     eyebrow: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 10, letterSpacing: 1.8, textTransform: 'uppercase' },
     heroTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 38, letterSpacing: 0, marginTop: 8 },
     heroCopy: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 13, marginTop: 4 },
@@ -370,24 +377,24 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     practiceHeader: { gap: 12 },
     progressTrack: { height: 5, borderRadius: 3, overflow: 'hidden', backgroundColor: rgbaFromHex(theme.accent, 0.14) },
     progressFill: { height: '100%', backgroundColor: theme.accentHover },
-    searchBox: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.92), paddingHorizontal: 14 },
+    searchBox: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 18, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), paddingHorizontal: 14, boxShadow: cbTileShadow(0.055) } as ViewStyle,
     searchInput: { flex: 1, color: theme.textPrimary, fontFamily: 'Inter_600SemiBold', fontSize: 14, paddingVertical: 10 },
     empty: { alignItems: 'center', paddingVertical: 48, gap: 9 },
     emptyTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 22 },
     emptyText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 13, textAlign: 'center' },
     list: { gap: 12 },
-    setCard: { borderRadius: 14, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.94), padding: 16, gap: 14 },
+    setCard: { borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 16, gap: 14, boxShadow: cbTileShadow(0.07) } as ViewStyle,
     setTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     setTitle: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 17, letterSpacing: 0 },
     setMeta: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, marginTop: 5 },
     setFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     pill: { alignSelf: 'flex-start', borderWidth: 1, borderColor: theme.border, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, color: theme.textSecondary, fontFamily: 'Inter_700Bold', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 },
     deleteBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-    questionCard: { borderWidth: 1, borderColor: border, borderRadius: 16, backgroundColor: rgbaFromHex(surface, 0.94), padding: 18, gap: 16 },
+    questionCard: { borderWidth: 1, borderColor: border, borderRadius: 24, backgroundColor: rgbaFromHex(surface, 0.72), padding: 18, gap: 16, boxShadow: cbTileShadow(0.08) } as ViewStyle,
     questionMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     questionText: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 19, lineHeight: 27 },
     options: { gap: 10 },
-    option: { borderWidth: 1, borderColor: theme.border, backgroundColor: rgbaFromHex(theme.panelAlt, 0.86), borderRadius: 13, paddingHorizontal: 14, paddingVertical: 13 },
+    option: { borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.12), backgroundColor: rgbaFromHex(theme.panelAlt, 0.86), borderRadius: 16, paddingHorizontal: 14, paddingVertical: 13 },
     optionActive: { borderColor: theme.accent, backgroundColor: rgbaFromHex(theme.accent, 0.12) },
     optionCorrect: { borderColor: theme.success, backgroundColor: rgbaFromHex(theme.success, 0.13) },
     optionWrong: { borderColor: theme.danger, backgroundColor: rgbaFromHex(theme.danger, 0.13) },
@@ -399,11 +406,11 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     correctText: { color: theme.success },
     wrongText: { color: theme.warning },
     explainText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 13, lineHeight: 20 },
-    resultCard: { borderRadius: 16, borderWidth: 1, borderColor: rgbaFromHex(theme.accent, 0.32), backgroundColor: rgbaFromHex(theme.accent, 0.11), padding: 18, alignItems: 'center' },
+    resultCard: { borderRadius: 22, borderWidth: 1, borderColor: rgbaFromHex(theme.accent, 0.32), backgroundColor: rgbaFromHex(theme.accent, 0.11), padding: 18, alignItems: 'center', boxShadow: cbTileShadow(0.055) } as ViewStyle,
     resultScore: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 48, letterSpacing: 0 },
     resultText: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.3 },
     practiceActions: { flexDirection: 'row', gap: 12 },
-    secondaryBtn: { flex: 1, height: 48, borderRadius: 13, borderWidth: 1, borderColor: border, alignItems: 'center', justifyContent: 'center', backgroundColor: rgbaFromHex(surface, 0.9) },
+    secondaryBtn: { flex: 1, height: 48, borderRadius: 16, borderWidth: 1, borderColor: border, alignItems: 'center', justifyContent: 'center', backgroundColor: rgbaFromHex(surface, 0.72), boxShadow: cbTileShadow(0.045) } as ViewStyle,
     secondaryText: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 13, textTransform: 'uppercase', letterSpacing: 1.1 },
     primaryBtn: { flex: 1, height: 48, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.accentHover },
     primaryText: { fontFamily: 'Inter_900Black', color: accentInk, fontSize: 13, textTransform: 'uppercase', letterSpacing: 1.1 },

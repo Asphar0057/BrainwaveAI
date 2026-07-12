@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../services/auth';
@@ -8,6 +9,7 @@ import { getEnhancedStats, getLearningAnalytics, getStrengthsWeaknesses, getWeek
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
+import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
@@ -32,7 +34,8 @@ function weakAreaList(value: unknown): any[] {
 export default function AnalyticsScreen({ user, onBack }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
-  const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
+  const insets = useSafeAreaInsets();
+  const s = useMemo(() => createStyles(selectedTheme, layout, insets.top), [selectedTheme, layout, insets.top]);
   const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -94,6 +97,8 @@ export default function AnalyticsScreen({ user, onBack }: Props) {
         </View>
 
         <View style={s.hero}>
+          <NeumorphicLayer grainOpacity={0.12} />
+          <Text style={s.heroGhost}>01</Text>
           <Text style={s.eyebrow}>learning signal</Text>
           <Text style={s.heroTitle}>analytics</Text>
           <Text style={s.heroCopy}>study time, question accuracy, strengths, and weak areas</Text>
@@ -183,32 +188,33 @@ function InsightList({
   );
 }
 
-function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
+function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>, topInset: number) {
   const surface = theme.panel;
-  const border = theme.borderStrong;
+  const border = rgbaFromHex(theme.accentHover, theme.isLight ? 0.16 : 0.18);
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bgPrimary },
-    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 18, paddingTop: 12, paddingBottom: 118, gap: 14 },
+    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 18, paddingTop: Math.max(topInset + 12, 52), paddingBottom: 118, gap: 14 },
     topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     topMeta: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase' },
-    iconBtn: { width: 38, height: 38, borderRadius: 12, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.92), alignItems: 'center', justifyContent: 'center' },
-    hero: { borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.94), borderRadius: 16, padding: 20 },
+    iconBtn: { width: 40, height: 40, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.06) },
+    hero: { borderRadius: 30, padding: 20, overflow: 'hidden', boxShadow: cbModalShadow(0.14) } as ViewStyle,
+    heroGhost: { position: 'absolute', right: 15, top: 0, fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 92 : 76, lineHeight: layout.isTablet ? 98 : 82, color: rgbaFromHex(theme.textPrimary, theme.isLight ? 0.035 : 0.055), letterSpacing: -4 },
     eyebrow: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 10, letterSpacing: 1.8, textTransform: 'uppercase' },
     heroTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 38, letterSpacing: 0, marginTop: 8 },
     heroCopy: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 13, marginTop: 4 },
     metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-    metricCard: { width: layout.twoColumn ? '23.5%' : '47.8%', minWidth: 142, flexGrow: 1, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.92), padding: 15 },
+    metricCard: { width: layout.twoColumn ? '23.5%' : '47.8%', minWidth: 142, flexGrow: 1, borderRadius: 20, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 15, boxShadow: cbTileShadow(0.055) } as ViewStyle,
     metricValue: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 32, letterSpacing: 0 },
     metricLabel: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 12, marginTop: 2 },
     metricSuffix: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11, marginTop: 1 },
-    section: { borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.92), padding: 16, gap: 15 },
+    section: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 16, gap: 15, boxShadow: cbTileShadow(0.08) } as ViewStyle,
     sectionTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 18 },
     bars: { minHeight: 112, flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
     barWrap: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 7 },
     bar: { width: '100%', maxWidth: 30, borderRadius: 6, backgroundColor: theme.accentHover },
     barLabel: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 10, textTransform: 'uppercase' },
     duo: { flexDirection: layout.twoColumn ? 'row' : 'column', gap: 12 },
-    insightCard: { flex: 1, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.92), padding: 16, gap: 12 },
+    insightCard: { flex: 1, borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 16, gap: 12, boxShadow: cbTileShadow(0.08) } as ViewStyle,
     insightTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     insightTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 17 },
     insightRow: { borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 10 },

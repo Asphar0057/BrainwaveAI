@@ -419,6 +419,39 @@ class StrategyBandit:
         normalized = (reward + 1.0) / 2.0
         alpha_inc = normalized
         beta_inc = 1.0 - normalized
+        now = datetime.now(timezone.utc)
+
+        bind = db.get_bind()
+        if bind is not None and bind.dialect.name == "sqlite":
+            from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
+            table = models.BanditState.__table__
+            stmt = sqlite_insert(table).values(
+                student_id=student_id,
+                state_hash=state_hash,
+                strategy_id=strategy_id,
+                pulls=1,
+                total_reward=reward,
+                avg_reward=reward,
+                alpha=1.0 + alpha_inc,
+                beta_param=1.0 + beta_inc,
+                last_updated=now,
+            )
+            updated_pulls = table.c.pulls + 1
+            updated_total_reward = table.c.total_reward + reward
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["student_id", "state_hash", "strategy_id"],
+                set_={
+                    "pulls": updated_pulls,
+                    "total_reward": updated_total_reward,
+                    "avg_reward": updated_total_reward / updated_pulls,
+                    "alpha": table.c.alpha + alpha_inc,
+                    "beta_param": table.c.beta_param + beta_inc,
+                    "last_updated": now,
+                },
+            )
+            db.execute(stmt)
+            return
 
         existing = (
             db.query(models.BanditState)
@@ -429,7 +462,6 @@ class StrategyBandit:
             )
             .first()
         )
-        now = datetime.now(timezone.utc)
         if existing:
             existing.pulls += 1
             existing.total_reward += reward

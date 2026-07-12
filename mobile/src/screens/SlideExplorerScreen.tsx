@@ -7,8 +7,10 @@ import {
   StyleSheet,
   Text,
   View,
+  ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -25,6 +27,7 @@ import {
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
+import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
@@ -48,7 +51,8 @@ function asLines(value: unknown): string[] {
 export default function SlideExplorerScreen({ user, onBack, onOpenQuestionBank }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
-  const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
+  const insets = useSafeAreaInsets();
+  const s = useMemo(() => createStyles(selectedTheme, layout, insets.top), [selectedTheme, layout, insets.top]);
   const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black });
   const [slides, setSlides] = useState<UploadedSlide[]>([]);
   const [loading, setLoading] = useState(true);
@@ -179,6 +183,8 @@ export default function SlideExplorerScreen({ user, onBack, onOpenQuestionBank }
         </View>
 
         <View style={s.hero}>
+          <NeumorphicLayer grainOpacity={0.12} />
+          <Text style={s.heroGhost}>01</Text>
           <Text style={s.eyebrow}>deck intelligence</Text>
           <Text style={s.heroTitle}>slide explorer</Text>
           <Text style={s.heroCopy}>{slides.length} decks · {totals} slides ready for analysis</Text>
@@ -274,22 +280,23 @@ function MiniAction({ label, onPress, busy, styles }: { label: string; onPress: 
   );
 }
 
-function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
+function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>, topInset: number) {
   const surface = theme.panel;
-  const border = theme.borderStrong;
+  const border = rgbaFromHex(theme.accentHover, theme.isLight ? 0.16 : 0.18);
   const accentInk = theme.isLight ? darkenColor(theme.accent, 38) : theme.bgPrimary;
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bgPrimary },
-    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 18, paddingTop: 12, paddingBottom: 118, gap: 14 },
+    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 18, paddingTop: Math.max(topInset + 12, 52), paddingBottom: 118, gap: 14 },
     topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    iconBtn: { width: 38, height: 38, borderRadius: 12, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.92), alignItems: 'center', justifyContent: 'center' },
-    uploadBtn: { height: 38, borderRadius: 12, backgroundColor: theme.accentHover, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 7 },
+    iconBtn: { width: 40, height: 40, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.06) },
+    uploadBtn: { height: 40, borderRadius: 16, backgroundColor: theme.accentHover, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 7, boxShadow: cbTileShadow(0.055) },
     uploadText: { fontFamily: 'Inter_900Black', color: accentInk, fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 },
-    hero: { borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.94), borderRadius: 16, padding: 20 },
+    hero: { borderRadius: 30, padding: 20, overflow: 'hidden', boxShadow: cbModalShadow(0.14) } as ViewStyle,
+    heroGhost: { position: 'absolute', right: 15, top: 0, fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 92 : 76, lineHeight: layout.isTablet ? 98 : 82, color: rgbaFromHex(theme.textPrimary, theme.isLight ? 0.035 : 0.055), letterSpacing: -4 },
     eyebrow: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 10, letterSpacing: 1.8, textTransform: 'uppercase' },
     heroTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 36, letterSpacing: 0, marginTop: 8 },
     heroCopy: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 13, marginTop: 4 },
-    analysisPanel: { borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.94), padding: 15, gap: 13 },
+    analysisPanel: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 15, gap: 13, boxShadow: cbTileShadow(0.08) } as ViewStyle,
     analysisHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
     sectionTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 17, letterSpacing: 0 },
     sectionHint: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, marginTop: 3, lineHeight: 18 },
@@ -299,7 +306,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     slideTabActive: { backgroundColor: theme.accentHover, borderColor: theme.accentHover },
     slideTabText: { fontFamily: 'Inter_900Black', color: theme.textSecondary, fontSize: 12 },
     slideTabTextActive: { color: accentInk },
-    slideCard: { borderRadius: 15, borderWidth: 1, borderColor: theme.border, backgroundColor: rgbaFromHex(theme.panelAlt, 0.78), padding: 14, gap: 10 },
+    slideCard: { borderRadius: 20, borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.12), backgroundColor: rgbaFromHex(theme.panelAlt, 0.78), padding: 14, gap: 10, boxShadow: cbTileShadow(0.045) } as ViewStyle,
     slideTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 16 },
     slideBody: { fontFamily: 'Inter_400Regular', color: theme.textPrimary, fontSize: 13, lineHeight: 21 },
     pointRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
@@ -309,15 +316,15 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     emptyTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 22 },
     emptyText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 13, textAlign: 'center', maxWidth: 320, lineHeight: 19 },
     list: { gap: 12 },
-    deckCard: { borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.94), padding: 15, gap: 13 },
+    deckCard: { borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 15, gap: 13, boxShadow: cbTileShadow(0.07) } as ViewStyle,
     deckCardActive: { borderColor: theme.accentHover, backgroundColor: rgbaFromHex(theme.accent, 0.1) },
     deckTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    deckIcon: { width: 40, height: 40, borderRadius: 13, borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center', backgroundColor: rgbaFromHex(theme.accent, 0.1) },
+    deckIcon: { width: 40, height: 40, borderRadius: 13, borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.14), alignItems: 'center', justifyContent: 'center', backgroundColor: rgbaFromHex(theme.accent, 0.1) },
     deckTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 16, letterSpacing: 0 },
     deckMeta: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11, marginTop: 4 },
     deleteBtn: { width: 34, height: 34, borderRadius: 11, borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' },
     actionRow: { flexDirection: 'row', gap: 8 },
-    miniAction: { flex: 1, height: 40, borderRadius: 12, borderWidth: 1, borderColor: theme.border, backgroundColor: rgbaFromHex(theme.panelAlt, 0.78), alignItems: 'center', justifyContent: 'center' },
+    miniAction: { flex: 1, height: 40, borderRadius: 14, borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.14), backgroundColor: rgbaFromHex(theme.panelAlt, 0.78), alignItems: 'center', justifyContent: 'center' },
     miniActionText: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8 },
   });
 }

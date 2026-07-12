@@ -10,7 +10,9 @@ import LoadingSpinner from './components/LoadingSpinner';
 import GlobalNotifications from './components/GlobalNotifications';
 import RateLimitHandler from './components/RateLimitHandler';
 import Home from './pages/Home';
+import PostHogRouteTracker from './components/PostHogRouteTracker';
 import { getChatDockState, listenChatDockUpdates } from './utils/chatDock';
+import { isPostHogEnabled } from './utils/posthog';
 import {
   formatUsageLimitMessage,
   installUsageLimitFetchInterceptor,
@@ -248,6 +250,7 @@ function App() {
           <RateLimitHandler />
           <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg-top)', color: 'var(--text-primary)' }}>
             <RouteWarmup />
+            {isPostHogEnabled && <PostHogRouteTracker />}
             <GlobalNotifications />
             <AIChatDockMount />
             {usageLimit && (

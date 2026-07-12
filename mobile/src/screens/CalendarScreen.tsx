@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
@@ -9,6 +9,7 @@ import { AuthUser } from '../services/auth';
 import { API_URL } from '../services/api';
 import HapticTouchable from '../components/HapticTouchable';
 import GeoBackground from '../components/GeoBackground';
+import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../components/NeumorphicTexture';
 
 const GOLD_XL = '#EAECEF';
 const GOLD_L  = '#E5C9A8';
@@ -73,7 +74,7 @@ export default function CalendarScreen({ user, onBack }: Props) {
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={s.header}>
-          <HapticTouchable onPress={onBack} haptic="light" style={{ marginRight: 12 }}>
+          <HapticTouchable onPress={onBack} haptic="light" style={s.headerBack}>
             <Ionicons name="chevron-back" size={22} color={GOLD_L} />
           </HapticTouchable>
           <View style={{ flex: 1 }}>
@@ -94,44 +95,49 @@ export default function CalendarScreen({ user, onBack }: Props) {
           </HapticTouchable>
         </View>
 
-        {/* Day headers */}
-        <View style={s.dayHeaders}>
-          {DAYS.map((d, i) => <Text key={i} style={s.dayHeader}>{d}</Text>)}
-        </View>
+        <View style={s.calendarPanel}>
+          <NeumorphicLayer grainOpacity={0.11} />
+          <Text style={s.panelGhost}>01</Text>
 
-        {/* Calendar grid */}
-        {loading ? (
-          <ActivityIndicator color={GOLD_D} style={{ marginTop: 40 }} />
-        ) : (
-          <View style={s.grid}>
-            {Array.from({ length: firstDay }).map((_, i) => <View key={`e-${i}`} style={s.cell} />)}
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-              const day = i + 1;
-              const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-              const heat = heatByDate[dateStr];
-              const isToday = dateStr === today;
-              const isSel = dateStr === selected;
-              return (
-                <HapticTouchable
-                  key={dateStr}
-                  style={[s.cell, { backgroundColor: heat ? LEVEL_COLORS[heat.level] : 'transparent' }, isToday && s.cellToday, isSel && s.cellSelected]}
-                  onPress={() => setSelected(isSel ? null : dateStr)}
-                  haptic="selection"
-                  activeOpacity={0.75}
-                >
-                  <Text style={[s.cellNum, isToday && s.cellNumToday, isSel && s.cellNumSel]}>{day}</Text>
-                  {heat && heat.count > 0 ? <View style={[s.dot, { backgroundColor: LEVEL_COLORS[Math.min(heat.level + 1, 5)] }]} /> : null}
-                </HapticTouchable>
-              );
-            })}
+          {/* Day headers */}
+          <View style={s.dayHeaders}>
+            {DAYS.map((d, i) => <Text key={i} style={s.dayHeader}>{d}</Text>)}
           </View>
-        )}
 
-        {/* Legend */}
-        <View style={s.legend}>
-          <Text style={s.legendLabel}>less</Text>
-          {LEVEL_COLORS.slice(1).map((c, i) => <View key={i} style={[s.legendBox, { backgroundColor: c }]} />)}
-          <Text style={s.legendLabel}>more</Text>
+          {/* Calendar grid */}
+          {loading ? (
+            <ActivityIndicator color={GOLD_D} style={{ marginTop: 40 }} />
+          ) : (
+            <View style={s.grid}>
+              {Array.from({ length: firstDay }).map((_, i) => <View key={`e-${i}`} style={s.cell} />)}
+              {Array.from({ length: daysInMonth }).map((_, i) => {
+                const day = i + 1;
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const heat = heatByDate[dateStr];
+                const isToday = dateStr === today;
+                const isSel = dateStr === selected;
+                return (
+                  <HapticTouchable
+                    key={dateStr}
+                    style={[s.cell, { backgroundColor: heat ? LEVEL_COLORS[heat.level] : 'transparent' }, isToday && s.cellToday, isSel && s.cellSelected]}
+                    onPress={() => setSelected(isSel ? null : dateStr)}
+                    haptic="selection"
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[s.cellNum, isToday && s.cellNumToday, isSel && s.cellNumSel]}>{day}</Text>
+                    {heat && heat.count > 0 ? <View style={[s.dot, { backgroundColor: LEVEL_COLORS[Math.min(heat.level + 1, 5)] }]} /> : null}
+                  </HapticTouchable>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Legend */}
+          <View style={s.legend}>
+            <Text style={s.legendLabel}>less</Text>
+            {LEVEL_COLORS.slice(1).map((c, i) => <View key={i} style={[s.legendBox, { backgroundColor: c }]} />)}
+            <Text style={s.legendLabel}>more</Text>
+          </View>
         </View>
 
         {/* Selected day detail */}
@@ -173,11 +179,14 @@ const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#0a0a0b' },
   scroll: { paddingHorizontal: 16, paddingBottom: 120, gap: 14, paddingTop: 0 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 18, paddingBottom: 12 },
+  headerBack: { width: 42, height: 42, borderRadius: 16, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, alignItems: 'center', justifyContent: 'center', marginRight: 12, boxShadow: cbTileShadow(0.055) },
   title: { fontFamily: 'Inter_900Black', fontSize: 32, color: GOLD_L, letterSpacing: -0.8 },
   subtitle: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM, letterSpacing: 2.2, marginTop: 4, textTransform: 'uppercase' },
   monthNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
-  navBtn: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, alignItems: 'center', justifyContent: 'center' },
+  navBtn: { width: 38, height: 38, borderRadius: 16, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.055) },
   monthLabel: { fontFamily: 'Inter_900Black', fontSize: 16, color: GOLD_L, letterSpacing: -0.3 },
+  calendarPanel: { borderRadius: 30, padding: 14, overflow: 'hidden', boxShadow: cbModalShadow(0.14) } as ViewStyle,
+  panelGhost: { position: 'absolute', right: 15, top: -2, fontFamily: 'Inter_900Black', fontSize: 76, lineHeight: 82, color: 'rgba(234, 236, 239, 0.055)', letterSpacing: -4 },
   dayHeaders: { flexDirection: 'row' },
   dayHeader: { flex: 1, textAlign: 'center', fontFamily: 'Inter_600SemiBold', fontSize: 10, color: DIM, letterSpacing: 1.2, paddingVertical: 8 },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
@@ -191,13 +200,13 @@ const s = StyleSheet.create({
   legend: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4 },
   legendLabel: { fontFamily: 'Inter_400Regular', fontSize: 9, color: DIM },
   legendBox: { width: 12, height: 12, borderRadius: 3, borderWidth: 1, borderColor: BORDER },
-  dayDetail: { backgroundColor: SURFACE, borderRadius: 18, borderWidth: 1, borderColor: BORDER, padding: 16, gap: 8 },
+  dayDetail: { backgroundColor: SURFACE, borderRadius: 24, borderWidth: 1, borderColor: BORDER, padding: 16, gap: 8, boxShadow: cbTileShadow(0.08) } as ViewStyle,
   dayDetailTitle: { fontFamily: 'Inter_900Black', fontSize: 15, color: GOLD_L },
   dayDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   dayDetailText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: GOLD_M },
   dayDetailEmpty: { fontFamily: 'Inter_400Regular', fontSize: 13, color: DIM },
   infoRow: { flexDirection: 'row', gap: 10 },
-  infoCard: { flex: 1, backgroundColor: SURFACE, borderRadius: 16, borderWidth: 1, borderColor: BORDER, paddingVertical: 14, alignItems: 'center' },
+  infoCard: { flex: 1, backgroundColor: SURFACE, borderRadius: 20, borderWidth: 1, borderColor: BORDER, paddingVertical: 14, alignItems: 'center', boxShadow: cbTileShadow(0.055) } as ViewStyle,
   infoVal: { fontFamily: 'Inter_900Black', fontSize: 20, color: GOLD_L },
   infoLbl: { fontFamily: 'Inter_400Regular', fontSize: 9, color: DIM, textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 3 },
 });
