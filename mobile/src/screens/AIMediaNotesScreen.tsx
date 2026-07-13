@@ -470,7 +470,6 @@ function AIMediaHub({
             )}
             <View style={{ flex: 1 }}>
               <Text style={s.pageTitle}>media notes</Text>
-              <Text style={s.pageSubtitle}>ai-powered transcription & notes</Text>
             </View>
           </View>
 
@@ -839,9 +838,7 @@ function PodcastMode({
   if (!sessionId) {
     return (
       <View style={s.podcastLaunch}>
-        <Text style={s.podcastEyebrow}>interactive audio lesson</Text>
         <Text style={s.podcastTitle}>podcast mode</Text>
-        <Text style={s.podcastCopy}>Turn this transcript into a guided episode with chapters, questions, bookmarks, and quick checks.</Text>
         {!!error && <Text style={s.errorText}>{error}</Text>}
         <HapticTouchable style={s.podcastPrimary} onPress={start} disabled={busy === 'start'} haptic="medium">
           {busy === 'start' ? <ActivityIndicator color={INK} /> : <Text style={s.podcastPrimaryText}>start podcast</Text>}

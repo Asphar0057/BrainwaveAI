@@ -809,7 +809,6 @@ function FlashcardsSets({
         ) : null}
         <View style={{ flex: 1 }}>
           <Text style={s.title}>flashcards</Text>
-          <Text style={s.subtitle}>study · create · retain</Text>
         </View>
         <Ionicons name="layers-outline" size={22} color={GOLD_D} />
       </View>

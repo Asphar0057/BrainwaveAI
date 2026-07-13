@@ -82,7 +82,6 @@ export default function ProfileScreen({ user, onLogout, onNavigate }: Props) {
         <View style={styles.topBar}>
           <View>
             <Text style={styles.pageTitle}>profile</Text>
-            <Text style={styles.pageSubtitle}>identity · settings · progress</Text>
           </View>
           <HapticTouchable onPress={handleOpenSettings} activeOpacity={0.8} haptic="selection" style={styles.settingsButton}>
             <Ionicons name="settings-outline" size={20} color={selectedTheme.textPrimary} />
@@ -105,7 +104,6 @@ export default function ProfileScreen({ user, onLogout, onNavigate }: Props) {
           </LinearGradient>
           <Text style={styles.userName}>{displayName}</Text>
           <Text style={styles.userHandle}>@{user.username} · joined {joinYear}</Text>
-          <Text style={styles.heroText}>Focused study, low noise. Keep the essentials close.</Text>
         </View>
 
         <Text style={styles.sectionLabel}>preferences</Text>
@@ -177,7 +175,6 @@ export default function ProfileScreen({ user, onLogout, onNavigate }: Props) {
 function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
   const CARD_ALT = theme.panelAlt;
   const GOLD_LIGHT = theme.accentHover;
-  const GOLD_MID   = theme.accent;
   const GOLD_DARK  = darkenColor(theme.accent, theme.isLight ? 16 : 34);
   const DIM    = theme.textSecondary;
   const BORDER = rgbaFromHex(GOLD_LIGHT, theme.isLight ? 0.16 : 0.18);
@@ -216,7 +213,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       boxShadow: cbTileShadow(0.06),
     },
     pageTitle:    { fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 36 : 30, lineHeight: layout.isTablet ? 38 : 32, color: GOLD_LIGHT, letterSpacing: -0.8 },
-    pageSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM, letterSpacing: 1.6, marginTop: 4, textTransform: 'uppercase' },
     heroCard: {
       borderRadius: 30,
       padding: 20,
@@ -250,7 +246,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     avatarInitials: { fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 34 : 28, color: GOLD_LIGHT },
     userName:   { fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 28 : 24, color: GOLD_LIGHT, letterSpacing: -0.5, textAlign: 'center' },
     userHandle: { fontFamily: 'Inter_400Regular', fontSize: 12, color: DIM, letterSpacing: 0.2, textAlign: 'center' },
-    heroText:   { fontFamily: 'Inter_400Regular', fontSize: 13, lineHeight: 19, color: GOLD_MID, marginTop: 8, textAlign: 'center' },
     sectionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: DIM, letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' },
     card: {
       borderRadius: 24,

@@ -99,9 +99,7 @@ export default function AnalyticsScreen({ user, onBack }: Props) {
         <View style={s.hero}>
           <NeumorphicLayer grainOpacity={0.12} />
           <Text style={s.heroGhost}>01</Text>
-          <Text style={s.eyebrow}>learning signal</Text>
           <Text style={s.heroTitle}>analytics</Text>
-          <Text style={s.heroCopy}>study time, question accuracy, strengths, and weak areas</Text>
         </View>
 
         {loading ? (

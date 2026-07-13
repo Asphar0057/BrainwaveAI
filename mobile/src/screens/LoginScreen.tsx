@@ -70,11 +70,7 @@ export default function LoginScreen({ onLogin }: Props) {
   const [success, setSuccess] = useState('');
   const googleConfigError = getGoogleConfigError();
   const panelTitle = verificationPending ? 'verify account' : mode === 'login' ? 'welcome back' : 'create account';
-  const panelSubtitle = verificationPending
-    ? 'enter the code sent to your email'
-    : mode === 'login'
-      ? 'continue your study session'
-      : 'set up your learning profile';
+  const panelSubtitle = verificationPending ? 'enter the code sent to your email' : '';
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     webClientId: GOOGLE_WEB_CLIENT_ID,
@@ -292,7 +288,6 @@ export default function LoginScreen({ onLogin }: Props) {
             <View style={s.header}>
               <View>
                 <Text style={s.brand}>cerbyl</Text>
-                <Text style={s.headerSub}>learning unified</Text>
               </View>
               <View style={s.headerRule} />
             </View>
@@ -308,9 +303,8 @@ export default function LoginScreen({ onLogin }: Props) {
               <Text style={s.panelGhost}>{mode === 'login' ? '01' : verificationPending ? '03' : '02'}</Text>
               <View style={s.panelCornerTop} />
               <View style={s.panelHeader}>
-                <Text style={s.panelKicker}>{mode === 'login' ? 'account access' : verificationPending ? 'email verification' : 'new account'}</Text>
                 <Text style={s.panelTitle}>{panelTitle}</Text>
-                <Text style={s.panelSubtitle}>{panelSubtitle}</Text>
+                {panelSubtitle ? <Text style={s.panelSubtitle}>{panelSubtitle}</Text> : null}
               </View>
 
               <View style={s.tabs}>

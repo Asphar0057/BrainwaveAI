@@ -301,7 +301,6 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
                   <Text style={styles.heroLabel}>{hero.title}</Text>
                   <Text style={[styles.bigNum, { fontSize: heroFontSize, lineHeight: heroFontSize + 10 }]}>{hero.value}</Text>
                   <Text style={styles.heroUnit}>{hero.unit}</Text>
-                  <Text style={styles.heroHint}>{hero.subcopy}</Text>
 
                   <View style={styles.heroStatsRow}>
                     {heroStats.map((item) => (
@@ -314,7 +313,6 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
                       <View key={index} style={[styles.heroDot, index === heroIndex && styles.heroDotActive]} />
                     ))}
                   </View>
-                  <Text style={styles.heroSwipeHint}>tap or swipe the hero to cycle views</Text>
                 </AnimatedView>
               )}
             </View>
@@ -325,7 +323,6 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
           <View style={styles.activitySection}>
             <View style={styles.activityHeader}>
               <Text style={styles.activityHeadTitle}>recent activity</Text>
-              <Text style={styles.activityHeadMeta}>what happened lately</Text>
             </View>
             <View style={styles.timelineWrap}>
               {recentActivity.map((item: any, idx: number) => {
@@ -371,7 +368,6 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
           <View style={styles.sectionBlock}>
             <View style={styles.sectionHeadRow}>
               <Text style={styles.sectionTitle}>study tools</Text>
-              <Text style={styles.sectionSubtitle}>core website features, rebuilt for mobile</Text>
             </View>
             <View style={styles.quickGrid}>
               {quickActions.map((item, index) => (
@@ -381,10 +377,7 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
                   <View style={styles.quickIconWrap}>
                     <Ionicons name={item.icon} size={17} color={selectedTheme.accentHover} />
                   </View>
-                  <View>
-                    <Text style={styles.quickLabel} numberOfLines={1}>{item.label}</Text>
-                    <Text style={styles.quickDetail} numberOfLines={2}>{item.detail}</Text>
-                  </View>
+                  <Text style={styles.quickLabel} numberOfLines={1}>{item.label}</Text>
                 </HapticTouchable>
               ))}
             </View>
@@ -396,7 +389,6 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
               <NeumorphicTexture />
               <View style={styles.sectionHeadRow}>
                 <Text style={styles.sectionTitle}>today</Text>
-                <Text style={styles.sectionSubtitle}>live progress</Text>
               </View>
               <View style={styles.todayCard}>
                 {todayRows.map((row, index) => (
@@ -421,7 +413,6 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
               <NeumorphicTexture />
               <View style={styles.sectionHeadRow}>
                 <Text style={styles.sectionTitle}>weekly orbit</Text>
-                <Text style={styles.sectionSubtitle}>signal strength</Text>
               </View>
               <View style={styles.ringsWrap}>
                 {rings.map((ring) => (
@@ -436,7 +427,6 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
           <View style={styles.sectionBlock}>
             <View style={styles.sectionHeadRow}>
               <Text style={styles.sectionTitle}>lifetime totals</Text>
-              <Text style={styles.sectionSubtitle}>what you have built so far</Text>
             </View>
             <View style={styles.totalsRow}>
               {[
@@ -653,14 +643,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     marginTop: 2,
     textTransform: 'uppercase',
   },
-  heroHint: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 10,
-    color: GOLD_L,
-    letterSpacing: 0.8,
-    marginTop: 10,
-    textAlign: 'center',
-  },
   heroStatsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -711,14 +693,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   heroDotActive: {
     backgroundColor: GOLD_L,
     width: 24,
-  },
-  heroSwipeHint: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 9,
-    color: GOLD_SOFT,
-    letterSpacing: 1.1,
-    marginTop: 10,
-    textTransform: 'uppercase',
   },
   heroOrb: {
     position: 'absolute',
@@ -831,12 +805,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     letterSpacing: 1.8,
     textTransform: 'uppercase',
   },
-  sectionSubtitle: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 11,
-    color: DIM,
-    lineHeight: 16,
-  },
   quickGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -873,14 +841,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     color: GOLD_L,
     letterSpacing: -0.2,
     marginTop: 18,
-  },
-  quickDetail: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 11,
-    color: DIM,
-    letterSpacing: 0.3,
-    lineHeight: 16,
-    marginTop: 6,
   },
 
   todayCard: {
@@ -997,11 +957,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     fontSize: 15,
     color: GOLD_L,
     letterSpacing: -0.3,
-  },
-  activityHeadMeta: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 10,
-    color: DIM,
   },
   timelineWrap: { gap: 0 },
   timelineItem: { flexDirection: 'row', gap: 12 },

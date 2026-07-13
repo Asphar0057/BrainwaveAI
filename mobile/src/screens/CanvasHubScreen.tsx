@@ -115,9 +115,8 @@ export default function CanvasHubScreen({ user, onBack, onOpenNotes }: Props) {
         <View style={s.hero}>
           <NeumorphicLayer grainOpacity={0.12} />
           <Text style={s.heroGhost}>01</Text>
-          <Text style={s.eyebrow}>whiteboard workspace</Text>
           <Text style={s.heroTitle}>canvas hub</Text>
-          <Text style={s.heroCopy}>{notes.length} canvas notes · sketch, annotate, diagram, and save</Text>
+          <Text style={s.heroCopy}>{notes.length} canvas notes</Text>
         </View>
 
         <View style={s.actionGrid}>

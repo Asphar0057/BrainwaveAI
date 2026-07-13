@@ -1046,7 +1046,6 @@ export function NotesHome({
           ) : null}
           <View style={{ flex: 1 }}>
             <Text style={s.mobileTitle}>notes</Text>
-            <Text style={s.mobileSubtitle} numberOfLines={1}>capture · sketch · organize</Text>
           </View>
         </View>
       )}

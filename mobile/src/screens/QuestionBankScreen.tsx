@@ -287,7 +287,6 @@ export default function QuestionBankScreen({ user, onBack }: Props) {
         <View style={s.hero}>
           <NeumorphicLayer grainOpacity={0.12} />
           <Text style={s.heroGhost}>01</Text>
-          <Text style={s.eyebrow}>practice engine</Text>
           <Text style={s.heroTitle}>question bank</Text>
           <Text style={s.heroCopy}>{sets.length} sets · {sets.reduce((sum, set) => sum + questionCount(set), 0)} questions</Text>
         </View>

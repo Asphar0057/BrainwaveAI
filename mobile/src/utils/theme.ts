@@ -110,6 +110,17 @@ export function rgbaFromHex(hex: string, alpha: number) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+/** Blends `hex` toward `target` by `amount` (0-1). Used to derive a family of
+ * related warm tones from a single base color instead of hand-picked hexes. */
+export function mixHex(hex: string, target: string, amount: number) {
+  const a = hexToRgb(hex);
+  const b = hexToRgb(target);
+  const r = Math.round(a.r + (b.r - a.r) * amount);
+  const g = Math.round(a.g + (b.g - a.g) * amount);
+  const bl = Math.round(a.b + (b.b - a.b) * amount);
+  return `#${((1 << 24) + (r << 16) + (g << 8) + bl).toString(16).slice(1)}`;
+}
+
 export function lightenColor(hex: string, percent: number) {
   const { r, g, b } = hexToRgb(hex);
   const amount = Math.round(2.55 * percent);
@@ -139,16 +150,19 @@ function getRelativeLuminance(hex: string) {
 
 export function buildTheme(definition: ThemeDefinition & { primary?: string }): MobileTheme {
   const isLight = definition.mode === 'light';
-  const primary = definition.primary || (isLight ? '#fefefe' : '#0a0a0b');
-  const bgPrimary = primary;
-  const bgSecondary = isLight ? darkenColor(primary, 2) : '#11100f';
-  const panel = isLight ? '#ffffff' : '#121110';
-  const panelAlt = isLight ? darkenColor(primary, 1) : '#171513';
-  const panelMuted = isLight ? darkenColor(primary, 3) : '#211f1d';
-  const textPrimary = isLight ? '#1a1a1a' : '#EAECEF';
-  const textSecondary = isLight ? '#666666' : '#9CA3AF';
-  const border = isLight ? rgbaFromHex(darkenColor(primary, 20), 0.18) : rgbaFromHex(definition.accent, 0.14);
-  const borderStrong = isLight ? rgbaFromHex(darkenColor(primary, 28), 0.28) : rgbaFromHex(definition.accent, 0.24);
+  const primary = definition.primary || (isLight ? '#fefefe' : '#161008');
+  // Dark mode reads as a warm bronze-to-espresso gradient (not literal black) so the
+  // gold accent has a surface to sit on. Top carries the most visible warmth, bottom
+  // settles into a near-black that still carries a hint of umber, never pure #000.
+  const bgPrimary = isLight ? primary : mixHex(primary, '#000000', 0.30);
+  const bgSecondary = isLight ? darkenColor(primary, 2) : mixHex(primary, definition.accent, 0.05);
+  const panel = isLight ? '#ffffff' : mixHex(primary, definition.accent, 0.045);
+  const panelAlt = isLight ? darkenColor(primary, 1) : mixHex(primary, definition.accent, 0.07);
+  const panelMuted = isLight ? darkenColor(primary, 3) : mixHex(primary, '#000000', 0.18);
+  const textPrimary = isLight ? '#1a1a1a' : '#EFE7DB';
+  const textSecondary = isLight ? '#666666' : '#A79E90';
+  const border = isLight ? rgbaFromHex(darkenColor(primary, 20), 0.18) : rgbaFromHex(definition.accent, 0.16);
+  const borderStrong = isLight ? rgbaFromHex(darkenColor(primary, 28), 0.28) : rgbaFromHex(definition.accent, 0.28);
 
   return {
     ...definition,
@@ -156,8 +170,8 @@ export function buildTheme(definition: ThemeDefinition & { primary?: string }): 
     family: isLight ? 'Light' : 'Dark',
     bgPrimary,
     bgSecondary,
-    bgTop: primary,
-    bgBottom: isLight ? darkenColor(primary, 4) : '#0f0e0d',
+    bgTop: isLight ? primary : mixHex(primary, definition.accent, 0.16),
+    bgBottom: isLight ? darkenColor(primary, 4) : mixHex(primary, '#000000', 0.46),
     panel,
     panelAlt,
     panelMuted,

@@ -198,7 +198,6 @@ export default function SocialScreen({ user }: Props) {
         {/* ══ HEADER ══ */}
         <View style={s.header}>
           <Text style={s.title}>social</Text>
-          <Text style={s.subtitle}>community · competition · momentum</Text>
         </View>
 
         {loading || !data ? (
@@ -458,7 +457,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     /* Header */
     header: { marginHorizontal: -PAD, paddingHorizontal: PAD - 4 },
     title:    { fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 36 : 30, color: GOLD, letterSpacing: -0.8 },
-    subtitle: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM, letterSpacing: 1.4, marginTop: 4, textTransform: 'uppercase' },
     loadingWrap: { paddingTop: 80, alignItems: 'center' },
 
     /* Identity strip */

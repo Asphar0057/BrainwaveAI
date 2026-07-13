@@ -64,7 +64,6 @@ export default function SettingsScreen({ user, onBack }: Props) {
           </HapticTouchable>
           <View style={styles.titleWrap}>
             <Text style={styles.pageTitle}>settings</Text>
-            <Text style={styles.pageSubtitle}>app and account controls</Text>
           </View>
           <View style={styles.iconButton} />
         </View>
@@ -76,7 +75,6 @@ export default function SettingsScreen({ user, onBack }: Props) {
           <Text style={[styles.heroEyebrow, { color: selectedTheme.accentHover }]}>signed in as</Text>
           <Text style={styles.heroName}>{user.first_name || user.username}</Text>
           <Text style={styles.heroMeta}>@{user.username} · {user.email}</Text>
-          <Text style={styles.heroBody}>Tune the product around your pace without cluttering the core experience.</Text>
         </View>
 
         <Text style={styles.sectionLabel}>appearance</Text>
@@ -290,7 +288,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     titleWrap: { flex: 1, alignItems: 'center' },
     pageTitle: { fontFamily: 'Inter_900Black', fontSize: 24, color: theme.accentHover, textTransform: 'lowercase', letterSpacing: -0.4 },
-    pageSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 10, color: theme.textSecondary, letterSpacing: 1.8, marginTop: 4, textTransform: 'uppercase' },
     heroCard: {
       borderRadius: 30,
       paddingHorizontal: 20,
@@ -312,7 +309,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     heroEyebrow: { fontFamily: 'Inter_600SemiBold', fontSize: 10, letterSpacing: 1.8, textTransform: 'uppercase' },
     heroName: { fontFamily: 'Inter_900Black', fontSize: 22, color: theme.accentHover, marginTop: 8 },
     heroMeta: { fontFamily: 'Inter_400Regular', fontSize: 13, color: theme.accent, marginTop: 6 },
-    heroBody: { fontFamily: 'Inter_400Regular', fontSize: 14, lineHeight: 21, color: theme.textSecondary, marginTop: 14 },
     sectionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: theme.textSecondary, letterSpacing: 2, marginBottom: 10, textTransform: 'uppercase' },
     card: {
       borderRadius: 24,

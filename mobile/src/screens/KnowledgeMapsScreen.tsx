@@ -321,7 +321,6 @@ export default function KnowledgeMapsScreen({ user, onBack }: Props) {
           <View style={s.hero}>
             <NeumorphicLayer grainOpacity={0.12} />
             <Text style={s.heroGhost}>01</Text>
-            <Text style={s.eyebrow}>visual explorer</Text>
             <Text style={s.heroTitle} numberOfLines={2}>{detail?.roadmap?.title || selectedMap.title}</Text>
             <Text style={s.heroCopy}>{orderedNodes.length} nodes · depth {detail?.roadmap?.max_depth_reached ?? selectedMap.max_depth_reached ?? 0}</Text>
           </View>
@@ -449,7 +448,6 @@ export default function KnowledgeMapsScreen({ user, onBack }: Props) {
         <View style={s.hero}>
           <NeumorphicLayer grainOpacity={0.12} />
           <Text style={s.heroGhost}>01</Text>
-          <Text style={s.eyebrow}>concept graph</Text>
           <Text style={s.heroTitle}>knowledge maps</Text>
           <Text style={s.heroCopy}>{maps.length} maps · {maps.reduce((sum, map) => sum + (map.total_nodes || 0), 0)} nodes tracked</Text>
         </View>

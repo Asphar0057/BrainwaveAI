@@ -101,9 +101,7 @@ export default function WeaknessPracticeScreen({ user, onBack }: Props) {
         <View style={s.hero}>
           <NeumorphicLayer grainOpacity={0.12} />
           <Text style={s.heroGhost}>01</Text>
-          <Text style={s.eyebrow}>targeted review</Text>
           <Text style={s.heroTitle}>weakness practice</Text>
-          <Text style={s.heroCopy}>turn weak topics into generated practice sets</Text>
         </View>
 
         {!user.id ? (

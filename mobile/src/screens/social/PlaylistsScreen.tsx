@@ -172,7 +172,6 @@ export default function PlaylistsScreen({ user, onBack }: Props) {
           <Ionicons name="library" size={32} color={GOLD_XL} />
           <View style={s.heroText}>
             <Text style={s.heroTitle}>playlists</Text>
-            <Text style={s.heroSub}>discover · follow · create</Text>
           </View>
         </View>
 

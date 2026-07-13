@@ -133,7 +133,6 @@ export default function QuizPlaylistScreen({ user, onBack }: Props) {
         </HapticTouchable>
         <View style={{ flex: 1 }}>
           <Text style={s.title}>quiz hub</Text>
-          <Text style={s.subtitle}>group challenges & playlists</Text>
         </View>
         <HapticTouchable style={s.createBtn} onPress={() => setShowCreate(true)} haptic="medium">
           <Ionicons name="add" size={16} color={GOLD_XL} />

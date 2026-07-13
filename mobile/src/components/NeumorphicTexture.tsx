@@ -3,13 +3,19 @@ import { View, StyleSheet, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, Pattern, Line, RadialGradient, Stop, Rect, Circle } from 'react-native-svg';
 
-// Ported verbatim from src/pages/Home.css (.cb-tile / .cb-tile-texture / .cb-modal) —
-// the website landing page's neumorphic bento-tile recipe.
-export const CB_CARD_TOP = '#0b0c0f';
-export const CB_CARD_BOTTOM = '#050506';
-export const CB_ACCENT = '#d8b38d';
-export const CB_SHADOW_LO = 'rgba(0, 0, 0, 0.62)';
-export const CB_SHADOW_HI = 'rgba(255, 255, 255, 0.03)';
+// Warm bronze-to-espresso card material — the same family as the page gradient in
+// utils/theme.ts, so tiles read as material *extruded from the background* (the
+// premise neumorphism depends on) instead of a neutral gray-black slab dropped on top.
+export const CB_CARD_TOP = '#241a10';
+export const CB_CARD_BOTTOM = '#0c0904';
+export const CB_ACCENT = '#D7B38C';
+// Cast shadow: warm near-black, not pure rgba(0,0,0) — keeps the whole material family warm.
+export const CB_SHADOW_LO = 'rgba(8, 5, 2, 0.66)';
+// Highlight: warm cream catching light, not flat white — this is what actually sells
+// the bevel. The old 3% white was invisible; this is the fix for "doesn't look neumorphic".
+export const CB_SHADOW_HI = 'rgba(255, 227, 189, 0.09)';
+// Crisp 1px light line along the top edge, like a bevel catching a light source from above.
+const CB_BEVEL_EDGE = 'rgba(255, 232, 199, 0.14)';
 
 export const cbCardGradient = {
   colors: [CB_CARD_TOP, CB_CARD_BOTTOM] as [string, string],
@@ -17,34 +23,39 @@ export const cbCardGradient = {
   end: { x: 0.82, y: 1 },
 };
 
-// .cb-tile box-shadow: 12px 12px 26px var(--cb-shadow-lo), -8px -8px 20px var(--cb-shadow-hi), inset 0 0 0 1px rgba(216,179,141, borderOpacity)
-export function cbTileShadow(borderOpacity: number = 0.055): ViewStyle['boxShadow'] {
+// Dual cast shadow (dark lower-right / warm highlight upper-left) plus a crisp inset
+// bevel line and a soft gold edge ring — this is the full recipe for a tile that reads
+// as pressed from the same material as the page, lit from one consistent direction.
+export function cbTileShadow(borderOpacity: number = 0.10): ViewStyle['boxShadow'] {
   return [
-    { offsetX: 12, offsetY: 12, blurRadius: 26, color: CB_SHADOW_LO },
-    { offsetX: -8, offsetY: -8, blurRadius: 20, color: CB_SHADOW_HI },
+    { offsetX: 10, offsetY: 14, blurRadius: 28, color: CB_SHADOW_LO },
+    { offsetX: -7, offsetY: -9, blurRadius: 22, color: CB_SHADOW_HI },
+    { offsetX: 0, offsetY: 1, blurRadius: 0, spreadDistance: 0, color: CB_BEVEL_EDGE, inset: true },
     { offsetX: 0, offsetY: 0, blurRadius: 0, spreadDistance: 1, color: `rgba(216, 179, 141, ${borderOpacity})`, inset: true },
   ];
 }
 
 // .cb-tile:hover box-shadow (deeper cast + brighter inset ring)
-export function cbTileShadowHover(borderOpacity: number = 0.32): ViewStyle['boxShadow'] {
+export function cbTileShadowHover(borderOpacity: number = 0.34): ViewStyle['boxShadow'] {
   return [
-    { offsetX: 18, offsetY: 18, blurRadius: 38, color: CB_SHADOW_LO },
-    { offsetX: -10, offsetY: -10, blurRadius: 26, color: CB_SHADOW_HI },
+    { offsetX: 15, offsetY: 20, blurRadius: 40, color: CB_SHADOW_LO },
+    { offsetX: -9, offsetY: -11, blurRadius: 28, color: CB_SHADOW_HI },
+    { offsetX: 0, offsetY: 1, blurRadius: 0, spreadDistance: 0, color: CB_BEVEL_EDGE, inset: true },
     { offsetX: 0, offsetY: 0, blurRadius: 0, spreadDistance: 1, color: `rgba(216, 179, 141, ${borderOpacity})`, inset: true },
   ];
 }
 
 // .cb-modal box-shadow (scaled up for large panels)
-export function cbModalShadow(borderOpacity: number = 0.14): ViewStyle['boxShadow'] {
+export function cbModalShadow(borderOpacity: number = 0.16): ViewStyle['boxShadow'] {
   return [
-    { offsetX: 20, offsetY: 20, blurRadius: 50, color: 'rgba(0, 0, 0, 0.65)' },
-    { offsetX: -12, offsetY: -12, blurRadius: 30, color: CB_SHADOW_HI },
+    { offsetX: 18, offsetY: 24, blurRadius: 54, color: 'rgba(6, 4, 2, 0.68)' },
+    { offsetX: -11, offsetY: -14, blurRadius: 32, color: CB_SHADOW_HI },
+    { offsetX: 0, offsetY: 1, blurRadius: 0, spreadDistance: 0, color: CB_BEVEL_EDGE, inset: true },
     { offsetX: 0, offsetY: 0, blurRadius: 0, spreadDistance: 1, color: `rgba(216, 179, 141, ${borderOpacity})`, inset: true },
   ];
 }
 
-export function NeumorphicLayer({ grainOpacity = 0.12 }: { grainOpacity?: number }) {
+export function NeumorphicLayer({ grainOpacity = 0.22 }: { grainOpacity?: number }) {
   return (
     <>
       <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
@@ -62,13 +73,14 @@ let instanceSeed = 0;
  * The grain layer is a lightweight dot-scatter stand-in for feTurbulence — a live
  * fractal-noise filter per card instance is too heavy to run across every tile on screen.
  */
-export default function NeumorphicTexture({ grainOpacity = 0.16 }: { grainOpacity?: number }) {
+export default function NeumorphicTexture({ grainOpacity = 0.24 }: { grainOpacity?: number }) {
   const id = useMemo(() => `nt-${instanceSeed++}`, []);
   const grainDots = useMemo(
-    () => Array.from({ length: 70 }, () => ({
+    () => Array.from({ length: 220 }, () => ({
       x: Math.random() * 100,
       y: Math.random() * 100,
-      r: Math.random() < 0.35 ? 0.9 : 0.5,
+      r: Math.random() < 0.22 ? 1.0 : Math.random() < 0.6 ? 0.6 : 0.35,
+      dark: Math.random() < 0.4,
     })),
     []
   );
@@ -95,7 +107,7 @@ export default function NeumorphicTexture({ grainOpacity = 0.16 }: { grainOpacit
       <View style={[StyleSheet.absoluteFill, { opacity: grainOpacity, mixBlendMode: 'overlay' } as ViewStyle]}>
         <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
           {grainDots.map((d, i) => (
-            <Circle key={i} cx={`${d.x}%`} cy={`${d.y}%`} r={d.r} fill="#ffffff" />
+            <Circle key={i} cx={`${d.x}%`} cy={`${d.y}%`} r={d.r} fill={d.dark ? '#000000' : '#ffffff'} />
           ))}
         </Svg>
       </View>
