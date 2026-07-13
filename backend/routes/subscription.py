@@ -6,6 +6,7 @@ import os
 import time
 from datetime import datetime, timezone
 from typing import Optional, Tuple
+from urllib.parse import urlparse
 
 import requests
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
@@ -52,6 +53,30 @@ def _resolve_price_id(plan_id: str, billing_cycle: str) -> Optional[str]:
     key = f"STRIPE_PRICE_{plan_id.upper()}_{billing_cycle.upper()}"
     value = os.getenv(key, "").strip()
     return value or None
+
+
+def _checkout_app_base(request: Request) -> str:
+    configured = (os.getenv("APP_BASE_URL") or "https://cerbyl.com").strip().rstrip("/")
+    allowed = {
+        configured,
+        *{
+            origin.strip().rstrip("/")
+            for origin in os.getenv("ALLOWED_ORIGINS", "https://cerbyl.com,https://www.cerbyl.com").split(",")
+            if origin.strip()
+        },
+    }
+    request_origin = (request.headers.get("origin") or "").strip().rstrip("/")
+    candidate = request_origin if request_origin in allowed else configured
+    parsed = urlparse(candidate)
+    is_production = os.getenv("ENVIRONMENT", "development").strip().lower() == "production"
+    is_dev_http = (
+        not is_production
+        and parsed.scheme == "http"
+        and parsed.hostname in {"localhost", "127.0.0.1"}
+    )
+    if parsed.username or parsed.password or not parsed.hostname or not (parsed.scheme == "https" or is_dev_http):
+        raise HTTPException(status_code=500, detail="APP_BASE_URL is not configured securely")
+    return candidate
 
 
 def _resolve_plan_cycle_from_price_id(price_id: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
@@ -362,37 +387,12 @@ async def create_subscription_checkout(
 
         price_id = _resolve_price_id(requested_tier, requested_cycle)
         if not price_id:
-            previous_tier = normalize_plan_id(profile.subscription_tier)
-            profile.subscription_tier = requested_tier
-            profile.billing_cycle = requested_cycle
-            profile.subscription_status = "active"
-            if previous_tier != requested_tier or not profile.subscription_started_at:
-                profile.subscription_started_at = now
-            profile.stripe_subscription_id = None
-            profile.stripe_price_id = None
-            profile.current_period_end = None
-            profile.cancel_at_period_end = False
-            profile.updated_at = now
-            db.commit()
-            try:
-                from middleware.rate_limiter import invalidate_subscription_cache
-
-                invalidate_subscription_cache(user.username, user.email)
-            except Exception:
-                pass
-            return {
-                "status": "success",
-                "mode": "manual_invoice",
-                "subscriptionTier": profile.subscription_tier,
-                "billingCycle": profile.billing_cycle,
-                "subscriptionStatus": profile.subscription_status,
-            }
+            raise HTTPException(status_code=503, detail="This paid plan is not configured for checkout.")
 
         stripe_secret_key = _require_stripe_secret_key()
-        request_origin = (request.headers.get("origin") or "").strip()
-        app_base = (payload.get("app_base_url") or request_origin or os.getenv("APP_BASE_URL", "http://localhost:3000")).rstrip("/")
-        success_url = (payload.get("success_url") or payload.get("successUrl") or f"{app_base}/profile?checkout=success").strip()
-        cancel_url = (payload.get("cancel_url") or payload.get("cancelUrl") or f"{app_base}/profile?checkout=cancelled").strip()
+        app_base = _checkout_app_base(request)
+        success_url = f"{app_base}/profile?checkout=success"
+        cancel_url = f"{app_base}/profile?checkout=cancelled"
 
         user_ref = user.username or user.email or str(user.id)
         form_payload = {

@@ -8,6 +8,8 @@ from fastapi import HTTPException, Depends, UploadFile, File, Query, Body
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from deps import enforce_request_user_scope, get_current_user
+
 from .models import (
     QuestionGenerationRequest,
     AnswerSubmission,
@@ -49,6 +51,11 @@ from .utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+_QB_AUTH_DEPENDENCIES = [
+    Depends(get_current_user),
+    Depends(enforce_request_user_scope),
+]
 
 def _safe_storage_filename(filename: str) -> str:
     return re.sub(r"[^\w.\-]", "_", filename or "upload")[:180] or "upload"
@@ -176,7 +183,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
                     cleaned["correct_answer"] = cleaned["options"][answer_index]
         return cleaned
 
-    @app.post("/api/qb/upload_pdf")
+    @app.post("/api/qb/upload_pdf", dependencies=_QB_AUTH_DEPENDENCIES)
     async def upload_pdf(
         file: UploadFile = File(...),
         user_id: str = Query(...),
@@ -272,7 +279,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
                 pass
             raise HTTPException(status_code=500, detail=f"Error uploading PDF: {str(e)}")
 
-    @app.get("/api/qb/get_uploaded_documents")
+    @app.get("/api/qb/get_uploaded_documents", dependencies=_QB_AUTH_DEPENDENCIES)
     async def get_uploaded_documents(
         user_id: str = Query(...),
         db: Session = Depends(get_db_func)
@@ -326,7 +333,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             logger.error(f"Error fetching documents: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.delete("/api/qb/delete_document/{doc_id}")
+    @app.delete("/api/qb/delete_document/{doc_id}", dependencies=_QB_AUTH_DEPENDENCIES)
     async def delete_document(
         doc_id: int,
         user_id: str = Query(...),
@@ -363,7 +370,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/generate_from_pdf")
+    @app.post("/api/qb/generate_from_pdf", dependencies=_QB_AUTH_DEPENDENCIES)
     async def generate_from_pdf(
         request: QuestionGenerationRequest,
         db: Session = Depends(get_db_func)
@@ -526,7 +533,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/generate_from_multiple_pdfs")
+    @app.post("/api/qb/generate_from_multiple_pdfs", dependencies=_QB_AUTH_DEPENDENCIES)
     async def generate_from_multiple_pdfs(
         request: MultiPDFGenerationRequest,
         db: Session = Depends(get_db_func)
@@ -681,7 +688,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/generate_related_from_pdf")
+    @app.post("/api/qb/generate_related_from_pdf", dependencies=_QB_AUTH_DEPENDENCIES)
     async def generate_related_from_pdf(
         request: RelatedPDFGenerationRequest,
         db: Session = Depends(get_db_func)
@@ -819,7 +826,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             logger.error(f"Error generating related questions from PDFs: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/smart_generate")
+    @app.post("/api/qb/smart_generate", dependencies=_QB_AUTH_DEPENDENCIES)
     async def smart_generate_questions(
         request: MultiPDFGenerationRequest,
         db: Session = Depends(get_db_func)
@@ -967,7 +974,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/generate_from_chat_slides")
+    @app.post("/api/qb/generate_from_chat_slides", dependencies=_QB_AUTH_DEPENDENCIES)
     async def generate_from_chat_slides(
         request: QuestionGenerationRequest,
         db: Session = Depends(get_db_func)
@@ -1100,7 +1107,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/generate_from_sources")
+    @app.post("/api/qb/generate_from_sources", dependencies=_QB_AUTH_DEPENDENCIES)
     async def generate_from_sources(
         request: MultiSourceGenerationRequest,
         db: Session = Depends(get_db_func)
@@ -1252,7 +1259,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.get("/api/qb/get_question_sets")
+    @app.get("/api/qb/get_question_sets", dependencies=_QB_AUTH_DEPENDENCIES)
     async def get_question_sets(
         user_id: str = Query(...),
         db: Session = Depends(get_db_func)
@@ -1292,7 +1299,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             logger.error(f"Error fetching question sets: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.get("/api/qb/get_question_set/{set_id}")
+    @app.get("/api/qb/get_question_set/{set_id}", dependencies=_QB_AUTH_DEPENDENCIES)
     async def get_question_set_detail(
         set_id: int,
         user_id: str = Query(...),
@@ -1386,7 +1393,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             logger.error(f"Error fetching question set: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.delete("/api/qb/delete_question_set/{set_id}")
+    @app.delete("/api/qb/delete_question_set/{set_id}", dependencies=_QB_AUTH_DEPENDENCIES)
     async def delete_question_set(
         set_id: int,
         user_id: str = Query(...),
@@ -1468,7 +1475,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/submit_answers")
+    @app.post("/api/qb/submit_answers", dependencies=_QB_AUTH_DEPENDENCIES)
     async def submit_answers(
         request: AnswerSubmission,
         db: Session = Depends(get_db_func)
@@ -1677,7 +1684,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/generate_similar_question")
+    @app.post("/api/qb/generate_similar_question", dependencies=_QB_AUTH_DEPENDENCIES)
     async def generate_similar_question(
         request: SimilarQuestionRequest,
         db: Session = Depends(get_db_func)
@@ -1763,7 +1770,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
                 pass
             raise HTTPException(status_code=500, detail=f"Error generating similar question: {str(e)}")
 
-    @app.get("/api/qb/get_analytics")
+    @app.get("/api/qb/get_analytics", dependencies=_QB_AUTH_DEPENDENCIES)
     async def get_analytics(
         user_id: str = Query(...),
         db: Session = Depends(get_db_func)
@@ -1857,7 +1864,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             logger.error(f"Error fetching analytics: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.get("/api/qb/export_question_set_pdf/{set_id}")
+    @app.get("/api/qb/export_question_set_pdf/{set_id}", dependencies=_QB_AUTH_DEPENDENCIES)
     async def export_question_set_pdf(
         set_id: int,
         user_id: str = Query(...),
@@ -1918,7 +1925,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             logger.error(f"Error exporting question set PDF: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/enhance_prompt")
+    @app.post("/api/qb/enhance_prompt", dependencies=_QB_AUTH_DEPENDENCIES)
     async def enhance_prompt(
         payload: dict = Body(...),
         db: Session = Depends(get_db_func)
@@ -1941,7 +1948,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             logger.error(f"Prompt enhancement error: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/extract_topics")
+    @app.post("/api/qb/extract_topics", dependencies=_QB_AUTH_DEPENDENCIES)
     async def extract_topics(
         payload: dict = Body(...),
         db: Session = Depends(get_db_func)
@@ -1980,7 +1987,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             logger.error(f"Topic extraction error: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/score_questions")
+    @app.post("/api/qb/score_questions", dependencies=_QB_AUTH_DEPENDENCIES)
     async def score_questions(
         payload: dict = Body(...),
         db: Session = Depends(get_db_func)
@@ -2005,7 +2012,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             logger.error(f"Question scoring error: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/tag_bloom_taxonomy")
+    @app.post("/api/qb/tag_bloom_taxonomy", dependencies=_QB_AUTH_DEPENDENCIES)
     async def tag_bloom_taxonomy(
         payload: dict = Body(...),
         db: Session = Depends(get_db_func)
@@ -2033,7 +2040,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             logger.error(f"Bloom taxonomy tagging error: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/check_duplicates")
+    @app.post("/api/qb/check_duplicates", dependencies=_QB_AUTH_DEPENDENCIES)
     async def check_duplicates(
         payload: dict = Body(...),
         db: Session = Depends(get_db_func)
@@ -2076,7 +2083,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             logger.error(f"Duplicate check error: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/analyze_weaknesses")
+    @app.post("/api/qb/analyze_weaknesses", dependencies=_QB_AUTH_DEPENDENCIES)
     async def analyze_weaknesses(
         payload: dict = Body(...),
         db: Session = Depends(get_db_func)
@@ -2137,7 +2144,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             logger.error(f"Weakness analysis error: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/generate_adaptive")
+    @app.post("/api/qb/generate_adaptive", dependencies=_QB_AUTH_DEPENDENCIES)
     async def generate_adaptive_questions(
         payload: dict = Body(...),
         db: Session = Depends(get_db_func)
@@ -2258,7 +2265,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             logger.error(f"Adaptive generation error: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/enhance_explanations")
+    @app.post("/api/qb/enhance_explanations", dependencies=_QB_AUTH_DEPENDENCIES)
     async def enhance_explanations(
         payload: dict = Body(...),
         db: Session = Depends(get_db_func)
@@ -2282,7 +2289,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             logger.error(f"Explanation enhancement error: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/regenerate_question")
+    @app.post("/api/qb/regenerate_question", dependencies=_QB_AUTH_DEPENDENCIES)
     async def regenerate_question(
         payload: dict = Body(...),
         db: Session = Depends(get_db_func)
@@ -2327,7 +2334,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             logger.error(f"Question regeneration error: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/preview_generate")
+    @app.post("/api/qb/preview_generate", dependencies=_QB_AUTH_DEPENDENCIES)
     async def preview_generate_questions(
         request: MultiPDFGenerationRequest,
         db: Session = Depends(get_db_func)
@@ -2455,7 +2462,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             logger.error(f"Preview generation error: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/save_previewed_questions")
+    @app.post("/api/qb/save_previewed_questions", dependencies=_QB_AUTH_DEPENDENCIES)
     async def save_previewed_questions(
         payload: dict = Body(...),
         db: Session = Depends(get_db_func)
@@ -2522,7 +2529,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/save_question_set")
+    @app.post("/api/qb/save_question_set", dependencies=_QB_AUTH_DEPENDENCIES)
     async def save_question_set(
         payload: dict = Body(...),
         db: Session = Depends(get_db_func)
@@ -2626,7 +2633,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/batch_delete")
+    @app.post("/api/qb/batch_delete", dependencies=_QB_AUTH_DEPENDENCIES)
     async def batch_delete_question_sets(
         payload: dict = Body(...),
         db: Session = Depends(get_db_func)
@@ -2676,7 +2683,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/merge_sets")
+    @app.post("/api/qb/merge_sets", dependencies=_QB_AUTH_DEPENDENCIES)
     async def merge_question_sets(
         payload: dict = Body(...),
         db: Session = Depends(get_db_func)
@@ -2782,7 +2789,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.get("/api/qb/weak_areas")
+    @app.get("/api/qb/weak_areas", dependencies=_QB_AUTH_DEPENDENCIES)
     async def get_weak_areas(
         user_id: str = Query(...),
         db: Session = Depends(get_db_func)
@@ -2837,7 +2844,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             logger.error(f"Get weak areas error: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.get("/api/qb/wrong_answers")
+    @app.get("/api/qb/wrong_answers", dependencies=_QB_AUTH_DEPENDENCIES)
     async def get_wrong_answers(
         user_id: str = Query(...),
         topic: Optional[str] = Query(None),
@@ -2891,7 +2898,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             logger.error(f"Get wrong answers error: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/mark_reviewed")
+    @app.post("/api/qb/mark_reviewed", dependencies=_QB_AUTH_DEPENDENCIES)
     async def mark_wrong_answer_reviewed(
         payload: dict = Body(...),
         db: Session = Depends(get_db_func)
@@ -2923,7 +2930,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/generate_practice")
+    @app.post("/api/qb/generate_practice", dependencies=_QB_AUTH_DEPENDENCIES)
     async def generate_practice_questions(
         payload: dict = Body(...),
         db: Session = Depends(get_db_func)
@@ -3077,7 +3084,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.get("/api/qb/practice_recommendations")
+    @app.get("/api/qb/practice_recommendations", dependencies=_QB_AUTH_DEPENDENCIES)
     async def get_practice_recommendations(
         user_id: str = Query(...),
         db: Session = Depends(get_db_func)
@@ -3172,7 +3179,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             logger.error(f"Get recommendations error: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @app.post("/api/qb/reset_weak_area")
+    @app.post("/api/qb/reset_weak_area", dependencies=_QB_AUTH_DEPENDENCIES)
     async def reset_weak_area(
         payload: dict = Body(...),
         db: Session = Depends(get_db_func)

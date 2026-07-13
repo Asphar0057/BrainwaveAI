@@ -12,7 +12,7 @@ from services.subscription_catalog import get_plan, normalize_plan_id
 from services.token_usage_filters import BILLABLE_AI_USAGE_WHERE
 
 
-DEFAULT_UNLIMITED_IDENTIFIERS = "aditya.s.lanka@gmail.com,rithvikkumar35@gmail.com,AL04"
+DEFAULT_UNLIMITED_IDENTIFIERS = ""
 TOKEN_LIMIT_WINDOW_DAYS = max(1, int(os.getenv("AI_TOKEN_LIMIT_WINDOW_DAYS", "30")))
 
 

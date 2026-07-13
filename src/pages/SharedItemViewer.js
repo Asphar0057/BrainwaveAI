@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Eye, Edit3, User, Clock, MessageSquare, FileText, Lock } from 'lucide-react';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 import './SharedItemViewer.css';
 import { API_URL } from '../config';
 import { sanitizeHtml } from '../utils/sanitize';

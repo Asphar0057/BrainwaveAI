@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { signOutAppSession } from '../utils/authSession';
 import {
   Award,
   BarChart3,
@@ -992,6 +993,7 @@ const ActivityTimeline = () => {
                   data-tip="Logout"
                   type="button"
                   onClick={() => {
+                    void signOutAppSession();
                     localStorage.removeItem('token');
                     localStorage.removeItem('username');
                     navigate('/');
@@ -1118,6 +1120,7 @@ const ActivityTimeline = () => {
                     className="atl-qb-action-btn"
                     type="button"
                     onClick={() => {
+                      void signOutAppSession();
                       localStorage.removeItem('token');
                       localStorage.removeItem('username');
                       navigate('/');

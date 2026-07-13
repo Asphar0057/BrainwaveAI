@@ -1,6 +1,8 @@
 import io
+import html
 import json
 import logging
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -24,7 +26,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["imports"])
 
 _MAX_IMPORT_SIZE = 20 * 1024 * 1024
-_ALLOWED_IMPORT_EXTENSIONS = {'pdf', 'docx', 'doc'}
+_ALLOWED_IMPORT_EXTENSIONS = {'pdf', 'docx'}
+_MAX_PDF_PAGES = 1000
+_MAX_EXTRACTED_TEXT = 5 * 1024 * 1024
+_MAX_DOCX_FILES = 5000
+_MAX_DOCX_UNCOMPRESSED = 100 * 1024 * 1024
 _ALLOWED_IMPORT_MIMES = {
     'application/pdf',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -60,16 +66,28 @@ async def import_document(
                 raise HTTPException(status_code=500, detail="PyPDF2 not installed")
             pdf_file = io.BytesIO(content)
             pdf_reader = PyPDF2.PdfReader(pdf_file)
+            if len(pdf_reader.pages) > _MAX_PDF_PAGES:
+                raise HTTPException(status_code=400, detail="PDF has too many pages")
             for page in pdf_reader.pages:
-                extracted_text += page.extract_text() + "\n\n"
+                extracted_text += (page.extract_text() or "") + "\n\n"
+                if len(extracted_text) > _MAX_EXTRACTED_TEXT:
+                    raise HTTPException(status_code=400, detail="Extracted document text is too large")
 
-        elif file_extension in ['docx', 'doc']:
+        elif file_extension == 'docx':
             try:
                 import docx
+                with zipfile.ZipFile(io.BytesIO(content)) as archive:
+                    members = archive.infolist()
+                    if len(members) > _MAX_DOCX_FILES or sum(item.file_size for item in members) > _MAX_DOCX_UNCOMPRESSED:
+                        raise HTTPException(status_code=400, detail="DOCX archive is too large when expanded")
                 docx_file = io.BytesIO(content)
                 doc = docx.Document(docx_file)
                 for paragraph in doc.paragraphs:
                     extracted_text += paragraph.text + "\n"
+                    if len(extracted_text) > _MAX_EXTRACTED_TEXT:
+                        raise HTTPException(status_code=400, detail="Extracted document text is too large")
+            except zipfile.BadZipFile:
+                raise HTTPException(status_code=400, detail="Invalid DOCX file")
             except ImportError:
                 raise HTTPException(
                     status_code=500,
@@ -89,11 +107,11 @@ async def import_document(
             para = para.strip()
             if para:
                 if len(para) < 50 and (para.isupper() or para.endswith(':')):
-                    html_content += f"<h2>{para}</h2>"
+                    html_content += f"<h2>{html.escape(para)}</h2>"
                 else:
-                    html_content += f"<p>{para}</p>"
+                    html_content += f"<p>{html.escape(para)}</p>"
 
-        note_title = file.filename.rsplit('.', 1)[0]
+        note_title = filename.rsplit('.', 1)[0][:255]
         new_note = models.Note(
             user_id=user.id,
             title=note_title,
@@ -183,15 +201,20 @@ async def get_attachment(
 
         storage = StorageService.get_storage()
         if getattr(storage, "storage_type", "local") != "local" and filename.startswith("attachments/"):
-            if f"attachments/{current_user.id}/" not in filename:
+            expected_prefix = f"attachments/{current_user.id}/"
+            if not filename.startswith(expected_prefix):
                 raise HTTPException(status_code=403, detail="Attachment access denied")
             return RedirectResponse(storage.get_private_file_url(filename))
 
         attachments_dir = Path("backend/attachments").resolve()
         requested = (attachments_dir / filename).resolve()
 
-        if not str(requested).startswith(str(attachments_dir)):
+        if requested.parent != attachments_dir:
             raise HTTPException(status_code=400, detail="Invalid filename")
+
+        expected_prefix = f"{current_user.id}_"
+        if not requested.name.startswith(expected_prefix):
+            raise HTTPException(status_code=403, detail="Attachment access denied")
 
         if not requested.exists() or not requested.is_file():
             raise HTTPException(status_code=404, detail="File not found")

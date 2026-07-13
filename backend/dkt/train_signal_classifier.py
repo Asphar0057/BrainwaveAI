@@ -60,7 +60,11 @@ def _collect_examples() -> tuple[list[str], list[int]]:
     from datasets import load_dataset
 
     log.info("Downloading GoEmotions (train + validation splits)…")
-    ds = load_dataset("go_emotions", split="train+validation")
+    ds = load_dataset(
+        "google-research-datasets/go_emotions",
+        revision="add492243ff905527e67aeb8b80c082af02207c3",
+        split="train+validation",
+    )
 
     texts: list[str] = []
     label_ids: list[int] = []

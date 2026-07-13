@@ -1,7 +1,6 @@
 import time
 import logging
 import os
-import re
 from fastapi import Request
 from jose import jwt, JWTError
 from starlette.background import BackgroundTasks
@@ -129,27 +128,21 @@ async def log_request_activity(request: Request, call_next):
         and request.url.path not in SKIP_ACTIVITY_LOG_PATHS
     )
 
-    user_id = request.headers.get('X-User-Id')
-
-    if not user_id or user_id == 'null':
-        query_params = dict(request.query_params)
-        user_id = query_params.get('user_id') or query_params.get('username')
-
-    if not user_id or user_id == 'null':
-        if 'user_id=' in str(request.url):
-            match = re.search(r'user_id=([^&]+)', str(request.url))
-            if match:
-                user_id = match.group(1)
-
-    if not user_id or user_id == 'null':
-        auth_header = request.headers.get('Authorization', '')
-        if auth_header.startswith('Bearer '):
-            token = auth_header.split(' ', 1)[1].strip()
-            try:
-                payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-                user_id = payload.get("sub")
-            except JWTError:
-                user_id = None
+    user_id = None
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        token = auth_header.split(' ', 1)[1].strip()
+        try:
+            payload = jwt.decode(
+                token,
+                SECRET_KEY,
+                algorithms=[ALGORITHM],
+                audience="brainwave-client",
+                issuer="brainwave-backend",
+            )
+            user_id = payload.get("sub")
+        except JWTError:
+            user_id = None
 
     context_token = None
     if user_id and user_id != 'null' and user_id.strip() and should_log_activity:

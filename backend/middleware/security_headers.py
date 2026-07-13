@@ -9,7 +9,7 @@ _IS_PROD = os.getenv("ENVIRONMENT", "development") == "production"
 _STATIC_HEADERS: dict[str, str] = {
     "X-Content-Type-Options":  "nosniff",
     "X-Frame-Options":         "DENY",
-    "X-XSS-Protection":        "1; mode=block",
+    "X-Permitted-Cross-Domain-Policies": "none",
     "Referrer-Policy":         "strict-origin-when-cross-origin",
     "Permissions-Policy":      "camera=(), microphone=(), geolocation=(), payment=()",
 }
@@ -28,6 +28,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         if request.url.path.startswith("/api/"):
             response.headers["Cache-Control"] = _CACHE_CONTROL
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+            )
 
         if "server" in response.headers:
             del response.headers["server"]

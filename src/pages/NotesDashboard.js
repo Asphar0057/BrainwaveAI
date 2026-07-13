@@ -8,6 +8,7 @@ import DatabaseViews from '../components/DatabaseViews';
 import AdvancedSearch from '../components/AdvancedSearch';
 import Templates from '../components/Templates';
 import { API_URL } from '../config';
+import { signOutAppSession } from '../utils/authSession';
 
 const FONTS = [
   { value: 'Inter', label: 'Inter' },
@@ -260,6 +261,7 @@ const NotesDashboard = () => {
                   className="ndb-qb-strip-btn"
                   data-tip="Logout"
                   onClick={() => {
+                    void signOutAppSession();
                     localStorage.removeItem('token');
                     localStorage.removeItem('username');
                     navigate('/');
@@ -375,6 +377,7 @@ const NotesDashboard = () => {
                 <button
                   className="ndb-qb-action-btn ndb-qb-action-btn--ghost"
                   onClick={() => {
+                    void signOutAppSession();
                     localStorage.removeItem('token');
                     localStorage.removeItem('username');
                     navigate('/');

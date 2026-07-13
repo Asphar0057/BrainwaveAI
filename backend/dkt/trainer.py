@@ -152,7 +152,7 @@ def load_model(device: Optional[torch.device] = None) -> Optional[tuple[AKT, dic
     if vocab is None:
         return None
 
-    ck = torch.load(MODEL_PATH, map_location="cpu", weights_only=False)
+    ck = torch.load(MODEL_PATH, map_location="cpu", weights_only=True)
     model = AKT(
         n_concepts = ck["n_concepts"],
         d_model    = ck.get("d_model", 64),

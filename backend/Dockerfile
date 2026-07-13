@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 
 # CPU-only torch kept slim; extra-index-url in requirements.txt handles this
+RUN python -m pip install --no-cache-dir --upgrade "pip>=26.1.2" "setuptools>=78.1.1"
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, BarChart3, Gauge, LayoutDashboard, LogOut, MessageSquare } from 'lucide-react';
 import { API_URL } from '../config';
+import { signOutAppSession } from '../utils/authSession';
 import {
   GeoBackground,
   PLAN_META,
@@ -120,7 +121,8 @@ const UsageStats = () => {
     if (!userName || !planId || subscriptionData.saving || planId === subscriptionData.currentPlanId) return;
     setSubscriptionData(prev => ({ ...prev, saving: true, saveAction: 'plan', error: null }));
     try {
-      const resp = await fetch(`${API_URL}/subscription/select`, {
+      const isFreePlan = planId === 'starter';
+      const resp = await fetch(`${API_URL}/subscription/${isFreePlan ? 'select' : 'checkout'}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -131,6 +133,15 @@ const UsageStats = () => {
         })
       });
       if (!resp.ok) throw new Error(await readApiError(resp, 'Unable to switch plan right now.'));
+      const data = await resp.json().catch(() => ({}));
+      if (!isFreePlan) {
+        const checkoutUrl = new URL(data.checkoutUrl || '');
+        if (checkoutUrl.protocol !== 'https:' || checkoutUrl.hostname !== 'checkout.stripe.com') {
+          throw new Error('The payment provider returned an invalid checkout URL.');
+        }
+        window.location.assign(checkoutUrl.toString());
+        return;
+      }
       await Promise.all([loadOverview(), loadRateLimits()]);
     } catch (e) {
       setSubscriptionData(prev => ({ ...prev, error: e?.message || 'Unable to switch plan right now.' }));
@@ -140,9 +151,7 @@ const UsageStats = () => {
   };
 
   const clearSessionAndGoLogin = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('username');
-    localStorage.removeItem('userProfile');
+    void signOutAppSession();
     navigate('/login');
   };
 

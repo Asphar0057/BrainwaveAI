@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { signOutAppSession } from '../utils/authSession';
 import {
   Save,
   RotateCcw,
@@ -656,8 +657,7 @@ const CustomizeDashboard = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('username');
+    void signOutAppSession();
     navigate('/');
   };
 

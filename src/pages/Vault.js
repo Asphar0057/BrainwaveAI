@@ -10,6 +10,7 @@ import {
 import contextService from '../services/contextService';
 import { API_URL } from '../config/api';
 import { queuedAIJsonFetch } from '../services/aiJobService';
+import { signOutAppSession } from '../utils/authSession';
 import AbstractFx from '../components/AbstractFx';
 import { SidebarShell, SidebarSection, SidebarMenuItem, SidebarStats, SidebarStatBox, SidebarActions, SidebarAction, SidebarStripButton, SidebarStripSpacer } from '../components/Sidebar';
 import './Vault.css';
@@ -1791,6 +1792,7 @@ const Vault = () => {
                   icon={<LogOut size={18} />}
                   tip="Logout"
                   onClick={() => {
+                    void signOutAppSession();
                     localStorage.removeItem('token');
                     localStorage.removeItem('username');
                     navigate('/');
@@ -1828,6 +1830,7 @@ const Vault = () => {
                 icon={<LogOut size={14} />}
                 label="Logout"
                 onClick={() => {
+                  void signOutAppSession();
                   localStorage.removeItem('token');
                   localStorage.removeItem('username');
                   navigate('/');

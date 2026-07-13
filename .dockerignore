@@ -17,9 +17,13 @@ dist
 *.swp
 *.swo
 
-# Environment files (use docker-compose env instead)
-.env.local
-.env.*.local
+# Environment files and backend sources are not part of the frontend image.
+# This prevents local credentials from being sent to the Docker builder.
+.env
+.env.*
+!.env.example
+backend
+mobile
 
 # Logs
 *.log
@@ -39,5 +43,7 @@ coverage
 !README.md
 
 # Database files (will be created fresh)
-backend/*.db
-backend/chroma_db
+*.db
+*.db-shm
+*.db-wal
+chroma_db

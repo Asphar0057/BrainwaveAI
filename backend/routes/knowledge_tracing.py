@@ -9,11 +9,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from database import SessionLocal
-from deps import get_current_user, get_db, get_user_by_email, get_user_by_username
+from deps import enforce_request_user_scope, get_current_user, get_db, get_user_by_email, get_user_by_username
 import models
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/kt", tags=["knowledge-tracing"])
+router = APIRouter(
+    prefix="/api/kt",
+    tags=["knowledge-tracing"],
+    dependencies=[Depends(enforce_request_user_scope)],
+)
 
 _training_lock  = threading.Lock()
 _training_active = False
@@ -51,7 +55,7 @@ def train_dkt(
     return {"status": "started", "detail": f"DKT training started ({epochs} epochs) in the background."}
 
 @router.get("/status")
-def kt_status():
+def kt_status(_: models.User = Depends(get_current_user)):
     from dkt.trainer import MODEL_PATH
     from dkt.dataset import load_vocab
 

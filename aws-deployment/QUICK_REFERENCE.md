@@ -144,7 +144,7 @@ df -h
 SECRET_KEY=your-secret-key
 GOOGLE_GENERATIVE_AI_KEY=your-gemini-key
 DATABASE_URL=sqlite:///./brainwave_tutor.db
-ENV=production
+ENVIRONMENT=production
 DEBUG=false
 ```
 

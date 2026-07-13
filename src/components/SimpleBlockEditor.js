@@ -1415,10 +1415,11 @@ const SimpleBlockEditor = ({
                 <iframe
                   width="100%"
                   height="500"
-                  src={block.properties.embedUrl}
+                  src={sanitizeUrl(block.properties.embedUrl) || 'about:blank'}
                   frameBorder="0"
                   title="Embedded content"
-                  sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                  sandbox="allow-scripts allow-popups"
+                  referrerPolicy="no-referrer"
                 />
               </div>
             ) : (

@@ -37,6 +37,7 @@ import {
   Youtube as YoutubeIcon,
 } from 'lucide-react';
 import learningPathService from '../services/learningPathService';
+import { sanitizeUrl } from '../utils/sanitize';
 import './LearningPathDetail.css';
 
 const safeIcon = (Icon) => Icon || (() => null);
@@ -905,8 +906,8 @@ const LearningPathDetail = () => {
         </div>
         <div className="lpd-resource-card-actions">
           <div className="lpd-resource-primary-actions">
-            {resource.url && (
-              <a href={resource.url} target="_blank" rel="noreferrer" title="Open resource" aria-label={`Open ${resourceTitle}`}>
+            {sanitizeUrl(resource.url) && (
+              <a href={sanitizeUrl(resource.url)} target="_blank" rel="noopener noreferrer" title="Open resource" aria-label={`Open ${resourceTitle}`}>
                 <ExternalLink size={15} />
                 <span>Open</span>
               </a>

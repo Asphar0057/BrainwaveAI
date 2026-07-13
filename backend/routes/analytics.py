@@ -113,7 +113,7 @@ def _group_daily_counts(
 def check_api_usage_admin(current_user: models.User = Depends(get_current_user)) -> str:
     allowed = {
         email.strip()
-        for email in os.getenv("API_USAGE_ADMIN_EMAILS", "aditya.s.lanka@gmail.com,rithvikkumar35@gmail.com").split(",")
+        for email in os.getenv("API_USAGE_ADMIN_EMAILS", "").split(",")
         if email.strip()
     }
     user_email = (current_user.email or "").strip()

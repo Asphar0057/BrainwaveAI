@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { signOutAppSession } from '../utils/authSession';
 import { User, BookOpen, Target, Brain, Award, TrendingUp, Bell, LogOut, Trash2 } from 'lucide-react';
 import './profile.css';
 import '../components/SocialHubChrome.css';
@@ -353,10 +354,7 @@ const Profile = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('username');
-    localStorage.removeItem('userProfile');
-    sessionStorage.removeItem('justLoggedIn');
+    void signOutAppSession();
     navigate('/login');
   };
 

@@ -441,9 +441,15 @@ def update_shared_note(
     db: Session = Depends(get_db)
 ):
     try:
-        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(
+            credentials.credentials,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+            audience="brainwave-client",
+            issuer="brainwave-backend",
+        )
         user_email = payload.get("sub")
-        user = get_user_by_email(db, user_email)
+        user = get_user_by_username(db, user_email) or get_user_by_email(db, user_email)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 

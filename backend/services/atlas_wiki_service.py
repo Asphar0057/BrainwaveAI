@@ -1098,7 +1098,7 @@ def resolve_contradiction(db: Session, user_id: int, contradiction_id: int) -> b
     return True
 
 def _stable_pos(seed: str, radius_min: float = 14.0, radius_max: float = 64.0) -> tuple[float, float, float]:
-    h = hashlib.sha1((seed or "seed").encode("utf-8")).hexdigest()
+    h = hashlib.sha256((seed or "seed").encode("utf-8")).hexdigest()
     a = int(h[0:8], 16) / 0xFFFFFFFF
     b = int(h[8:16], 16) / 0xFFFFFFFF
     c = int(h[16:24], 16) / 0xFFFFFFFF

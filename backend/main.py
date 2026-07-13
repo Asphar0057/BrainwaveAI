@@ -9,8 +9,16 @@ from env_loader import load_backend_env
 
 load_backend_env()
 
-if not os.getenv("SECRET_KEY"):
+_startup_secret_key = os.getenv("SECRET_KEY", "")
+if not _startup_secret_key:
     raise RuntimeError("SECRET_KEY environment variable is not set")
+if os.getenv("ENVIRONMENT", "development").strip().lower() == "production":
+    weak_secret_markers = {"changeme", "change-me", "secret", "your-secret-key"}
+    normalized_secret = _startup_secret_key.strip().lower()
+    if len(_startup_secret_key.encode("utf-8")) < 32 or any(
+        marker in normalized_secret for marker in weak_secret_markers
+    ):
+        raise RuntimeError("SECRET_KEY must be a random value of at least 32 bytes in production")
 
 def _configure_langsmith_tracing() -> None:
     enabled = os.getenv("ENABLE_LANGSMITH_TRACING", "false").strip().lower() in {"1", "true", "yes", "on"}
@@ -439,7 +447,15 @@ async def lifespan(app: FastAPI):
             pass
     _release_rl_scheduler_lock(_scheduler_lock)
 
-app = FastAPI(title="Brainwave Backend API", version="4.0.0", lifespan=lifespan)
+_production_api = os.getenv("ENVIRONMENT", "development").strip().lower() == "production"
+app = FastAPI(
+    title="Brainwave Backend API",
+    version="4.0.0",
+    lifespan=lifespan,
+    docs_url=None if _production_api else "/docs",
+    redoc_url=None if _production_api else "/redoc",
+    openapi_url=None if _production_api else "/openapi.json",
+)
 
 
 def _hours_from_seconds(seconds):
@@ -484,8 +500,19 @@ allowed_origins = [
     os.getenv("ALLOWED_ORIGINS", "https://cerbyl.com,https://www.cerbyl.com").split(",")
     if o.strip()
 ]
-cors_origins = sorted(set(_dev_origins + allowed_origins))
-cors_origin_regex = r"^https://brainwave-[a-z0-9]+-[a-z0-9]+\.vercel\.app$"
+if _is_dev:
+    allowed_origins.extend(_dev_origins)
+if _env == "production" and "*" in allowed_origins:
+    raise RuntimeError("Wildcard CORS origins cannot be used with credentials in production")
+cors_origins = sorted(set(allowed_origins))
+allow_vercel_previews = os.getenv("ALLOW_VERCEL_PREVIEW_ORIGINS", "false").strip().lower() in {
+    "1", "true", "yes", "on",
+}
+cors_origin_regex = (
+    r"^https://brainwave-[a-z0-9]+-[a-z0-9]+\.vercel\.app$"
+    if allow_vercel_previews
+    else None
+)
 
 from middleware.rate_limiter import RateLimitMiddleware
 from middleware.token_limit import TokenLimitMiddleware

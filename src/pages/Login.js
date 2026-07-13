@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { signInWithPopup } from 'firebase/auth';
@@ -8,6 +8,11 @@ import GeometricGrid from '../components/GeometricGrid';
 import logo from '../assets/logo.svg';
 import './Login.css';
 import { API_URL } from '../config/api';
+import {
+  enableGoogleAutoSignIn,
+  getPersistedGoogleUser,
+  storeGoogleBackendSession,
+} from '../utils/authSession';
 
 function Login() {
   const [username, setUsername] = useState('');
@@ -25,6 +30,21 @@ function Login() {
     confirmPassword: ''
   });
   const navigate = useNavigate();
+
+  const exchangeGoogleSession = async (user) => {
+    const idToken = await user.getIdToken();
+    const backendResponse = await axios.post(`${API_URL}/firebase-auth`, {
+      idToken,
+      email: user.email,
+      displayName: user.displayName,
+      photoURL: user.photoURL,
+      uid: user.uid
+    });
+
+    const { access_token, user: userData } = backendResponse.data;
+    storeGoogleBackendSession(access_token, userData);
+    return userData;
+  };
 
   const checkAndRedirect = async (username) => {
     try {
@@ -85,28 +105,8 @@ function Login() {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
-      
-      const idToken = await user.getIdToken();
-      
-      const backendResponse = await axios.post(`${API_URL}/firebase-auth`, {
-        idToken: idToken,
-        email: user.email,
-        displayName: user.displayName,
-        photoURL: user.photoURL,
-        uid: user.uid
-      });
-
-      const { access_token, user: userData } = backendResponse.data;
-      
-      localStorage.setItem('token', access_token);
-      localStorage.setItem('username', userData.email);
-      localStorage.setItem('userProfile', JSON.stringify({
-        firstName: userData.first_name,
-        lastName: userData.last_name,
-        email: userData.email,
-        picture: userData.picture_url,
-        googleUser: true
-      }));
+      const userData = await exchangeGoogleSession(user);
+      enableGoogleAutoSignIn();
       
       sessionStorage.setItem('justLoggedIn', 'true');
 
@@ -121,6 +121,33 @@ function Login() {
     }
     setGoogleLoading(false);
   };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const restoreGoogleSignIn = async () => {
+      if (localStorage.getItem('token') && localStorage.getItem('username')) {
+        navigate('/dashboard-cerbyl', { replace: true });
+        return;
+      }
+
+      try {
+        const user = await getPersistedGoogleUser();
+        if (!user || cancelled) return;
+
+        setGoogleLoading(true);
+        const userData = await exchangeGoogleSession(user);
+        if (!cancelled) await checkAndRedirect(userData.email);
+      } catch (_) {
+        // Leave the normal sign-in controls available if silent restoration fails.
+      } finally {
+        if (!cancelled) setGoogleLoading(false);
+      }
+    };
+
+    restoreGoogleSignIn();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

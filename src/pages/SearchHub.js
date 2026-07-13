@@ -6,6 +6,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import './SearchHub.css';
 import '../components/SocialHubChrome.css';
 import { API_URL } from '../config/api';
+import { signOutAppSession } from '../utils/authSession';
 import ContextSelector from '../components/ContextSelector';
 import ContextPanel from '../components/ContextPanel';
 import contextService from '../services/contextService';
@@ -2406,8 +2407,7 @@ const SearchHub = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('username');
+    void signOutAppSession();
     setUserName('');
     window.location.reload();
   };

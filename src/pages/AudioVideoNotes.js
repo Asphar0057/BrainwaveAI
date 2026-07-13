@@ -5,6 +5,7 @@ import './AudioVideoNotes.css';
 import '../components/SocialHubChrome.css';
 import { API_URL } from '../config';
 import { sanitizeHtml } from '../utils/sanitize';
+import { signOutAppSession } from '../utils/authSession';
 import { queueLegacyAIFileEndpoint, queuedAIFormFetch } from '../services/aiJobService';
 
 const MEDIA_FILE_ACCEPT = 'audio/*,video/*,.m4a,audio/mp4,audio/x-m4a';
@@ -213,6 +214,7 @@ const AudioVideoNotes = () => {
                   className="avn-qb-strip-btn"
                   data-tip="Logout"
                   onClick={() => {
+                    void signOutAppSession();
                     localStorage.removeItem('token');
                     localStorage.removeItem('username');
                     navigate('/');
@@ -281,6 +283,7 @@ const AudioVideoNotes = () => {
                 <button
                   className="avn-qb-action-btn avn-qb-action-btn--ghost"
                   onClick={() => {
+                    void signOutAppSession();
                     localStorage.removeItem('token');
                     localStorage.removeItem('username');
                     navigate('/');

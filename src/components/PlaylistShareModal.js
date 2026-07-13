@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { X, Copy, Check, Link as LinkIcon, Code, FileText, Share2 } from 'lucide-react';
 import './PlaylistShareModal.css';
-import { sanitizeUrl } from '../utils/sanitize';
+import { escapeHtml, sanitizeUrl } from '../utils/sanitize';
 
 const buildShareContent = (playlist, format, shareUrl) => {
   const items = playlist.items || [];
@@ -29,18 +29,19 @@ const buildShareContent = (playlist, format, shareUrl) => {
           const type = item.item_type ? item.item_type.replace('_', ' ') : 'item';
           const duration = item.duration_minutes ? ` • ${item.duration_minutes} min` : '';
           const platform = item.platform ? ` • ${item.platform}` : '';
-          const link = item.url ? ` <a href="${sanitizeUrl(item.url)}">link</a>` : '';
-          return `<li><strong>${item.title || 'Untitled'}</strong> (${type}${platform}${duration})${link}</li>`;
+          const safeUrl = sanitizeUrl(item.url);
+          const link = safeUrl ? ` <a href="${escapeHtml(safeUrl)}" rel="noopener noreferrer">link</a>` : '';
+          return `<li><strong>${escapeHtml(item.title || 'Untitled')}</strong> (${escapeHtml(type)}${escapeHtml(platform)}${escapeHtml(duration)})${link}</li>`;
         }).join('')
       : '<li>No items yet.</li>';
 
     return [
-      `<h1>${playlist.title}</h1>`,
-      playlist.description ? `<p>${playlist.description}</p>` : '',
-      `<p><strong>Category:</strong> ${category} • <strong>Difficulty:</strong> ${difficulty} • <strong>Visibility:</strong> ${visibility}</p>`,
-      tags ? `<p><strong>Tags:</strong> ${tags}</p>` : '',
-      `<p><strong>Curated by:</strong> ${creatorName}</p>`,
-      `<p><strong>Playlist Link:</strong> ${shareUrl}</p>`,
+      `<h1>${escapeHtml(playlist.title)}</h1>`,
+      playlist.description ? `<p>${escapeHtml(playlist.description)}</p>` : '',
+      `<p><strong>Category:</strong> ${escapeHtml(category)} • <strong>Difficulty:</strong> ${escapeHtml(difficulty)} • <strong>Visibility:</strong> ${escapeHtml(visibility)}</p>`,
+      tags ? `<p><strong>Tags:</strong> ${escapeHtml(tags)}</p>` : '',
+      `<p><strong>Curated by:</strong> ${escapeHtml(creatorName)}</p>`,
+      `<p><strong>Playlist Link:</strong> ${escapeHtml(shareUrl)}</p>`,
       `<h2>Items</h2>`,
       `<ul>${itemHtml}</ul>`
     ].filter(Boolean).join('\n');

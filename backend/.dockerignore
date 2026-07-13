@@ -35,5 +35,5 @@ attachments/*
 
 # Local secrets
 .env
-.env.local
-
+.env.*
+!.env.example

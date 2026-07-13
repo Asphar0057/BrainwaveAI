@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { X, Check, Pencil, Award, BarChart3, Crown, Rocket, ShieldCheck, LogOut, Trash2, MessageSquare, LayoutDashboard, User, CreditCard, Target, Settings, BookOpen, Sparkles, Plus, Gauge } from 'lucide-react';
 import { SidebarShell, SidebarSection, SidebarMenuItem, SidebarStats, SidebarStatBox, SidebarActions, SidebarAction, SidebarStripButton, SidebarStripDivider, SidebarStripSpacer } from '../components/Sidebar';
 import { API_URL } from '../config';
+import { signOutAppSession } from '../utils/authSession';
 import './ProfileNew.css';
 import '../components/SocialHubChrome.css';
 
@@ -443,7 +444,6 @@ const ProfileNew = () => {
   const currentPlanYearlySavingsPct = currentPlan ? getYearlySavingsPct(currentPlan) : 0;
   const currentPlanYearlySavingsUsd = currentPlan ? getYearlySavingsUsd(currentPlan) : 0;
   const currentPlanYearlyEquivalentMonthly = currentPlan ? getYearlyEquivalentMonthly(currentPlan) : 0;
-  const isCurrentPlanStarter = (subscriptionData.currentPlanId || 'starter') === 'starter';
 
   useEffect(() => {
     if (!token) { navigate('/login'); return; }
@@ -546,7 +546,8 @@ const ProfileNew = () => {
       error: null
     }));
     try {
-      const resp = await fetch(`${API_URL}/subscription/select`, {
+      const isFreePlan = planId === 'starter';
+      const resp = await fetch(`${API_URL}/subscription/${isFreePlan ? 'select' : 'checkout'}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -560,6 +561,14 @@ const ProfileNew = () => {
         throw new Error(await readApiError(resp, 'Unable to switch plan right now.'));
       }
       const data = await resp.json().catch(() => ({}));
+      if (!isFreePlan) {
+        const checkoutUrl = new URL(data.checkoutUrl || '');
+        if (checkoutUrl.protocol !== 'https:' || checkoutUrl.hostname !== 'checkout.stripe.com') {
+          throw new Error('The payment provider returned an invalid checkout URL.');
+        }
+        window.location.assign(checkoutUrl.toString());
+        return;
+      }
       setSubscriptionData(prev => ({
         ...prev,
         currentPlanId: data.subscriptionTier || planId,
@@ -577,51 +586,13 @@ const ProfileNew = () => {
     }
   };
 
-  const handleBillingCycleChange = async (nextCycle) => {
+  const handleBillingCycleChange = (nextCycle) => {
     if (!userName || !nextCycle || subscriptionData.saving || nextCycle === subscriptionData.billingCycle) return;
-    const previousCycle = subscriptionData.billingCycle || 'monthly';
     setSubscriptionData(prev => ({
       ...prev,
       billingCycle: nextCycle,
       error: null
     }));
-    if (!isCurrentPlanStarter) return;
-
-    setSubscriptionData(prev => ({
-      ...prev,
-      saving: true,
-      saveAction: 'cycle',
-      error: null
-    }));
-    try {
-      const resp = await fetch(`${API_URL}/subscription/select`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          user_id: userName,
-          tier: 'starter',
-          billingCycle: nextCycle
-        })
-      });
-      if (!resp.ok) {
-        throw new Error(await readApiError(resp, 'Unable to switch billing cycle right now.'));
-      }
-      const data = await resp.json().catch(() => ({}));
-      setSubscriptionData(prev => ({
-        ...prev,
-        billingCycle: data.billingCycle || nextCycle,
-        subscriptionStatus: data.subscriptionStatus || prev.subscriptionStatus
-      }));
-      void loadSubscriptionOverview({ silent: true, includeUsage: true });
-    } catch (e) {
-      setSubscriptionData(prev => ({
-        ...prev,
-        billingCycle: previousCycle,
-        error: e?.message || 'Unable to switch billing cycle right now.'
-      }));
-    } finally {
-      setSubscriptionData(prev => ({ ...prev, saving: false, saveAction: null }));
-    }
   };
 
   const loadProfile = async () => {
@@ -787,10 +758,7 @@ const ProfileNew = () => {
   };
 
   const clearSessionAndNavigate = (targetPath = '/login') => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('username');
-    localStorage.removeItem('userProfile');
-    sessionStorage.removeItem('justLoggedIn');
+    void signOutAppSession();
     navigate(targetPath);
   };
 

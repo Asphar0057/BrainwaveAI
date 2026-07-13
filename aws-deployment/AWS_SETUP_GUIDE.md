@@ -126,7 +126,7 @@ GOOGLE_GENERATIVE_AI_KEY=your-gemini-api-key
 DATABASE_URL=sqlite:///./brainwave_tutor.db
 
 # Server
-ENV=production
+ENVIRONMENT=production
 DEBUG=false
 
 # CORS (add your frontend domain)

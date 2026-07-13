@@ -24,6 +24,7 @@ import {
 import { useTheme } from '../contexts/ThemeContext';
 import { API_URL } from '../config';
 import { escapeHtml, safeInternalPath } from '../utils/sanitize';
+import { signOutAppSession } from '../utils/authSession';
 import gamificationService from '../services/gamificationService';
 import MathRenderer from '../components/MathRenderer';
 import GraphRenderer, { detectGraphLanguage } from '../components/GraphRenderer';
@@ -2312,13 +2313,7 @@ const AIChat = ({ sharedMode = false }) => {
 
   const handleLogout = async () => {
     await cleanupEmptyNewChats();
-    if (userProfile?.googleUser && window.google) {
-      window.google.accounts.id.disableAutoSelect();
-    }
-    
-    localStorage.removeItem('token');
-    localStorage.removeItem('username');
-    localStorage.removeItem('userProfile');
+    await signOutAppSession();
     navigate('/');
   };
 

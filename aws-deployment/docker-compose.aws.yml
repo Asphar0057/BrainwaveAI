@@ -12,6 +12,7 @@ services:
       - ../.env.production
     environment:
       - BACKEND_ID=ec2-primary
+      - ENVIRONMENT=production
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
@@ -27,6 +28,7 @@ services:
       - ../.env.production
     environment:
       - BACKEND_ID=ec2-ai-worker
+      - ENVIRONMENT=production
       - REDIS_URL=redis://redis:6379/0
     depends_on:
       - backend

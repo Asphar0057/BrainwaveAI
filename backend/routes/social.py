@@ -23,6 +23,7 @@ from deps import (
 )
 from services.ai_json_parser import parse_json_array_response
 from services.websocket_manager import manager
+from services.admin_analytics import check_admin
 from uid_utils import resolve_by_id_or_uid
 
 logger = logging.getLogger(__name__)
@@ -306,11 +307,10 @@ async def complete_solo_quiz(
 
 
 @router.get("/debug/websocket-connections")
-async def debug_websocket_connections(username: str = Depends(verify_token)):
+async def debug_websocket_connections(_: str = Depends(check_admin)):
     return {
         "active_connections": list(manager.active_connections.keys()),
         "total_connections": len(manager.active_connections),
-        "requesting_user": username
     }
 
 

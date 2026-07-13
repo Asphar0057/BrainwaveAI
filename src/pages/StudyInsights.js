@@ -4,6 +4,7 @@ import './StudyInsights.css';
 import '../components/SocialHubChrome.css';
 import { API_URL } from '../config';
 import { queuedAIJsonFetch } from '../services/aiJobService';
+import { signOutAppSession } from '../utils/authSession';
 import logo from '../assets/logo.svg';
 import {
   ArrowLeft, LayoutDashboard, MessageSquare, LogOut, Sparkles,
@@ -214,6 +215,7 @@ const StudyInsights = () => {
                   className="si-qb-strip-btn"
                   data-tip="Logout"
                   onClick={() => {
+                    void signOutAppSession();
                     localStorage.removeItem('token');
                     localStorage.removeItem('username');
                     navigate('/');
@@ -313,6 +315,7 @@ const StudyInsights = () => {
                 <button
                   className="si-qb-action-btn si-qb-action-btn--ghost"
                   onClick={() => {
+                    void signOutAppSession();
                     localStorage.removeItem('token');
                     localStorage.removeItem('username');
                     navigate('/');

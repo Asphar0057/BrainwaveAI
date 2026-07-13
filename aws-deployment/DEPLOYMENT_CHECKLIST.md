@@ -42,7 +42,7 @@ Use this checklist to ensure you don't miss any steps during deployment.
 - [ ] Set SECRET_KEY
 - [ ] Set GOOGLE_GENERATIVE_AI_KEY
 - [ ] Set DATABASE_URL
-- [ ] Set ENV=production
+- [ ] Set ENVIRONMENT=production
 - [ ] Set DEBUG=false
 - [ ] Save and exit
 

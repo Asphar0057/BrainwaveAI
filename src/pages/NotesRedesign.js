@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import ReactQuill, { Quill } from "react-quill";
-import "react-quill/dist/quill.snow.css";
+import ReactQuill, { Quill } from "react-quill-new";
+import "react-quill-new/dist/quill.snow.css";
 import "./NotesRedesign.css";
 import "./NotesRedesignSmartFolders.css";
 import "./NotesRedesignChatImport.css";
 import "./NotesRedesignConvert.css";
 import CustomPopup from "./CustomPopup";
 import { useTheme } from '../contexts/ThemeContext';
+import { signOutAppSession } from '../utils/authSession';
 import { 
   Plus, FileText, Upload, Search, Star, Trash2, 
   FolderPlus, Folder, Download, FileDown, Printer, 
@@ -2977,6 +2978,7 @@ const NotesRedesign = ({ sharedMode = false }) => {
 
   const handleLogout = () => {
     if (window.confirm("Are you sure you want to logout?")) {
+      void signOutAppSession();
       localStorage.clear();
       navigate("/");
     }

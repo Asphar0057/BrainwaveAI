@@ -121,7 +121,7 @@ def _generate_outline(user_id: int, topic: str, difficulty: str, length: str, go
 
 def _resource_id(url: str) -> str:
     normalized = (url or "").strip().lower()
-    return hashlib.sha1(normalized.encode("utf-8")).hexdigest()[:16]
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
 
 def _resource_kind(url: str, fallback: str = "article") -> str:
     host = urlparse(url).netloc.lower()

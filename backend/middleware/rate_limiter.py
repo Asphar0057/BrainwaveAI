@@ -135,7 +135,7 @@ _JWT_AUDIENCE = "brainwave-client"
 _JWT_ISSUER = "brainwave-backend"
 
 _TRUSTED_PROXY_CIDRS_RAW = os.getenv("RATE_LIMIT_TRUSTED_PROXY_CIDRS", "127.0.0.1/32,::1/128")
-_DEFAULT_UNLIMITED_IDENTIFIERS = "aditya.s.lanka@gmail.com,rithvikkumar35@gmail.com,AL04"
+_DEFAULT_UNLIMITED_IDENTIFIERS = ""
 
 # Optional override to force every user's effective rate limit tier (e.g. "power"),
 # regardless of their actual stored subscription. Off by default so per-user tiers
@@ -221,7 +221,7 @@ def _extract_leftmost_ip(xff: str) -> Optional[str]:
     except ValueError:
         return None
 
-def _get_client_ip(request: Request) -> str:
+def get_client_ip(request: Request) -> str:
     xff = request.headers.get("x-forwarded-for", "")
     if _is_from_trusted_proxy(request):
         client_ip = _extract_leftmost_ip(xff)
@@ -230,6 +230,8 @@ def _get_client_ip(request: Request) -> str:
     if request.client:
         return request.client.host or "unknown"
     return "unknown"
+
+_get_client_ip = get_client_ip
 
 def _get_jwt_sub(request: Request) -> Optional[str]:
     auth = request.headers.get("authorization", "")
@@ -252,11 +254,11 @@ def _get_jwt_sub(request: Request) -> Optional[str]:
 
 def _get_identity(request: Request, use_ip: bool) -> str:
     if use_ip:
-        return _get_client_ip(request)
+        return get_client_ip(request)
     sub = _get_jwt_sub(request)
     if sub:
         return sub
-    return _get_client_ip(request)
+    return get_client_ip(request)
 
 def _prune_subscription_cache_locked(now: float) -> None:
     if len(_subscription_cache) < 2000:

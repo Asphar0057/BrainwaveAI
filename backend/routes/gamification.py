@@ -12,6 +12,7 @@ except Exception:
     def _cache_set(key, value, ttl=60): pass
 
 import models
+from services.admin_analytics import check_admin
 from deps import (
     calculate_day_streak,
     enforce_request_user_scope,
@@ -574,7 +575,10 @@ async def get_leaderboard(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/admin/recalculate_gamification")
-async def recalculate_gamification(db: Session = Depends(get_db)):
+async def recalculate_gamification(
+    db: Session = Depends(get_db),
+    _: str = Depends(check_admin),
+):
     try:
         from services.gamification_system import recalculate_all_stats
 

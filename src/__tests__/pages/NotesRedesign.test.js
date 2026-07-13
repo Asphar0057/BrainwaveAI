@@ -47,7 +47,7 @@ jest.mock('../../utils/sanitize', () => ({
   escapeHtml: (h) => h,
 }));
 
-jest.mock('react-quill', () => {
+jest.mock('react-quill-new', () => {
   const { forwardRef } = require('react');
   const FakeQuill = forwardRef(({ value, onChange }, ref) => {
     const React = require('react');

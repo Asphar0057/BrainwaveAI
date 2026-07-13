@@ -1138,7 +1138,13 @@ async def get_slide_image(
     if not jwt_str:
         raise HTTPException(status_code=401, detail="Authentication required")
     try:
-        payload = jose_jwt.decode(jwt_str, SECRET_KEY, algorithms=[ALGORITHM], audience=JWT_AUDIENCE)
+        payload = jose_jwt.decode(
+            jwt_str,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+            audience=JWT_AUDIENCE,
+            issuer=JWT_ISSUER,
+        )
         username = payload.get("sub")
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")

@@ -1,5 +1,5 @@
 import { useEffect, useRef, memo } from 'react';
-import renderMathInElement from 'katex/contrib/auto-render/auto-render';
+import renderMathInElement from 'katex/contrib/auto-render';
 import 'katex/dist/katex.min.css';
 import './MathRenderer.css';
 import { sanitizeHtml } from '../utils/sanitize';

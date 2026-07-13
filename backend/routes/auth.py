@@ -43,6 +43,7 @@ from services.subscription_catalog import (
 )
 from services.token_limits import get_user_token_reset_at
 from services.token_usage_filters import BILLABLE_AI_USAGE_WHERE
+from middleware.rate_limiter import get_client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +114,7 @@ def _sync_google_profile_fields(user: models.User, *, first_name: Optional[str] 
     return changed
 
 def _check_auth_rate_limit(request: Request, max_attempts: int = 5, window_seconds: int = 60) -> None:
-    ip = (request.client.host if request.client else None) or "unknown"
+    ip = get_client_ip(request)
     now = datetime.now(timezone.utc).timestamp()
     cutoff = now - window_seconds
     with _auth_lock:
@@ -212,6 +213,10 @@ _VALID_BILLING_CYCLES = {"monthly", "yearly"}
 _VALID_SUBSCRIPTION_STATUSES = {"active", "trial", "grace", "paused", "cancelled"}
 _USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{3,50}$")
 _TRUE_ENV_VALUES = {"1", "true", "yes", "on"}
+
+def _is_production() -> bool:
+    environment = os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or "development"
+    return environment.strip().lower() == "production"
 
 def _env_flag(name: str, default: str = "false") -> bool:
     return os.getenv(name, default).strip().lower() in _TRUE_ENV_VALUES
@@ -322,7 +327,7 @@ def _send_otp_email(to_email: str, otp: str, *, subject: str, body_intro: str, l
     smtp_from = os.getenv("SMTP_FROM_EMAIL") or os.getenv("SMTP_FROM") or smtp_user
 
     if not smtp_host or not smtp_from:
-        logger.warning("%s OTP for %s: %s", log_label, to_email, otp)
+        logger.warning("%s OTP email not sent for %s because SMTP is not configured", log_label, to_email)
         return False
 
     message = EmailMessage()
@@ -370,17 +375,17 @@ def _send_account_deletion_email(to_email: str, otp: str) -> bool:
     )
 
 def _password_reset_response(email_sent: bool) -> dict:
-    response = {
-        "message": "If an account exists for that email, an OTP has been sent.",
-        "email_sent": email_sent,
-    }
-    if not email_sent and os.getenv("APP_ENV", "development").lower() != "production":
+    response = {"message": "If an account exists for that email, an OTP has been sent."}
+    if _is_production():
+        return response
+    response["email_sent"] = email_sent
+    if not email_sent:
         response["message"] = "OTP generated. Configure SMTP_HOST and SMTP_FROM_EMAIL to send real email."
     return response
 
 def _otp_response(email_sent: bool, message: str) -> dict:
     response = {"message": message, "email_sent": email_sent}
-    if not email_sent and os.getenv("APP_ENV", "development").lower() != "production":
+    if not email_sent and not _is_production():
         response["message"] = "OTP generated. Configure SMTP_HOST and SMTP_FROM_EMAIL to send real email."
     return response
 
@@ -405,7 +410,7 @@ def _send_registration_otp_or_raise(email: str, otp: str) -> bool:
         logger.error("Failed to send registration OTP to %s: %s", email, e)
         email_sent = False
 
-    if not email_sent and os.getenv("APP_ENV", "development").lower() == "production":
+    if not email_sent and _is_production():
         raise HTTPException(
             status_code=503,
             detail="Could not send verification email right now. Please try again later.",
@@ -761,7 +766,7 @@ async def register(request: Request, payload: RegisterPayload, db: Session = Dep
         message="Verification OTP sent. Enter it to finish creating your account.",
     )
     response["verification_required"] = True
-    if not email_sent and os.getenv("APP_ENV", "development").lower() != "production":
+    if not email_sent and not _is_production():
         response["dev_otp"] = otp
     return response
 
@@ -830,7 +835,7 @@ async def resend_registration_otp(request: Request, payload: RegisterResendPaylo
         email_sent=email_sent,
         message="New verification OTP sent. Use the latest code to finish creating your account.",
     )
-    if not email_sent and os.getenv("APP_ENV", "development").lower() != "production":
+    if not email_sent and not _is_production():
         response["dev_otp"] = otp
     return response
 
@@ -993,7 +998,7 @@ async def request_password_reset(
         email_sent = False
 
     response = _password_reset_response(email_sent=email_sent)
-    if not email_sent and os.getenv("APP_ENV", "development").lower() != "production":
+    if not email_sent and not _is_production():
         response["dev_otp"] = otp
     return response
 
@@ -1077,7 +1082,7 @@ async def request_account_deletion(
         email_sent=email_sent,
         message="Account deletion OTP sent to your email.",
     )
-    if not email_sent and os.getenv("APP_ENV", "development").lower() != "production":
+    if not email_sent and not _is_production():
         response["dev_otp"] = otp
     return response
 
@@ -1217,11 +1222,18 @@ async def firebase_authentication(request: Request, db: Session = Depends(get_db
                     cred = firebase_creds.ApplicationDefault()
                     firebase_admin.initialize_app(cred, {"projectId": firebase_project_id})
                 decoded = firebase_auth.verify_id_token(id_token)
-                if decoded.get("email") != email:
+                token_email = _normalize_email(decoded.get("email") or "")
+                if not token_email or token_email != _normalize_email(email):
                     raise HTTPException(status_code=400, detail="Token email mismatch")
+                if decoded.get("email_verified") is not True:
+                    raise HTTPException(status_code=401, detail="Firebase email is not verified")
+                email = token_email
                 uid = decoded.get("uid")
+                display_name = decoded.get("name") or ""
+                photo_url = decoded.get("picture") or None
             except ImportError:
-                logger.warning("firebase-admin SDK not installed — skipping Firebase token verification")
+                logger.error("firebase-admin SDK is required for Firebase authentication")
+                raise HTTPException(status_code=503, detail="Firebase authentication is not configured")
             except firebase_admin.auth.InvalidIdTokenError:
                 raise HTTPException(status_code=401, detail="Invalid Firebase token")
             except HTTPException:
@@ -1738,6 +1750,11 @@ async def select_subscription_plan(payload: dict = Body(...), db: Session = Depe
 
         previous_tier = normalize_plan_id(comprehensive_profile.subscription_tier)
         requested_tier = normalize_plan_id(payload.get("tier") or payload.get("subscriptionTier"))
+        if requested_tier != DEFAULT_PLAN_ID:
+            raise HTTPException(
+                status_code=400,
+                detail="Paid plans must be activated through subscription checkout.",
+            )
         comprehensive_profile.subscription_tier = requested_tier
         if requested_tier != "unlimited":
             comprehensive_profile.billing_cycle = requested_cycle
