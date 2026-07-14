@@ -1,89 +1,142 @@
-import { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Image } from 'react-native';
-import { useFonts, Inter_900Black, Inter_400Regular } from '@expo-google-fonts/inter';
+import { useEffect, useMemo, useRef } from 'react';
+import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import { useFonts, Inter_900Black, Inter_400Regular, Inter_700Bold } from '@expo-google-fonts/inter';
 import { LinearGradient } from 'expo-linear-gradient';
 import GeoBackground from '../components/GeoBackground';
+import CerbylMark from '../components/CerbylMark';
 import { useAppTheme } from '../contexts/ThemeContext';
-import { rgbaFromHex } from '../utils/theme';
 
 type Props = { onFinish: () => void };
 
-export default function SplashScreen({ onFinish }: Props) {
-  const [fontsLoaded] = useFonts({ Inter_900Black, Inter_400Regular });
-  const opacity = useRef(new Animated.Value(0)).current;
-  const rotation = useRef(new Animated.Value(0)).current;
-  const { selectedTheme } = useAppTheme();
-  const s = createStyles(selectedTheme);
+const WORD = 'cerbyl'.split('');
 
-  const spin = rotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+/**
+ * Ported from the website's .cb-intro sequence (Home.js/Home.css): the mark
+ * blooms in (scale + rotate settle) and fades, the "cerbyl" wordmark reveals
+ * letter by letter, the tagline follows, then the whole overlay fades out.
+ * RN has no clip-path, so the per-letter reveal uses staggered
+ * opacity+translateY instead of the CSS clip-path inset animation — same
+ * beat, different technique.
+ */
+export default function SplashScreen({ onFinish }: Props) {
+  const [fontsLoaded] = useFonts({ Inter_900Black, Inter_400Regular, Inter_700Bold });
+  const { selectedTheme } = useAppTheme();
+  const s = useMemo(() => createStyles(selectedTheme), [selectedTheme]);
+
+  const markOpacity = useRef(new Animated.Value(0)).current;
+  const markScale = useRef(new Animated.Value(0.4)).current;
+  const markRotate = useRef(new Animated.Value(-8)).current;
+  const wordAnims = useRef(WORD.map(() => new Animated.Value(0))).current;
+  const tagOpacity = useRef(new Animated.Value(0)).current;
+  const overlayOpacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     if (!fontsLoaded) return;
 
-    Animated.loop(
-      Animated.timing(rotation, { toValue: 1, duration: 2400, useNativeDriver: true })
-    ).start();
-
     Animated.sequence([
-      Animated.timing(opacity, { toValue: 1, duration: 600, useNativeDriver: true }),
-      Animated.delay(1200),
-      Animated.timing(opacity, { toValue: 0, duration: 400, useNativeDriver: true }),
+      Animated.parallel([
+        Animated.timing(markOpacity, { toValue: 1, duration: 620, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(markScale, { toValue: 1, duration: 620, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(markRotate, { toValue: 0, duration: 620, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]),
+      Animated.delay(180),
+      Animated.parallel([
+        Animated.timing(markOpacity, { toValue: 0, duration: 380, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(markScale, { toValue: 0.7, duration: 380, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
+        Animated.stagger(45, wordAnims.map((v) =>
+          Animated.timing(v, { toValue: 1, duration: 380, easing: Easing.out(Easing.cubic), useNativeDriver: true })
+        )),
+      ]),
+      Animated.timing(tagOpacity, { toValue: 1, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.delay(500),
+      Animated.timing(overlayOpacity, { toValue: 0, duration: 420, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
     ]).start(() => onFinish());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fontsLoaded]);
 
+  if (!fontsLoaded) return null;
+
   return (
-    <View style={s.container}>
+    <Animated.View style={[s.container, { opacity: overlayOpacity }]}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
       <GeoBackground />
-      <View style={[s.glow, { backgroundColor: rgbaFromHex(selectedTheme.accent, 0.14) }]} />
-      <Animated.View style={{ opacity, alignItems: 'center' }}>
-        <Animated.Image
-          source={require('../../assets/logo.png')}
-          style={[s.logoImg, { transform: [{ rotate: spin }] }]}
-        />
-        <Text style={s.logo}>cerbyl</Text>
-        <Text style={s.sub}>your ai tutor</Text>
+
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          opacity: markOpacity,
+          transform: [
+            { scale: markScale },
+            { rotate: markRotate.interpolate({ inputRange: [-8, 0], outputRange: ['-8deg', '0deg'] }) },
+          ],
+        }}
+      >
+        <CerbylMark size={140} color={selectedTheme.accentHover} />
       </Animated.View>
-    </View>
+
+      <View style={s.wordRow}>
+        {WORD.map((ch, i) => (
+          <Animated.Text
+            key={`${ch}-${i}`}
+            style={[
+              s.wordChar,
+              {
+                opacity: wordAnims[i],
+                transform: [{ translateY: wordAnims[i].interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
+              },
+            ]}
+          >
+            {ch}
+          </Animated.Text>
+        ))}
+      </View>
+
+      <Animated.View style={[s.tagRow, { opacity: tagOpacity }]}>
+        <View style={s.tagDot} />
+        <Text style={s.tagText}>learning unified</Text>
+      </Animated.View>
+    </Animated.View>
   );
 }
 
 function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
   return StyleSheet.create({
     container: {
-      flex: 1,
-      backgroundColor: theme.bgPrimary,
+      ...StyleSheet.absoluteFillObject,
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'hidden',
+      backgroundColor: theme.bgPrimary,
     },
-    glow: {
-      position: 'absolute',
-      width: 220,
-      height: 220,
-      borderRadius: 110,
-      top: '30%',
+    wordRow: {
+      flexDirection: 'row',
     },
-    logoImg: {
-      width: 80,
-      height: 80,
-      marginBottom: 20,
-    },
-    logo: {
+    wordChar: {
       fontFamily: 'Inter_900Black',
-      fontSize: 42,
+      fontSize: 46,
+      lineHeight: 54,
+      letterSpacing: 0.5,
       color: theme.accentHover,
-      textAlign: 'center',
-      letterSpacing: 0,
     },
-    sub: {
-      fontFamily: 'Inter_400Regular',
-      fontSize: 12,
-      color: theme.accent,
-      textAlign: 'center',
-      letterSpacing: 4,
-      marginTop: 8,
+    tagRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginTop: 14,
+    },
+    tagDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: theme.accent,
+    },
+    tagText: {
+      fontFamily: 'Inter_700Bold',
+      fontSize: 11,
+      letterSpacing: 3,
       textTransform: 'uppercase',
+      color: theme.accent,
     },
   });
 }
