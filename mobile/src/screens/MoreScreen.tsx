@@ -8,10 +8,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../services/auth';
 import { getFlashcardStatistics } from '../services/api';
-import HapticTouchable from '../components/HapticTouchable';
-import AmbientBubbles from '../components/AmbientBubbles';
+import TileGleam from '../components/TileGleam';
 import GeoBackground from '../components/GeoBackground';
-import NeumorphicTexture, { cbCardGradient, cbTileShadow } from '../components/NeumorphicTexture';
+import NeumorphicTexture, { cbTileCardGradient } from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
@@ -31,16 +30,22 @@ function BentoMini({
   onPress?: () => void;
 }) {
   return (
-    <HapticTouchable style={styles.miniTile} onPress={onPress} haptic="selection" activeOpacity={0.7}>
-      <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
-      <NeumorphicTexture />
+    <TileGleam style={styles.miniTile} onPress={onPress}>
+      <NeumorphicTexture
+        grainVariant="skia"
+        grainOpacity={0.44}
+        baseFrequency={0.7}
+        gradientColors={cbTileCardGradient.colors}
+        gradientStart={cbTileCardGradient.start}
+        gradientEnd={cbTileCardGradient.end}
+      />
       <View style={styles.miniTopRow}>
         <Text style={styles.miniIndex}>{index}</Text>
         <Ionicons name="chevron-forward" size={15} color={styles.miniArrow.color} />
       </View>
       <View style={{ flex: 1 }} />
       <Text style={styles.miniTitle}>{title}</Text>
-    </HapticTouchable>
+    </TileGleam>
   );
 }
 
@@ -70,7 +75,6 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
     <SafeAreaView style={s.safe} edges={[]}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFill} />
       <GeoBackground />
-      <AmbientBubbles theme={selectedTheme} variant="explore" opacity={0.9} />
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         <View style={s.titleRow}>
@@ -80,21 +84,22 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
 
         {/* Row 1: AI chat hero + notes/media stack */}
         <View style={s.bentoRow}>
-          <HapticTouchable style={s.heroTile} onPress={() => onNavigateToAI?.()} haptic="medium" activeOpacity={0.85}>
-            <LinearGradient
-              colors={[selectedTheme.accentHover, selectedTheme.accent]}
-              start={{ x: 0.1, y: 0 }}
-              end={{ x: 0.95, y: 1 }}
-              style={StyleSheet.absoluteFillObject}
+          <TileGleam style={s.heroTile} onPress={() => onNavigateToAI?.()} haptic="medium">
+            <NeumorphicTexture
+              grainVariant="skia"
+              grainOpacity={0.44}
+              baseFrequency={0.7}
+              gradientColors={[selectedTheme.accentHover, selectedTheme.accent]}
+              gradientStart={{ x: 0.1, y: 0 }}
+              gradientEnd={{ x: 0.95, y: 1 }}
             />
-            <NeumorphicTexture />
             <Text style={s.heroIndex}>01</Text>
             <View style={{ flex: 1 }} />
             <Text style={s.heroTitle}>AI{'\n'}chat</Text>
             <View style={s.heroFootRow}>
               <Ionicons name="chevron-forward" size={16} color={selectedTheme.bgPrimary} />
             </View>
-          </HapticTouchable>
+          </TileGleam>
 
           <View style={s.stackCol}>
             <BentoMini index="02" title="notes" styles={s} onPress={() => onNavigate?.('notes')} />
@@ -103,9 +108,15 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
         </View>
 
         {/* Row 2: Flashcards banner — one hero stat, no clutter */}
-        <HapticTouchable style={s.flashcardCard} onPress={() => onNavigate?.('flashcards')} haptic="medium" activeOpacity={0.85}>
-          <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
-          <NeumorphicTexture />
+        <TileGleam style={s.flashcardCard} onPress={() => onNavigate?.('flashcards')} haptic="medium">
+          <NeumorphicTexture
+            grainVariant="skia"
+            grainOpacity={0.44}
+            baseFrequency={0.7}
+            gradientColors={cbTileCardGradient.colors}
+            gradientStart={cbTileCardGradient.start}
+            gradientEnd={cbTileCardGradient.end}
+          />
           <View style={s.fcLeft}>
             <Text style={s.fcIndex}>04</Text>
             <Text style={s.fcTitle}>flashcards</Text>
@@ -118,7 +129,7 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
           <View style={s.fcProgressTrack}>
             <View style={[s.fcProgressFill, { width: `${Math.max(4, masteryPct)}%` }]} />
           </View>
-        </HapticTouchable>
+        </TileGleam>
 
         {/* Row 3: question bank + learning paths */}
         <View style={s.bentoRow}>
@@ -178,7 +189,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   heroTile: {
     flex: 1.4, minHeight: heroRowHeight, borderRadius: 26, padding: 20,
     overflow: 'hidden',
-    boxShadow: cbTileShadow(0.055),
   } as ViewStyle,
   heroIndex: {
     fontFamily: 'Inter_700Bold', fontSize: 12, letterSpacing: 2,
@@ -194,7 +204,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   miniTile: {
     flex: 1, borderRadius: 26, overflow: 'hidden',
     paddingHorizontal: 16, paddingVertical: 16,
-    boxShadow: cbTileShadow(0.055),
   } as ViewStyle,
   miniTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   miniIndex: { fontFamily: 'Inter_700Bold', fontSize: 11, letterSpacing: 1.5, color: DIM },
@@ -205,7 +214,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     borderRadius: 26, overflow: 'hidden',
     padding: 20,
     flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end',
-    boxShadow: cbTileShadow(0.055),
   } as ViewStyle,
   fcLeft: { flex: 1, minWidth: 160 },
   fcIndex: { fontFamily: 'Inter_700Bold', fontSize: 11, letterSpacing: 1.5, color: DIM, marginBottom: 10 },
