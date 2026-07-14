@@ -6,9 +6,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import RingProgress from '../components/RingProgress';
 import HapticTouchable from '../components/HapticTouchable';
-import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
-import NeumorphicTexture, { cbCardGradient, cbTileShadow, cbModalShadow } from '../components/NeumorphicTexture';
+import NeumorphicTexture, { cbCardGradient, cbTileShadow, cbTileCardGradient, cbTileShadowExact, cbTileBorder } from '../components/NeumorphicTexture';
 import { AuthUser } from '../services/auth';
 import { getEnhancedStats, getFriendActivityFeed } from '../services/api';
 import { triggerHaptic } from '../utils/haptics';
@@ -270,7 +269,6 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
     <SafeAreaView style={styles.safe} edges={[]}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
       <GeoBackground />
-      <AmbientBubbles theme={selectedTheme} variant="home" opacity={0.95} />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} bounces={false} alwaysBounceVertical={false}>
         <View style={styles.topBar}>
@@ -287,8 +285,14 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
         <View style={styles.heroWrap}>
           <HapticTouchable activeOpacity={1} onPress={cycleHero} haptic="selection">
             <View style={styles.heroSection} {...heroSwipeResponder.panHandlers}>
-              <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
-              <NeumorphicTexture grainOpacity={0.13} />
+              <NeumorphicTexture
+                grainOpacity={0.48}
+                grainVariant="skia"
+                baseFrequency={0.7}
+                gradientColors={cbTileCardGradient.colors}
+                gradientStart={cbTileCardGradient.start}
+                gradientEnd={cbTileCardGradient.end}
+              />
 
               {stats === null ? (
                 <View style={styles.heroLoading}>
@@ -560,9 +564,10 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     paddingHorizontal: 10,
     paddingVertical: 12,
     overflow: 'hidden',
-    borderRadius: 30,
+    borderRadius: 28,
     marginHorizontal: 4,
-    boxShadow: cbModalShadow(0.14),
+    boxShadow: cbTileShadowExact(),
+    ...cbTileBorder(0.22),
   } as ViewStyle,
   heroTopRow: {
     flexDirection: 'row',
