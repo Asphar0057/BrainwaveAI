@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -9,6 +9,8 @@ import {
   getQuizBattles, getChallenges, getFriendActivityFeed,
 } from '../services/api';
 import HapticTouchable from '../components/HapticTouchable';
+import TileGleam from '../components/TileGleam';
+import NeumorphicTexture, { cbTileCardGradient } from '../components/NeumorphicTexture';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FriendsScreen       from './social/FriendsScreen';
 import LeaderboardScreen   from './social/LeaderboardScreen';
@@ -16,7 +18,6 @@ import GamesScreen         from './social/GamesScreen';
 import QuizPlaylistScreen  from './social/QuizPlaylistScreen';
 import PlaylistsScreen     from './social/PlaylistsScreen';
 import LearningPathsScreen from './social/LearningPathsScreen';
-import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { rgbaFromHex, darkenColor, lightenColor } from '../utils/theme';
@@ -101,8 +102,15 @@ function Tile({ icon, label, sub, badge, onPress, accent, s }: {
   s: ReturnType<typeof createStyles>;
 }) {
   return (
-    <HapticTouchable style={s.tile} onPress={onPress} activeOpacity={0.82} haptic="selection">
-      <LinearGradient colors={[rgbaFromHex(accent, 0.11), 'transparent']} style={StyleSheet.absoluteFillObject} />
+    <TileGleam style={s.tile} onPress={onPress}>
+      <NeumorphicTexture
+        grainVariant="skia"
+        grainOpacity={0.44}
+        baseFrequency={0.7}
+        gradientColors={cbTileCardGradient.colors}
+        gradientStart={cbTileCardGradient.start}
+        gradientEnd={cbTileCardGradient.end}
+      />
       {badge && (
         <View style={s.tileBadge}><Text style={s.tileBadgeTxt}>{badge}</Text></View>
       )}
@@ -111,7 +119,7 @@ function Tile({ icon, label, sub, badge, onPress, accent, s }: {
       </View>
       <Text style={s.tileLbl}>{label}</Text>
       <Text style={s.tileSub}>{sub}</Text>
-    </HapticTouchable>
+    </TileGleam>
   );
 }
 
@@ -191,7 +199,6 @@ export default function SocialScreen({ user }: Props) {
     <View style={s.root}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
       <GeoBackground />
-      <AmbientBubbles theme={selectedTheme} variant="social" opacity={0.9} />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 100 }]}>
 
@@ -546,9 +553,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     /* Explore tiles */
     tileRow: { flexDirection: 'row', gap: 12 },
     tile: {
-      flex: 1, minHeight: layout.isTablet ? 155 : 136, borderRadius: 16, borderWidth: 1,
-      borderColor: BDR, backgroundColor: SURFA, padding: 16, overflow: 'hidden',
-    },
+      flex: 1, minHeight: layout.isTablet ? 155 : 136, padding: 16,
+    } as ViewStyle,
     tileBadge:    { position: 'absolute', top: 12, right: 12, borderRadius: 999, backgroundColor: rgbaFromHex(GOLDM, 0.15), borderWidth: 1, borderColor: rgbaFromHex(GOLDM, 0.3), paddingHorizontal: 8, paddingVertical: 3 },
     tileBadgeTxt: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: GOLD },
     tileIcon:     { width: 36, height: 36, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },

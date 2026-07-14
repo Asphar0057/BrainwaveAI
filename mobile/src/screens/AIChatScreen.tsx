@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TextInput,
   FlatList, KeyboardAvoidingView, Platform, Animated,
-  Modal, ScrollView, ActivityIndicator, PanResponder, Alert, Image,
+  Modal, ScrollView, ActivityIndicator, PanResponder, Alert, Image, ViewStyle,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
@@ -11,7 +11,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import MarkdownText from '../components/MarkdownText';
 import HapticTouchable from '../components/HapticTouchable';
-import AmbientBubbles from '../components/AmbientBubbles';
+import TileGleam from '../components/TileGleam';
+import NeumorphicTexture, { cbTileCardGradient } from '../components/NeumorphicTexture';
 import GeoBackground from '../components/GeoBackground';
 import ContextSelector from '../components/ContextSelector';
 import ContextPanel from '../components/ContextPanel';
@@ -377,7 +378,6 @@ export default function AIChatScreen({ user }: Props) {
     <SafeAreaView style={s.safe} edges={[]}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFill} />
       <GeoBackground />
-      <AmbientBubbles theme={selectedTheme} variant="chat" opacity={0.84} />
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={insets.top}>
         <View style={s.header}>
@@ -408,10 +408,18 @@ export default function AIChatScreen({ user }: Props) {
 
             <View style={s.promptGrid}>
               {starterPrompts.slice(0, 3).map((prompt) => (
-                <HapticTouchable key={prompt} style={s.promptChip} onPress={() => send(prompt)} haptic="selection" activeOpacity={0.86}>
+                <TileGleam key={prompt} style={s.promptChip} onPress={() => send(prompt)} borderRadius={16}>
+                  <NeumorphicTexture
+                    grainVariant="skia"
+                    grainOpacity={0.44}
+                    baseFrequency={0.7}
+                    gradientColors={cbTileCardGradient.colors}
+                    gradientStart={cbTileCardGradient.start}
+                    gradientEnd={cbTileCardGradient.end}
+                  />
                   <Text style={s.promptText}>{prompt}</Text>
                   <Ionicons name="chevron-forward" size={13} color={selectedTheme.accentHover} />
-                </HapticTouchable>
+                </TileGleam>
               ))}
             </View>
           </View>
@@ -714,13 +722,10 @@ function createStyles(
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
-    borderWidth: 1,
-    borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.16 : 0.20),
-    backgroundColor: rgbaFromHex(CARD_ALT, 0.92),
     borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 14,
-  },
+  } as ViewStyle,
   promptText: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 13,
