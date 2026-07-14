@@ -90,7 +90,7 @@ export default function ProfileScreen({ user, onLogout, onNavigate }: Props) {
 
         <View style={styles.heroCard}>
           <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
-          <NeumorphicTexture grainOpacity={0.12} />
+          <NeumorphicTexture grainOpacity={0.26} />
           <Text style={styles.heroGhost}>01</Text>
           <LinearGradient
             colors={
@@ -109,7 +109,7 @@ export default function ProfileScreen({ user, onLogout, onNavigate }: Props) {
         <Text style={styles.sectionLabel}>preferences</Text>
         <View style={styles.card}>
           <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
-          <NeumorphicTexture grainOpacity={0.09} />
+          <NeumorphicTexture grainOpacity={0.20} />
           {prefs.map((pref, index) => (
             <View key={pref.label} style={[styles.prefRow, index < prefs.length - 1 && styles.rowDivider]}>
               <View style={styles.iconWrap}>
@@ -131,7 +131,7 @@ export default function ProfileScreen({ user, onLogout, onNavigate }: Props) {
         <Text style={styles.sectionLabel}>account</Text>
         <View style={styles.card}>
           <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
-          <NeumorphicTexture grainOpacity={0.09} />
+          <NeumorphicTexture grainOpacity={0.20} />
           {[
             { label: 'My Flashcards', icon: 'layers-outline' },
             { label: 'My Notes',      icon: 'document-text-outline' },

@@ -96,7 +96,7 @@ export default function CalendarScreen({ user, onBack }: Props) {
         </View>
 
         <View style={s.calendarPanel}>
-          <NeumorphicLayer grainOpacity={0.11} />
+          <NeumorphicLayer grainOpacity={0.24} />
           <Text style={s.panelGhost}>01</Text>
 
           {/* Day headers */}

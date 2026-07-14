@@ -183,7 +183,7 @@ export default function SlideExplorerScreen({ user, onBack, onOpenQuestionBank }
         </View>
 
         <View style={s.hero}>
-          <NeumorphicLayer grainOpacity={0.12} />
+          <NeumorphicLayer grainOpacity={0.26} />
           <Text style={s.heroGhost}>01</Text>
           <Text style={s.heroTitle}>slide explorer</Text>
           <Text style={s.heroCopy}>{slides.length} decks · {totals} slides ready for analysis</Text>

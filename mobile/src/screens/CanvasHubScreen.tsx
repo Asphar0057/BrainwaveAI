@@ -113,7 +113,7 @@ export default function CanvasHubScreen({ user, onBack, onOpenNotes }: Props) {
         </View>
 
         <View style={s.hero}>
-          <NeumorphicLayer grainOpacity={0.12} />
+          <NeumorphicLayer grainOpacity={0.26} />
           <Text style={s.heroGhost}>01</Text>
           <Text style={s.heroTitle}>canvas hub</Text>
           <Text style={s.heroCopy}>{notes.length} canvas notes</Text>

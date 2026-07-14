@@ -97,7 +97,7 @@ export default function AnalyticsScreen({ user, onBack }: Props) {
         </View>
 
         <View style={s.hero}>
-          <NeumorphicLayer grainOpacity={0.12} />
+          <NeumorphicLayer grainOpacity={0.26} />
           <Text style={s.heroGhost}>01</Text>
           <Text style={s.heroTitle}>analytics</Text>
         </View>

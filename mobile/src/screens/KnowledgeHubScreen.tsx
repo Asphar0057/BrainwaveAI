@@ -457,7 +457,7 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
         </View>
 
         <View style={s.hero}>
-          <NeumorphicLayer grainOpacity={0.12} />
+          <NeumorphicLayer grainOpacity={0.26} />
           <Text style={s.heroGhost}>01</Text>
           <Text style={s.heroTitle}>knowledge hub</Text>
           <Text style={s.heroCopy}>{readyDocs.length} ready sources · {concepts.length} concepts · {reviews.length} reviews</Text>

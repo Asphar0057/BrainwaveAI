@@ -70,7 +70,7 @@ export default function SettingsScreen({ user, onBack }: Props) {
 
         <View style={styles.heroCard}>
           <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
-          <NeumorphicTexture grainOpacity={0.12} />
+          <NeumorphicTexture grainOpacity={0.26} />
           <Text style={styles.heroGhost}>01</Text>
           <Text style={[styles.heroEyebrow, { color: selectedTheme.accentHover }]}>signed in as</Text>
           <Text style={styles.heroName}>{user.first_name || user.username}</Text>
@@ -80,7 +80,7 @@ export default function SettingsScreen({ user, onBack }: Props) {
         <Text style={styles.sectionLabel}>appearance</Text>
         <View style={styles.card}>
           <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
-          <NeumorphicTexture grainOpacity={0.08} />
+          <NeumorphicTexture grainOpacity={0.18} />
           <View style={styles.themeTabRow}>
             <HapticTouchable style={[styles.themeTab, activeTab === 'presets' && styles.themeTabActive]} onPress={() => setActiveTab('presets')} haptic="selection">
               <Text style={[styles.themeTabText, activeTab === 'presets' && styles.themeTabTextActive]}>presets</Text>
@@ -195,7 +195,7 @@ export default function SettingsScreen({ user, onBack }: Props) {
         <Text style={styles.sectionLabel}>preferences</Text>
         <View style={styles.card}>
           <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
-          <NeumorphicTexture grainOpacity={0.08} />
+          <NeumorphicTexture grainOpacity={0.18} />
           {[
             {
               label: 'Push Notifications',
@@ -233,7 +233,7 @@ export default function SettingsScreen({ user, onBack }: Props) {
         <Text style={styles.sectionLabel}>account</Text>
         <View style={styles.card}>
           <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
-          <NeumorphicTexture grainOpacity={0.08} />
+          <NeumorphicTexture grainOpacity={0.18} />
           {accountRows.map((item, index) => (
             <HapticTouchable
               key={item.label}
