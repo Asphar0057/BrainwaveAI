@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { View, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet, Text, ViewStyle } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -28,7 +28,7 @@ import LearningPathsScreen from '../screens/social/LearningPathsScreen';
 import HapticTouchable from '../components/HapticTouchable';
 import ScreenErrorBoundary from '../components/ScreenErrorBoundary';
 import { useAppTheme } from '../contexts/ThemeContext';
-import { darkenColor, rgbaFromHex } from '../utils/theme';
+import { rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -290,7 +290,6 @@ export default function TabNavigator({ user, onLogout }: Props) {
 }
 
 function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
-  const SHADOW = darkenColor(theme.primary, theme.isLight ? 72 : 4);
   return StyleSheet.create({
     shell: {
       flex: 1,
@@ -315,19 +314,12 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     tabBar: {
       flexDirection: 'row',
       alignItems: 'center',
-      borderWidth: 1,
-      borderColor: rgbaFromHex(theme.accent, theme.isLight ? 0.24 : 0.26),
       borderRadius: 24,
       paddingHorizontal: 7,
       paddingTop: 7,
       paddingBottom: 7,
-      shadowColor: SHADOW,
-      shadowOffset: { width: 0, height: 18 },
-      shadowOpacity: theme.isLight ? 0.10 : 0.34,
-      shadowRadius: 26,
-      elevation: 18,
-      backgroundColor: rgbaFromHex(theme.panel, theme.isLight ? 0.97 : 0.92),
-    },
+      backgroundColor: theme.panel,
+    } as ViewStyle,
     tabBarRail: {
       flex: 1,
       flexDirection: 'column',
@@ -352,8 +344,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     tabActive: {
       backgroundColor: rgbaFromHex(theme.accent, theme.isLight ? 0.11 : 0.15),
-      borderWidth: 1,
-      borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.20 : 0.24),
     },
     iconWrap: {
       width: 34,
@@ -361,13 +351,10 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       borderRadius: 12,
       alignItems: 'center',
       justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: rgbaFromHex(theme.accent, theme.isLight ? 0.10 : 0.14),
-      backgroundColor: rgbaFromHex(theme.textPrimary, theme.isLight ? 0.035 : 0.055),
+      backgroundColor: theme.panelAlt,
     },
     iconWrapActive: {
       backgroundColor: theme.accent,
-      borderColor: theme.accentHover,
     },
     tabLabel: {
       fontSize: 10,
