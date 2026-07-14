@@ -150,10 +150,11 @@ function getRelativeLuminance(hex: string) {
 
 export function buildTheme(definition: ThemeDefinition & { primary?: string }): MobileTheme {
   const isLight = definition.mode === 'light';
-  const primary = definition.primary || (isLight ? '#fefefe' : '#161008');
-  // Dark mode reads as a warm bronze-to-espresso gradient (not literal black) so the
-  // gold accent has a surface to sit on. Top carries the most visible warmth, bottom
-  // settles into a near-black that still carries a hint of umber, never pure #000.
+  // Literal --cb-bg from the website (Home.css:8, #060607) — black, not the old
+  // warm '#161008' brown base. Panels/gradient still get their tonal variation
+  // from mixing THIS base with the theme's own accent below, so it's still
+  // "black + accent", never a third unrelated hue.
+  const primary = definition.primary || (isLight ? '#fefefe' : '#060607');
   const bgPrimary = isLight ? primary : mixHex(primary, '#000000', 0.30);
   const bgSecondary = isLight ? darkenColor(primary, 2) : mixHex(primary, definition.accent, 0.05);
   const panel = isLight ? '#ffffff' : mixHex(primary, definition.accent, 0.045);
