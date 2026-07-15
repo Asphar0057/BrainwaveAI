@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Switch, Alert, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Switch, TextInput, Alert, ActivityIndicator, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
+import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { AuthUser, signOut } from '../services/auth';
+import { AuthUser, signOut, updateStoredUser, updateStoredToken } from '../services/auth';
+import { changeUsername, changePassword } from '../services/api';
 import HapticTouchable from '../components/HapticTouchable';
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
@@ -17,15 +18,29 @@ import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 type Props = {
   user: AuthUser;
   onLogout?: () => void;
-  onNavigate?: (screen: 'flashcards' | 'notes' | 'aimedia' | 'settings' | 'questionBank' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'learningPaths' | 'weaknessPractice') => void;
+  onUserUpdate?: (patch: Partial<AuthUser>) => void;
+  onNavigate?: (screen: 'settings') => void;
 };
 
-export default function ProfileScreen({ user, onLogout, onNavigate }: Props) {
+type EditField = 'username' | 'password' | null;
+
+export default function ProfileScreen({ user, onLogout, onUserUpdate, onNavigate }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
   const styles = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
-  const [fontsLoaded] = useFonts({ Inter_900Black, Inter_400Regular, Inter_600SemiBold });
+  const [fontsLoaded] = useFonts({ Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold });
+
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [editing, setEditing] = useState<EditField>(null);
+
+  const [usernameInput, setUsernameInput] = useState(user.username);
+  const [savingUsername, setSavingUsername] = useState(false);
+
+  const [currentPasswordInput, setCurrentPasswordInput] = useState('');
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
+
   const switchTrackOff = rgbaFromHex(selectedTheme.accent, selectedTheme.isLight ? 0.18 : 0.22);
   const switchTrackOn  = rgbaFromHex(selectedTheme.accent, selectedTheme.isLight ? 0.42 : 0.52);
   const switchThumbOff = selectedTheme.isLight ? selectedTheme.panelAlt : selectedTheme.textSecondary;
@@ -33,33 +48,82 @@ export default function ProfileScreen({ user, onLogout, onNavigate }: Props) {
 
   if (!fontsLoaded) return null;
 
-  const displayName = [user.first_name, (user as any).last_name].filter(Boolean).join(' ') || user.username;
+  const hasPassword = !user.google_user;
+  const displayName = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username;
   const initials = displayName.split(' ').map((name: string) => name[0]).join('').slice(0, 2).toUpperCase();
-  const joinYear = (user as any).created_at ? new Date((user as any).created_at).getFullYear() : 2026;
+  const joinYear = user.created_at ? new Date(user.created_at).getFullYear() : undefined;
 
-  const prefs = [
-    {
-      label: 'Notifications',
-      icon: 'notifications-outline',
-      value: notificationsEnabled,
-      onChange: (value: boolean) => {
-        setNotificationsEnabled(value);
-        triggerHaptic('selection');
-      },
-    },
-  ];
+  const openUsernameEditor = () => {
+    setUsernameInput(user.username);
+    setEditing('username');
+    triggerHaptic('selection');
+  };
 
-  const handleAccountPress = (label: string) => {
-    if (label === 'My Flashcards') { onNavigate?.('flashcards'); return; }
-    if (label === 'My Notes')      { onNavigate?.('notes');      return; }
-    if (label === 'Knowledge Hub') { onNavigate?.('knowledgeHub'); return; }
-    if (label === 'Slide Explorer') { onNavigate?.('slideExplorer'); return; }
-    if (label === 'Canvas Hub') { onNavigate?.('canvasHub'); return; }
-    if (label === 'Question Bank') { onNavigate?.('questionBank'); return; }
-    if (label === 'Learning Paths') { onNavigate?.('learningPaths'); return; }
-    if (label === 'Study Analytics') { onNavigate?.('analytics'); return; }
-    if (label === 'Weakness Practice') { onNavigate?.('weaknessPractice'); return; }
-    Alert.alert('Not available yet', `${label} is not available on mobile yet.`);
+  const openPasswordEditor = () => {
+    setCurrentPasswordInput('');
+    setNewPasswordInput('');
+    setConfirmPasswordInput('');
+    setEditing('password');
+    triggerHaptic('selection');
+  };
+
+  const cancelEditing = () => {
+    setEditing(null);
+    triggerHaptic('light');
+  };
+
+  const submitUsernameChange = async () => {
+    const next = usernameInput.trim();
+    if (!next || next === user.username) {
+      setEditing(null);
+      return;
+    }
+    setSavingUsername(true);
+    try {
+      const res = await changeUsername(next);
+      await updateStoredToken(res.access_token);
+      await updateStoredUser({ username: res.username });
+      onUserUpdate?.({ username: res.username });
+      triggerHaptic('success');
+      setEditing(null);
+    } catch (error) {
+      triggerHaptic('error');
+      Alert.alert('Could not update username', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setSavingUsername(false);
+    }
+  };
+
+  const submitPasswordChange = async () => {
+    if (hasPassword && !currentPasswordInput) {
+      Alert.alert('Current password required', 'Enter your current password to continue.');
+      return;
+    }
+    if (newPasswordInput.length < 8) {
+      Alert.alert('Password too short', 'Use at least 8 characters.');
+      return;
+    }
+    if (newPasswordInput !== confirmPasswordInput) {
+      Alert.alert('Passwords do not match', 'Re-enter the new password to confirm.');
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      await changePassword(hasPassword ? currentPasswordInput : null, newPasswordInput);
+      await updateStoredUser({ google_user: false });
+      onUserUpdate?.({ google_user: false });
+      triggerHaptic('success');
+      setCurrentPasswordInput('');
+      setNewPasswordInput('');
+      setConfirmPasswordInput('');
+      setEditing(null);
+      Alert.alert('Password updated', 'Your password has been changed.');
+    } catch (error) {
+      triggerHaptic('error');
+      Alert.alert('Could not update password', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setSavingPassword(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -103,60 +167,153 @@ export default function ProfileScreen({ user, onLogout, onNavigate }: Props) {
             <Text style={styles.avatarInitials}>{initials}</Text>
           </LinearGradient>
           <Text style={styles.userName}>{displayName}</Text>
-          <Text style={styles.userHandle}>@{user.username} · joined {joinYear}</Text>
-        </View>
-
-        <Text style={styles.sectionLabel}>preferences</Text>
-        <View style={styles.card}>
-          <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
-          <NeumorphicTexture grainOpacity={0.20} />
-          {prefs.map((pref, index) => (
-            <View key={pref.label} style={[styles.prefRow, index < prefs.length - 1 && styles.rowDivider]}>
-              <View style={styles.iconWrap}>
-                <Ionicons name={pref.icon as any} size={16} color={selectedTheme.accent} />
-              </View>
-              <Text style={styles.prefLabel}>{pref.label}</Text>
-              <Switch
-                value={pref.value}
-                onValueChange={pref.onChange}
-                trackColor={{ false: switchTrackOff, true: switchTrackOn }}
-                thumbColor={pref.value ? switchThumbOn : switchThumbOff}
-                ios_backgroundColor={switchTrackOff}
-                style={{ transform: [{ scaleX: 0.86 }, { scaleY: 0.86 }] }}
-              />
-            </View>
-          ))}
+          <Text style={styles.userHandle}>@{user.username}{joinYear ? ` · joined ${joinYear}` : ''}</Text>
         </View>
 
         <Text style={styles.sectionLabel}>account</Text>
         <View style={styles.card}>
           <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
           <NeumorphicTexture grainOpacity={0.20} />
-          {[
-            { label: 'My Flashcards', icon: 'layers-outline' },
-            { label: 'My Notes',      icon: 'document-text-outline' },
-            { label: 'Knowledge Hub',  icon: 'file-tray-stacked-outline' },
-            { label: 'Slide Explorer', icon: 'easel-outline' },
-            { label: 'Canvas Hub', icon: 'brush-outline' },
-            { label: 'Question Bank',  icon: 'help-circle-outline' },
-            { label: 'Learning Paths', icon: 'map-outline' },
-            { label: 'Study Analytics',  icon: 'bar-chart-outline' },
-            { label: 'Weakness Practice', icon: 'pulse-outline' },
-          ].map((item, index) => (
-            <HapticTouchable
-              key={item.label}
-              style={[styles.linkRow, index < 8 && styles.rowDivider]}
-              activeOpacity={0.8}
-              haptic="light"
-              onPress={() => handleAccountPress(item.label)}
-            >
-              <View style={styles.iconWrap}>
-                <Ionicons name={item.icon as any} size={16} color={selectedTheme.accent} />
+
+          <View style={[styles.linkRow, styles.rowDivider]}>
+            <View style={styles.iconWrap}>
+              <Ionicons name="mail-outline" size={16} color={selectedTheme.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.linkLabel}>Email</Text>
+              <Text style={styles.linkSubLabel}>{user.email}</Text>
+            </View>
+          </View>
+
+          {editing === 'username' ? (
+            <View style={[styles.editBlock, styles.rowDivider]}>
+              <Text style={styles.editTitle}>Username</Text>
+              <TextInput
+                style={styles.editInput}
+                value={usernameInput}
+                onChangeText={setUsernameInput}
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder="username"
+                placeholderTextColor={selectedTheme.textSecondary}
+              />
+              <View style={styles.editActions}>
+                <HapticTouchable style={styles.editCancelBtn} onPress={cancelEditing} haptic="light" activeOpacity={0.8}>
+                  <Text style={styles.editCancelText}>cancel</Text>
+                </HapticTouchable>
+                <HapticTouchable
+                  style={[styles.editSaveBtn, savingUsername && styles.editSaveBtnDisabled]}
+                  onPress={submitUsernameChange}
+                  haptic="medium"
+                  activeOpacity={0.85}
+                  disabled={savingUsername}
+                >
+                  {savingUsername ? (
+                    <ActivityIndicator size="small" color={selectedTheme.isLight ? darkenColor(selectedTheme.accent, 32) : selectedTheme.bgPrimary} />
+                  ) : (
+                    <Text style={styles.editSaveText}>save</Text>
+                  )}
+                </HapticTouchable>
               </View>
-              <Text style={styles.linkLabel}>{item.label}</Text>
+            </View>
+          ) : (
+            <HapticTouchable style={[styles.linkRow, styles.rowDivider]} activeOpacity={0.8} haptic="light" onPress={openUsernameEditor}>
+              <View style={styles.iconWrap}>
+                <Ionicons name="at-outline" size={16} color={selectedTheme.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.linkLabel}>Username</Text>
+                <Text style={styles.linkSubLabel}>@{user.username}</Text>
+              </View>
               <Ionicons name="chevron-forward" size={14} color={selectedTheme.textSecondary} />
             </HapticTouchable>
-          ))}
+          )}
+
+          {editing === 'password' ? (
+            <View style={styles.editBlock}>
+              <Text style={styles.editTitle}>{hasPassword ? 'Change Password' : 'Set Password'}</Text>
+              {hasPassword ? (
+                <TextInput
+                  style={styles.editInput}
+                  value={currentPasswordInput}
+                  onChangeText={setCurrentPasswordInput}
+                  placeholder="current password"
+                  placeholderTextColor={selectedTheme.textSecondary}
+                  secureTextEntry
+                />
+              ) : null}
+              <TextInput
+                style={styles.editInput}
+                value={newPasswordInput}
+                onChangeText={setNewPasswordInput}
+                placeholder="new password"
+                placeholderTextColor={selectedTheme.textSecondary}
+                secureTextEntry
+              />
+              <TextInput
+                style={styles.editInput}
+                value={confirmPasswordInput}
+                onChangeText={setConfirmPasswordInput}
+                placeholder="confirm new password"
+                placeholderTextColor={selectedTheme.textSecondary}
+                secureTextEntry
+              />
+              <View style={styles.editActions}>
+                <HapticTouchable style={styles.editCancelBtn} onPress={cancelEditing} haptic="light" activeOpacity={0.8}>
+                  <Text style={styles.editCancelText}>cancel</Text>
+                </HapticTouchable>
+                <HapticTouchable
+                  style={[styles.editSaveBtn, savingPassword && styles.editSaveBtnDisabled]}
+                  onPress={submitPasswordChange}
+                  haptic="medium"
+                  activeOpacity={0.85}
+                  disabled={savingPassword}
+                >
+                  {savingPassword ? (
+                    <ActivityIndicator size="small" color={selectedTheme.isLight ? darkenColor(selectedTheme.accent, 32) : selectedTheme.bgPrimary} />
+                  ) : (
+                    <Text style={styles.editSaveText}>save</Text>
+                  )}
+                </HapticTouchable>
+              </View>
+            </View>
+          ) : (
+            <HapticTouchable style={styles.linkRow} activeOpacity={0.8} haptic="light" onPress={openPasswordEditor}>
+              <View style={styles.iconWrap}>
+                <Ionicons name="lock-closed-outline" size={16} color={selectedTheme.accent} />
+              </View>
+              <Text style={styles.linkLabel}>{hasPassword ? 'Change Password' : 'Set Password'}</Text>
+              <Ionicons name="chevron-forward" size={14} color={selectedTheme.textSecondary} />
+            </HapticTouchable>
+          )}
+        </View>
+
+        <Text style={styles.sectionLabel}>preferences</Text>
+        <View style={styles.card}>
+          <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
+          <NeumorphicTexture grainOpacity={0.20} />
+          <View style={styles.prefRow}>
+            <View style={styles.iconWrap}>
+              <Ionicons name="notifications-outline" size={16} color={selectedTheme.accent} />
+            </View>
+            <Text style={styles.prefLabel}>Notifications</Text>
+            <Switch
+              value={notificationsEnabled}
+              onValueChange={(value) => {
+                setNotificationsEnabled(value);
+                triggerHaptic('selection');
+              }}
+              trackColor={{ false: switchTrackOff, true: switchTrackOn }}
+              thumbColor={notificationsEnabled ? switchThumbOn : switchThumbOff}
+              ios_backgroundColor={switchTrackOff}
+              style={{ transform: [{ scaleX: 0.86 }, { scaleY: 0.86 }] }}
+            />
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
+          <NeumorphicTexture grainOpacity={0.20} />
           <HapticTouchable style={styles.linkRow} activeOpacity={0.8} onPress={handleLogout} haptic="warning">
             <View style={styles.iconWrap}>
               <Ionicons name="log-out-outline" size={16} color={selectedTheme.danger} />
@@ -175,7 +332,6 @@ export default function ProfileScreen({ user, onLogout, onNavigate }: Props) {
 function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
   const CARD_ALT = theme.panelAlt;
   const GOLD_LIGHT = theme.accentHover;
-  const GOLD_DARK  = darkenColor(theme.accent, theme.isLight ? 16 : 34);
   const DIM    = theme.textSecondary;
   const BORDER = rgbaFromHex(GOLD_LIGHT, theme.isLight ? 0.16 : 0.18);
 
@@ -191,10 +347,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       paddingHorizontal: PAD,
       paddingTop: 18,
       paddingBottom: 120,
-    },
-    glow: {
-      position: 'absolute', top: -20, right: -20,
-      width: 180, height: 180, borderRadius: 90,
     },
     topBar: {
       flexDirection: 'row',
@@ -265,7 +417,29 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     prefLabel: { fontFamily: 'Inter_400Regular', fontSize: 14, color: GOLD_LIGHT, flex: 1 },
     linkRow:   { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 15, gap: 12 },
     linkLabel: { fontFamily: 'Inter_400Regular', fontSize: 14, color: GOLD_LIGHT, flex: 1 },
+    linkSubLabel: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM, marginTop: 2 },
     linkDanger: { color: theme.danger },
+    editBlock: { paddingHorizontal: 16, paddingVertical: 16, gap: 10 },
+    editTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: GOLD_LIGHT, letterSpacing: 0.4, textTransform: 'uppercase' },
+    editInput: {
+      borderWidth: 1, borderColor: BORDER, borderRadius: 12,
+      backgroundColor: rgbaFromHex(CARD_ALT, theme.isLight ? 0.6 : 0.5),
+      paddingHorizontal: 12, paddingVertical: 10,
+      fontFamily: 'Inter_400Regular', fontSize: 13, color: GOLD_LIGHT,
+    },
+    editActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 2 },
+    editCancelBtn: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12 },
+    editCancelText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: DIM, letterSpacing: 0.4, textTransform: 'uppercase' },
+    editSaveBtn: {
+      minWidth: 72, alignItems: 'center', justifyContent: 'center',
+      paddingHorizontal: 16, paddingVertical: 9, borderRadius: 12,
+      backgroundColor: theme.accent,
+    },
+    editSaveBtnDisabled: { opacity: 0.6 },
+    editSaveText: {
+      fontFamily: 'Inter_700Bold', fontSize: 12, letterSpacing: 0.4, textTransform: 'uppercase',
+      color: theme.isLight ? darkenColor(theme.accent, 32) : theme.bgPrimary,
+    },
     version: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM, letterSpacing: 2, textAlign: 'center', marginTop: 8 },
   });
 }

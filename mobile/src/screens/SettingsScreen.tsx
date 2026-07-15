@@ -39,7 +39,6 @@ export default function SettingsScreen({ user, onBack }: Props) {
   if (!fontsLoaded) return null;
 
   const accountRows = [
-    { label: 'Edit Profile', icon: 'person-circle-outline' },
     { label: 'Privacy & Security', icon: 'shield-checkmark-outline' },
     { label: 'Help Center', icon: 'help-circle-outline' },
   ];
