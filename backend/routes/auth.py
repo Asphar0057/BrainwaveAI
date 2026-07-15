@@ -157,6 +157,13 @@ class RegisterVerifyPayload(BaseModel):
 class RegisterResendPayload(BaseModel):
     email: str
 
+class ChangeUsernamePayload(BaseModel):
+    new_username: str
+
+class ChangePasswordPayload(BaseModel):
+    current_password: Optional[str] = None
+    new_password: str
+
 class UserCreate(BaseModel):
     first_name: str
     last_name: str
@@ -1349,8 +1356,58 @@ async def get_current_user_info(current_user: models.User = Depends(get_current_
         "learning_style": current_user.learning_style,
         "school_university": current_user.school_university,
         "picture_url": current_user.picture_url,
-        "google_user": current_user.google_user
+        "google_user": current_user.google_user,
+        "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
     }
+
+@router.post("/account/change_username")
+async def change_username(
+    payload: ChangeUsernamePayload,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    new_username = _validate_username(payload.new_username)
+
+    if new_username.lower() == (current_user.username or "").lower():
+        raise HTTPException(status_code=400, detail="That's already your username")
+
+    existing = get_user_by_username(db, new_username)
+    if existing and existing.id != current_user.id:
+        raise HTTPException(status_code=400, detail="Username already taken")
+
+    current_user.username = new_username
+    db.commit()
+
+    # The JWT subject is the username, so a stale token would 404 on the next
+    # request — issue a fresh one for the renamed account right away.
+    access_token = create_access_token({"sub": new_username})
+
+    return {
+        "status": "success",
+        "username": new_username,
+        "access_token": access_token,
+        "token_type": "bearer",
+    }
+
+@router.post("/account/change_password")
+async def change_password(
+    payload: ChangePasswordPayload,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    has_existing_password = bool(current_user.hashed_password)
+
+    if has_existing_password:
+        if not payload.current_password or not verify_password(payload.current_password, current_user.hashed_password):
+            raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    _validate_password(payload.new_password)
+
+    current_user.hashed_password = get_password_hash(payload.new_password)
+    current_user.google_user = False
+    db.commit()
+
+    return {"status": "success", "message": "Password updated"}
 
 @router.get("/check_profile_quiz")
 async def check_profile_quiz(user_id: str = Query(...), db: Session = Depends(get_db)):
