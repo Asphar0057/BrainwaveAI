@@ -49,11 +49,36 @@ export async function getMe() {
   return res.json(); // { username, email, first_name, ... }
 }
 
+export async function changeUsername(newUsername: string) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/account/change_username`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ new_username: newUsername }),
+  });
+  if (!res.ok) await readApiError(res, 'Could not update username');
+  return res.json(); // { username, access_token, token_type }
+}
+
+export async function changePassword(currentPassword: string | null, newPassword: string) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/account/change_password`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  });
+  if (!res.ok) await readApiError(res, 'Could not update password');
+  return res.json();
+}
+
 // ── Stats ─────────────────────────────────────────────────────────────
 export async function getEnhancedStats(userId: string) {
   const headers = await authHeaders();
-  const res = await fetch(`${API_URL}/get_enhanced_user_stats?user_id=${encodeURIComponent(userId)}`, { headers });
-  return res.json(); // { streak, hours, totalChatSessions, totalFlashcards, totalNotes, ... }
+  const res = await fetch(
+    `${API_URL}/get_enhanced_user_stats?user_id=${encodeURIComponent(userId)}&tz=${encodeURIComponent(deviceTimeZone())}`,
+    { headers }
+  );
+  return res.json(); // { streak, hours, totalChatSessions, totalFlashcards, totalNotes, todayMinutes, ... }
 }
 
 export async function getWeeklyBingo(userId: string) {
@@ -62,11 +87,38 @@ export async function getWeeklyBingo(userId: string) {
   return res.json();
 }
 
+export type XpPoint = { date: string; label: string; xp: number };
+export type XpSource = { label: string; xp: number; count: number; percent: number };
+export type XpHistory = {
+  period: 'week' | 'month' | 'year';
+  total_xp: number;
+  delta_percent: number;
+  points: XpPoint[];
+  by_source: XpSource[];
+};
+
+export async function getXpHistory(userId: string, period: 'week' | 'month' | 'year' = 'week'): Promise<XpHistory> {
+  const headers = await authHeaders();
+  const res = await fetch(
+    `${API_URL}/analytics/xp_history?user_id=${encodeURIComponent(userId)}&period=${period}`,
+    { headers }
+  );
+  return res.json();
+}
+
 // ── Session time tracking ─────────────────────────────────────────────
+function deviceTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}
+
 export async function startSession(userId: string, sessionType = 'mobile_app') {
   const headers = await authHeaders();
-  const body = new URLSearchParams({ user_id: userId, session_type: sessionType });
-  const res = await fetch(`${API_URL}/start_session`, {
+  const body = new URLSearchParams({ user_id: userId, session_type: sessionType, tz: deviceTimeZone() });
+  const res = await fetch(`${API_URL}/analytics/start_session`, {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString(),
@@ -81,8 +133,9 @@ export async function endSession(userId: string, sessionId: string, timeSpentMin
     session_id: sessionId,
     time_spent_minutes: String(timeSpentMinutes),
     session_type: sessionType,
+    tz: deviceTimeZone(),
   });
-  const res = await fetch(`${API_URL}/end_session`, {
+  const res = await fetch(`${API_URL}/analytics/end_session`, {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString(),

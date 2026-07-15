@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -7,14 +7,12 @@ import SplashScreen from './src/screens/SplashScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import TabNavigator from './src/navigation/TabNavigator';
 import { getStoredUser, AuthUser } from './src/services/auth';
-import { startSession, endSession } from './src/services/api';
+import { useSessionTracking } from './src/hooks/useSessionTracking';
 import { ThemeProvider, useAppTheme } from './src/contexts/ThemeContext';
 
 function AppContent() {
   const [splash, setSplash]   = useState(true);
   const [user, setUser]       = useState<AuthUser | null>(null);
-  const sessionId             = useRef<string | null>(null);
-  const sessionStart          = useRef<number>(0);
   const { selectedTheme } = useAppTheme();
 
   useEffect(() => {
@@ -25,21 +23,7 @@ function AppContent() {
     ScreenOrientation.unlockAsync().catch(() => {});
   }, []);
 
-  useEffect(() => {
-    if (!user) return;
-    // Start session timer
-    sessionStart.current = Date.now();
-    startSession(user.username, 'mobile_app').then(data => {
-      sessionId.current = data.session_id;
-    }).catch(() => {});
-
-    return () => {
-      // End session when user navigates away / app closes
-      if (!sessionId.current) return;
-      const mins = (Date.now() - sessionStart.current) / 60000;
-      endSession(user.username, sessionId.current, parseFloat(mins.toFixed(2)), 'mobile_app').catch(() => {});
-    };
-  }, [user]);
+  useSessionTracking(user);
 
   if (splash) {
     return (
@@ -54,7 +38,13 @@ function AppContent() {
     <>
       <StatusBar style={selectedTheme.isLight ? 'dark' : 'light'} />
       {user
-        ? <TabNavigator user={user} onLogout={() => setUser(null)} />
+        ? (
+          <TabNavigator
+            user={user}
+            onLogout={() => setUser(null)}
+            onUserUpdate={(patch) => setUser((current) => (current ? { ...current, ...patch } : current))}
+          />
+        )
         : <LoginScreen onLogin={u => setUser(u)} />
       }
     </>
