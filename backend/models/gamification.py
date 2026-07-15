@@ -77,6 +77,7 @@ class UserGamificationStats(Base):
     current_streak = Column(Integer, default=0)
     longest_streak = Column(Integer, default=0)
     last_activity_date = Column(DateTime, nullable=True)
+    timezone_name = Column(String(64), default="UTC")
     freeze_charges = Column(Integer, default=0)
     revive_charges = Column(Integer, default=0)
     xp_boost_until = Column(DateTime, nullable=True)

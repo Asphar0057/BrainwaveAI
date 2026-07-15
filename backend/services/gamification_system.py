@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import and_, func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -192,16 +193,113 @@ def _active_boost_payload(stats):
         "multiplier": 1.0,
     }
 
+DEFAULT_STREAK_TZ = "UTC"
+
+
+def _resolve_timezone(tz_name):
+    try:
+        return ZoneInfo(tz_name) if tz_name else ZoneInfo(DEFAULT_STREAK_TZ)
+    except (ZoneInfoNotFoundError, ValueError, TypeError):
+        return ZoneInfo(DEFAULT_STREAK_TZ)
+
+
+def _today_local(tz_name):
+    return datetime.now(_resolve_timezone(tz_name)).date()
+
+
+def _local_date(value, tz_name):
+    """Convert a stored (assumed-UTC) datetime to a date in the user's own
+    timezone. Streaks are a "did you show up today" concept in the user's
+    local day, not the server's UTC day — comparing raw UTC dates meant
+    activity anywhere but near UTC midnight could land on the wrong day and
+    silently break a real daily streak."""
+    if value is None:
+        return None
+    aware = value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+    return aware.astimezone(_resolve_timezone(tz_name)).date()
+
+
 def _expire_stale_streak(stats):
-    today = datetime.now(timezone.utc).date()
     if not stats.last_activity_date:
         return
-    if hasattr(stats.last_activity_date, 'date'):
-        last_date = stats.last_activity_date.date()
-    else:
-        last_date = stats.last_activity_date
-    if last_date < today - timedelta(days=1):
+    tz_name = getattr(stats, 'timezone_name', None) or DEFAULT_STREAK_TZ
+    today = _today_local(tz_name)
+    last_date = _local_date(stats.last_activity_date, tz_name)
+    if last_date and last_date < today - timedelta(days=1):
         stats.current_streak = 0
+
+
+def _apply_daily_streak(db: Session, stats, user_id: int, tz_name: str = None):
+    """Update current/longest streak for "activity happened today" in the
+    user's local timezone. Shared by award_points (any XP-earning action)
+    and record_daily_check_in (just opening the app), so simply logging in
+    counts toward the streak instead of requiring a specific graded action.
+    """
+    if tz_name:
+        stats.timezone_name = tz_name
+    active_tz = getattr(stats, 'timezone_name', None) or DEFAULT_STREAK_TZ
+
+    today = _today_local(active_tz)
+    old_streak = stats.current_streak
+    last_date = _local_date(stats.last_activity_date, active_tz)
+    streak_milestone_reached = False
+
+    if last_date == today:
+        # Already checked in today. Self-heal a bad prior state (e.g. a stale
+        # last_activity_date left at "today" by _expire_stale_streak zeroing
+        # current_streak without clearing the date) instead of leaving the
+        # streak stuck at 0 for the rest of the day.
+        if (stats.current_streak or 0) < 1:
+            stats.current_streak = 1
+            if stats.current_streak > stats.longest_streak:
+                stats.longest_streak = stats.current_streak
+    elif last_date == today - timedelta(days=1):
+        stats.current_streak += 1
+        if stats.current_streak > stats.longest_streak:
+            stats.longest_streak = stats.current_streak
+        if stats.current_streak in [7, 14, 30, 60, 100]:
+            streak_milestone_reached = True
+        if stats.current_streak % 7 == 0 and hasattr(stats, 'freeze_charges'):
+            stats.freeze_charges = min(3, (stats.freeze_charges or 0) + 1)
+    else:
+        if last_date is not None and old_streak >= 7:
+            _add_notification(
+                db,
+                user_id,
+                "Streak Broken",
+                f"Your {old_streak}-day streak has ended. Start a new one today!",
+                "streak_broken"
+            )
+        stats.current_streak = 1
+
+    stats.last_activity_date = datetime.now(timezone.utc)
+
+    if streak_milestone_reached:
+        _add_notification(
+            db,
+            user_id,
+            f"{stats.current_streak}-Day Streak!",
+            f"Incredible! You've maintained a {stats.current_streak}-day learning streak. Keep it going!",
+            "streak_milestone"
+        )
+
+    return stats.current_streak
+
+
+def record_daily_check_in(db: Session, user_id: int, tz_name: str = None):
+    """Count today's visit toward the streak even when the user doesn't do
+    anything that earns XP — just opening the app should keep a streak alive."""
+    user_exists = db.query(models.User.id).filter(models.User.id == user_id).first()
+    if not user_exists:
+        return None
+
+    stats = get_or_create_stats(db, user_id)
+    _ensure_powerup_baseline(stats)
+    check_and_reset_weekly_stats(stats)
+
+    streak = _apply_daily_streak(db, stats, user_id, tz_name=tz_name)
+    db.commit()
+    return streak
 
 def check_and_reset_weekly_stats(stats):
     week_start = get_week_start()
@@ -539,49 +637,8 @@ def award_points(db: Session, user_id: int, activity_type: str, metadata: dict =
         )
         db.add(notification)
     
-    today = datetime.now(timezone.utc).date()
-    streak_milestone_reached = False
-    old_streak = stats.current_streak
-    
-    if stats.last_activity_date:
-        if hasattr(stats.last_activity_date, 'date'):
-            last_date = stats.last_activity_date.date()
-        else:
-            last_date = stats.last_activity_date
-        if last_date == today:
-            pass
-        elif last_date == today - timedelta(days=1):
-            stats.current_streak += 1
-            if stats.current_streak > stats.longest_streak:
-                stats.longest_streak = stats.current_streak
-            if stats.current_streak in [7, 14, 30, 60, 100]:
-                streak_milestone_reached = True
-            if stats.current_streak % 7 == 0 and hasattr(stats, 'freeze_charges'):
-                stats.freeze_charges = min(3, (stats.freeze_charges or 0) + 1)
-        else:
-            if old_streak >= 7:
-                notification = models.Notification(
-                    user_id=user_id,
-                    title="Streak Broken",
-                    message=f"Your {old_streak}-day streak has ended. Start a new one today!",
-                    notification_type="streak_broken"
-                )
-                db.add(notification)
-            stats.current_streak = 1
-    else:
-        stats.current_streak = 1
-    
-    stats.last_activity_date = datetime.now(timezone.utc)
-    
-    if streak_milestone_reached:
-        notification = models.Notification(
-            user_id=user_id,
-            title=f"{stats.current_streak}-Day Streak!",
-            message=f"Incredible! You've maintained a {stats.current_streak}-day learning streak. Keep it going!",
-            notification_type="streak_milestone"
-        )
-        db.add(notification)
-    
+    _apply_daily_streak(db, stats, user_id)
+
     transaction = models.PointTransaction(
         user_id=user_id,
         activity_type=activity_type,
