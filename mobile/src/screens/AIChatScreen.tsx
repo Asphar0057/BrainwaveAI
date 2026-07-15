@@ -12,7 +12,7 @@ import * as ImagePicker from 'expo-image-picker';
 import MarkdownText from '../components/MarkdownText';
 import HapticTouchable from '../components/HapticTouchable';
 import TileGleam from '../components/TileGleam';
-import NeumorphicTexture, { cbTileCardGradient } from '../components/NeumorphicTexture';
+import NeumorphicTexture, { cbTileCardGradient, NeumorphicLayer, cbModalShadow } from '../components/NeumorphicTexture';
 import GeoBackground from '../components/GeoBackground';
 import ContextSelector from '../components/ContextSelector';
 import ContextPanel from '../components/ContextPanel';
@@ -379,7 +379,7 @@ export default function AIChatScreen({ user }: Props) {
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFill} />
       <GeoBackground />
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={insets.top}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={s.header}>
           <HapticTouchable onPress={openSidebar} activeOpacity={0.8} style={s.headerBtn} haptic="selection">
             <Ionicons name="menu-outline" size={20} color={selectedTheme.textPrimary} />
@@ -526,20 +526,28 @@ export default function AIChatScreen({ user }: Props) {
               <Animated.View style={[s.sidebar, { transform: [{ translateX: slideAnim }] }]} {...closePanResponder.panHandlers}>
                 <LinearGradient colors={[darkenColor(selectedTheme.bgTop, selectedTheme.isLight ? 4 : 0), selectedTheme.panelAlt, selectedTheme.bgPrimary]} style={StyleSheet.absoluteFill} />
                 <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-                  <View style={s.sidebarHeader}>
-                    <Text style={s.sidebarTitle}>chats</Text>
-                    <HapticTouchable
-                      onPress={() => setSidebarSearchOpen((open) => !open)}
-                      style={[s.sidebarSearchBtn, sidebarSearchOpen && s.sidebarSearchBtnActive]}
-                      activeOpacity={0.8}
-                      haptic="selection"
-                    >
-                      <Ionicons name="search" size={16} color={sidebarSearchOpen ? selectedTheme.bgPrimary : selectedTheme.textPrimary} />
-                    </HapticTouchable>
+                  <View style={s.sidebarHero}>
+                    <NeumorphicLayer grainOpacity={0.22} />
+                    <Text style={s.sidebarGhost}>01</Text>
+                    <View style={s.sidebarHeroRow}>
+                      <View>
+                        <Text style={s.sidebarTitle}>chats</Text>
+                        <Text style={s.sidebarSub}>{sessions.length} conversation{sessions.length === 1 ? '' : 's'}</Text>
+                      </View>
+                      <HapticTouchable
+                        onPress={() => setSidebarSearchOpen((open) => !open)}
+                        style={[s.sidebarSearchBtn, sidebarSearchOpen && s.sidebarSearchBtnActive]}
+                        activeOpacity={0.8}
+                        haptic="selection"
+                      >
+                        <Ionicons name="search" size={16} color={sidebarSearchOpen ? selectedTheme.bgPrimary : selectedTheme.textPrimary} />
+                      </HapticTouchable>
+                    </View>
                   </View>
 
                   {sidebarSearchOpen ? (
                     <View style={s.sidebarSearchWrap}>
+                      <Ionicons name="search" size={14} color={selectedTheme.textSecondary} style={s.sidebarSearchIcon} />
                       <TextInput
                         value={sidebarSearch}
                         onChangeText={setSidebarSearch}
@@ -551,8 +559,6 @@ export default function AIChatScreen({ user }: Props) {
                     </View>
                   ) : null}
 
-                  <View style={s.sidebarDivider} />
-
                   {sessionsLoading ? (
                     <ActivityIndicator color={selectedTheme.accent} style={{ marginTop: 32 }} />
                   ) : filteredSessions.length === 0 ? (
@@ -561,28 +567,37 @@ export default function AIChatScreen({ user }: Props) {
                       <Text style={s.sidebarEmpty}>{sidebarSearch ? 'No matches' : 'No chats yet'}</Text>
                     </View>
                   ) : (
-                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 6 }}>
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 6, paddingBottom: 20 }}>
                       {filteredSessions.map((session) => {
                         const active = chatId === session.id;
                         return (
-                          <HapticTouchable
+                          <TileGleam
                             key={session.id}
-                            style={[s.sessionItem, active && s.sessionItemActive]}
+                            borderRadius={18}
+                            style={[s.sessionCard, active && s.sessionCardActive]}
                             onPress={() => loadSession(session)}
-                            activeOpacity={0.78}
                             haptic="selection"
                           >
-                            <View style={[s.sessionDot, active && { backgroundColor: selectedTheme.accentHover }]} />
-                            <View style={{ flex: 1 }}>
-                              <Text style={[s.sessionTitle, active && { color: selectedTheme.accentHover }]} numberOfLines={2}>
-                                {session.title || 'untitled chat'}
-                              </Text>
-                              {session.updated_at ? (
-                                <Text style={s.sessionDate}>{new Date(session.updated_at).toLocaleDateString()}</Text>
-                              ) : null}
+                            <NeumorphicTexture grainVariant="dots" grainOpacity={0.14} />
+                            <View style={s.sessionRow}>
+                              <View style={[s.sessionAvatar, active && s.sessionAvatarActive]}>
+                                <Ionicons
+                                  name="chatbubble-ellipses"
+                                  size={14}
+                                  color={active ? selectedTheme.bgPrimary : selectedTheme.accentHover}
+                                />
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <Text style={[s.sessionTitle, active && s.sessionTitleActive]} numberOfLines={2}>
+                                  {session.title || 'untitled chat'}
+                                </Text>
+                                {session.updated_at ? (
+                                  <Text style={s.sessionDate}>{new Date(session.updated_at).toLocaleDateString()}</Text>
+                                ) : null}
+                              </View>
+                              {active ? <Ionicons name="chevron-forward" size={14} color={selectedTheme.accentHover} /> : null}
                             </View>
-                            {active ? <Ionicons name="chevron-forward" size={14} color={selectedTheme.accentHover} /> : null}
-                          </HapticTouchable>
+                          </TileGleam>
                         );
                       })}
                     </ScrollView>
@@ -791,13 +806,13 @@ function createStyles(
   composerCard: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 4,
-    borderRadius: 24,
+    gap: 6,
+    borderRadius: 28,
     borderWidth: 1,
     borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.18 : 0.24),
     backgroundColor: rgbaFromHex(CARD_ALT, 0.96),
-    paddingHorizontal: 6,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
     shadowColor: SHADOW,
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: theme.isLight ? 0.07 : 0.25,
@@ -805,7 +820,7 @@ function createStyles(
     elevation: 14,
   },
   composerIconBtn: {
-    width: 34, height: 34, borderRadius: 14,
+    width: 34, height: 34, borderRadius: 17,
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1,
     borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.10 : 0.14),
@@ -814,10 +829,12 @@ function createStyles(
   input: {
     flex: 1,
     backgroundColor: 'transparent',
-    paddingHorizontal: 4,
-    paddingVertical: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 9,
+    minHeight: 34,
     fontFamily: 'Inter_400Regular',
     fontSize: 14,
+    lineHeight: 19,
     color: GOLD_L,
     maxHeight: 120,
   },
@@ -848,50 +865,87 @@ function createStyles(
     elevation: 16,
     overflow: 'hidden',
   },
-  sidebarHeader: {
-    paddingHorizontal: 18,
-    paddingTop: 14,
-    paddingBottom: 10,
+  sidebarHero: {
+    marginHorizontal: 14,
+    marginTop: 12,
+    marginBottom: 10,
+    borderRadius: 22,
+    padding: 16,
+    overflow: 'hidden',
+    boxShadow: cbModalShadow(0.14),
+  } as ViewStyle,
+  sidebarGhost: {
+    position: 'absolute',
+    right: 10,
+    top: -8,
+    fontFamily: 'Inter_900Black',
+    fontSize: 68,
+    lineHeight: 72,
+    color: rgbaFromHex(theme.textPrimary, theme.isLight ? 0.05 : 0.07),
+    letterSpacing: -3,
+  },
+  sidebarHeroRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  sidebarTitle: { fontFamily: 'Inter_900Black', fontSize: 22, color: GOLD_L },
+  sidebarTitle: { fontFamily: 'Inter_900Black', fontSize: 24, color: GOLD_L },
+  sidebarSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM, marginTop: 3 },
   sidebarSearchBtn: {
-    width: 32, height: 32, borderRadius: 10,
+    width: 34, height: 34, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: BORDER,
-    backgroundColor: rgbaFromHex(CARD_ALT, 0.7),
+    borderWidth: 1, borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.14 : 0.18),
+    backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.32 : 0.42),
   },
   sidebarSearchBtnActive: { backgroundColor: theme.accent, borderColor: theme.accent },
-  sidebarSearchWrap: { paddingHorizontal: 18, paddingBottom: 8 },
+  sidebarSearchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.16 : 0.2),
+    borderRadius: 14,
+    backgroundColor: rgbaFromHex(CARD_ALT, 0.85),
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  sidebarSearchIcon: { flexShrink: 0 },
   sidebarSearchInput: {
-    borderWidth: 1, borderColor: BORDER, borderRadius: 12,
-    backgroundColor: rgbaFromHex(CARD_ALT, 0.7),
-    paddingHorizontal: 12, paddingVertical: 9,
+    flex: 1,
+    paddingVertical: 10,
     fontFamily: 'Inter_400Regular', fontSize: 13, color: GOLD_L,
   },
-  sidebarDivider: { height: 1, backgroundColor: BORDER, marginHorizontal: 18, marginBottom: 2 },
   sidebarEmptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   sidebarEmpty: { fontFamily: 'Inter_400Regular', fontSize: 13, color: DIM },
-  sessionItem: {
+  sessionCard: {
+    marginHorizontal: 10,
+    marginVertical: 4,
+    backgroundColor: rgbaFromHex(CARD, theme.isLight ? 0.85 : 0.92),
+  } as ViewStyle,
+  sessionCardActive: {
+    backgroundColor: rgbaFromHex(theme.accent, theme.isLight ? 0.12 : 0.16),
+  },
+  sessionRow: {
     flexDirection: 'row',
     gap: 10,
     alignItems: 'center',
-    marginHorizontal: 8,
-    marginVertical: 2,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 14,
-    overflow: 'hidden',
+    paddingVertical: 11,
   },
-  sessionItemActive: {
-    backgroundColor: rgbaFromHex(theme.textPrimary, 0.03),
-    borderWidth: 1,
-    borderColor: BORDER,
+  sessionAvatar: {
+    width: 30, height: 30, borderRadius: 15,
+    alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
+    backgroundColor: rgbaFromHex(GOLD_D, 0.18),
+    borderWidth: 1, borderColor: rgbaFromHex(GOLD_L, 0.2),
   },
-  sessionDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: GOLD_D, flexShrink: 0 },
+  sessionAvatarActive: {
+    backgroundColor: theme.accentHover,
+    borderColor: theme.accentHover,
+  },
   sessionTitle: { fontFamily: 'Inter_400Regular', fontSize: 13, color: GOLD_L, lineHeight: 18 },
+  sessionTitleActive: { color: theme.accentHover, fontFamily: 'Inter_600SemiBold' },
   sessionDate: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM, marginTop: 3, letterSpacing: 0.4 },
 });
 }
