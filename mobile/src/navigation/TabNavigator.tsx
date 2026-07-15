@@ -7,6 +7,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { NavigationIndependentTree } from '@react-navigation/core';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useFonts, Inter_700Bold } from '@expo-google-fonts/inter';
 import { AuthUser } from '../services/auth';
 import HomeScreen from '../screens/HomeScreen';
 import AIChatScreen from '../screens/AIChatScreen';
@@ -20,6 +21,7 @@ import SettingsScreen from '../screens/SettingsScreen';
 import QuestionBankScreen from '../screens/QuestionBankScreen';
 import KnowledgeMapsScreen from '../screens/KnowledgeMapsScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
+import XpAnalyticsScreen from '../screens/XpAnalyticsScreen';
 import WeaknessPracticeScreen from '../screens/WeaknessPracticeScreen';
 import KnowledgeHubScreen from '../screens/KnowledgeHubScreen';
 import SlideExplorerScreen from '../screens/SlideExplorerScreen';
@@ -28,7 +30,6 @@ import LearningPathsScreen from '../screens/social/LearningPathsScreen';
 import HapticTouchable from '../components/HapticTouchable';
 import ScreenErrorBoundary from '../components/ScreenErrorBoundary';
 import { useAppTheme } from '../contexts/ThemeContext';
-import { rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -44,6 +45,7 @@ type RootStackParamList = {
   SlideExplorer: undefined;
   CanvasHub: undefined;
   Analytics: undefined;
+  XpAnalytics: undefined;
   WeaknessPractice: undefined;
   LearningPaths: undefined;
 };
@@ -56,17 +58,18 @@ const TABS: { label: string; icon: IoniconsName; activeIcon: IoniconsName }[] = 
   { label: 'profile', icon: 'person-outline',    activeIcon: 'person'  },
 ];
 
-type Props = { user: AuthUser; onLogout: () => void };
+type Props = { user: AuthUser; onLogout: () => void; onUserUpdate?: (patch: Partial<AuthUser>) => void };
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-type AppTarget = 'flashcards' | 'notes' | 'aimedia' | 'settings' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'weaknessPractice' | 'learningPaths';
+type AppTarget = 'flashcards' | 'notes' | 'aimedia' | 'settings' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'xpAnalytics' | 'weaknessPractice' | 'learningPaths';
 
-function MainTabs({ user, onLogout, onNavigate }: Props & { onNavigate: (screen: AppTarget) => void }) {
+function MainTabs({ user, onLogout, onUserUpdate, onNavigate }: Props & { onNavigate: (screen: AppTarget) => void }) {
   const insets = useSafeAreaInsets();
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
   const useSideRail = layout.sideRailTabs;
   const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
+  useFonts({ Inter_700Bold });
   const [index, setIndex] = useState(2);
   const pager = useRef<PagerView>(null);
 
@@ -91,7 +94,7 @@ function MainTabs({ user, onLogout, onNavigate }: Props & { onNavigate: (screen:
                 return (
                   <HapticTouchable
                     key={t.label}
-                    style={[s.tab, s.tabRail, active && s.tabActive]}
+                    style={[s.tab, s.tabRail]}
                     onPress={() => goTo(i)}
                     activeOpacity={0.78}
                     haptic="selection"
@@ -122,7 +125,7 @@ function MainTabs({ user, onLogout, onNavigate }: Props & { onNavigate: (screen:
             <View key="1" collapsable={false} style={s.page}><MoreScreen user={user} onNavigate={onNavigate} onNavigateToAI={() => goTo(0)} /></View>
             <View key="2" collapsable={false} style={s.page}><HomeScreen user={user} onNavigate={onNavigate} onNavigateToAI={() => goTo(0)} onSwipeLeftPage={() => goTo(3)} onSwipeRightPage={() => goTo(1)} /></View>
             <View key="3" collapsable={false} style={s.page}><SocialScreen user={user} /></View>
-            <View key="4" collapsable={false} style={s.page}><ProfileScreen user={user} onLogout={onLogout} onNavigate={onNavigate} /></View>
+            <View key="4" collapsable={false} style={s.page}><ProfileScreen user={user} onLogout={onLogout} onUserUpdate={onUserUpdate} onNavigate={onNavigate} /></View>
           </PagerView>
 
           {!useSideRail ? (
@@ -133,7 +136,7 @@ function MainTabs({ user, onLogout, onNavigate }: Props & { onNavigate: (screen:
                   return (
                     <HapticTouchable
                       key={t.label}
-                      style={[s.tab, active && s.tabActive]}
+                      style={s.tab}
                       onPress={() => goTo(i)}
                       activeOpacity={0.78}
                       haptic="selection"
@@ -156,7 +159,7 @@ function MainTabs({ user, onLogout, onNavigate }: Props & { onNavigate: (screen:
   );
 }
 
-export default function TabNavigator({ user, onLogout }: Props) {
+export default function TabNavigator({ user, onLogout, onUserUpdate }: Props) {
   const { selectedTheme } = useAppTheme();
   return (
     <NavigationIndependentTree>
@@ -176,6 +179,7 @@ export default function TabNavigator({ user, onLogout }: Props) {
               <MainTabs
                 user={user}
                 onLogout={onLogout}
+                onUserUpdate={onUserUpdate}
                 onNavigate={(screen) => {
                   if (screen === 'flashcards') navigation.navigate('Flashcards');
                   if (screen === 'notes') navigation.navigate('Notes');
@@ -187,6 +191,7 @@ export default function TabNavigator({ user, onLogout }: Props) {
                   if (screen === 'slideExplorer') navigation.navigate('SlideExplorer');
                   if (screen === 'canvasHub') navigation.navigate('CanvasHub');
                   if (screen === 'analytics') navigation.navigate('Analytics');
+                  if (screen === 'xpAnalytics') navigation.navigate('XpAnalytics');
                   if (screen === 'weaknessPractice') navigation.navigate('WeaknessPractice');
                   if (screen === 'learningPaths') navigation.navigate('LearningPaths');
                 }}
@@ -273,6 +278,11 @@ export default function TabNavigator({ user, onLogout }: Props) {
               <ScreenErrorBoundary label="Analytics"><AnalyticsScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
             )}
           </Stack.Screen>
+          <Stack.Screen name="XpAnalytics">
+            {({ navigation }) => (
+              <ScreenErrorBoundary label="XP Analytics"><XpAnalyticsScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
+            )}
+          </Stack.Screen>
           <Stack.Screen name="WeaknessPractice">
             {({ navigation }) => (
               <ScreenErrorBoundary label="Weakness Practice"><WeaknessPracticeScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
@@ -342,9 +352,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       minHeight: 74,
       gap: 8,
     },
-    tabActive: {
-      backgroundColor: rgbaFromHex(theme.accent, theme.isLight ? 0.11 : 0.15),
-    },
     iconWrap: {
       width: 34,
       height: 34,
@@ -357,13 +364,14 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       backgroundColor: theme.accent,
     },
     tabLabel: {
-      fontSize: 10,
-      fontWeight: '800',
-      letterSpacing: 0.8,
+      fontFamily: 'Inter_700Bold',
+      fontSize: 8,
+      letterSpacing: 1.5,
       textTransform: 'uppercase',
     },
     tabLabelRail: {
-      fontSize: 11,
+      fontSize: 9,
+      letterSpacing: 1.75,
     },
   });
 }
