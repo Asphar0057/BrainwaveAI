@@ -53,6 +53,21 @@ def _analytics_timezone(tz_name=None):
             return DEFAULT_ANALYTICS_OFFSET
 
 
+def _safe_zone(tz_name=None):
+    """Like _analytics_timezone but defaults to UTC, not the app's original
+    dev-timezone default — for "what date is it for this user right now"
+    checks (today's study minutes, daily session bucketing) where UTC is the
+    more neutral fallback when the client hasn't reported its real zone."""
+    try:
+        return ZoneInfo(tz_name) if tz_name else ZoneInfo("UTC")
+    except (ZoneInfoNotFoundError, ValueError):
+        return ZoneInfo("UTC")
+
+
+def _local_today(tz_name=None):
+    return datetime.now(_safe_zone(tz_name)).date()
+
+
 def _as_utc_datetime(value):
     if value is None:
         return None
@@ -122,7 +137,7 @@ def check_api_usage_admin(current_user: models.User = Depends(get_current_user))
     return user_email
 
 @router.get("/get_enhanced_user_stats")
-def get_enhanced_user_stats(user_id: str = Query(...), db: Session = Depends(get_db)):
+def get_enhanced_user_stats(user_id: str = Query(...), tz: str = Query(None), db: Session = Depends(get_db)):
     try:
         user = get_user_by_username(db, user_id) or get_user_by_email(db, user_id)
         if not user:
@@ -136,6 +151,14 @@ def get_enhanced_user_stats(user_id: str = Query(...), db: Session = Depends(get
         total_flashcards = gamification_stats.get("total_flashcards_created", 0)
         total_quizzes = gamification_stats.get("total_quizzes_completed", 0)
         total_study_minutes = gamification_stats.get("total_study_minutes", 0)
+        weekly_study_minutes = gamification_stats.get("weekly_study_minutes", 0)
+
+        today_local = _local_today(tz)
+        today_metric = db.query(models.DailyLearningMetrics).filter(
+            models.DailyLearningMetrics.user_id == user.id,
+            models.DailyLearningMetrics.date == today_local,
+        ).first()
+        today_minutes = today_metric.time_spent_minutes if today_metric else 0
 
         total_chat_sessions = db.query(func.count(func.distinct(models.ChatSession.id))).join(
             models.ChatMessage, models.ChatMessage.chat_session_id == models.ChatSession.id
@@ -159,20 +182,152 @@ def get_enhanced_user_stats(user_id: str = Query(...), db: Session = Depends(get
             "lessons": total_quizzes,
             "hours": round(total_study_minutes / 60, 1),
             "minutes": total_study_minutes,
+            "weeklyHours": round(weekly_study_minutes / 60, 1),
+            "weeklyMinutes": weekly_study_minutes,
+            "todayMinutes": today_minutes,
             "accuracy": user_stats.accuracy_percentage if user_stats else 0,
             "totalQuestions": total_questions,
             "totalFlashcards": total_flashcards,
             "totalNotes": total_notes,
             "totalChatSessions": total_chat_sessions,
-            "total_time_today": 0
+            "total_time_today": today_minutes
         }
 
     except Exception as e:
         logger.error(f"Error getting stats: {str(e)}")
         return {
-            "streak": 0, "lessons": 0, "hours": 0, "minutes": 0, "accuracy": 0,
+            "streak": 0, "lessons": 0, "hours": 0, "minutes": 0,
+            "weeklyHours": 0, "weeklyMinutes": 0, "todayMinutes": 0, "accuracy": 0,
             "totalQuestions": 0, "totalFlashcards": 0, "totalNotes": 0, "totalChatSessions": 0
         }
+
+XP_SOURCE_LABELS = {
+    "ai_chat": "AI Chat",
+    "note_created": "Notes",
+    "flashcard_set": "Flashcards Created",
+    "flashcard_created": "Flashcards Created",
+    "flashcard_reviewed": "Flashcard Review",
+    "flashcard_mastered": "Flashcard Mastery",
+    "quiz_completed": "Quizzes",
+    "quiz_high_score": "Quizzes",
+    "question_answered": "Practice Questions",
+    "study_time": "Study Time",
+    "battle_win": "Battles",
+    "battle_draw": "Battles",
+    "battle_loss": "Battles",
+    "solo_quiz": "Solo Quizzes",
+    "learning_path_node": "Learning Paths",
+}
+
+
+def _xp_source_label(activity_type: str) -> str:
+    return XP_SOURCE_LABELS.get(activity_type, (activity_type or "other").replace("_", " ").title())
+
+
+def _tz_aware(dt):
+    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
+
+
+@router.get("/analytics/xp_history")
+def get_xp_history(
+    user_id: str = Query(...),
+    period: str = Query("week"),
+    db: Session = Depends(get_db),
+):
+    """
+    XP gained over time, bucketed for the given period, plus a breakdown of which
+    activity types earned it. Backs both the home screen's mini XP graph (period=week)
+    and the full XP analytics screen (week/month/year, switchable).
+    """
+    if period not in ("week", "month", "year"):
+        period = "week"
+
+    empty = {"period": period, "total_xp": 0, "delta_percent": 0.0, "points": [], "by_source": []}
+
+    try:
+        user = get_user_by_username(db, user_id) or get_user_by_email(db, user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        now = datetime.now(timezone.utc)
+        days = {"week": 7, "month": 30, "year": 365}[period]
+        start = now - timedelta(days=days)
+        prev_start = start - timedelta(days=days)
+
+        rows = db.query(models.PointTransaction).filter(
+            models.PointTransaction.user_id == user.id,
+            models.PointTransaction.created_at >= prev_start,
+        ).order_by(models.PointTransaction.created_at.asc()).all()
+
+        current_rows = [t for t in rows if _tz_aware(t.created_at) >= start]
+        previous_rows = [t for t in rows if start > _tz_aware(t.created_at) >= prev_start]
+
+        buckets: dict = {}
+        if period == "year":
+            cursor = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+            months = []
+            for _ in range(12):
+                months.append(cursor)
+                cursor = (
+                    cursor.replace(year=cursor.year - 1, month=12)
+                    if cursor.month == 1
+                    else cursor.replace(month=cursor.month - 1)
+                )
+            months.reverse()
+            for m in months:
+                buckets[m.strftime("%Y-%m")] = 0
+            for t in current_rows:
+                key = _tz_aware(t.created_at).strftime("%Y-%m")
+                if key in buckets:
+                    buckets[key] += t.points_earned
+            points = [
+                {"date": k, "label": datetime.strptime(k, "%Y-%m").strftime("%b"), "xp": v}
+                for k, v in buckets.items()
+            ]
+        else:
+            for i in range(days):
+                d = (start + timedelta(days=i)).date()
+                buckets[d.isoformat()] = 0
+            for t in current_rows:
+                key = _tz_aware(t.created_at).date().isoformat()
+                if key in buckets:
+                    buckets[key] += t.points_earned
+            points = [
+                {"date": k, "label": datetime.fromisoformat(k).strftime("%a")[0], "xp": v}
+                for k, v in buckets.items()
+            ]
+
+        total_xp = sum(t.points_earned for t in current_rows)
+        previous_xp = sum(t.points_earned for t in previous_rows)
+        if previous_xp > 0:
+            delta_percent = round(((total_xp - previous_xp) / previous_xp) * 100, 1)
+        else:
+            delta_percent = 100.0 if total_xp > 0 else 0.0
+
+        by_source_map: dict = {}
+        for t in current_rows:
+            label = _xp_source_label(t.activity_type)
+            entry = by_source_map.setdefault(label, {"label": label, "xp": 0, "count": 0})
+            entry["xp"] += t.points_earned
+            entry["count"] += 1
+
+        by_source = sorted(by_source_map.values(), key=lambda e: e["xp"], reverse=True)
+        for entry in by_source:
+            entry["percent"] = round((entry["xp"] / total_xp) * 100, 1) if total_xp > 0 else 0.0
+
+        return {
+            "period": period,
+            "total_xp": total_xp,
+            "delta_percent": delta_percent,
+            "points": points,
+            "by_source": by_source,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting xp history: {str(e)}")
+        return empty
+
 
 @router.get("/get_activity_heatmap")
 def get_activity_heatmap(user_id: str = Query(...), db: Session = Depends(get_db)):
@@ -903,12 +1058,22 @@ def get_activity_breakdown(user_id: str = Query(...), period: str = Query("all")
 def start_session(
     user_id: str = Form(...),
     session_type: str = Form(...),
+    tz: str = Form(None),
     db: Session = Depends(get_db)
 ):
     try:
         user = get_user_by_username(db, user_id) or get_user_by_email(db, user_id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
+
+        # Opening the app counts toward today's streak on its own — it shouldn't take a
+        # graded action to keep a streak alive. tz is the client's IANA zone (e.g.
+        # "America/Los_Angeles") so "today" is the user's local day, not the server's UTC day.
+        try:
+            from services.gamification_system import record_daily_check_in
+            record_daily_check_in(db, user.id, tz)
+        except Exception:
+            logger.exception("Failed to record daily streak check-in for user %s", user.id)
 
         session_id = f"{user.id}_{session_type}_{int(datetime.now(timezone.utc).timestamp())}"
 
@@ -929,6 +1094,7 @@ def end_session(
     session_id: str = Form(...),
     time_spent_minutes: float = Form(...),
     session_type: str = Form(...),
+    tz: str = Form(None),
     db: Session = Depends(get_db)
 ):
     try:
@@ -936,7 +1102,7 @@ def end_session(
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        today = datetime.now(timezone.utc).date()
+        today = _local_today(tz)
         daily_metric = db.query(models.DailyLearningMetrics).filter(
             and_(
                 models.DailyLearningMetrics.user_id == user.id,
@@ -971,6 +1137,10 @@ def end_session(
         user_stats.last_activity = datetime.now(timezone.utc)
 
         db.commit()
+
+        if time_spent_minutes > 0:
+            from services.gamification_system import award_points
+            award_points(db, user.id, "study_time", {"minutes": time_spent_minutes})
 
         logger.info(f"Session ended: user={user.email}, sessions_today={daily_metric.sessions_completed}, time={daily_metric.time_spent_minutes}")
 
