@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Animated, PanResponder, Easing, useWindowDimensions, ViewStyle } from 'react-native';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Animated, PanResponder, Easing, useWindowDimensions, ViewStyle, AppState } from 'react-native';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,15 +8,17 @@ import RingProgress from '../components/RingProgress';
 import HapticTouchable from '../components/HapticTouchable';
 import GeoBackground from '../components/GeoBackground';
 import NeumorphicTexture, { cbCardGradient, cbTileShadow, cbTileCardGradient, cbTileShadowExact, cbTileBorder } from '../components/NeumorphicTexture';
+import CerbylMark from '../components/CerbylMark';
+import XpLineChart from '../components/XpLineChart';
 import { AuthUser } from '../services/auth';
-import { getEnhancedStats, getFriendActivityFeed } from '../services/api';
+import { getEnhancedStats, getFriendActivityFeed, getXpHistory, XpHistory } from '../services/api';
 import { triggerHaptic } from '../utils/haptics';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 const AnimatedView = Animated.createAnimatedComponent(View);
 
-type HomeTarget = 'flashcards' | 'notes' | 'aimedia' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'weaknessPractice' | 'learningPaths';
+type HomeTarget = 'flashcards' | 'notes' | 'aimedia' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'xpAnalytics' | 'weaknessPractice' | 'learningPaths';
 type Props = {
   user: AuthUser;
   onNavigate?: (screen: HomeTarget) => void;
@@ -28,25 +30,46 @@ type Props = {
 type Stats = {
   streak: number;
   hours: number;
+  minutes?: number;
   totalChatSessions: number;
   totalFlashcards: number;
   totalNotes: number;
   weeklyHours?: number;
+  weeklyMinutes?: number;
+  todayMinutes?: number;
   weeklyInteractions?: number;
   weeklyMastered?: number;
 };
 
-function MetricCapsule({ label, value }: { label: string; value: string }) {
-  const { selectedTheme } = useAppTheme();
-  const layout = useResponsiveLayout();
-  const { height: windowHeight } = useWindowDimensions();
-  const styles = useMemo(() => createStyles(selectedTheme, layout, windowHeight), [selectedTheme, layout, windowHeight]);
-  return (
-    <View style={styles.metricCapsule}>
-      <Text style={styles.metricValue}>{value}</Text>
-      <Text style={styles.metricLabel}>{label}</Text>
-    </View>
-  );
+// Under an hour: whole minutes ("42 min"). An hour or more: decimal hours in tenths
+// ("1.1 hrs", "1.2 hrs", ... "2.0 hrs"), i.e. exact minutes/60 rather than a rounded hour count.
+function formatStudyDuration(minutes: number): { value: string; unit: string } {
+  const safeMinutes = Math.max(0, minutes);
+  if (safeMinutes < 60) {
+    return { value: String(Math.round(safeMinutes)), unit: safeMinutes === 1 ? 'min' : 'mins' };
+  }
+  return { value: (safeMinutes / 60).toFixed(1), unit: 'hrs' };
+}
+
+/**
+ * A periodically-refetched minute counter plus a local "ticks up between fetches" estimate
+ * can visibly regress: the backend only commits new minutes when a session actually flushes
+ * (backgrounding or a heartbeat), and a background-transition flush is a fire-and-forget
+ * fetch() that can get cut off mid-flight when the OS suspends the app. If the next
+ * foreground re-fetch lands before that flush lands, the server briefly reports fewer
+ * minutes than what was already on screen — the number visibly jumps backward. This ratchets
+ * the displayed value so it only ever moves forward within the same `resetKey` (e.g. today's
+ * date), and only drops when the key itself changes (a real day/week boundary).
+ */
+function useMonotonicMinutes(candidateMinutes: number, resetKey: string): number {
+  const floorRef = useRef(0);
+  const keyRef = useRef(resetKey);
+  if (keyRef.current !== resetKey) {
+    keyRef.current = resetKey;
+    floorRef.current = 0;
+  }
+  floorRef.current = Math.max(floorRef.current, candidateMinutes);
+  return floorRef.current;
 }
 
 export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLeftPage, onSwipeRightPage }: Props) {
@@ -57,6 +80,8 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
   const canSwipeBetweenPages = !layout.sideRailTabs;
   const [fontsLoaded] = useFonts({ Inter_900Black, Inter_400Regular, Inter_600SemiBold });
   const [stats, setStats] = useState<Stats | null>(null);
+  const [xpHistory, setXpHistory] = useState<XpHistory | null>(null);
+  const [xpChartWidth, setXpChartWidth] = useState(0);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [heroIndex, setHeroIndex] = useState(0);
   const heroSwap = useRef(new Animated.Value(1)).current;
@@ -100,22 +125,68 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
     })
   ), []);
 
+  const statsFetchedAt = useRef<number>(Date.now());
+  const [liveTick, setLiveTick] = useState(Date.now());
+
+  const loadStats = useCallback(() => {
+    getEnhancedStats(user.username).then((data) => {
+      setStats(data);
+      statsFetchedAt.current = Date.now();
+      setLiveTick(Date.now());
+    }).catch(() => {});
+  }, [user.username]);
+
+  const loadXp = useCallback(() => {
+    getXpHistory(user.username, 'week').then(setXpHistory).catch(() => {});
+  }, [user.username]);
+
   useEffect(() => {
-    getEnhancedStats(user.username).then((data) => setStats(data)).catch(() => {});
+    loadStats();
+    loadXp();
     getFriendActivityFeed(user.username).then((data) => {
       const list = Array.isArray(data) ? data : data?.activities ?? data?.feed ?? [];
       setRecentActivity(list.slice(0, 4));
     }).catch(() => {});
-  }, [user.username]);
+  }, [user.username, loadStats, loadXp]);
+
+  // Study time otherwise only changes when the backend flushes a session (background
+  // or a 5-minute heartbeat, see useSessionTracking) — tick locally between fetches so
+  // the number visibly climbs while the app is open, and resync from the server on
+  // every foreground return so it never drifts from what actually got recorded.
+  useEffect(() => {
+    const tick = setInterval(() => setLiveTick(Date.now()), 15000);
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        loadStats();
+        loadXp();
+      }
+    });
+    return () => {
+      clearInterval(tick);
+      subscription.remove();
+    };
+  }, [loadStats, loadXp]);
 
   const streak = stats?.streak ?? 0;
   const GOLD_L = selectedTheme.accentHover;
   const GOLD_MID = selectedTheme.accent;
   const GOLD_SOFT = selectedTheme.textPrimary;
   const accentDark = darkenColor(selectedTheme.accent, selectedTheme.isLight ? 16 : 34);
-  const weeklyHours = stats?.weeklyHours ?? stats?.hours ?? 0;
+  const todayDateKey = new Date().toDateString();
+  const elapsedSinceFetch = Math.max(0, (liveTick - statsFetchedAt.current) / 60000);
+
+  const baseWeeklyMinutes = stats?.weeklyMinutes ?? (stats?.weeklyHours ?? stats?.hours ?? 0) * 60;
+  const weeklyMinutes = useMonotonicMinutes(baseWeeklyMinutes + elapsedSinceFetch, todayDateKey);
+  const weeklyHours = weeklyMinutes / 60;
+  const studyDuration = formatStudyDuration(weeklyMinutes);
+
+  const baseTodayMinutes = stats?.todayMinutes ?? 0;
+  const todayMinutes = useMonotonicMinutes(baseTodayMinutes + elapsedSinceFetch, todayDateKey);
+  const todayStudyDuration = formatStudyDuration(todayMinutes);
   const weeklyInteractions = stats?.weeklyInteractions ?? stats?.totalChatSessions ?? 0;
   const weeklyMastered = stats?.weeklyMastered ?? stats?.totalFlashcards ?? 0;
+  const weeklyXp = xpHistory?.total_xp ?? 0;
+  const xpDeltaPercent = xpHistory?.delta_percent ?? 0;
   const totalChats = stats?.totalChatSessions ?? 0;
   const totalFlashcards = stats?.totalFlashcards ?? 0;
   const totalNotes = stats?.totalNotes ?? 0;
@@ -126,13 +197,10 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
     ) || 0;
 
   const hour = new Date().getHours();
-  const todayDate = new Date();
-  const dayLabel = todayDate.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
-  const dateLabel = todayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
 
   const heroSlides = [
     { key: 'streak', eyebrow: 'daily signal', title: 'streak', value: String(streak), unit: 'days active', subcopy: 'keep the chain alive', accent: GOLD_L },
-    { key: 'hours', eyebrow: 'focus depth', title: 'study time', value: weeklyHours.toFixed(1), unit: 'hours this week', subcopy: 'time invested in real work', accent: GOLD_L },
+    { key: 'hours', eyebrow: 'focus depth', title: 'study time', value: studyDuration.value, unit: `${studyDuration.unit} this week`, subcopy: 'time invested in real work', accent: GOLD_L },
     { key: 'chat', eyebrow: 'thinking loop', title: 'ai chats', value: String(totalChats), unit: 'total sessions', subcopy: 'questions, iterations, answers', accent: GOLD_MID },
     { key: 'flashcards', eyebrow: 'memory system', title: 'flashcards', value: String(totalFlashcards), unit: 'cards created', subcopy: 'repeat and retain', accent: GOLD_MID },
     { key: 'notes', eyebrow: 'knowledge base', title: 'notes', value: String(totalNotes), unit: 'notes saved', subcopy: 'captured ideas and lessons', accent: accentDark },
@@ -193,8 +261,8 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
               };
 
   const rings = [
-    { label: 'HRS\nFOCUS', value: weeklyHours.toFixed(1), progress: Math.min(weeklyHours / 10, 1) },
-    { label: 'AI\nLOOPS', value: String(weeklyInteractions), progress: Math.min(weeklyInteractions / 50, 1) },
+    { label: studyDuration.unit === 'hrs' ? 'HRS\nFOCUS' : 'MIN\nFOCUS', value: studyDuration.value, progress: Math.min(weeklyHours / 10, 1) },
+    { label: 'XP\nEARNED', value: String(weeklyXp), progress: Math.min(weeklyXp / 500, 1) },
     { label: 'CARDS\nMASTERED', value: String(weeklyMastered), progress: Math.min(weeklyMastered / 30, 1) },
   ];
 
@@ -237,31 +305,11 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
     onNavigate?.(nextAction.target);
   };
 
-  const heroStats = [
-    { label: 'streak', value: `${streak}` },
-    { label: 'hours', value: weeklyHours.toFixed(1) },
-    { label: 'chats', value: `${weeklyInteractions}` },
-  ];
-
-  const quickActions = [
-    { label: 'ai chat', detail: 'ask, draft, iterate', icon: 'sparkles-outline' as const, action: () => onNavigateToAI?.() },
-    { label: 'knowledge', detail: 'sources & context', icon: 'file-tray-stacked-outline' as const, action: () => onNavigate?.('knowledgeHub') },
-    { label: 'slides', detail: 'deck analysis', icon: 'easel-outline' as const, action: () => onNavigate?.('slideExplorer') },
-    { label: 'questions', detail: 'practice bank', icon: 'help-circle-outline' as const, action: () => onNavigate?.('questionBank') },
-    { label: 'paths', detail: 'guided learning', icon: 'map-outline' as const, action: () => onNavigate?.('learningPaths') },
-    { label: 'maps', detail: 'concept graph', icon: 'git-network-outline' as const, action: () => onNavigate?.('knowledgeMaps') },
-    { label: 'canvas', detail: 'sketch ideas', icon: 'brush-outline' as const, action: () => onNavigate?.('canvasHub') },
-    { label: 'flashcards', detail: 'review memory', icon: 'layers-outline' as const, action: () => onNavigate?.('flashcards') },
-    { label: 'notes', detail: 'save the lesson', icon: 'document-text-outline' as const, action: () => onNavigate?.('notes') },
-    { label: 'media notes', detail: 'from video to notes', icon: 'videocam-outline' as const, action: () => onNavigate?.('aimedia') },
-    { label: 'analytics', detail: 'study signal', icon: 'bar-chart-outline' as const, action: () => onNavigate?.('analytics') },
-  ];
-
   const todayRows = [
-    { label: 'focus time', value: `${weeklyHours.toFixed(1)}h`, note: 'this week', progress: Math.min(weeklyHours / 4, 1) },
-    { label: 'ai chats', value: String(weeklyInteractions), note: 'this week', progress: Math.min(weeklyInteractions / 8, 1) },
-    { label: 'mastered', value: String(weeklyMastered), note: 'this week', progress: Math.min(weeklyMastered / 6, 1) },
+    { label: 'focus time', value: `${todayStudyDuration.value} ${todayStudyDuration.unit}`, note: 'today', progress: Math.min(todayMinutes / 120, 1) },
+    { label: 'xp earned', value: String(weeklyXp), note: 'this week', progress: Math.min(weeklyXp / 500, 1) },
   ];
+  const todayDateLabel = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
 
   if (!fontsLoaded) return null;
 
@@ -272,13 +320,12 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} bounces={false} alwaysBounceVertical={false}>
         <View style={styles.topBar}>
-          <View>
+          <View style={styles.topTextWrap}>
             <Text style={styles.appName}>cerbyl</Text>
             <Text style={styles.greeting}>{greeting}, {firstName}</Text>
           </View>
-          <View style={styles.topDateChip}>
-            <Text style={styles.topDateDay}>{dayLabel}</Text>
-            <Text style={styles.topDateText}>{dateLabel}</Text>
+          <View style={styles.topLogoWrap}>
+            <CerbylMark size={90} color={GOLD_L} />
           </View>
         </View>
 
@@ -305,12 +352,6 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
                   <Text style={styles.heroLabel}>{hero.title}</Text>
                   <Text style={[styles.bigNum, { fontSize: heroFontSize, lineHeight: heroFontSize + 10 }]}>{hero.value}</Text>
                   <Text style={styles.heroUnit}>{hero.unit}</Text>
-
-                  <View style={styles.heroStatsRow}>
-                    {heroStats.map((item) => (
-                      <MetricCapsule key={item.label} label={item.label} value={item.value} />
-                    ))}
-                  </View>
 
                   <View style={styles.heroDots}>
                     {heroSlides.map((_, index) => (
@@ -369,30 +410,15 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
         )}
 
         <View style={styles.bodySection}>
-          <View style={styles.sectionBlock}>
-            <View style={styles.sectionHeadRow}>
-              <Text style={styles.sectionTitle}>study tools</Text>
-            </View>
-            <View style={styles.quickGrid}>
-              {quickActions.map((item, index) => (
-                <HapticTouchable key={item.label} style={styles.quickCard} onPress={item.action} haptic="selection" activeOpacity={0.82}>
-                  <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
-                  <NeumorphicTexture />
-                  <View style={styles.quickIconWrap}>
-                    <Ionicons name={item.icon} size={17} color={selectedTheme.accentHover} />
-                  </View>
-                  <Text style={styles.quickLabel} numberOfLines={1}>{item.label}</Text>
-                </HapticTouchable>
-              ))}
-            </View>
-          </View>
-
           <View style={styles.duoRow}>
             <View style={[styles.sectionCard, styles.duoCard]}>
               <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
               <NeumorphicTexture />
-              <View style={styles.sectionHeadRow}>
-                <Text style={styles.sectionTitle}>today</Text>
+              <View style={styles.todayHeadRow}>
+                <View style={styles.sectionHeadRow}>
+                  <Text style={styles.sectionTitle}>today</Text>
+                </View>
+                <Text style={styles.todayDateLabel}>{todayDateLabel}</Text>
               </View>
               <View style={styles.todayCard}>
                 {todayRows.map((row, index) => (
@@ -429,23 +455,43 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
           </View>
 
           <View style={styles.sectionBlock}>
-            <View style={styles.sectionHeadRow}>
-              <Text style={styles.sectionTitle}>lifetime totals</Text>
-            </View>
-            <View style={styles.totalsRow}>
-              {[
-                { val: totalChats, label: 'chat sessions' },
-                { val: totalFlashcards, label: 'flashcards built' },
-                { val: totalNotes, label: 'notes saved' },
-              ].map((item, index) => (
-                <View key={item.label} style={styles.totalCard}>
-                  <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
-                  <NeumorphicTexture />
-                  <Text style={styles.totalValue}>{item.val}</Text>
-                  <Text style={styles.totalLabel}>{item.label}</Text>
+            <HapticTouchable
+              style={[styles.sectionCard, styles.xpCard]}
+              onPress={() => onNavigate?.('xpAnalytics')}
+              activeOpacity={0.85}
+              haptic="selection"
+            >
+              <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
+              <NeumorphicTexture />
+              <View style={styles.xpHeadRow}>
+                <View style={styles.sectionHeadRow}>
+                  <Text style={styles.sectionTitle}>xp this week</Text>
                 </View>
-              ))}
-            </View>
+                <View style={styles.xpHeadRight}>
+                  <Text style={styles.xpTotalValue}>{weeklyXp}</Text>
+                  {xpDeltaPercent !== 0 ? (
+                    <Text style={[styles.xpDelta, xpDeltaPercent > 0 ? styles.xpDeltaUp : styles.xpDeltaDown]}>
+                      {xpDeltaPercent > 0 ? '+' : ''}{xpDeltaPercent}%
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+              <View style={styles.xpChartWrap} onLayout={(e) => setXpChartWidth(e.nativeEvent.layout.width)}>
+                {xpChartWidth > 0 ? (
+                  <XpLineChart
+                    points={(xpHistory?.points ?? []).map((p) => ({ label: p.label, xp: p.xp }))}
+                    width={xpChartWidth}
+                    height={108}
+                    color={GOLD_L}
+                    labelColor={selectedTheme.textSecondary}
+                  />
+                ) : null}
+              </View>
+              <View style={styles.xpFooterRow}>
+                <Text style={styles.xpFooterHint}>tap for the full breakdown</Text>
+                <Ionicons name="chevron-forward" size={14} color={GOLD_L} />
+              </View>
+            </HapticTouchable>
           </View>
         </View>
       </ScrollView>
@@ -463,15 +509,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   const CARD_BORDER = theme.border;
   const SHADOW = darkenColor(theme.primary, theme.isLight ? 72 : 4);
   const horizontalPadding = 6;
-  const cardGap = 10;
-  const bodyInnerWidth = Math.max(layout.contentMaxWidth - horizontalPadding * 2, 280);
   const heroMinHeight = layout.isLandscape
     ? Math.min(440, Math.max(330, layout.height * 0.68))
     : Math.min(440, Math.max(330, layout.height * 0.48));
-  const quickColumns = layout.width >= 700 ? 4 : 2;
-  const quickCardWidth = (bodyInnerWidth - cardGap * (quickColumns - 1)) / quickColumns;
-  const totalColumns = layout.width >= 700 ? 3 : 2;
-  const totalCardWidth = (bodyInnerWidth - cardGap * (totalColumns - 1)) / totalColumns;
 
   return StyleSheet.create({
   safe: { flex: 1, backgroundColor: 'transparent', overflow: 'hidden' },
@@ -502,7 +542,16 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     marginBottom: 8,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
+    alignItems: 'center',
+  },
+  topLogoWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: -10,
+    transform: [{ translateX: 16 }],
+  },
+  topTextWrap: {
+    justifyContent: 'center',
   },
   appName: {
     fontFamily: 'Inter_900Black',
@@ -517,37 +566,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     letterSpacing: 1.8,
     marginTop: 4,
     textTransform: 'uppercase',
-  },
-  topDateChip: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    minWidth: 92,
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.18 : 0.22),
-    backgroundColor: rgbaFromHex(SURFACE, theme.isLight ? 0.82 : 0.72),
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    shadowColor: SHADOW,
-    shadowOffset: { width: 12, height: 14 },
-    shadowOpacity: theme.isLight ? 0.08 : 0.30,
-    shadowRadius: 24,
-    elevation: 12,
-  },
-  topDateDay: {
-    fontFamily: 'Inter_900Black',
-    fontSize: 11,
-    color: GOLD_L,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-  },
-  topDateText: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 12,
-    color: DIM,
-    letterSpacing: 0.5,
-    marginTop: 2,
   },
 
   heroWrap: {
@@ -646,42 +664,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     color: GOLD_MID,
     letterSpacing: 2.6,
     marginTop: 2,
-    textTransform: 'uppercase',
-  },
-  heroStatsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 10,
-    marginTop: 16,
-  },
-  metricCapsule: {
-    minWidth: layout.isLandscape ? 82 : 76,
-    borderRadius: 22,
-    overflow: 'hidden',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.52 : 0.68),
-    borderWidth: 1,
-    borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.16 : 0.20),
-    alignItems: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: -4, height: -4 },
-    shadowOpacity: theme.isLight ? 0.03 : 0.18,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  metricValue: {
-    fontFamily: 'Inter_900Black',
-    fontSize: 18,
-    color: GOLD_L,
-  },
-  metricLabel: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 8,
-    color: GOLD_L,
-    letterSpacing: 1.6,
-    marginTop: 4,
     textTransform: 'uppercase',
   },
   heroDots: {
@@ -810,44 +792,17 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     letterSpacing: 1.8,
     textTransform: 'uppercase',
   },
-  quickGrid: {
+  todayHeadRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: cardGap,
-  },
-  quickCard: {
-    width: quickCardWidth,
-    borderRadius: 26,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    minHeight: layout.width >= 700 ? 118 : 110,
-    justifyContent: 'space-between',
-    overflow: 'hidden',
-    boxShadow: cbTileShadow(0.055),
-  } as ViewStyle,
-  quickIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.18 : 0.24),
-    backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.46 : 0.60),
     alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: SHADOW,
-    shadowOffset: { width: 7, height: 8 },
-    shadowOpacity: theme.isLight ? 0.05 : 0.24,
-    shadowRadius: 14,
-    elevation: 7,
+    justifyContent: 'space-between',
   },
-  quickLabel: {
-    fontFamily: 'Inter_900Black',
-    fontSize: 17,
-    color: GOLD_L,
-    letterSpacing: -0.2,
-    marginTop: 18,
+  todayDateLabel: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10,
+    color: DIM,
+    letterSpacing: 1.2,
   },
-
   todayCard: {
     backgroundColor: 'transparent',
     borderRadius: 16,
@@ -917,32 +872,46 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     opacity: 0.96,
   },
 
-  totalsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: cardGap,
-  },
-  totalCard: {
-    width: totalCardWidth,
-    borderRadius: 26,
-    padding: 16,
-    minHeight: 128,
-    justifyContent: 'space-between',
-    overflow: 'hidden',
-    boxShadow: cbTileShadow(0.055),
+  xpCard: {
+    gap: 4,
   } as ViewStyle,
-  totalValue: {
-    fontFamily: 'Inter_900Black',
-    fontSize: 36,
-    color: GOLD_L,
+  xpHeadRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
   },
-  totalLabel: {
+  xpHeadRight: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+  },
+  xpTotalValue: {
+    fontFamily: 'Inter_900Black',
+    fontSize: 22,
+    color: GOLD_L,
+    letterSpacing: -0.4,
+  },
+  xpDelta: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 11,
+  },
+  xpDeltaUp: { color: '#6FCF97' },
+  xpDeltaDown: { color: '#EB5757' },
+  xpChartWrap: {
+    marginTop: 10,
+    marginHorizontal: -4,
+  },
+  xpFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  xpFooterHint: {
     fontFamily: 'Inter_400Regular',
     fontSize: 10,
     color: DIM,
-    letterSpacing: 0.6,
-    lineHeight: 15,
-    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
 
   activitySection: {
