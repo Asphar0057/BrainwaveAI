@@ -1267,6 +1267,26 @@ export async function processMediaYouTube(userId: string, youtubeUrl: string, no
   return res.json();
 }
 
+export async function processMediaFile(
+  userId: string,
+  file: { uri: string; name: string; mimeType: string },
+  noteStyle = 'detailed'
+) {
+  const headers = await authHeaders();
+  const body = new FormData();
+  body.append('user_id', userId);
+  body.append('file', { uri: file.uri, name: file.name, type: file.mimeType } as unknown as Blob);
+  body.append('note_style', noteStyle);
+  body.append('difficulty', 'intermediate');
+  body.append('subject', 'general');
+  const res = await fetch(`${API_URL}/media/process`, {
+    method: 'POST',
+    headers,
+    body,
+  });
+  return res.json();
+}
+
 export async function getMediaHistory(userId: string) {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}/media/history?user_id=${encodeURIComponent(userId)}`, { headers });

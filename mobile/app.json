@@ -50,7 +50,8 @@
           "photosPermission": "Cerbyl needs access to your photos so you can attach images in AI chat.",
           "cameraPermission": "Cerbyl needs access to your camera so you can attach a photo in AI chat."
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "extra": {
       "eas": {

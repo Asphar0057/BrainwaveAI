@@ -8,6 +8,8 @@ import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_70
 import { useFocusEffect } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as DocumentPicker from 'expo-document-picker';
+import { AudioModule, RecordingPresets, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import HapticTouchable from '../components/HapticTouchable';
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
@@ -22,6 +24,7 @@ import {
   PodcastMCQState,
   PodcastSessionPayload,
   processMediaYouTube,
+  processMediaFile,
   getMediaHistory,
   saveMediaNotes,
   startPodcastMCQ,
@@ -54,7 +57,8 @@ const STATUSES = [
   'almost done...',
 ];
 
-type Mode      = 'youtube' | 'record';
+type Mode      = 'youtube' | 'record' | 'upload';
+type MediaFile = { uri: string; name: string; mimeType: string };
 type Tab       = 'notes' | 'transcript' | 'podcast';
 
 interface MediaResult {
@@ -77,7 +81,7 @@ interface HistoryItem {
 type Props = { user: AuthUser; onBack?: () => void };
 type AIMediaStackParamList = {
   AIMediaHub: undefined;
-  AIMediaProcessing: { url: string };
+  AIMediaProcessing: { url?: string; file?: MediaFile };
   AIMediaResults: { result: MediaResult };
 };
 
@@ -432,15 +436,55 @@ function fmtDate(iso: string) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function formatRecordingDuration(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
 function AIMediaHub({
   user,
   onBack,
   onStartProcessing,
-}: Props & { onStartProcessing: (url: string) => void }) {
+  onStartProcessingFile,
+}: Props & { onStartProcessing: (url: string) => void; onStartProcessingFile: (file: MediaFile) => void }) {
   const [mode,    setMode]    = useState<Mode>('youtube');
   const [url,     setUrl]     = useState('');
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [error,   setError]   = useState('');
+  const [recordedFile, setRecordedFile] = useState<MediaFile | null>(null);
+  const [pickedFile,   setPickedFile]   = useState<MediaFile | null>(null);
+
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(recorder, 200);
+
+  const handleToggleRecord = async () => {
+    setError('');
+    if (recorderState.isRecording) {
+      await recorder.stop();
+      if (recorder.uri) {
+        setRecordedFile({ uri: recorder.uri, name: `recording-${Date.now()}.m4a`, mimeType: 'audio/m4a' });
+      }
+      return;
+    }
+    const permission = await AudioModule.requestRecordingPermissionsAsync();
+    if (!permission.granted) {
+      setError('Microphone permission is required to record audio.');
+      return;
+    }
+    setRecordedFile(null);
+    await recorder.prepareToRecordAsync();
+    recorder.record();
+  };
+
+  const handlePickFile = async () => {
+    setError('');
+    const result = await DocumentPicker.getDocumentAsync({ type: 'audio/*', copyToCacheDirectory: true });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    setPickedFile({ uri: asset.uri, name: asset.name || `audio-${Date.now()}`, mimeType: asset.mimeType || 'audio/mpeg' });
+  };
 
   const loadHistory = useCallback(() => {
     getMediaHistory(user.username)
@@ -492,6 +536,16 @@ function AIMediaHub({
             >
               <Text style={[s.modeBtnText, mode === 'record' && s.modeBtnTextActive]}>
                 Record Audio
+              </Text>
+            </HapticTouchable>
+            <HapticTouchable
+              style={[s.modeBtn, mode === 'upload' && s.modeBtnActive]}
+              onPress={() => { setMode('upload'); setError(''); }}
+              activeOpacity={0.8}
+              haptic="selection"
+            >
+              <Text style={[s.modeBtnText, mode === 'upload' && s.modeBtnTextActive]}>
+                Upload Audio
               </Text>
             </HapticTouchable>
           </View>
@@ -547,17 +601,88 @@ function AIMediaHub({
                   record a lecture, meeting, or voice note and get ai-generated notes instantly
                 </Text>
                 <View style={s.recordBtnWrap}>
-                  <HapticTouchable style={s.recordBtn} activeOpacity={0.8} haptic="medium">
+                  <HapticTouchable
+                    style={s.recordBtn}
+                    activeOpacity={0.8}
+                    haptic="medium"
+                    onPress={handleToggleRecord}
+                  >
                     <LinearGradient
-                      colors={[GOLD_L, GOLD_D]}
+                      colors={recorderState.isRecording ? [ERR, ERR] : [GOLD_L, GOLD_D]}
                       style={s.recordBtnGrad}
                     >
-                      <View style={s.recordDot} />
+                      <View style={[s.recordDot, recorderState.isRecording && s.recordDotActive]} />
                     </LinearGradient>
                   </HapticTouchable>
-                  <Text style={s.recordLabel}>tap to record</Text>
+                  <Text style={s.recordLabel}>
+                    {recorderState.isRecording
+                      ? formatRecordingDuration(recorderState.durationMillis)
+                      : recordedFile ? 'recorded — ready to generate' : 'tap to record'}
+                  </Text>
                 </View>
-                <Text style={s.comingSoon}>coming soon — requires expo-av</Text>
+
+                {!!error && <Text style={s.errorText}>{error}</Text>}
+
+                {recordedFile && !recorderState.isRecording && (
+                  <HapticTouchable
+                    style={s.processBtn}
+                    onPress={() => onStartProcessingFile(recordedFile)}
+                    activeOpacity={0.85}
+                    haptic="medium"
+                  >
+                    <LinearGradient
+                      colors={[GOLD_L, GOLD_M, GOLD_D]}
+                      start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                      style={s.processBtnGrad}
+                    >
+                      <Text style={s.processBtnText}>GENERATE NOTES</Text>
+                    </LinearGradient>
+                  </HapticTouchable>
+                )}
+              </View>
+            </View>
+          )}
+
+          {mode === 'upload' && (
+            <View style={s.inputCard}>
+              <View style={s.recordInner}>
+                <Text style={s.inputCardLabel}>UPLOAD AUDIO FILE</Text>
+                <Text style={s.recordHint}>
+                  choose an audio file from your device to get ai-generated notes
+                </Text>
+
+                <HapticTouchable
+                  style={s.recordBtn}
+                  activeOpacity={0.8}
+                  haptic="light"
+                  onPress={handlePickFile}
+                >
+                  <LinearGradient colors={[GOLD_L, GOLD_D]} style={s.recordBtnGrad}>
+                    <Text style={s.uploadIconText}>+</Text>
+                  </LinearGradient>
+                </HapticTouchable>
+                <Text style={s.recordLabel} numberOfLines={1}>
+                  {pickedFile ? pickedFile.name : 'tap to choose a file'}
+                </Text>
+
+                {!!error && <Text style={s.errorText}>{error}</Text>}
+
+                {pickedFile && (
+                  <HapticTouchable
+                    style={s.processBtn}
+                    onPress={() => onStartProcessingFile(pickedFile)}
+                    activeOpacity={0.85}
+                    haptic="medium"
+                  >
+                    <LinearGradient
+                      colors={[GOLD_L, GOLD_M, GOLD_D]}
+                      start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                      style={s.processBtnGrad}
+                    >
+                      <Text style={s.processBtnText}>GENERATE NOTES</Text>
+                    </LinearGradient>
+                  </HapticTouchable>
+                )}
               </View>
             </View>
           )}
@@ -608,12 +733,14 @@ function AIMediaHub({
 function AIMediaProcessing({
   user,
   url,
+  file,
   onCancel,
   onComplete,
   onError,
 }: {
   user: AuthUser;
-  url: string;
+  url?: string;
+  file?: MediaFile;
   onCancel: () => void;
   onComplete: (result: MediaResult) => void;
   onError: (message: string) => void;
@@ -633,7 +760,9 @@ function AIMediaProcessing({
 
     (async () => {
       try {
-        const data = await processMediaYouTube(user.username, url);
+        const data = file
+          ? await processMediaFile(user.username, file)
+          : await processMediaYouTube(user.username, url || '');
         if (cancelRef.current) return;
         if (!data.success) throw new Error(data.detail || 'Processing failed');
         onComplete(data);
@@ -645,7 +774,7 @@ function AIMediaProcessing({
     return () => {
       cancelRef.current = true;
     };
-  }, [onComplete, onError, url, user.username]);
+  }, [onComplete, onError, url, file, user.username]);
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
@@ -1070,6 +1199,7 @@ export default function AIMediaNotesScreen({ user, onBack }: Props) {
             user={user}
             onBack={onBack}
             onStartProcessing={(url) => navigation.navigate('AIMediaProcessing', { url })}
+            onStartProcessingFile={(file) => navigation.navigate('AIMediaProcessing', { file })}
           />
         )}
       </AIMediaStack.Screen>
@@ -1078,6 +1208,7 @@ export default function AIMediaNotesScreen({ user, onBack }: Props) {
           <AIMediaProcessing
             user={user}
             url={route.params.url}
+            file={route.params.file}
             onCancel={() => navigation.goBack()}
             onComplete={(result) => navigation.reset({
               index: 1,
@@ -1281,18 +1412,20 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     borderRadius: 11,
     backgroundColor: INK,
   },
+  recordDotActive: {
+    borderRadius: 5,
+  },
+  uploadIconText: {
+    fontFamily: 'Inter_900Black',
+    fontSize: 28,
+    lineHeight: 30,
+    color: INK,
+  },
   recordLabel: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 10,
     color: GOLD_L,
     letterSpacing: 2,
-  },
-  comingSoon: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 9,
-    color: GOLD_D,
-    letterSpacing: 1.5,
-    paddingBottom: 4,
   },
 
   // Section header
