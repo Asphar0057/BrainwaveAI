@@ -16,6 +16,7 @@ import FriendsScreen       from './social/FriendsScreen';
 import LeaderboardScreen   from './social/LeaderboardScreen';
 import GamesScreen         from './social/GamesScreen';
 import QuizPlaylistScreen  from './social/QuizPlaylistScreen';
+import SoloQuizScreen      from './social/SoloQuizScreen';
 import PlaylistsScreen     from './social/PlaylistsScreen';
 import LearningPathsScreen from './social/LearningPathsScreen';
 import GeoBackground from '../components/GeoBackground';
@@ -23,7 +24,7 @@ import { useAppTheme } from '../contexts/ThemeContext';
 import { rgbaFromHex, darkenColor, lightenColor } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
-type Section = 'friends' | 'leaderboard' | 'games' | 'quiz' | 'playlists' | 'paths';
+type Section = 'friends' | 'leaderboard' | 'games' | 'quiz' | 'solo' | 'playlists' | 'paths';
 type HubData = {
   friendCount:    number;
   requestCount:   number;
@@ -188,6 +189,7 @@ export default function SocialScreen({ user }: Props) {
   if (screen === 'leaderboard') return <LeaderboardScreen   user={user} onBack={() => setScreen(null)} />;
   if (screen === 'games')       return <GamesScreen         user={user} onBack={() => setScreen(null)} />;
   if (screen === 'quiz')        return <QuizPlaylistScreen  user={user} onBack={() => setScreen(null)} />;
+  if (screen === 'solo')        return <SoloQuizScreen      user={user} onBack={() => setScreen(null)} />;
   if (screen === 'playlists')   return <PlaylistsScreen     user={user} onBack={() => setScreen(null)} />;
   if (screen === 'paths')       return <LearningPathsScreen user={user} onBack={() => setScreen(null)} />;
 
@@ -316,6 +318,7 @@ export default function SocialScreen({ user }: Props) {
               const tiles = [
                 { icon: 'flash'    as const, label: 'battles',   sub: data.activeBattles > 0 ? `${data.activeBattles} live` : 'challenge friends', badge: data.pendingBattles > 0 ? String(data.pendingBattles) : undefined, sec: 'games'     as Section },
                 { icon: 'library'  as const, label: 'quiz hub',  sub: `${data.challengeCount} challenges`,                                          sec: 'quiz'      as Section },
+                { icon: 'sparkles' as const, label: 'solo quiz', sub: 'practice at your pace',                                                       sec: 'solo'      as Section },
                 { icon: 'bookmark' as const, label: 'playlists', sub: 'discover & follow',                                                           sec: 'playlists' as Section },
                 { icon: 'map'      as const, label: 'paths',     sub: 'AI learning journeys',                                                        sec: 'paths'     as Section },
               ];

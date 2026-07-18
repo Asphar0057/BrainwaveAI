@@ -1661,6 +1661,51 @@ export async function getBattleDetails(battleId: number) {
   return res.json();
 }
 
+// ── Solo Quiz ────────────────────────────────────────────────────────
+export async function createSoloQuiz(payload: { subject: string; difficulty: string; question_count: number }) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/create_solo_quiz`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) await readApiError(res, 'Could not create quiz');
+  return res.json(); // { status, quiz_id, uid }
+}
+
+export type SoloQuizQuestion = {
+  id: number;
+  question: string;
+  options: string[];
+  correct_answer: number | string; // 0-based index into `options`
+  explanation: string;
+};
+
+export async function getSoloQuiz(quizId: string | number) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/solo_quiz/${quizId}`, { headers });
+  if (!res.ok) await readApiError(res, 'Could not load quiz');
+  return res.json() as Promise<{
+    quiz: { id: number; uid: string; subject: string; difficulty: string; question_count: number; time_limit_seconds: number };
+    questions: SoloQuizQuestion[];
+  }>;
+}
+
+export async function completeSoloQuiz(payload: {
+  quiz_id: string | number;
+  score: number;
+  answers: { question_text: string; user_answer: string; correct_answer: string; is_correct: boolean; explanation?: string }[];
+}) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/complete_solo_quiz`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) await readApiError(res, 'Could not save quiz results');
+  return res.json();
+}
+
 // ── Challenges ────────────────────────────────────────────────────────
 export async function getChallenges(userId: string) {
   const headers = await authHeaders();
