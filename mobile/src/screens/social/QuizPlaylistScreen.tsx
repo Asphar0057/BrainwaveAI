@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator,
-  RefreshControl, TextInput, Modal, Alert,
+  RefreshControl, TextInput, Modal, Alert, ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -11,6 +11,7 @@ import { getChallenges, createChallenge, joinChallenge, getFriends } from '../..
 import HapticTouchable from '../../components/HapticTouchable';
 import AmbientBubbles from '../../components/AmbientBubbles';
 import GeoBackground from '../../components/GeoBackground';
+import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../../components/NeumorphicTexture';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../../utils/theme';
 import { useResponsiveLayout } from '../../hooks/useResponsiveLayout';
@@ -127,17 +128,22 @@ export default function QuizPlaylistScreen({ user, onBack }: Props) {
       <GeoBackground />
       <AmbientBubbles theme={selectedTheme} variant="quiz" opacity={0.82} />
       {/* Header */}
-      <View style={s.header}>
+      <View style={s.topBar}>
         <HapticTouchable onPress={onBack} style={s.backBtn} haptic="light">
           <Ionicons name="chevron-back" size={20} color={GOLD_M} />
         </HapticTouchable>
-        <View style={{ flex: 1 }}>
-          <Text style={s.title}>quiz hub</Text>
-        </View>
         <HapticTouchable style={s.createBtn} onPress={() => setShowCreate(true)} haptic="medium">
-          <Ionicons name="add" size={16} color={GOLD_XL} />
+          <Ionicons name="add" size={16} color={INK} />
           <Text style={s.createBtnText}>create</Text>
         </HapticTouchable>
+      </View>
+
+      <View style={s.hero}>
+        <NeumorphicLayer grainOpacity={0.26} />
+        <Text style={s.heroGhost}>{String(challenges.length).padStart(2, '0')}</Text>
+        <Text style={s.eyebrow}>daily challenges</Text>
+        <Text style={s.title}>quiz hub</Text>
+        <Text style={s.subtitle}>test yourself against friends</Text>
       </View>
 
       {/* Tabs */}
@@ -336,22 +342,35 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   const INK = theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary;
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: 'transparent' },
-    header: {
+    topBar: {
       width: '100%',
       maxWidth: layout.contentMaxWidth,
       alignSelf: 'center',
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'space-between',
       paddingHorizontal: 20,
       paddingTop: 18,
       paddingBottom: 14,
-      gap: 12,
     },
-    backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center' },
-    title: { fontFamily: 'Inter_900Black', fontSize: 28, color: ACCENT_HOVER, letterSpacing: -0.6 },
-    subtitle: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM, marginTop: 4, letterSpacing: 1.8, textTransform: 'uppercase' },
-    createBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: rgbaFromHex(ACCENT, 0.14), borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.28) },
-    createBtnText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: ACCENT_HOVER },
+    backBtn: { width: 40, height: 40, borderRadius: 16, backgroundColor: rgbaFromHex(CARD, 0.72), borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.06) } as ViewStyle,
+    hero: {
+      width: '100%',
+      maxWidth: layout.contentMaxWidth,
+      alignSelf: 'center',
+      marginHorizontal: 20,
+      marginBottom: 18,
+      borderRadius: 30,
+      padding: 20,
+      overflow: 'hidden',
+      boxShadow: cbModalShadow(0.14),
+    } as ViewStyle,
+    heroGhost: { position: 'absolute', right: 15, top: 0, fontFamily: 'Inter_900Black', fontSize: 76, lineHeight: 82, color: rgbaFromHex(theme.textPrimary, theme.isLight ? 0.035 : 0.055), letterSpacing: -4 },
+    eyebrow: { fontFamily: 'Inter_700Bold', color: DIM, fontSize: 10, letterSpacing: 1.8, textTransform: 'uppercase' },
+    title: { fontFamily: 'Inter_900Black', fontSize: 32, color: ACCENT_HOVER, letterSpacing: -0.6, marginTop: 8 },
+    subtitle: { fontFamily: 'Inter_400Regular', fontSize: 13, color: DIM, marginTop: 4 },
+    createBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: ACCENT_HOVER, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10, boxShadow: cbTileShadow(0.055) } as ViewStyle,
+    createBtnText: { fontFamily: 'Inter_900Black', fontSize: 12, color: INK, textTransform: 'uppercase', letterSpacing: 0.5 },
     tabs: {
       width: '100%',
       maxWidth: layout.contentMaxWidth,
@@ -359,12 +378,13 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       flexDirection: 'row',
       marginHorizontal: 20,
       marginBottom: 16,
-      backgroundColor: CARD,
-      borderRadius: 12,
+      backgroundColor: rgbaFromHex(CARD, 0.72),
+      borderRadius: 14,
       borderWidth: 1,
       borderColor: BORDER,
       padding: 3,
-    },
+      boxShadow: cbTileShadow(0.05),
+    } as ViewStyle,
     tabBtn: { flex: 1, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 10 },
     tabBtnActive: { backgroundColor: rgbaFromHex(ACCENT, 0.14) },
     tabLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: DIM },
@@ -376,7 +396,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       paddingHorizontal: 20,
       paddingBottom: 48,
     },
-    card: { backgroundColor: rgbaFromHex(CARD, 0.94), borderRadius: 16, borderWidth: 1, borderColor: BORDER, padding: 18, marginBottom: 12, gap: 12, shadowColor: ACCENT, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 22, elevation: 5 },
+    card: { backgroundColor: rgbaFromHex(CARD, 0.9), borderRadius: 20, borderWidth: 1, borderColor: BORDER, padding: 18, marginBottom: 12, gap: 12, boxShadow: cbTileShadow(0.07) } as ViewStyle,
     cardHeader: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
     subjectBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 4, backgroundColor: rgbaFromHex(ACCENT, 0.10), borderRadius: 7, borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.20) },
     subjectText: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: DIM, letterSpacing: 0.5 },
@@ -391,7 +411,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     progressWrap: { height: 4, backgroundColor: rgbaFromHex(ACCENT, 0.12), borderRadius: 2, overflow: 'hidden' },
     progressBar: { height: '100%', backgroundColor: ACCENT, borderRadius: 2 },
     progressText: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM, marginTop: 4 },
-    joinBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: ACCENT, borderRadius: 12, paddingVertical: 10 },
+    joinBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: ACCENT, borderRadius: 14, paddingVertical: 10, boxShadow: cbTileShadow(0.06) } as ViewStyle,
     joinBtnJoined: { backgroundColor: 'transparent', borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.28) },
     joinBtnText: { fontFamily: 'Inter_700Bold', fontSize: 13, color: INK },
     statsRow: { flexDirection: 'row', gap: 8 },
@@ -400,7 +420,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     empty: { alignItems: 'center', paddingTop: 80, gap: 10 },
     emptyTitle: { fontFamily: 'Inter_900Black', fontSize: 18, color: ACCENT_HOVER },
     emptyHint: { fontFamily: 'Inter_400Regular', fontSize: 13, color: rgbaFromHex(theme.textSecondary, 0.8) },
-    emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: rgbaFromHex(ACCENT, 0.14), borderRadius: 14, paddingHorizontal: 20, paddingVertical: 12, borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.28), marginTop: 12 },
+    emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: rgbaFromHex(ACCENT, 0.14), borderRadius: 14, paddingHorizontal: 20, paddingVertical: 12, borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.28), marginTop: 12, boxShadow: cbTileShadow(0.05) } as ViewStyle,
     emptyBtnText: { fontFamily: 'Inter_700Bold', fontSize: 14, color: ACCENT_HOVER },
     modal: { flex: 1, backgroundColor: BG, paddingTop: 20 },
     modalHeader: {
@@ -415,15 +435,15 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     modalTitle: { fontFamily: 'Inter_900Black', fontSize: 24, color: ACCENT_HOVER },
     fieldLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: DIM, letterSpacing: 2, marginBottom: 10 },
-    input: { backgroundColor: CARD_ALT, borderRadius: 12, borderWidth: 1, borderColor: BORDER, paddingHorizontal: 14, paddingVertical: 12, fontFamily: 'Inter_400Regular', fontSize: 14, color: ACCENT_HOVER, marginBottom: 24 },
+    input: { backgroundColor: rgbaFromHex(CARD_ALT, 0.85), borderRadius: 14, borderWidth: 1, borderColor: BORDER, paddingHorizontal: 14, paddingVertical: 12, fontFamily: 'Inter_400Regular', fontSize: 14, color: ACCENT_HOVER, marginBottom: 24, boxShadow: cbTileShadow(0.04) } as ViewStyle,
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 },
-    chip: { paddingHorizontal: 14, paddingVertical: 8, backgroundColor: CARD_ALT, borderRadius: 10, borderWidth: 1, borderColor: BORDER },
+    chip: { paddingHorizontal: 14, paddingVertical: 8, backgroundColor: rgbaFromHex(CARD_ALT, 0.85), borderRadius: 12, borderWidth: 1, borderColor: BORDER, boxShadow: cbTileShadow(0.03) } as ViewStyle,
     chipActive: { backgroundColor: rgbaFromHex(ACCENT, 0.14), borderColor: rgbaFromHex(ACCENT, 0.28) },
     chipText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: DIM },
     chipTextActive: { color: ACCENT_HOVER },
     infoBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderRadius: 14, borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.22), padding: 14, marginBottom: 24, backgroundColor: rgbaFromHex(ACCENT, 0.08) },
     infoText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: DIM, flex: 1, lineHeight: 18 },
-    launchBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: ACCENT, borderRadius: 16, paddingVertical: 16 },
+    launchBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: ACCENT, borderRadius: 18, paddingVertical: 16, boxShadow: cbModalShadow(0.1) } as ViewStyle,
     launchBtnText: { fontFamily: 'Inter_900Black', fontSize: 15, color: INK },
   });
 }
