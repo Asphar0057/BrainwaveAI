@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TextInput,
-  FlatList, KeyboardAvoidingView, Platform, Animated,
-  Modal, ScrollView, ActivityIndicator, PanResponder, Alert, Image, ViewStyle,
+  FlatList, Platform, Animated,
+  Modal, ScrollView, ActivityIndicator, PanResponder, Alert, Image, ViewStyle, Keyboard,
 } from 'react-native';
-import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -186,12 +186,38 @@ export default function AIChatScreen({ user }: Props) {
   const [starterPrompts, setStarterPrompts] = useState<string[]>(DEFAULT_PROMPTS);
   const greeting = useMemo(() => getRandomGreeting(user.first_name || user.username), [user.first_name, user.username]);
   const listRef = useRef<FlatList>(null);
-  const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(-sidebarWidth)).current;
+  const focusGlass = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     slideAnim.setValue(sidebarOpen ? 0 : -sidebarWidth);
   }, [sidebarOpen, sidebarWidth, slideAnim]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e: { duration?: number }) => {
+      Animated.timing(focusGlass, {
+        toValue: 1,
+        duration: Platform.OS === 'ios' ? (e.duration || 250) : 180,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, (e: { duration?: number }) => {
+      Animated.timing(focusGlass, {
+        toValue: 0,
+        duration: Platform.OS === 'ios' ? (e?.duration || 200) : 180,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [focusGlass]);
 
   const openSidebar = useCallback(() => {
     setSidebarOpen(true);
@@ -379,7 +405,7 @@ export default function AIChatScreen({ user }: Props) {
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFill} />
       <GeoBackground />
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <View style={{ flex: 1 }}>
         <View style={s.header}>
           <HapticTouchable onPress={openSidebar} activeOpacity={0.8} style={s.headerBtn} haptic="selection">
             <Ionicons name="menu-outline" size={20} color={selectedTheme.textPrimary} />
@@ -398,6 +424,7 @@ export default function AIChatScreen({ user }: Props) {
           </View>
         </View>
 
+        <Animated.View style={{ flex: 1, opacity: focusGlass.interpolate({ inputRange: [0, 1], outputRange: [1, 0.4] }) }}>
         {isEmpty ? (
           <View style={s.emptyWrap}>
             <View style={s.emptyBrand}>
@@ -456,7 +483,7 @@ export default function AIChatScreen({ user }: Props) {
                               ? [rgbaFromHex(selectedTheme.accentHover, 0.10), rgbaFromHex(selectedTheme.panel, 0.99)]
                               : [rgbaFromHex(darkenColor(selectedTheme.accent, 34), 0.45), rgbaFromHex(selectedTheme.panelAlt, 1)]
                           }
-                          style={[StyleSheet.absoluteFillObject, { borderRadius: 22 }]}
+                          style={[StyleSheet.absoluteFillObject, { borderRadius: 14 }]}
                         />
                         {item.attachmentUri ? <Image source={{ uri: item.attachmentUri }} style={s.messageImage} /> : null}
                         <Text style={s.userText}>{item.text}</Text>
@@ -470,8 +497,9 @@ export default function AIChatScreen({ user }: Props) {
             }}
           />
         )}
+        </Animated.View>
 
-        <View style={[s.composerWrap, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+        <View style={s.composerWrap}>
           {attachment ? (
             <View style={s.attachmentPreview}>
               <Image source={{ uri: attachment.uri }} style={s.attachmentThumb} />
@@ -492,7 +520,7 @@ export default function AIChatScreen({ user }: Props) {
               style={s.input}
               value={input}
               onChangeText={setInput}
-              placeholder="ask cerbyl anything..."
+              placeholder="Ask Cerbyl"
               placeholderTextColor={selectedTheme.textSecondary}
               multiline
             />
@@ -512,7 +540,7 @@ export default function AIChatScreen({ user }: Props) {
             </HapticTouchable>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </View>
 
       {!sidebarOpen && enableEdgeSwipe ? (
         <View collapsable={false} style={s.edgeSwipeZone} pointerEvents="box-only" {...openPanResponder.panHandlers} />
@@ -525,7 +553,7 @@ export default function AIChatScreen({ user }: Props) {
               <HapticTouchable style={StyleSheet.absoluteFill} onPress={closeSidebar} activeOpacity={1} haptic="none" />
               <Animated.View style={[s.sidebar, { transform: [{ translateX: slideAnim }] }]} {...closePanResponder.panHandlers}>
                 <LinearGradient colors={[darkenColor(selectedTheme.bgTop, selectedTheme.isLight ? 4 : 0), selectedTheme.panelAlt, selectedTheme.bgPrimary]} style={StyleSheet.absoluteFill} />
-                <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+                <SafeAreaView style={{ flex: 1, paddingTop: 6, paddingBottom: 6 }} edges={[]}>
                   <View style={s.sidebarHero}>
                     <NeumorphicLayer grainOpacity={0.22} />
                     <Text style={s.sidebarGhost}>01</Text>
@@ -801,18 +829,19 @@ function createStyles(
     maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
     paddingHorizontal: 6,
-    paddingTop: 6,
+    paddingTop: 0,
+    paddingBottom: 0,
   },
   composerCard: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     gap: 6,
     borderRadius: 28,
     borderWidth: 1,
     borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.18 : 0.24),
     backgroundColor: rgbaFromHex(CARD_ALT, 0.96),
     paddingHorizontal: 8,
-    paddingVertical: 7,
+    paddingVertical: 5,
     shadowColor: SHADOW,
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: theme.isLight ? 0.07 : 0.25,
@@ -820,7 +849,7 @@ function createStyles(
     elevation: 14,
   },
   composerIconBtn: {
-    width: 34, height: 34, borderRadius: 17,
+    width: 30, height: 30, borderRadius: 15,
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1,
     borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.10 : 0.14),
@@ -830,15 +859,15 @@ function createStyles(
     flex: 1,
     backgroundColor: 'transparent',
     paddingHorizontal: 6,
-    paddingVertical: 9,
-    minHeight: 34,
+    paddingVertical: 6,
+    minHeight: 30,
     fontFamily: 'Inter_400Regular',
     fontSize: 14,
     lineHeight: 19,
     color: GOLD_L,
     maxHeight: 120,
   },
-  sendBtn: { width: 40, height: 40, borderRadius: 20, overflow: 'hidden' },
+  sendBtn: { width: 34, height: 34, borderRadius: 17, overflow: 'hidden' },
   sendDisabled: { opacity: 0.34 },
   sendGrad: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 

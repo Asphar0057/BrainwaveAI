@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from 'react';
-import { View, StyleSheet, Text, ViewStyle } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { View, StyleSheet, Text, ViewStyle, Animated, Keyboard, Platform } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -72,11 +72,39 @@ function MainTabs({ user, onLogout, onUserUpdate, onNavigate }: Props & { onNavi
   useFonts({ Inter_700Bold });
   const [index, setIndex] = useState(2);
   const pager = useRef<PagerView>(null);
+  const kbHeight = useRef(new Animated.Value(0)).current;
 
   const goTo = (i: number) => {
     pager.current?.setPage(i);
     setIndex(i);
   };
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      const rawHeight = e.endCoordinates?.height ?? 0;
+      const androidNavBarBuffer = Platform.OS === 'android' ? insets.bottom : 0;
+      Animated.timing(kbHeight, {
+        toValue: rawHeight > 0 ? rawHeight + androidNavBarBuffer : 0,
+        duration: Platform.OS === 'ios' ? (e.duration || 250) : 180,
+        useNativeDriver: false,
+      }).start();
+    });
+    const hideSub = Keyboard.addListener(hideEvent, (e: { duration?: number }) => {
+      Animated.timing(kbHeight, {
+        toValue: 0,
+        duration: Platform.OS === 'ios' ? (e?.duration || 200) : 180,
+        useNativeDriver: false,
+      }).start();
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [kbHeight, insets.bottom]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -112,7 +140,7 @@ function MainTabs({ user, onLogout, onUserUpdate, onNavigate }: Props & { onNavi
           </View>
         ) : null}
 
-        <View style={[s.contentWrap, { paddingTop: insets.top }]}>
+        <Animated.View style={[s.contentWrap, { paddingTop: insets.top, paddingBottom: kbHeight }]}>
           <PagerView
             ref={pager}
             style={{ flex: 1 }}
@@ -129,31 +157,39 @@ function MainTabs({ user, onLogout, onUserUpdate, onNavigate }: Props & { onNavi
           </PagerView>
 
           {!useSideRail ? (
-            <View style={[s.tabBarWrap, { paddingBottom: insets.bottom ? Math.max(insets.bottom - 2, 6) : 12 }]}>
-              <View style={s.tabBar}>
-                {TABS.map((t, i) => {
-                  const active = index === i;
-                  return (
-                    <HapticTouchable
-                      key={t.label}
-                      style={s.tab}
-                      onPress={() => goTo(i)}
-                      activeOpacity={0.78}
-                      haptic="selection"
-                      accessibilityLabel={`${t.label} tab`}
-                      accessibilityState={{ selected: active }}
-                    >
-                      <View style={[s.iconWrap, active && s.iconWrapActive]}>
-                        <Ionicons name={active ? t.activeIcon : t.icon} size={18} color={active ? selectedTheme.bgPrimary : selectedTheme.textSecondary} />
-                      </View>
-                      <Text allowFontScaling={false} style={[s.tabLabel, { color: active ? selectedTheme.textPrimary : selectedTheme.textSecondary }]}>{t.label}</Text>
-                    </HapticTouchable>
-                  );
-                })}
+            <Animated.View
+              style={{
+                maxHeight: kbHeight.interpolate({ inputRange: [0, 120], outputRange: [200, 0], extrapolate: 'clamp' }),
+                opacity: kbHeight.interpolate({ inputRange: [0, 60], outputRange: [1, 0], extrapolate: 'clamp' }),
+                overflow: 'hidden',
+              }}
+            >
+              <View style={[s.tabBarWrap, { paddingBottom: insets.bottom ? Math.max(insets.bottom - 2, 6) : 12 }]}>
+                <View style={s.tabBar}>
+                  {TABS.map((t, i) => {
+                    const active = index === i;
+                    return (
+                      <HapticTouchable
+                        key={t.label}
+                        style={s.tab}
+                        onPress={() => goTo(i)}
+                        activeOpacity={0.78}
+                        haptic="selection"
+                        accessibilityLabel={`${t.label} tab`}
+                        accessibilityState={{ selected: active }}
+                      >
+                        <View style={[s.iconWrap, active && s.iconWrapActive]}>
+                          <Ionicons name={active ? t.activeIcon : t.icon} size={18} color={active ? selectedTheme.bgPrimary : selectedTheme.textSecondary} />
+                        </View>
+                        <Text allowFontScaling={false} style={[s.tabLabel, { color: active ? selectedTheme.textPrimary : selectedTheme.textSecondary }]}>{t.label}</Text>
+                      </HapticTouchable>
+                    );
+                  })}
+                </View>
               </View>
-            </View>
+            </Animated.View>
           ) : null}
-        </View>
+        </Animated.View>
       </View>
     </View>
   );
