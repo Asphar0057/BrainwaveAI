@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const PRODUCTION_API_URL = 'https://YOUR_PRODUCTION_API_URL/api';
+const PRODUCTION_API_URL = 'https://cerbyl-api.yellowwave-ef452238.eastus.azurecontainerapps.io/api';
 
 function normalizeApiUrl(url: string): string {
   const trimmed = url.trim().replace(/\/+$/, '');
