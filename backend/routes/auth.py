@@ -1220,15 +1220,48 @@ async def firebase_authentication(request: Request, db: Session = Depends(get_db
                 raise HTTPException(status_code=400, detail="Missing required fields")
 
             try:
-                import firebase_admin
-                from firebase_admin import auth as firebase_auth, credentials as firebase_creds
-                if not firebase_admin._apps:
-                    firebase_project_id = os.getenv("FIREBASE_PROJECT_ID")
-                    if not firebase_project_id:
-                        raise RuntimeError("FIREBASE_PROJECT_ID env var not set")
-                    cred = firebase_creds.ApplicationDefault()
-                    firebase_admin.initialize_app(cred, {"projectId": firebase_project_id})
-                decoded = firebase_auth.verify_id_token(id_token)
+                firebase_project_id = os.getenv("FIREBASE_PROJECT_ID")
+                if not firebase_project_id:
+                    raise RuntimeError("FIREBASE_PROJECT_ID env var not set")
+
+                verification_mode = os.getenv("FIREBASE_AUTH_VERIFY_MODE", "auto").strip().lower()
+                use_public_key_verifier = verification_mode == "public-keys" or (
+                    verification_mode == "auto"
+                    and not _is_production()
+                    and not os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+                )
+
+                if use_public_key_verifier:
+                    from google.auth.transport.requests import Request as GoogleAuthRequest
+                    from google.oauth2 import id_token as google_id_token
+
+                    decoded = google_id_token.verify_firebase_token(
+                        id_token,
+                        GoogleAuthRequest(),
+                        audience=firebase_project_id,
+                    )
+                    expected_issuer = f"https://securetoken.google.com/{firebase_project_id}"
+                    subject = decoded.get("sub")
+                    auth_time = decoded.get("auth_time")
+                    if decoded.get("iss") != expected_issuer:
+                        raise ValueError("Invalid Firebase token issuer")
+                    if not isinstance(subject, str) or not subject or len(subject) > 128:
+                        raise ValueError("Invalid Firebase token subject")
+                    invalid_auth_time = (
+                        not isinstance(auth_time, (int, float))
+                        or auth_time > datetime.now(timezone.utc).timestamp()
+                    )
+                    if invalid_auth_time:
+                        raise ValueError("Invalid Firebase token authentication time")
+                    decoded["uid"] = subject
+                else:
+                    import firebase_admin
+                    from firebase_admin import auth as firebase_auth, credentials as firebase_creds
+                    if not firebase_admin._apps:
+                        cred = firebase_creds.ApplicationDefault()
+                        firebase_admin.initialize_app(cred, {"projectId": firebase_project_id})
+                    decoded = firebase_auth.verify_id_token(id_token)
+
                 token_email = _normalize_email(decoded.get("email") or "")
                 if not token_email or token_email != _normalize_email(email):
                     raise HTTPException(status_code=400, detail="Token email mismatch")
@@ -1241,8 +1274,6 @@ async def firebase_authentication(request: Request, db: Session = Depends(get_db
             except ImportError:
                 logger.error("firebase-admin SDK is required for Firebase authentication")
                 raise HTTPException(status_code=503, detail="Firebase authentication is not configured")
-            except firebase_admin.auth.InvalidIdTokenError:
-                raise HTTPException(status_code=401, detail="Invalid Firebase token")
             except HTTPException:
                 raise
             except Exception as e:

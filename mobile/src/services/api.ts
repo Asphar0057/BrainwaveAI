@@ -523,17 +523,39 @@ export type SlideAnalysisPage = {
   content?: string;
   summary?: string;
   explanation?: string;
+  detailed_explanation?: string;
   key_points?: string[];
   key_concepts?: string[];
   insights?: string[];
   visual_description?: string;
+  definitions?: Record<string, string>;
+  exam_questions?: Array<{
+    question: string;
+    type?: string;
+    difficulty?: 'easy' | 'medium' | 'hard' | string;
+    answer_hint?: string;
+  }>;
+  practical_applications?: string[];
+  common_misconceptions?: string[];
+  study_tips?: string[];
+  cross_references?: string[];
+  difficulty_level?: string;
+  estimated_study_time?: string;
+};
+
+export type SlidePresentationSummary = {
+  total_concepts?: number;
+  total_exam_questions?: number;
+  difficulty_distribution?: Record<string, number>;
+  estimated_total_study_time?: string;
+  recommended_review_sessions?: number;
 };
 
 export type SlideAnalysis = {
   status: string;
   filename: string;
   total_slides: number;
-  presentation_summary?: string;
+  presentation_summary?: SlidePresentationSummary | string;
   slides: SlideAnalysisPage[];
   analyzed_at?: string;
 };
@@ -575,6 +597,14 @@ export async function analyzeSlide(slideId: number, forceReanalyze = false) {
     await readApiError(res, 'Failed to analyze slides');
   }
   return res.json() as Promise<SlideAnalysis>;
+}
+
+export async function getSlideImageSource(slideId: number, pageNumber: number) {
+  const headers = await authHeaders();
+  return {
+    uri: `${API_URL}/slide_image/${slideId}/${pageNumber}`,
+    headers,
+  };
 }
 
 export async function deleteSlide(slideId: number) {

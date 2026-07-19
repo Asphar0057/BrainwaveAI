@@ -1,6 +1,52 @@
-
+import { API_URL } from '../config/api';
+import { clearBackendSession } from './backendSession';
 
 let _installed = false;
+let _authRecoveryStarted = false;
+
+const getRequestUrl = (input) => {
+  if (typeof input === 'string') return input;
+  if (typeof Request !== 'undefined' && input instanceof Request) return input.url;
+  return String(input);
+};
+
+const getAuthorizationHeader = (input, init = {}) => {
+  const initHeaders = new Headers(init?.headers || {});
+  const initAuthorization = initHeaders.get('Authorization');
+  if (initAuthorization) return initAuthorization;
+
+  if (typeof Request !== 'undefined' && input instanceof Request) {
+    return input.headers.get('Authorization');
+  }
+  return null;
+};
+
+const isBackendApiRequest = (input) => {
+  try {
+    const requestUrl = new URL(getRequestUrl(input), window.location.origin);
+    const apiUrl = new URL(API_URL, window.location.origin);
+    const apiPath = apiUrl.pathname.replace(/\/$/, '');
+    return requestUrl.origin === apiUrl.origin &&
+      (requestUrl.pathname === apiPath || requestUrl.pathname.startsWith(`${apiPath}/`));
+  } catch (_) {
+    return false;
+  }
+};
+
+export const shouldRecoverUnauthorizedSession = (input, init, responseStatus, currentToken) => {
+  if (responseStatus !== 401 || !currentToken || !isBackendApiRequest(input)) return false;
+  return getAuthorizationHeader(input, init) === `Bearer ${currentToken}`;
+};
+
+const recoverUnauthorizedSession = () => {
+  if (_authRecoveryStarted) return;
+  _authRecoveryStarted = true;
+  clearBackendSession();
+  window.dispatchEvent(new CustomEvent('brainwave:session-expired'));
+  if (window.location.pathname !== '/login') {
+    window.location.assign('/login');
+  }
+};
 
 const parseTokenHeader = (response, name) => {
   const value = response.headers.get(name);
@@ -33,6 +79,13 @@ export function installFetchInterceptor() {
 
   window.fetch = async function interceptedFetch(input, init) {
     const response = await _originalFetch(input, init);
+    const currentToken = localStorage.getItem('token');
+
+    if (shouldRecoverUnauthorizedSession(input, init, response.status, currentToken)) {
+      recoverUnauthorizedSession();
+      return response;
+    }
+
     const tokenUsage = getTokenUsageFromResponse(response);
 
     if (tokenUsage) {
@@ -44,12 +97,7 @@ export function installFetchInterceptor() {
     }
 
     if (response.status === 429) {
-      const url =
-        typeof input === 'string'
-          ? input
-          : input instanceof Request
-          ? input.url
-          : String(input);
+      const url = getRequestUrl(input);
 
       let body = {};
       try {

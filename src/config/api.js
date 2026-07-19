@@ -1,4 +1,5 @@
 import { createUsageLimitError, getUsageLimitFromResponse } from '../utils/usageLimit';
+import { clearBackendSession } from '../utils/backendSession';
 
 export const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
 
@@ -18,9 +19,7 @@ export const apiRequest = async (endpoint, options = {}) => {
   });
 
   if (response.status === 401) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('username');
-    localStorage.removeItem('userProfile');
+    clearBackendSession();
     window.location.href = '/login';
     throw new Error('Session expired. Please login again.');
   }

@@ -3178,7 +3178,7 @@ const Flashcards = () => {
                         const cardColor = colors[index % colors.length];
                         return (
                           <div key={set.id} className="fc-set-card-new" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
-                            <div className="cb-tile-texture" />
+                            <div className="cb-tile-texture" aria-hidden="true" />
                             <div className="fc-set-thumbnail" style={{ background: `linear-gradient(135deg, ${cardColor} 0%, ${cardColor}dd 100%)` }}>
                               <div className="fc-set-thumbnail-content">
                                 {editingSetId === set.id ? (

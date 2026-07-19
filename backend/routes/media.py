@@ -21,7 +21,18 @@ from sqlalchemy.orm import Session
 
 import models
 from database import get_db
-from deps import call_ai, call_ai_async, get_current_user, get_user_by_email, get_user_by_username, optional_security, SECRET_KEY, ALGORITHM, JWT_AUDIENCE
+from deps import (
+    ALGORITHM,
+    JWT_AUDIENCE,
+    JWT_ISSUER,
+    SECRET_KEY,
+    call_ai,
+    call_ai_async,
+    get_current_user,
+    get_user_by_email,
+    get_user_by_username,
+    optional_security,
+)
 from services.api_key_pool import ApiKeyPoolExhausted, is_provider_quota_error, provider_limit_exhausted
 from services.document_processor import extract_text_from_pdf_detailed
 from services.storage_service import StorageService

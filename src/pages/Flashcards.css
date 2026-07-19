@@ -3633,12 +3633,26 @@
   background: var(--fc-bg-secondary) !important;
   border: 1px solid var(--fc-border-default) !important;
   border-radius: 8px;
+  position: relative;
+  isolation: isolate;
   overflow: hidden !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
   display: flex;
   flex-direction: column;
   height: 360px !important;
   cursor: pointer !important;
+}
+
+/* Keep the shared texture inside each card. Without a positioned card root,
+   every absolute texture expands over the collection panel and the overlays
+   compound as more sets are rendered. */
+.fc-set-card-new > .cb-tile-texture {
+  z-index: 0;
+}
+
+.fc-set-card-new > *:not(.cb-tile-texture) {
+  position: relative;
+  z-index: 1;
 }
 
 .fc-set-card-new:hover {

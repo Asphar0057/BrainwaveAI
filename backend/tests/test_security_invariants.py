@@ -75,6 +75,9 @@ def test_firebase_authentication_never_skips_token_verification():
     source = (BACKEND_ROOT / "routes" / "auth.py").read_text(encoding="utf-8")
     assert "skipping Firebase token verification" not in source
     assert "firebase_auth.verify_id_token(id_token)" in source
+    assert "google_id_token.verify_firebase_token(" in source
+    assert 'expected_issuer = f"https://securetoken.google.com/{firebase_project_id}"' in source
+    assert 'audience=firebase_project_id' in source
     assert 'raise HTTPException(status_code=503, detail="Firebase authentication is not configured")' in source
 
 

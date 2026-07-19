@@ -1,5 +1,6 @@
 import { signOut } from 'firebase/auth';
 import { auth, authPersistenceReady } from '../firebase/config';
+import { clearBackendSession } from './backendSession';
 
 export const GOOGLE_AUTO_SIGN_IN_KEY = 'cerbyl.googleAutoSignIn';
 
@@ -32,10 +33,7 @@ export const storeGoogleBackendSession = (accessToken, user) => {
 
 export const signOutAppSession = async () => {
   localStorage.removeItem(GOOGLE_AUTO_SIGN_IN_KEY);
-  localStorage.removeItem('token');
-  localStorage.removeItem('username');
-  localStorage.removeItem('userProfile');
-  sessionStorage.removeItem('justLoggedIn');
+  clearBackendSession();
 
   await authPersistenceReady;
   await signOut(auth).catch(() => {});

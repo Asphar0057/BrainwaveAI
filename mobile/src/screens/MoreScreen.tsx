@@ -30,7 +30,12 @@ function BentoMini({
   onPress?: () => void;
 }) {
   return (
-    <TileGleam style={styles.miniTile} onPress={onPress}>
+    <TileGleam
+      style={styles.miniTile}
+      onPress={onPress}
+      accessibilityLabel={`${title} feature`}
+      accessibilityHint={`Open ${title}`}
+    >
       <NeumorphicTexture
         grainVariant="skia"
         grainOpacity={0.44}
@@ -143,14 +148,14 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
           <BentoMini index="08" title="maps" styles={s} onPress={() => onNavigate?.('knowledgeMaps')} />
         </View>
 
-        {/* Row 5: analytics + weakness practice */}
+        {/* Row 5: primary creation tools stay above the fold */}
         <View style={s.bentoRow}>
-          <BentoMini index="09" title="analytics" styles={s} onPress={() => onNavigate?.('analytics')} />
-          <BentoMini index="10" title="weakness" styles={s} onPress={() => onNavigate?.('weaknessPractice')} />
+          <BentoMini index="09" title="slides" styles={s} onPress={() => onNavigate?.('slideExplorer')} />
+          <BentoMini index="10" title="canvas" styles={s} onPress={() => onNavigate?.('canvasHub')} />
         </View>
         <View style={s.bentoRow}>
-          <BentoMini index="11" title="slides" styles={s} onPress={() => onNavigate?.('slideExplorer')} />
-          <BentoMini index="12" title="canvas" styles={s} onPress={() => onNavigate?.('canvasHub')} />
+          <BentoMini index="11" title="analytics" styles={s} onPress={() => onNavigate?.('analytics')} />
+          <BentoMini index="12" title="weakness" styles={s} onPress={() => onNavigate?.('weaknessPractice')} />
         </View>
         <View style={s.bentoRow}>
           <BentoMini index="13" title="calendar" styles={s} onPress={() => setSubScreen('calendar')} />
