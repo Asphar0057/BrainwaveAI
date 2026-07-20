@@ -62,6 +62,7 @@ export default function LoginScreen({ onLogin }: Props) {
   const [regEmail, setRegEmail]         = useState('');
   const [regUsername, setRegUsername]   = useState('');
   const [regPassword, setRegPassword]   = useState('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState('');
   const [registrationOtp, setRegistrationOtp] = useState('');
   const [verificationPending, setVerificationPending] = useState(false);
 
@@ -115,13 +116,17 @@ export default function LoginScreen({ onLogin }: Props) {
   };
 
   const handleRegister = async () => {
-    if (!regFirstName.trim() || !regLastName.trim() || !regEmail.trim() || !regUsername.trim() || !regPassword.trim()) {
+    if (!regFirstName.trim() || !regLastName.trim() || !regEmail.trim() || !regUsername.trim() || !regPassword.trim() || !regConfirmPassword.trim()) {
       setError('all fields are required');
       return;
     }
     const email = regEmail.trim();
     if (!EMAIL_PATTERN.test(email)) {
       setError('enter a valid email address');
+      return;
+    }
+    if (regPassword !== regConfirmPassword) {
+      setError('passwords do not match');
       return;
     }
     setLoading(true);
@@ -442,6 +447,9 @@ export default function LoginScreen({ onLogin }: Props) {
 
                     <Text style={[s.label, s.spacedLabel]}>password</Text>
                     <TextInput style={s.input} value={regPassword} onChangeText={setRegPassword} placeholder="8+ chars, uppercase + symbol" placeholderTextColor={selectedTheme.textSecondary} secureTextEntry />
+
+                    <Text style={[s.label, s.spacedLabel]}>confirm password</Text>
+                    <TextInput style={s.input} value={regConfirmPassword} onChangeText={setRegConfirmPassword} placeholder="re-enter password" placeholderTextColor={selectedTheme.textSecondary} secureTextEntry />
 
                     <HapticTouchable style={s.btnWrap} onPress={handleRegister} activeOpacity={0.88} disabled={loading} haptic="medium">
                       <LinearGradient colors={[selectedTheme.accentHover, selectedTheme.accent]} start={{ x: 0.05, y: 0 }} end={{ x: 0.95, y: 1 }} style={s.btn}>
