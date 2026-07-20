@@ -261,7 +261,6 @@ function Login() {
           <div className="lg-card-inner">
             <div className="lg-hero">
               <div className="lg-hero-word">cerbyl</div>
-              <div className="lg-hero-tag"><span className="lg-hero-tag-dot" />Account Access</div>
             </div>
 
             <button

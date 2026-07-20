@@ -69,7 +69,6 @@ export default function LoginScreen({ onLogin }: Props) {
   const [error, setError]     = useState('');
   const [success, setSuccess] = useState('');
   const googleConfigError = getGoogleConfigError();
-  const heroCaption = verificationPending ? 'email verification' : 'account access';
   const heroSubtitle = verificationPending ? 'enter the code sent to your email' : '';
 
   const [request, response, promptAsync] = Google.useAuthRequest({
@@ -295,7 +294,6 @@ export default function LoginScreen({ onLogin }: Props) {
                 gradientEnd={cbTileCardGradient.end}
               />
               <View style={s.panelHeader}>
-                <Text style={s.heroCaption}>{heroCaption}</Text>
                 <Text style={s.heroWord}>cerbyl</Text>
                 {heroSubtitle ? <Text style={s.panelSubtitle}>{heroSubtitle}</Text> : null}
               </View>
@@ -491,14 +489,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     panelHeader: {
       alignItems: 'center',
       marginBottom: 20,
-    },
-    heroCaption: {
-      fontFamily: 'Inter_600SemiBold',
-      fontSize: 12,
-      color: theme.accentHover,
-      letterSpacing: 2.2,
-      textTransform: 'uppercase',
-      marginBottom: 8,
     },
     heroWord: {
       fontFamily: 'Inter_900Black',

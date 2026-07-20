@@ -171,8 +171,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 30px;
+  margin-bottom: 26px;
 }
 
 .lg-hero-word {
@@ -181,26 +180,6 @@
   letter-spacing: 0.01em;
   line-height: 1.15;
   color: var(--lg-accent);
-}
-
-.lg-hero-tag {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--lg-accent);
-  white-space: nowrap;
-}
-
-.lg-hero-tag-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--lg-accent);
-  flex-shrink: 0;
 }
 
 /* ---------- form ---------- */

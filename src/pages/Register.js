@@ -233,10 +233,6 @@ function Register() {
           <div className="lg-card-inner">
             <div className="lg-hero">
               <div className="lg-hero-word">cerbyl</div>
-              <div className="lg-hero-tag">
-                <span className="lg-hero-tag-dot" />
-                {verificationStep === 'verify' ? 'Email Verification' : 'Account Access'}
-              </div>
             </div>
 
             {verificationStep === 'form' && (
