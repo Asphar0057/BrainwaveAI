@@ -3633,12 +3633,26 @@
   background: var(--fc-bg-secondary) !important;
   border: 1px solid var(--fc-border-default) !important;
   border-radius: 8px;
+  position: relative;
+  isolation: isolate;
   overflow: hidden !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
   display: flex;
   flex-direction: column;
   height: 360px !important;
   cursor: pointer !important;
+}
+
+/* Keep the shared texture inside each card. Without a positioned card root,
+   every absolute texture expands over the collection panel and the overlays
+   compound as more sets are rendered. */
+.fc-set-card-new > .cb-tile-texture {
+  z-index: 0;
+}
+
+.fc-set-card-new > *:not(.cb-tile-texture) {
+  position: relative;
+  z-index: 1;
 }
 
 .fc-set-card-new:hover {
@@ -9031,6 +9045,103 @@
 
 .flashcards-page .fc-qb-main .fc-cards-panel {
   background-image: none !important;
+}
+
+.flashcards-page .fc-cards-panel {
+  background:
+    linear-gradient(155deg, rgba(13, 14, 16, 0.96) 0%, rgba(6, 6, 7, 0.98) 100%) !important;
+}
+
+.flashcards-page .fc-cards-panel .fc-view-header {
+  flex-shrink: 0;
+  padding: 18px 0 22px;
+  margin-bottom: 26px;
+}
+
+.flashcards-page .fc-cards-panel .fc-grid {
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  align-items: start;
+  gap: 20px;
+  padding-bottom: 28px;
+}
+
+.flashcards-page .fc-cards-panel .fc-set-card-new {
+  height: auto !important;
+  min-height: 322px;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--fc-bg-secondary) 94%, var(--fc-accent) 6%) 0%,
+      color-mix(in srgb, var(--fc-bg-primary) 88%, var(--fc-accent) 4%) 100%
+    ) !important;
+  border-color: color-mix(in srgb, var(--accent) 18%, var(--border)) !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
+}
+
+.flashcards-page .fc-cards-panel .fc-set-card-new > .cb-tile-texture {
+  opacity: 0.18;
+}
+
+.flashcards-page .fc-cards-panel .fc-set-thumbnail {
+  height: 138px !important;
+  min-height: 138px !important;
+  max-height: 138px !important;
+}
+
+.flashcards-page .fc-cards-panel .fc-set-thumbnail-content {
+  padding: 20px !important;
+}
+
+.flashcards-page .fc-cards-panel .fc-thumbnail-title {
+  font-size: 16px !important;
+  letter-spacing: 2.2px !important;
+}
+
+.flashcards-page .fc-cards-panel .fc-set-content-new {
+  padding: 16px 18px 14px !important;
+  gap: 10px !important;
+}
+
+.flashcards-page .fc-cards-panel .fc-set-date-new {
+  margin: 0 !important;
+}
+
+.flashcards-page .fc-cards-panel .fc-mastery-section {
+  margin-bottom: 0;
+}
+
+.flashcards-page .fc-cards-panel .fc-set-actions-new {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 12px 14px 14px;
+  background: color-mix(in srgb, var(--fc-bg-primary) 82%, transparent);
+}
+
+.flashcards-page .fc-cards-panel .fc-action-btn-new {
+  min-height: 40px;
+  padding: 9px 6px;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
+  color: var(--fc-text-primary);
+  letter-spacing: 1.2px;
+  white-space: nowrap;
+}
+
+.flashcards-page .fc-cards-panel .fc-action-btn-new.fc-action-edit,
+.flashcards-page .fc-cards-panel .fc-action-btn-new.fc-action-preview {
+  background: color-mix(in srgb, var(--fc-bg-secondary) 88%, transparent);
+}
+
+.flashcards-page .fc-cards-panel .fc-action-btn-new.fc-action-study {
+  color: #12100c;
+  font-weight: 800;
+}
+
+[data-theme-mode="light"] .flashcards-page .fc-cards-panel {
+  background: color-mix(in srgb, var(--bg-primary) 96%, var(--accent) 4%) !important;
+}
+
+[data-theme-mode="light"] .flashcards-page .fc-cards-panel .fc-set-card-new {
+  background: #ffffff !important;
 }
 
 @media (max-width: 1100px) {

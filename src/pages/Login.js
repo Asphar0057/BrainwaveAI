@@ -9,10 +9,13 @@ import logo from '../assets/logo.svg';
 import './Login.css';
 import { API_URL } from '../config/api';
 import {
+  canRestoreGoogleSession,
   enableGoogleAutoSignIn,
-  getPersistedGoogleUser,
+  hasUsableBackendSession,
+  restoreGoogleBackendSession,
   storeGoogleBackendSession,
 } from '../utils/authSession';
+import { clearBackendSession } from '../utils/backendSession';
 
 function Login() {
   const [username, setUsername] = useState('');
@@ -126,19 +129,28 @@ function Login() {
     let cancelled = false;
 
     const restoreGoogleSignIn = async () => {
-      if (localStorage.getItem('token') && localStorage.getItem('username')) {
+      if (hasUsableBackendSession()) {
         navigate('/dashboard-cerbyl', { replace: true });
         return;
       }
 
-      try {
-        const user = await getPersistedGoogleUser();
-        if (!user || cancelled) return;
+      if (!canRestoreGoogleSession()) {
+        if (localStorage.getItem('token') || localStorage.getItem('username')) {
+          clearBackendSession();
+        }
+        return;
+      }
 
+      try {
         setGoogleLoading(true);
-        const userData = await exchangeGoogleSession(user);
+        const userData = await restoreGoogleBackendSession();
+        if (!userData?.email) {
+          clearBackendSession();
+          return;
+        }
         if (!cancelled) await checkAndRedirect(userData.email);
       } catch (_) {
+        clearBackendSession();
         // Leave the normal sign-in controls available if silent restoration fails.
       } finally {
         if (!cancelled) setGoogleLoading(false);
