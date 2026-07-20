@@ -28,8 +28,16 @@ def _normalize_text(value: object) -> str:
 
 def _strip_navigation_text(value: object) -> str:
     """Remove table-of-contents rows and page decorations from PDF extraction."""
+    lines = str(value or "").splitlines()
+    for index, raw_line in enumerate(lines):
+        if raw_line.strip().lower() in {"contents", "table of contents"}:
+            # A title page before a contents section is document metadata, not
+            # flashcard material. Start after it so the first excerpt is lesson text.
+            lines = lines[index + 1 :]
+            break
+
     filtered_lines: list[str] = []
-    for raw_line in str(value or "").splitlines():
+    for raw_line in lines:
         line = raw_line.strip()
         lower = line.lower()
         if (
