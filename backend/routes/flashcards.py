@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 import models
 from deps import call_ai, enforce_request_user_scope, get_current_user, get_db, get_user_by_email, get_user_by_username, unified_ai
 from services.ai_json_parser import parse_json_array_response
+from services.document_flashcard_source import build_document_flashcard_source
 from uid_utils import resolve_by_id_or_uid
 
 logger = logging.getLogger(__name__)
@@ -570,20 +571,24 @@ async def generate_flashcards_endpoint(
         docs_by_id = {doc.id: doc for doc in documents}
         ordered_documents = [docs_by_id[doc_id] for doc_id in source_document_ids]
         source_document_names = [doc.filename for doc in ordered_documents]
-        content = "\n\n---\n\n".join(
-            f"Source: {doc.filename}\nDocument type: {doc.document_type or 'unknown'}\n\n{doc.content or ''}"
+        max_source_chars = 18_000
+        chars_per_document = max(2_000, max_source_chars // len(ordered_documents))
+        source_blocks = [
+            build_document_flashcard_source(doc.content or "", max_chars=chars_per_document)
             for doc in ordered_documents
-        )
-        topic = topic or ", ".join(source_document_names[:3])
+        ]
+        content = "\n\n---\n\n".join(block for block in source_blocks if block)
+        if not content:
+            raise HTTPException(status_code=400, detail="No readable study text was found in the selected PDF source")
+        # Filenames are display metadata, not a study topic. Passing them to the
+        # graph encouraged title-based questions such as "What is this PDF for?".
+        topic = ""
         set_title = set_title or (
             f"Flashcards from {source_document_names[0]}"
             if len(source_document_names) == 1
             else f"Flashcards from {len(source_document_names)} PDFs"
         )
-        source_note = (
-            "Generate flashcards strictly from the selected uploaded PDF source material. "
-            "Prioritize key concepts, definitions, cause-effect relationships, formulas, and exam-relevant details."
-        )
+        source_note = "Generate flashcards strictly from the PDF excerpts and never from document metadata."
         additional_specs = f"{source_note}\n\n{additional_specs}".strip()
 
     logger.info(
@@ -606,7 +611,7 @@ async def generate_flashcards_endpoint(
                 chat_content = chat_data
         if not chat_content:
             raise HTTPException(status_code=400, detail="Provide content, chat_data, or document_ids")
-        graph_generation_type = "chat_history"
+        graph_generation_type = "document_sources" if generation_type == "document_sources" else "chat_history"
     elif generation_type == "topic" and not topic:
         raise HTTPException(status_code=400, detail="Provide topic")
 
@@ -636,7 +641,7 @@ async def generate_flashcards_endpoint(
         except Exception as e:
             logger.exception(f"Flashcard graph invocation failed; falling back to direct generation: {e}")
 
-    if not flashcards_data:
+    if not flashcards_data and generation_type != "document_sources":
         source_content = chat_content or context_prompt_content
         prompt = (
             f"Generate {card_count} flashcards about: {topic or chat_content[:500]}\n"
