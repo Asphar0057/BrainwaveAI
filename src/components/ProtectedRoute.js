@@ -1,26 +1,67 @@
+import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
+import LoadingSpinner from './LoadingSpinner';
+import {
+  canRestoreGoogleSession,
+  hasUsableBackendSession,
+  restoreGoogleBackendSession,
+} from '../utils/authSession';
+import { clearBackendSession } from '../utils/backendSession';
 
 const ProtectedRoute = ({ children }) => {
-  
-  const token = localStorage.getItem('token');
-  const username = localStorage.getItem('username');
-  
-    
-  
-  if (!token || !username) {
-        return <Navigate to="/login" replace />;
+  const [authState, setAuthState] = useState(() => {
+    if (hasUsableBackendSession()) return 'authenticated';
+    return canRestoreGoogleSession() ? 'checking' : 'unauthenticated';
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveSession = async () => {
+      if (hasUsableBackendSession()) {
+        setAuthState('authenticated');
+        return;
+      }
+
+      if (!canRestoreGoogleSession()) {
+        clearBackendSession();
+        setAuthState('unauthenticated');
+        return;
+      }
+
+      setAuthState('checking');
+      try {
+        await restoreGoogleBackendSession();
+        if (!cancelled) {
+          const restored = hasUsableBackendSession();
+          if (!restored) clearBackendSession();
+          setAuthState(restored ? 'authenticated' : 'unauthenticated');
+        }
+      } catch (_) {
+        clearBackendSession();
+        if (!cancelled) setAuthState('unauthenticated');
+      }
+    };
+
+    resolveSession();
+    return () => { cancelled = true; };
+  }, []);
+
+  if (authState === 'checking') {
+    return <LoadingSpinner />;
   }
-  
-  
-  
+
+  if (authState !== 'authenticated') {
+    return <Navigate to="/login" replace />;
+  }
+
   const currentSafetyFlag = sessionStorage.getItem('safetyAccepted');
-    
+
   if (!currentSafetyFlag) {
     sessionStorage.setItem('safetyAccepted', 'true');
   }
-  
-  
-    return children;
+
+  return children;
 };
 
 export default ProtectedRoute;

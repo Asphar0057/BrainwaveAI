@@ -533,8 +533,10 @@ const ProfileQuiz = () => {
                   {question.options.map((option) => (
                     <button
                       key={option.value}
+                      type="button"
                       className={`option-button ${answers.learningPreferences[question.id]?.includes(option.value) ? 'selected' : ''}`}
                       onClick={() => handleAnswerSelect(question.id, option.value)}
+                      aria-pressed={answers.learningPreferences[question.id]?.includes(option.value) || false}
                     >
                       <span className="option-letter">{option.value})</span>
                       <span className="option-text">{option.text}</span>
