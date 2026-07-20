@@ -319,6 +319,7 @@ const Vault = () => {
     typeof window !== 'undefined' ? window.innerWidth <= 768 : false
   ));
   const [docSearch, setDocSearch] = useState('');
+  const [sourceScope, setSourceScope] = useState('all');
   const [currMode, setCurrMode]   = useState('uk');  
   const [currSubject, setCurrSubject] = useState(null);
   const [fileActionStats, setFileActionStats] = useState(loadFileActionStats);
@@ -1125,14 +1126,17 @@ const Vault = () => {
   
 
   
-  const DeckTab = () => (
+  const DeckTab = () => {
+    const deckDocs = deckIds.map((id) => allDocs.get(id)).filter(Boolean);
+
+    return (
     <div className="vlt-deck-layout">
       {}
       <div className="vlt-deck-panel">
         <div className="vlt-deck-panel-head">
           <div className="vlt-deck-panel-title">
             <Package size={16} />
-            <span>Context Deck</span>
+            <span>Active Context</span>
           </div>
           <div className="vlt-deck-count">
             <span className={`vlt-deck-count-num ${deckIds.length === DECK_SIZE ? 'full' : ''}`}>
@@ -1146,75 +1150,68 @@ const Vault = () => {
           </div>
         </div>
 
-        {deckIds.length === 0 && (
-          <p className="vlt-deck-hint">
-            Select up to 8 documents from the right panel. When your deck has cards,
-            the AI will <strong>only</strong> reference those sources for context.
-          </p>
-        )}
-
-        <div className="vlt-deck-slots">
-          {Array.from({ length: DECK_SIZE }, (_, i) => {
-            const id  = deckIds[i];
-            const doc = id ? allDocs.get(id) : null;
-            const isHs = doc ? !userDocs.some(d => (d.doc_id || d.id) === id) : false;
-            return (
-              <div
-                key={i}
-                className={`vlt-slot ${doc ? 'vlt-slot--filled' : 'vlt-slot--empty'}`}
-              >
-                {doc ? (
-                  <>
-                    <div className="vlt-slot-num">{String(i + 1).padStart(2, '0')}</div>
-                    <div className="vlt-slot-icon">
-                      {isHs ? <Users size={14} /> : <Lock size={14} />}
-                    </div>
-                    <div className="vlt-slot-body">
-                      <div className="vlt-slot-name" title={doc.filename || doc.title}>
-                        {doc.filename || doc.title || 'Untitled'}
-                      </div>
-                      {doc.subject && (
-                        <div className="vlt-slot-subject"
-                          style={{ color: CAT_COLORS[doc.subject] || 'var(--accent)' }}>
-                          {subjectLabel(doc.subject)}
-                        </div>
-                      )}
-                      {doc.chunk_count > 0 && (
-                        <div className="vlt-slot-chunks">{doc.chunk_count} chunks</div>
-                      )}
-                    </div>
-                    <button
-                      className="vlt-slot-remove"
-                      onClick={() => removeFromDeck(id)}
-                      aria-label="Remove from deck"
-                    >
-                      <X size={13} />
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <div className="vlt-slot-num">{String(i + 1).padStart(2, '0')}</div>
-                    <Plus size={16} className="vlt-slot-plus" />
-                    <span className="vlt-slot-empty-label">Empty slot</span>
-                  </>
-                )}
-              </div>
-            );
-          })}
+        <div className="vlt-deck-capacity" aria-label={`${deckDocs.length} of ${DECK_SIZE} context sources selected`}>
+          <div className="vlt-deck-capacity-copy">
+            <span>Source capacity</span>
+            <strong>{DECK_SIZE - deckDocs.length} available</strong>
+          </div>
+          <div className="vlt-deck-capacity-track" aria-hidden="true">
+            {Array.from({ length: DECK_SIZE }, (_, index) => (
+              <span key={index} className={index < deckDocs.length ? 'filled' : ''} />
+            ))}
+          </div>
         </div>
 
-        {deckIds.length > 0 && (
-          <div className="vlt-deck-active-banner">
-            <Zap size={13} />
-            <span>AI will reference only these {deckIds.length} source{deckIds.length !== 1 ? 's' : ''}</span>
+        {deckDocs.length === 0 ? (
+          <div className="vlt-deck-empty-state">
+            <div className="vlt-deck-empty-icon"><Library size={22} /></div>
+            <h3>No active sources</h3>
+            <p>Select documents from the source library to create a focused context for Cerbyl AI.</p>
+          </div>
+        ) : (
+          <div className="vlt-active-source-list">
+            {deckDocs.map((doc, index) => {
+              const id = doc.doc_id || doc.id;
+              const isHs = !userDocs.some((item) => (item.doc_id || item.id) === id);
+              return (
+                <article className="vlt-active-source" key={id}>
+                  <span className="vlt-active-source-index">{String(index + 1).padStart(2, '0')}</span>
+                  <span className="vlt-active-source-icon">{isHs ? <Users size={15} /> : <FileText size={15} />}</span>
+                  <div className="vlt-active-source-copy">
+                    <strong title={doc.filename || doc.title}>{doc.filename || doc.title || 'Untitled'}</strong>
+                    <div>
+                      <span>{isHs ? 'Curriculum' : 'Your document'}</span>
+                      {doc.subject && <span>{subjectLabel(doc.subject)}</span>}
+                      {doc.chunk_count > 0 && <span>{doc.chunk_count} chunks</span>}
+                    </div>
+                  </div>
+                  <button onClick={() => removeFromDeck(id)} aria-label={`Remove ${doc.filename || doc.title || 'source'} from context`}>
+                    <X size={14} />
+                  </button>
+                </article>
+              );
+            })}
           </div>
         )}
+
+        <div className={`vlt-context-ready ${deckDocs.length ? 'ready' : ''}`}>
+          <div className="vlt-context-ready-copy">
+            <span className="vlt-context-ready-dot" />
+            <div>
+              <strong>{deckDocs.length ? 'Context ready' : 'Context not configured'}</strong>
+              <span>{deckDocs.length ? `${deckDocs.length} source${deckDocs.length === 1 ? '' : 's'} · ${deckDocs.reduce((total, doc) => total + (doc.chunk_count || 0), 0)} chunks` : 'Add at least one source to ask grounded questions'}</span>
+            </div>
+          </div>
+          <button disabled={!deckDocs.length} onClick={() => navigate('/ai-chat')}>
+            Ask with context <ChevronRight size={14} />
+          </button>
+        </div>
       </div>
 
       {}
       <div className="vlt-deck-browser">
         <div className="vlt-deck-browser-head">
-          <span>Browse Sources</span>
+          <span>Source Library</span>
           <div className="vlt-deck-browser-search">
             <Search size={13} />
             <input
@@ -1225,8 +1222,24 @@ const Vault = () => {
           </div>
         </div>
 
+        <div className="vlt-source-scopes" aria-label="Filter source library">
+          {[
+            { id: 'all', label: 'All', count: userDocs.length + hsDocs.length },
+            { id: 'mydocs', label: 'My docs', count: userDocs.length },
+            { id: 'curriculum', label: 'Curriculum', count: hsDocs.length },
+          ].map((scope) => (
+            <button
+              key={scope.id}
+              className={sourceScope === scope.id ? 'active' : ''}
+              onClick={() => setSourceScope(scope.id)}
+            >
+              {scope.label}<span>{scope.count}</span>
+            </button>
+          ))}
+        </div>
+
         {}
-        {filteredUserDocs.length > 0 && (
+        {sourceScope !== 'curriculum' && filteredUserDocs.length > 0 && (
           <div className="vlt-browser-section">
             <div className="vlt-browser-section-label">
               <Lock size={11} /> Your Documents
@@ -1260,7 +1273,7 @@ const Vault = () => {
         )}
 
         {}
-        {hsDocs.length > 0 && (
+        {sourceScope !== 'mydocs' && hsDocs.length > 0 && (
           <div className="vlt-browser-section">
             <div className="vlt-browser-section-label">
               <Users size={11} /> Curriculum Books
@@ -1295,7 +1308,9 @@ const Vault = () => {
           </div>
         )}
 
-        {userDocs.length === 0 && hsDocs.length === 0 && !loading && (
+        {((sourceScope === 'mydocs' && filteredUserDocs.length === 0) ||
+          (sourceScope === 'curriculum' && hsDocs.length === 0) ||
+          (sourceScope === 'all' && userDocs.length === 0 && hsDocs.length === 0)) && !loading && (
           <div className="vlt-browser-empty">
             <Library size={28} />
             <p>No documents yet. Upload your first document in the Your Docs tab.</p>
@@ -1303,7 +1318,8 @@ const Vault = () => {
         )}
       </div>
     </div>
-  );
+    );
+  };
 
   
   const RecentTab = () => (

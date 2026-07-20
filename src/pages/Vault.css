@@ -2141,6 +2141,160 @@
   z-index: 1;
 }
 
+.vlt-deck-capacity {
+  display: grid;
+  grid-template-columns: minmax(150px, auto) minmax(180px, 1fr);
+  align-items: center;
+  gap: 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--vlt-line-soft);
+  border-radius: 10px;
+  background: rgba(5, 5, 4, 0.46);
+}
+
+.vlt-deck-capacity-copy {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 10px;
+  color: var(--vlt-mute);
+}
+
+.vlt-deck-capacity-copy span {
+  font-weight: 750;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.vlt-deck-capacity-copy strong { color: var(--accent); font-size: 10px; font-weight: 700; white-space: nowrap; }
+.vlt-deck-capacity-track { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
+.vlt-deck-capacity-track span { height: 5px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); }
+.vlt-deck-capacity-track span.filled { background: var(--accent); box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 36%, transparent); }
+
+.vlt-deck-empty-state {
+  min-height: 208px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 28px;
+  border: 1px dashed var(--vlt-line);
+  border-radius: 12px;
+  background: rgba(5, 5, 4, 0.32);
+  text-align: center;
+}
+
+.vlt-deck-empty-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  border: 1px solid var(--vlt-line);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.vlt-deck-empty-state h3 { margin: 4px 0 0; font-size: 16px; }
+.vlt-deck-empty-state p { max-width: 370px; margin: 0; color: var(--vlt-mute); font-size: 12px; line-height: 1.55; }
+
+.vlt-active-source-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-height: 208px;
+  max-height: 308px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--vlt-line) transparent;
+}
+
+.vlt-active-source {
+  min-height: 62px;
+  display: grid;
+  grid-template-columns: 28px 34px minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  border: 1px solid var(--vlt-line-soft);
+  border-radius: 10px;
+  background: rgba(5, 5, 4, 0.48);
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.vlt-active-source:hover { border-color: var(--vlt-line-str); background: color-mix(in srgb, var(--accent) 5%, rgba(5, 5, 4, 0.5)); }
+.vlt-active-source-index { color: color-mix(in srgb, var(--accent) 56%, transparent); font-size: 9px; letter-spacing: 0.1em; }
+.vlt-active-source-icon { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 8px; color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, transparent); border: 1px solid var(--vlt-line-soft); }
+.vlt-active-source-copy { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.vlt-active-source-copy > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--vlt-text); font-size: 12px; font-weight: 650; }
+.vlt-active-source-copy > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.vlt-active-source-copy > div span { color: var(--vlt-faint); font-size: 9px; }
+.vlt-active-source-copy > div span + span::before { content: '·'; margin-right: 6px; color: color-mix(in srgb, var(--accent) 42%, transparent); }
+.vlt-active-source > button { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 7px; border: 1px solid transparent; background: transparent; color: var(--vlt-faint); cursor: pointer; }
+.vlt-active-source > button:hover { color: #fca5a5; border-color: rgba(239, 68, 68, 0.24); background: rgba(239, 68, 68, 0.08); }
+
+.vlt-context-ready {
+  margin-top: auto;
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 11px 10px 14px;
+  border: 1px solid var(--vlt-line-soft);
+  border-radius: 11px;
+  background: rgba(5, 5, 4, 0.54);
+}
+
+.vlt-context-ready.ready { border-color: color-mix(in srgb, var(--accent) 34%, transparent); }
+.vlt-context-ready-copy { min-width: 0; display: flex; align-items: center; gap: 10px; }
+.vlt-context-ready-dot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 999px; background: var(--vlt-faint); }
+.vlt-context-ready.ready .vlt-context-ready-dot { background: #86efac; box-shadow: 0 0 12px rgba(134, 239, 172, 0.55); }
+.vlt-context-ready-copy > div { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.vlt-context-ready-copy strong { color: var(--vlt-text); font-size: 11px; }
+.vlt-context-ready-copy div > span { overflow: hidden; color: var(--vlt-faint); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.vlt-context-ready > button { height: 36px; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px; padding: 0 13px; border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent); border-radius: 8px; background: var(--accent); color: #18120b; font-size: 10px; font-weight: 800; cursor: pointer; }
+.vlt-context-ready > button:disabled { border-color: var(--vlt-line-soft); background: rgba(255, 255, 255, 0.06); color: var(--vlt-faint); cursor: not-allowed; }
+
+.vlt-source-scopes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--vlt-line-soft);
+  background: rgba(5, 5, 4, 0.34);
+}
+
+.vlt-source-scopes button {
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--vlt-faint);
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.vlt-source-scopes button span { min-width: 17px; height: 17px; display: grid; place-items: center; border-radius: 999px; background: rgba(255,255,255,0.06); font-size: 8px; }
+.vlt-source-scopes button:hover { color: var(--vlt-text); }
+.vlt-source-scopes button.active { border-color: var(--vlt-line-str); background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+
+@media (max-width: 640px) {
+  .vlt-deck-capacity { grid-template-columns: 1fr; gap: 9px; }
+  .vlt-context-ready { align-items: stretch; flex-direction: column; }
+  .vlt-context-ready > button { justify-content: center; }
+  .vlt-active-source { grid-template-columns: 24px 32px minmax(0, 1fr) 28px; padding-inline: 8px; }
+}
+
 .vlt-doccard-body { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
 
 .vlt-doccard-title {
