@@ -18,6 +18,8 @@ def test_document_source_samples_content_beyond_cover_page():
 
 def test_document_source_drops_table_of_contents_rows():
     contents = """
+    Published by Example Biology 2026
+    Copyright Example Author
     Contents
     +--------------------------------+
     | Chapter 1: Introduction | 3    |
@@ -31,6 +33,8 @@ def test_document_source_drops_table_of_contents_rows():
 
     assert "Chapter 1: Introduction" not in excerpts
     assert "Chapter 2: Cells" not in excerpts
+    assert "Published by Example Biology" not in excerpts
+    assert "Copyright Example Author" not in excerpts
     assert "Cells are the basic structural" in excerpts
 
 
