@@ -26,6 +26,24 @@ def _normalize_text(value: object) -> str:
     return re.sub(r"\s+", " ", str(value or "")).strip()
 
 
+def _strip_navigation_text(value: object) -> str:
+    """Remove table-of-contents rows and page decorations from PDF extraction."""
+    filtered_lines: list[str] = []
+    for raw_line in str(value or "").splitlines():
+        line = raw_line.strip()
+        lower = line.lower()
+        if (
+            not line
+            or lower in {"contents", "table of contents", "index"}
+            or line.startswith(("|", "+"))
+            or re.fullmatch(r"[.\-_=~|+ ]+", line)
+            or re.fullmatch(r"\d{1,4}", line)
+        ):
+            continue
+        filtered_lines.append(line)
+    return "\n".join(filtered_lines)
+
+
 def _is_study_text(block: str) -> bool:
     words = re.findall(r"[A-Za-z][A-Za-z'-]*", block)
     if len(words) < 24:
@@ -90,7 +108,7 @@ def build_document_flashcard_source(content: object, max_chars: int = 18000) -> 
     Sampling evenly across meaningful sentence chunks gives the model actual study content
     rather than letting it construct cards from a filename or cover-page metadata.
     """
-    text = _normalize_text(content)
+    text = _normalize_text(_strip_navigation_text(content))
     # PDF extractors often repeat a short page header on every page. Collapse
     # three or more consecutive copies before creating excerpts.
     text = re.sub(
