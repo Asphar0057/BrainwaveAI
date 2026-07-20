@@ -6,6 +6,7 @@ from typing import Any, Optional, TypedDict
 
 from langgraph.graph import StateGraph, END
 from services.ai_json_parser import parse_json_array_response
+from services.document_flashcard_source import has_low_document_card_quality
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +75,12 @@ async def fetch_context(state: FlashcardGenState) -> dict:
         f"[FLASHCARD RAG] topic='{topic}' use_hs_context={use_hs} "
         f"user_id={user_id} context_doc_ids={len(context_doc_ids)}"
     )
-    should_query_context = bool(topic and (use_hs or context_doc_ids))
+    # Uploaded PDFs already provide their own source excerpts. Searching by a
+    # filename here can pull unrelated RAG chunks and displace the PDF content.
+    generation_type = state.get("generation_type", "topic")
+    should_query_context = bool(context_doc_ids) or bool(
+        generation_type != "document_sources" and topic and use_hs
+    )
     if should_query_context:
         try:
             from services import context_store
@@ -177,10 +183,22 @@ def build_prompt(state: FlashcardGenState) -> dict:
 
     parts = []
 
-    if generation_type == "chat_history" and content:
+    if generation_type == "document_sources" and content:
+        parts.append(
+            f"Generate exactly {card_count} flashcards strictly from the PDF study excerpts below.\n\n"
+            f"PDF STUDY EXCERPTS:\n{content}\n"
+        )
+        parts.append(
+            "SOURCE REQUIREMENTS:\n"
+            "- Test concrete concepts, facts, processes, relationships, formulas, or applications stated in the excerpts.\n"
+            "- Every card must be answerable from the excerpts and cover a different concept.\n"
+            "- Do not ask about the PDF, file, notes, filename, author, team, title, primary purpose, or recommended use.\n"
+            "- Do not invent details that are absent from the excerpts.\n"
+        )
+    elif generation_type == "chat_history" and content:
         parts.append(
             f"Generate {card_count} flashcards from this conversation/content:\n\n"
-            f"{content[:3000]}\n"
+            f"{content[:6000]}\n"
         )
     else:
         parts.append(f"Generate {card_count} flashcards about: {topic}\n")
@@ -253,8 +271,8 @@ def generate_cards(state: FlashcardGenState) -> dict:
     difficulty = state.get("difficulty", "medium")
     card_count = state.get("card_count", 10)
 
-    def _generate_with(client) -> list[dict]:
-        response = client.generate(prompt, max_tokens=3000, temperature=0.7)
+    def _generate_with(client, prompt_text: str) -> list[dict]:
+        response = client.generate(prompt_text, max_tokens=3000, temperature=0.45)
         data = parse_json_array_response(response)
 
         valid = []
@@ -277,13 +295,25 @@ def generate_cards(state: FlashcardGenState) -> dict:
         return valid
 
     try:
-        return {"flashcards_json": _generate_with(ai_client)}
+        cards = _generate_with(ai_client, prompt)
+        if state.get("generation_type") == "document_sources" and has_low_document_card_quality(cards):
+            logger.warning("[FLASHCARD GEN] Rejected metadata-only PDF cards; retrying with a stricter source prompt")
+            repair_prompt = (
+                prompt
+                + "\n\nQUALITY RETRY: The previous cards were rejected because they asked about document metadata "
+                "instead of teaching the material. Return new cards only about concrete concepts in the PDF excerpts."
+            )
+            cards = _generate_with(ai_client, repair_prompt)
+            if has_low_document_card_quality(cards):
+                logger.error("[FLASHCARD GEN] PDF retry still produced metadata-only or duplicate cards")
+                return {"flashcards_json": []}
+        return {"flashcards_json": cards}
     except Exception as e:
         main_ai = state.get("_ai_client")
         if ai_client is hs_ai and main_ai and main_ai is not ai_client:
             logger.error(f"HS flashcard generation failed; falling back to main AI client: {e}")
             try:
-                return {"flashcards_json": _generate_with(main_ai)}
+                return {"flashcards_json": _generate_with(main_ai, prompt)}
             except Exception as fallback_error:
                 logger.error(f"Main AI flashcard fallback failed: {fallback_error}")
         logger.error(f"Flashcard generation failed: {e}")
