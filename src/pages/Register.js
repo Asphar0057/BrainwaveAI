@@ -5,7 +5,6 @@ import axios from 'axios';
 import { auth, googleProvider } from '../firebase/config';
 import LoadingSpinner from '../components/LoadingSpinner';
 import GeometricGrid from '../components/GeometricGrid';
-import logo from '../assets/logo.svg';
 import './Login.css';
 import { API_URL } from '../config/api';
 
@@ -214,182 +213,204 @@ function Register() {
     <>
       {(loading || googleLoading) && <LoadingSpinner />}
       <div className="lg-page">
-        <div className="lg-orb lg-orb-1" />
-        <div className="lg-orb lg-orb-2" />
-        <GeometricGrid className="lg-bg-geo" linesClassName="lg-bg-geo-lines" numsClassName="lg-bg-geo-nums" />
-        <div className="lg-grain" />
-        <div className="lg-watermark">
-          <img src={logo} alt="" className="lg-watermark-img" />
+        <div className="lg-bg-fx" aria-hidden>
+          <div className="lg-bg-wash" />
+          <div className="lg-bg-orb lg-bg-orb-1" />
+          <div className="lg-bg-orb lg-bg-orb-2" />
+          <GeometricGrid className="lg-bg-geo" linesClassName="lg-bg-geo-lines" numsClassName="lg-bg-geo-nums" />
+          <div className="lg-bg-grain" />
+          <div className="lg-bg-vignette" />
         </div>
 
         <span className="lg-back-link" onClick={() => navigate('/')}>Back</span>
 
         <div className="lg-card lg-card-register">
-          <div className="lg-brand">
-            <div className="lg-brand-name">cerbyl</div>
+          <div className="lg-card-texture" aria-hidden>
+            <GeometricGrid className="lg-bg-geo" linesClassName="lg-bg-geo-lines" numsClassName="lg-bg-geo-nums" />
+            <div className="lg-bg-grain" />
           </div>
 
-          <div className="lg-title">
-            {verificationStep === 'verify' ? 'Verify your account' : 'Create your account'}
-          </div>
+          <div className="lg-card-inner">
+            <div className="lg-hero">
+              <div className="lg-hero-word">cerbyl</div>
+              <div className="lg-hero-tag">
+                <span className="lg-hero-tag-dot" />
+                {verificationStep === 'verify' ? 'Email Verification' : 'Account Access'}
+              </div>
+            </div>
 
-          {verificationStep === 'form' && (
-            <>
-              <button
-                className="lg-google-btn"
-                onClick={handleGoogleSignIn}
-                disabled={disabled}
-              >
-                {googleLoading ? (
-                  <>
-                    <div className="lg-spinner" />
-                    <span>Signing in...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="lg-google-icon" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                    </svg>
-                    <span>Continue with Google</span>
-                  </>
-                )}
-              </button>
+            {verificationStep === 'form' && (
+              <>
+                <button
+                  className="lg-google-btn"
+                  onClick={handleGoogleSignIn}
+                  disabled={disabled}
+                >
+                  {googleLoading ? (
+                    <>
+                      <div className="lg-spinner" />
+                      <span>Signing in...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="lg-google-icon" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                      </svg>
+                      <span>Continue with Google</span>
+                    </>
+                  )}
+                </button>
 
-              <div className="lg-divider"><span>or</span></div>
+                <div className="lg-divider"><span>or</span></div>
 
-              <form onSubmit={handleSubmit} className="lg-form">
-                <div className="lg-name-row">
+                <form onSubmit={handleSubmit} className="lg-form">
+                  <div className="lg-name-row">
+                    <div className="lg-field">
+                      <label className="lg-label" htmlFor="rg-first">First name</label>
+                      <input
+                        id="rg-first"
+                        type="text"
+                        name="firstName"
+                        value={formData.firstName}
+                        onChange={handleChange}
+                        className="lg-input"
+                        placeholder="First"
+                        required
+                        disabled={disabled}
+                      />
+                    </div>
+                    <div className="lg-field">
+                      <label className="lg-label" htmlFor="rg-last">Last name</label>
+                      <input
+                        id="rg-last"
+                        type="text"
+                        name="lastName"
+                        value={formData.lastName}
+                        onChange={handleChange}
+                        className="lg-input"
+                        placeholder="Last"
+                        required
+                        disabled={disabled}
+                      />
+                    </div>
+                  </div>
                   <div className="lg-field">
+                    <label className="lg-label" htmlFor="rg-email">Email</label>
                     <input
-                      type="text"
-                      name="firstName"
-                      value={formData.firstName}
+                      id="rg-email"
+                      type="email"
+                      name="email"
+                      value={formData.email}
                       onChange={handleChange}
                       className="lg-input"
-                      placeholder="First name"
+                      placeholder="you@example.com"
                       required
                       disabled={disabled}
                     />
                   </div>
                   <div className="lg-field">
+                    <label className="lg-label" htmlFor="rg-username">Username</label>
                     <input
+                      id="rg-username"
                       type="text"
-                      name="lastName"
-                      value={formData.lastName}
+                      name="username"
+                      value={formData.username}
                       onChange={handleChange}
                       className="lg-input"
-                      placeholder="Last name"
+                      placeholder="Choose a username"
                       required
                       disabled={disabled}
                     />
                   </div>
-                </div>
+                  <div className="lg-field">
+                    <label className="lg-label" htmlFor="rg-password">Password</label>
+                    <input
+                      id="rg-password"
+                      type="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      className="lg-input"
+                      placeholder="Create a password"
+                      required
+                      disabled={disabled}
+                    />
+                  </div>
+                  <div className="lg-field">
+                    <label className="lg-label" htmlFor="rg-confirm">Confirm password</label>
+                    <input
+                      id="rg-confirm"
+                      type="password"
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      className="lg-input"
+                      placeholder="Re-enter your password"
+                      required
+                      disabled={disabled}
+                    />
+                  </div>
+                  <button type="submit" className="lg-submit" disabled={disabled}>
+                    {loading ? 'Sending OTP...' : 'Create Account'}
+                  </button>
+                </form>
+              </>
+            )}
+
+            {verificationStep === 'verify' && (
+              <form onSubmit={handleVerifyRegistration} className="lg-form">
                 <div className="lg-field">
+                  <label className="lg-label" htmlFor="rg-otp">6-digit OTP</label>
                   <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className="lg-input"
-                    placeholder="Email"
-                    required
-                    disabled={disabled}
-                  />
-                </div>
-                <div className="lg-field">
-                  <input
+                    id="rg-otp"
                     type="text"
-                    name="username"
-                    value={formData.username}
-                    onChange={handleChange}
+                    value={registrationOtp}
+                    onChange={(e) => setRegistrationOtp(e.target.value)}
                     className="lg-input"
-                    placeholder="Username"
-                    required
-                    disabled={disabled}
-                  />
-                </div>
-                <div className="lg-field">
-                  <input
-                    type="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    className="lg-input"
-                    placeholder="Password"
-                    required
-                    disabled={disabled}
-                  />
-                </div>
-                <div className="lg-field">
-                  <input
-                    type="password"
-                    name="confirmPassword"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    className="lg-input"
-                    placeholder="Confirm password"
+                    placeholder="000000"
+                    inputMode="numeric"
+                    maxLength={6}
                     required
                     disabled={disabled}
                   />
                 </div>
                 <button type="submit" className="lg-submit" disabled={disabled}>
-                  {loading ? 'Sending OTP...' : 'Create Account'}
+                  {loading ? 'Verifying...' : 'Verify Account'}
+                </button>
+                <button
+                  type="button"
+                  className="lg-forgot-btn"
+                  onClick={handleResendRegistrationOtp}
+                  disabled={disabled}
+                >
+                  Resend code
+                </button>
+                <button
+                  type="button"
+                  className="lg-forgot-btn"
+                  onClick={() => {
+                    setVerificationStep('form');
+                    setRegistrationOtp('');
+                    setRegistrationStatus('');
+                  }}
+                  disabled={disabled}
+                >
+                  Edit registration details
                 </button>
               </form>
-            </>
-          )}
+            )}
 
-          {verificationStep === 'verify' && (
-            <form onSubmit={handleVerifyRegistration} className="lg-form">
-              <div className="lg-field">
-                <input
-                  type="text"
-                  value={registrationOtp}
-                  onChange={(e) => setRegistrationOtp(e.target.value)}
-                  className="lg-input"
-                  placeholder="6-digit OTP"
-                  inputMode="numeric"
-                  maxLength={6}
-                  required
-                  disabled={disabled}
-                />
-              </div>
-              <button type="submit" className="lg-submit" disabled={disabled}>
-                {loading ? 'Verifying...' : 'Verify Account'}
-              </button>
-              <button
-                type="button"
-                className="lg-forgot-btn"
-                onClick={handleResendRegistrationOtp}
-                disabled={disabled}
-              >
-                Resend code
-              </button>
-              <button
-                type="button"
-                className="lg-forgot-btn"
-                onClick={() => {
-                  setVerificationStep('form');
-                  setRegistrationOtp('');
-                  setRegistrationStatus('');
-                }}
-                disabled={disabled}
-              >
-                Edit registration details
-              </button>
-            </form>
-          )}
+            {registrationStatus && (
+              <div className="lg-reset-status">{registrationStatus}</div>
+            )}
 
-          {registrationStatus && (
-            <div className="lg-reset-status">{registrationStatus}</div>
-          )}
-
-          <div className="lg-footer">
-            Already have an account?
-            <span className="lg-link" onClick={() => navigate('/login')}>Sign in</span>
+            <div className="lg-footer">
+              Already have an account?
+              <span className="lg-link" onClick={() => navigate('/login')}>Sign in</span>
+            </div>
           </div>
         </div>
       </div>

@@ -10,7 +10,7 @@ import { signIn, signInWithGoogle, AuthUser } from '../services/auth';
 import { confirmPasswordReset, register, requestPasswordReset, resendRegistrationOtp, verifyRegistration } from '../services/api';
 import HapticTouchable from '../components/HapticTouchable';
 import GeoBackground from '../components/GeoBackground';
-import { cbModalShadow, cbTileShadow } from '../components/NeumorphicTexture';
+import NeumorphicTexture, { cbTileCardGradient, cbTileShadowExact, cbTileBorder, cbTileShadow } from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
@@ -69,8 +69,8 @@ export default function LoginScreen({ onLogin }: Props) {
   const [error, setError]     = useState('');
   const [success, setSuccess] = useState('');
   const googleConfigError = getGoogleConfigError();
-  const panelTitle = verificationPending ? 'verify account' : mode === 'login' ? 'welcome back' : 'create account';
-  const panelSubtitle = verificationPending ? 'enter the code sent to your email' : '';
+  const heroCaption = verificationPending ? 'email verification' : 'account access';
+  const heroSubtitle = verificationPending ? 'enter the code sent to your email' : '';
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     webClientId: GOOGLE_WEB_CLIENT_ID,
@@ -285,26 +285,19 @@ export default function LoginScreen({ onLogin }: Props) {
           keyboardShouldPersistTaps="always"
         >
           <View style={s.content}>
-            <View style={s.header}>
-              <View>
-                <Text style={s.brand}>cerbyl</Text>
-              </View>
-              <View style={s.headerRule} />
-            </View>
-
             <View style={s.panel}>
-              <LinearGradient
-                colors={[rgbaFromHex(selectedTheme.accentHover, 0.08), rgbaFromHex(selectedTheme.panel, 0.98), rgbaFromHex(selectedTheme.bgPrimary, 0.98)]}
-                locations={[0, 0.52, 1]}
-                style={StyleSheet.absoluteFillObject}
+              <NeumorphicTexture
+                grainOpacity={0.48}
+                grainVariant="skia"
+                baseFrequency={0.7}
+                gradientColors={cbTileCardGradient.colors}
+                gradientStart={cbTileCardGradient.start}
+                gradientEnd={cbTileCardGradient.end}
               />
-              <View style={s.panelSheen} />
-              <View style={s.panelDepth} />
-              <Text style={s.panelGhost}>{mode === 'login' ? '01' : verificationPending ? '03' : '02'}</Text>
-              <View style={s.panelCornerTop} />
               <View style={s.panelHeader}>
-                <Text style={s.panelTitle}>{panelTitle}</Text>
-                {panelSubtitle ? <Text style={s.panelSubtitle}>{panelSubtitle}</Text> : null}
+                <Text style={s.heroCaption}>{heroCaption}</Text>
+                <Text style={s.heroWord}>cerbyl</Text>
+                {heroSubtitle ? <Text style={s.panelSubtitle}>{heroSubtitle}</Text> : null}
               </View>
 
               <View style={s.tabs}>
@@ -487,103 +480,41 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       alignSelf: 'center',
       paddingHorizontal: layout.isTablet ? 18 : 14,
     },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 16,
-      paddingHorizontal: 2,
-    },
-    brand: {
-      fontFamily: 'Inter_900Black',
-      fontSize: 34,
-      lineHeight: 38,
-      color: theme.accentHover,
-      letterSpacing: -1,
-    },
-    headerSub: {
-      fontFamily: 'Inter_600SemiBold',
-      fontSize: 10,
-      color: theme.textSecondary,
-      letterSpacing: 2.4,
-      textTransform: 'uppercase',
-      marginTop: 3,
-    },
-    headerRule: {
-      flex: 1,
-      height: 1,
-      marginLeft: 22,
-      backgroundColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.18 : 0.20),
-    },
-
     panel: {
       width: '100%',
-      borderRadius: 34,
+      borderRadius: 28,
       padding: 20,
       overflow: 'hidden',
-      boxShadow: cbModalShadow(0.13),
+      boxShadow: cbTileShadowExact(),
+      ...cbTileBorder(0.22),
     } as ViewStyle,
-    panelSheen: {
-      position: 'absolute',
-      top: 1,
-      left: 24,
-      right: 24,
-      height: 1,
-      backgroundColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.50 : 0.40),
-    },
-    panelDepth: {
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      bottom: 0,
-      height: '38%',
-      backgroundColor: rgbaFromHex('#000000', theme.isLight ? 0.03 : 0.22),
-    },
-    panelGhost: {
-      position: 'absolute',
-      right: 12,
-      top: 2,
-      fontFamily: 'Inter_900Black',
-      fontSize: 86,
-      lineHeight: 92,
-      color: rgbaFromHex(theme.textPrimary, theme.isLight ? 0.035 : 0.055),
-      letterSpacing: -4,
-    },
-    panelCornerTop: {
-      position: 'absolute',
-      top: 18,
-      right: 20,
-      width: 52,
-      height: 52,
-      borderTopWidth: 1,
-      borderRightWidth: 1,
-      borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.18 : 0.20),
-    },
     panelHeader: {
-      marginBottom: 18,
-      paddingRight: 72,
+      alignItems: 'center',
+      marginBottom: 20,
     },
-    panelKicker: {
-      fontFamily: 'Inter_700Bold',
-      fontSize: 10,
-      color: theme.textSecondary,
+    heroCaption: {
+      fontFamily: 'Inter_600SemiBold',
+      fontSize: 12,
+      color: theme.accentHover,
       letterSpacing: 2.2,
       textTransform: 'uppercase',
       marginBottom: 8,
     },
-    panelTitle: {
+    heroWord: {
       fontFamily: 'Inter_900Black',
-      fontSize: 34,
-      lineHeight: 37,
+      fontSize: 46,
+      lineHeight: 50,
       color: theme.accentHover,
-      letterSpacing: -1.2,
+      letterSpacing: -1.6,
+      textAlign: 'center',
     },
     panelSubtitle: {
       fontFamily: 'Inter_400Regular',
       fontSize: 13,
       lineHeight: 19,
       color: theme.textSecondary,
-      marginTop: 6,
+      marginTop: 10,
+      textAlign: 'center',
     },
     tabs: {
       flexDirection: 'row',
