@@ -1847,19 +1847,29 @@ const Vault = () => {
             <h1 className="vlt-title">Your Context<span className="vlt-period">.</span></h1>
             <p className="vlt-subtitle">Manage your documents, curriculum books, and AI context deck</p>
           </div>
-          <div className="vlt-stat-row">
-            {[
-              { num: String(stats.deck).padStart(2,'0'),   lbl: 'IN DECK',    sub: `of ${DECK_SIZE}`, accent: true },
-              { num: String(stats.myDocs).padStart(2,'0'), lbl: 'YOUR DOCS' },
-              { num: String(stats.books).padStart(2,'0'),  lbl: 'BOOKS' },
-              { num: stats.chunks,                          lbl: 'CHUNKS' },
-            ].map(s => (
-              <div key={s.lbl} className={`vlt-stat ${s.accent ? 'vlt-stat--accent' : ''}`}>
-                <div className="vlt-stat-num">{s.num}</div>
-                <div className="vlt-stat-lbl">{s.lbl}</div>
-                {s.sub && <div className="vlt-stat-sub">{s.sub}</div>}
-              </div>
-            ))}
+          <div className="vlt-hero-right">
+            <div className="vlt-hero-actions" aria-label="ContextHub quick actions">
+              <button className="vlt-hero-action vlt-hero-action--primary" onClick={() => setActiveTab('upload')}>
+                <Upload size={14} /> Add source <ChevronRight size={14} />
+              </button>
+              <button className="vlt-hero-action" onClick={() => navigate('/ai-chat')}>
+                <MessageCircle size={14} /> Ask AI <ChevronRight size={14} />
+              </button>
+            </div>
+            <div className="vlt-stat-row">
+              {[
+                { num: String(stats.deck).padStart(2,'0'),   lbl: 'IN DECK',    sub: `of ${DECK_SIZE}`, accent: true },
+                { num: String(stats.myDocs).padStart(2,'0'), lbl: 'YOUR DOCS' },
+                { num: String(stats.books).padStart(2,'0'),  lbl: 'BOOKS' },
+                { num: stats.chunks,                          lbl: 'CHUNKS' },
+              ].map(s => (
+                <div key={s.lbl} className={`vlt-stat ${s.accent ? 'vlt-stat--accent' : ''}`}>
+                  <div className="vlt-stat-num">{s.num}</div>
+                  <div className="vlt-stat-lbl">{s.lbl}</div>
+                  {s.sub && <div className="vlt-stat-sub">{s.sub}</div>}
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
