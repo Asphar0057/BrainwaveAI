@@ -481,7 +481,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     panel: {
       width: '100%',
       borderRadius: 28,
-      padding: 20,
+      paddingHorizontal: 14,
+      paddingVertical: 20,
       overflow: 'hidden',
       boxShadow: cbTileShadowExact(),
       ...cbTileBorder(0.22),
