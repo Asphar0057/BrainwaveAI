@@ -16,6 +16,24 @@ def test_document_source_samples_content_beyond_cover_page():
     assert "Agam pharmacology notes" not in excerpts
 
 
+def test_document_source_drops_table_of_contents_rows():
+    contents = """
+    Contents
+    +--------------------------------+
+    | Chapter 1: Introduction | 3    |
+    +--------------------------------+
+    | Chapter 2: Cells        | 11   |
+    +--------------------------------+
+    """
+    study_text = "Cells are the basic structural and functional units of life. " * 80
+
+    excerpts = build_document_flashcard_source(contents + study_text, max_chars=3_000)
+
+    assert "Chapter 1: Introduction" not in excerpts
+    assert "Chapter 2: Cells" not in excerpts
+    assert "Cells are the basic structural" in excerpts
+
+
 def test_document_quality_rejects_title_and_metadata_cards():
     cards = [
         {"question": "What is the primary purpose of the Agam pharmacology notes?", "answer": "Study pharmacology."},
