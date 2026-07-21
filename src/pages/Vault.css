@@ -1980,7 +1980,10 @@
   box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 75%, transparent);
 }
 
-.vlt-qb-main { padding: 0 0 48px; }
+.vlt-qb-main {
+  min-height: calc(100vh - 88px);
+  padding: 0;
+}
 .vlt-hero {
   align-items: flex-end;
   padding: 34px 0 20px;
@@ -2035,7 +2038,17 @@
 .vlt-stat-sub { font-size: 8px; }
 
 .vlt-tab-content { min-height: 420px; padding-top: 20px; }
-.vlt-deck-layout { grid-template-columns: minmax(0, 1.6fr) minmax(310px, 0.78fr); gap: 20px; }
+.vlt-tab-content--deck {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.vlt-deck-layout {
+  flex: 1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: stretch;
+}
 .vlt-deck-panel,
 .vlt-deck-browser {
   position: relative;
@@ -2048,8 +2061,8 @@
     linear-gradient(150deg, #0e0f11, #0a0a09);
   box-shadow: 0 24px 54px rgba(0, 0, 0, 0.3), inset 0 1px rgba(255, 255, 255, 0.025);
 }
-.vlt-deck-panel { min-height: 430px; padding: 22px; gap: 18px; border-top-width: 1px; }
-.vlt-deck-browser { min-height: 430px; max-height: 620px; }
+.vlt-deck-panel { min-height: 430px; height: 100%; padding: 22px; gap: 18px; border-top-width: 1px; }
+.vlt-deck-browser { min-height: 430px; height: 100%; max-height: none; }
 .vlt-deck-panel-title { color: color-mix(in srgb, var(--accent) 86%, white); }
 .vlt-deck-hint { padding: 12px 14px; border-style: solid; background: rgba(5, 5, 4, 0.38); }
 .vlt-deck-slots { gap: 9px; }
@@ -2062,11 +2075,14 @@
 .vlt-browser-empty svg { color: var(--accent); opacity: 0.62; }
 .vlt-browser-empty p { color: color-mix(in srgb, var(--text-primary, #fff) 48%, transparent); line-height: 1.55; }
 
-@media (max-width: 1200px) {
+@media (max-width: 1280px) {
   .vlt-qb-shell { grid-template-columns: 238px minmax(0, 1fr); }
   .vlt-qb-shell--collapsed { grid-template-columns: 64px minmax(0, 1fr); }
   .vlt-qb-shell .sb-sidebar { width: 238px; }
+  .vlt-tab-content--deck { display: block; }
   .vlt-deck-layout { grid-template-columns: 1fr; }
+  .vlt-deck-panel,
+  .vlt-deck-browser { height: auto; }
   .vlt-deck-browser { min-height: 300px; }
 }
 
@@ -2293,6 +2309,253 @@
   .vlt-context-ready { align-items: stretch; flex-direction: column; }
   .vlt-context-ready > button { justify-content: center; }
   .vlt-active-source { grid-template-columns: 24px 32px minmax(0, 1fr) 28px; padding-inline: 8px; }
+}
+
+/* AI Chat-style functional sidebar */
+.vlt-qb-shell .sb-sidebar {
+  gap: 13px;
+  padding: 20px 18px !important;
+  overflow: hidden;
+}
+
+.vlt-qb-shell .sb-sidebar-brand {
+  flex: 0 0 auto;
+  padding: 4px 6px 16px;
+}
+
+.vlt-sidebar-create {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 2px;
+}
+
+.vlt-sidebar-create .sb-primary-btn { border-radius: 10px; }
+
+.vlt-sidebar-search {
+  height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--vlt-side-line-soft);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.vlt-sidebar-search:focus-within {
+  border-color: var(--vlt-side-line-strong);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.vlt-sidebar-search > svg { flex: 0 0 auto; color: color-mix(in srgb, var(--accent) 64%, var(--text-secondary)); }
+.vlt-sidebar-search input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: var(--text-primary); font-size: 11px; }
+.vlt-sidebar-search input::placeholder { color: color-mix(in srgb, var(--text-primary) 42%, transparent); }
+.vlt-sidebar-search button { width: 22px; height: 22px; flex: 0 0 auto; display: grid; place-items: center; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--text-secondary); cursor: pointer; }
+.vlt-sidebar-search button:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
+.vlt-qb-shell .sb-sidebar-section {
+  flex: 0 0 auto;
+  gap: 8px;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.vlt-qb-shell .sb-sidebar-heading,
+.vlt-sidebar-section-head {
+  min-height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 2px;
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.vlt-sidebar-section-head strong {
+  min-width: 20px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: color-mix(in srgb, var(--text-primary) 55%, transparent);
+  font-size: 8px;
+  letter-spacing: 0;
+}
+
+.vlt-qb-shell .sb-menu { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+.vlt-qb-shell .sb-menu-item { min-height: 36px; gap: 7px; padding: 8px; font-size: 10px; }
+.vlt-qb-shell .sb-menu-item svg { width: 14px; height: 14px; }
+.vlt-qb-shell .sb-menu-item .vlt-qb-nav-count { display: none; }
+
+.vlt-sidebar-folders {
+  flex: 0 0 auto;
+  max-height: 118px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-height: 0;
+  padding: 3px 2px;
+}
+
+.vlt-sidebar-folder-list {
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 35%, transparent) transparent;
+}
+
+.vlt-sidebar-folder-list button {
+  min-height: 30px;
+  display: grid;
+  grid-template-columns: 15px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 7px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.vlt-sidebar-folder-list button:hover,
+.vlt-sidebar-folder-list button.active { border-color: var(--vlt-side-line-strong); background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--text-primary); }
+.vlt-sidebar-folder-list button svg { color: color-mix(in srgb, var(--accent) 70%, var(--text-secondary)); }
+.vlt-sidebar-folder-list button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+.vlt-sidebar-folder-list button small { color: color-mix(in srgb, var(--text-primary) 42%, transparent); font-size: 8px; }
+
+.vlt-sidebar-sources {
+  flex: 1 1 0;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  overflow: hidden;
+  padding: 3px 2px;
+}
+
+.vlt-sidebar-source-list {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 38%, transparent) transparent;
+  overscroll-behavior: contain;
+}
+
+.vlt-sidebar-source-list::-webkit-scrollbar,
+.vlt-sidebar-folder-list::-webkit-scrollbar { width: 5px; }
+.vlt-sidebar-source-list::-webkit-scrollbar-thumb,
+.vlt-sidebar-folder-list::-webkit-scrollbar-thumb { border-radius: 999px; background: color-mix(in srgb, var(--accent) 38%, transparent); }
+
+.vlt-sidebar-source {
+  flex: 0 0 auto;
+  min-height: 50px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 26px;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.vlt-sidebar-source:hover,
+.vlt-sidebar-source.active { border-color: var(--vlt-side-line-strong); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
+.vlt-sidebar-source-toggle {
+  min-width: 0;
+  height: 100%;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  padding: 7px 4px 7px 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.vlt-sidebar-source-toggle:disabled { cursor: not-allowed; opacity: 0.42; }
+.vlt-sidebar-source-state { width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid var(--vlt-side-line-soft); border-radius: 7px; color: var(--text-secondary); }
+.vlt-sidebar-source.active .vlt-sidebar-source-state { border-color: var(--vlt-side-line-strong); background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.vlt-sidebar-source-copy { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.vlt-sidebar-source-copy strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); font-size: 10px; font-weight: 650; }
+.vlt-sidebar-source-copy small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: color-mix(in srgb, var(--text-primary) 42%, transparent); font-size: 8px; }
+.vlt-sidebar-source-open { width: 24px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 7px; background: transparent; color: color-mix(in srgb, var(--text-primary) 38%, transparent); cursor: pointer; }
+.vlt-sidebar-source-open:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+
+.vlt-sidebar-empty { min-height: 74px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; color: color-mix(in srgb, var(--text-primary) 40%, transparent); font-size: 10px; text-align: center; }
+
+.vlt-qb-shell .sb-sidebar-actions {
+  flex: 0 0 auto;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--vlt-side-line-soft);
+}
+
+.vlt-qb-shell .sb-sidebar-action { min-width: 0; min-height: 34px; justify-content: flex-start; gap: 8px; padding: 7px 10px; border-radius: 9px; background: transparent; font-size: 10px; }
+.vlt-qb-shell .sb-sidebar-action span { display: inline; }
+.vlt-qb-shell .sb-sidebar-action svg { width: 15px; height: 15px; }
+
+.vlt-qb-shell .sb-sidebar--collapsed { padding: 12px 0 !important; }
+
+/* Keep the collapsed rail at exactly 64px while allowing icon tooltips to escape. */
+.vlt-qb-shell .sb-sidebar.sb-sidebar--collapsed {
+  width: 64px !important;
+  min-width: 64px !important;
+  max-width: 64px !important;
+  flex: 0 0 64px !important;
+  box-sizing: border-box;
+  border-radius: 14px;
+  overflow: visible !important;
+}
+
+/* The grain layer is normally oversized. In the open-overflow collapsed state it
+   must be reduced to the rail bounds or it bleeds into the page as a dark strip. */
+.vlt-qb-shell .sb-sidebar.sb-sidebar--collapsed::before,
+.vlt-qb-shell .sb-sidebar.sb-sidebar--collapsed::after {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  clip-path: inset(0 round 14px);
+}
+
+.vlt-qb-shell .sb-sidebar.sb-sidebar--collapsed .sb-collapsed-strip {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+}
+
+@media (max-width: 960px) {
+  .vlt-qb-shell .sb-sidebar:not(.sb-sidebar--collapsed) { padding: 16px !important; }
+  .vlt-sidebar-sources { max-height: 220px; }
 }
 
 .vlt-doccard-body { padding: 16px; display: flex; flex-direction: column; gap: 10px; }

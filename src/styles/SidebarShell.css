@@ -81,7 +81,8 @@
   position: absolute;
   right: 0;
   top: 50%;
-  transform: translateY(-56%);
+  translate: 0 -50%;
+  transform: none !important;
   width: 28px;
   height: 28px;
   display: grid;
@@ -95,14 +96,34 @@
 }
 
 .sb-sidebar-close-btn svg {
+  display: block;
   width: 14px;
   height: 14px;
+  translate: none;
+  transform: none !important;
 }
 
 .sb-sidebar-close-btn:hover {
+  translate: 0 -50%;
+  transform: none !important;
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 45%, transparent);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.sb-sidebar-close-btn:active,
+.sb-sidebar-close-btn:focus,
+.sb-sidebar-close-btn:focus-visible {
+  translate: 0 -50%;
+  transform: none !important;
+}
+
+.sb-sidebar-close-btn:hover svg,
+.sb-sidebar-close-btn:active svg,
+.sb-sidebar-close-btn:focus svg,
+.sb-sidebar-close-btn:focus-visible svg {
+  translate: none;
+  transform: none !important;
 }
 
 /* Primary action button */

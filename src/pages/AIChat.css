@@ -3610,7 +3610,7 @@ sub {
   box-shadow: 0 0 0 3px var(--ac-accent-glow), 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-button:not(:disabled),
+.ai-chat-page button:not(:disabled),
 .ac-nav-item,
 .ac-session-item,
 .ac-folder-item {
@@ -3618,7 +3618,7 @@ button:not(:disabled),
   user-select: none;
 }
 
-button:not(:disabled):active,
+.ai-chat-page button:not(:disabled):active,
 .ac-nav-item:active,
 .ac-session-item:active,
 .ac-folder-item:active {
@@ -4808,15 +4808,15 @@ button:not(:disabled):active,
   }
 }
 
-button:not(.ac-send-btn):not(.ac-new-chat-btn) {
+.ai-chat-page button:not(.ac-send-btn):not(.ac-new-chat-btn) {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-button:not(.ac-send-btn):not(.ac-new-chat-btn):hover {
+.ai-chat-page button:not(.ac-send-btn):not(.ac-new-chat-btn):hover {
   transform: translateY(-1px);
 }
 
-button:not(.ac-send-btn):not(.ac-new-chat-btn):active {
+.ai-chat-page button:not(.ac-send-btn):not(.ac-new-chat-btn):active {
   transform: translateY(0);
 }
 
@@ -4835,9 +4835,9 @@ button:not(.ac-send-btn):not(.ac-new-chat-btn):active {
   pointer-events: none;
 }
 
-input:focus,
-textarea:focus,
-button:focus-visible {
+.ai-chat-page input:focus,
+.ai-chat-page textarea:focus,
+.ai-chat-page button:focus-visible {
   outline: 2px solid var(--ac-accent);
   outline-offset: 2px;
 }

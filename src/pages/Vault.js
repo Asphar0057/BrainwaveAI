@@ -12,7 +12,7 @@ import { API_URL } from '../config/api';
 import { queuedAIJsonFetch } from '../services/aiJobService';
 import { signOutAppSession } from '../utils/authSession';
 import AbstractFx from '../components/AbstractFx';
-import { SidebarShell, SidebarSection, SidebarMenuItem, SidebarStats, SidebarStatBox, SidebarActions, SidebarAction, SidebarStripButton, SidebarStripSpacer } from '../components/Sidebar';
+import { SidebarShell, SidebarSection, SidebarMenuItem, SidebarPrimaryButton, SidebarActions, SidebarAction, SidebarStripButton, SidebarStripSpacer } from '../components/Sidebar';
 import './Vault.css';
 import '../components/SocialHubChrome.css';
 
@@ -320,6 +320,7 @@ const Vault = () => {
   ));
   const [docSearch, setDocSearch] = useState('');
   const [sourceScope, setSourceScope] = useState('all');
+  const [sidebarSearch, setSidebarSearch] = useState('');
   const [currMode, setCurrMode]   = useState('uk');  
   const [currSubject, setCurrSubject] = useState(null);
   const [fileActionStats, setFileActionStats] = useState(loadFileActionStats);
@@ -846,6 +847,18 @@ const Vault = () => {
       [d.filename, d.subject, d.folder_name, ...(d.topic_tags || [])].join(' ').toLowerCase().includes(q)
     );
   }, [userDocs, docSearch, activeFolderId]);
+
+  const sidebarDocs = useMemo(() => {
+    const query = sidebarSearch.trim().toLowerCase();
+    if (!query) return userDocs;
+    return userDocs.filter((doc) => (
+      [doc.filename, doc.title, doc.subject, doc.folder_name, ...(doc.topic_tags || [])]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(query)
+    ));
+  }, [sidebarSearch, userDocs]);
 
   const folderTree = useMemo(() => buildFolderTree(folders), [folders]);
   const flatFolders = useMemo(() => flattenFolderTree(folderTree), [folderTree]);
@@ -1789,18 +1802,11 @@ const Vault = () => {
             ariaLabel="ContextHub navigation"
             collapsedContent={(
               <>
-                {TABS.map((t) => {
-                  const Icon = t.icon;
-                  return (
-                    <SidebarStripButton
-                      key={t.id}
-                      icon={<Icon size={18} />}
-                      tip={t.label}
-                      active={activeTab === t.id}
-                      onClick={() => { setSidebarCollapsed(false); setActiveTab(t.id); }}
-                    />
-                  );
-                })}
+                <SidebarStripButton icon={<Upload size={18} />} tip="Add source" onClick={() => { setSidebarCollapsed(false); setActiveTab('upload'); }} />
+                <SidebarStripButton icon={<Search size={18} />} tip="Search sources" onClick={() => setSidebarCollapsed(false)} />
+                <SidebarStripButton icon={<Package size={18} />} tip="Context deck" active={activeTab === 'deck'} onClick={() => { setSidebarCollapsed(false); setActiveTab('deck'); }} />
+                <SidebarStripButton icon={<Lock size={18} />} tip="Your docs" active={activeTab === 'mydocs'} onClick={() => { setSidebarCollapsed(false); setActiveTab('mydocs'); }} />
+                <SidebarStripButton icon={<GraduationCap size={18} />} tip="Curriculum" active={activeTab === 'curriculum'} onClick={() => { setSidebarCollapsed(false); setActiveTab('curriculum'); }} />
                 <SidebarStripSpacer />
                 <SidebarStripButton icon={<MessageSquare size={18} />} tip="AI Chat" onClick={() => navigate('/ai-chat')} />
                 <SidebarStripButton icon={<LayoutDashboard size={18} />} tip="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} />
@@ -1817,7 +1823,27 @@ const Vault = () => {
               </>
             )}
           >
-            <SidebarSection heading="Views">
+            <div className="vlt-sidebar-create">
+              <SidebarPrimaryButton
+                icon={<Plus size={15} />}
+                label="Add source"
+                onClick={() => setActiveTab('upload')}
+              />
+              <div className="vlt-sidebar-search">
+                <Search size={14} />
+                <input
+                  value={sidebarSearch}
+                  onChange={(event) => setSidebarSearch(event.target.value)}
+                  placeholder="Search sources..."
+                  aria-label="Search ContextHub sources"
+                />
+                {sidebarSearch && (
+                  <button type="button" onClick={() => setSidebarSearch('')} aria-label="Clear source search"><X size={12} /></button>
+                )}
+              </div>
+            </div>
+
+            <SidebarSection heading="Workspace">
               {TABS.map((t) => {
                 const Icon = t.icon;
                 return (
@@ -1833,11 +1859,75 @@ const Vault = () => {
               })}
             </SidebarSection>
 
-            <SidebarStats>
-              <SidebarStatBox value={`${stats.deck}/${DECK_SIZE}`} label="Deck" />
-              <SidebarStatBox value={stats.myDocs} label="Your Docs" />
-              <SidebarStatBox value={stats.books} label="Books" />
-            </SidebarStats>
+            {folders.length > 0 && (
+              <div className="vlt-sidebar-folders">
+                <div className="vlt-sidebar-section-head">
+                  <span>Folders</span>
+                  <strong>{folders.length}</strong>
+                </div>
+                <div className="vlt-sidebar-folder-list">
+                  <button
+                    type="button"
+                    className={activeFolderId === 'all' ? 'active' : ''}
+                    onClick={() => { setActiveFolderId('all'); setActiveTab('mydocs'); }}
+                  >
+                    <Folder size={13} /><span>All documents</span><small>{userDocs.length}</small>
+                  </button>
+                  {folders.map((folder) => (
+                    <button
+                      type="button"
+                      key={folder.id}
+                      className={String(activeFolderId) === String(folder.id) ? 'active' : ''}
+                      onClick={() => { setActiveFolderId(String(folder.id)); setActiveTab('mydocs'); }}
+                    >
+                      <Folder size={13} /><span>{folder.name}</span><small>{folderDocCounts[String(folder.id)] || 0}</small>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="vlt-sidebar-sources">
+              <div className="vlt-sidebar-section-head">
+                <span>{sidebarSearch ? 'Search results' : 'Your sources'}</span>
+                <strong>{sidebarDocs.length}</strong>
+              </div>
+              <div className="vlt-sidebar-source-list">
+                {sidebarDocs.length === 0 ? (
+                  <div className="vlt-sidebar-empty">
+                    <FileText size={18} />
+                    <span>{sidebarSearch ? 'No matching sources' : 'No documents yet'}</span>
+                  </div>
+                ) : sidebarDocs.map((doc) => {
+                  const id = doc.doc_id || doc.id;
+                  const inDeck = deckSet.has(id);
+                  const deckFull = !inDeck && deckIds.length >= DECK_SIZE;
+                  return (
+                    <div className={`vlt-sidebar-source ${inDeck ? 'active' : ''}`} key={id}>
+                      <button
+                        type="button"
+                        className="vlt-sidebar-source-toggle"
+                        disabled={deckFull}
+                        onClick={() => inDeck ? removeFromDeck(id) : addToDeck(id)}
+                        aria-label={inDeck ? `Remove ${doc.filename || doc.title} from context` : `Add ${doc.filename || doc.title} to context`}
+                      >
+                        <span className="vlt-sidebar-source-state">{inDeck ? <Check size={12} /> : <Plus size={12} />}</span>
+                        <span className="vlt-sidebar-source-copy">
+                          <strong>{doc.filename || doc.title || 'Untitled'}</strong>
+                          <small>{doc.subject ? subjectLabel(doc.subject) : 'Document'}{doc.chunk_count ? ` · ${doc.chunk_count} chunks` : ''}</small>
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className="vlt-sidebar-source-open"
+                        onClick={() => navigate(`/contexthub/file/${id}`)}
+                        aria-label={`Open ${doc.filename || doc.title || 'source'}`}
+                      ><ChevronRight size={13} /></button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
 
             <SidebarActions>
               <SidebarAction icon={<LayoutDashboard size={14} />} label="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} />
@@ -1890,7 +1980,7 @@ const Vault = () => {
         </section>
 
         {}
-        <div className="vlt-tab-content">
+        <div className={`vlt-tab-content ${activeTab === 'deck' ? 'vlt-tab-content--deck' : ''}`}>
           {activeTab === 'deck'       && DeckTab()}
           {activeTab === 'mydocs'     && MyDocsTab()}
           {activeTab === 'upload'     && UploadTab()}
