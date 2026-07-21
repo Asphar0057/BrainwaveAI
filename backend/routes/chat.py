@@ -1084,7 +1084,7 @@ async def ask_ai(
                 db.commit()
 
         except Exception as _ml_err:
-            logger.debug(f"[CHAT] ML pipeline skipped: {_ml_err}")
+            logger.warning(f"[CHAT] ML pipeline skipped: {_ml_err}", exc_info=True)
 
         try:
             from services.context_agent import get_context_agent, LearningEvent
@@ -1188,7 +1188,13 @@ async def ask_ai(
             ).first()
             if session:
                 session.updated_at = datetime.now(timezone.utc)
-                _apply_fallback_chat_title(session, user_question or model_question)
+                # NOTE: `user_question`/`model_question` are not defined anywhere in this
+                # function (they belong to a different handler further down in this same
+                # file) -- this was an unconditional NameError on every turn that had a
+                # chat_id, silently swallowed by the blanket `except Exception` below and
+                # masked as a generic "I encountered an error" reply. `question` is this
+                # function's actual Form parameter holding the user's message.
+                _apply_fallback_chat_title(session, question)
 
             if tutor_mode:
                 tutor_state = _persist_tutor_session_state(

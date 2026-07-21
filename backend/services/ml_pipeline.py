@@ -171,6 +171,29 @@ class MessageMLPipeline:
         except Exception as e:
             logger.debug(f"[ML] concept cache load partial: {e}")
 
+        # Bootstrap seed: StudentKnowledgeState rows only ever get created once
+        # this cache already has entries (layer1 needs a hit to set current_concept_id,
+        # which is what layer2 needs to create the first row) -- a circular dependency
+        # that can never resolve on its own. Break it by also seeding from topics that
+        # already exist independently via quiz activity (TopicMastery / UserWeakArea),
+        # so layer1 has something real to match against from message 1.
+        try:
+            import models
+            topic_names = set(
+                t for (t,) in db.query(models.TopicMastery.topic_name).distinct().limit(300).all() if t
+            )
+            topic_names |= set(
+                t for (t,) in db.query(models.UserWeakArea.topic).distinct().limit(300).all() if t
+            )
+            for topic in topic_names:
+                cid = topic.strip().lower().replace(" ", "_")
+                if cid and cid not in self._concept_cache:
+                    vec = self._registry.embed(topic)
+                    if vec:
+                        self._concept_cache[cid] = vec
+        except Exception as e:
+            logger.debug(f"[ML] concept cache topic-seed partial: {e}")
+
     def _get_archetype(self, db, user_id: int) -> str:
         try:
             import models
@@ -411,10 +434,20 @@ class MessageMLPipeline:
             archetype = self._get_archetype(db, user_id)
             out.archetype = archetype
 
-            (intent, concepts), (p_mastery, delta, kt_before, kt_after), (frustration, engagement, cognitive) = (
+            # Layer1 must run before layer2: layer2's concept update needs the
+            # concept(s) layer1 just detected in THIS message, not the previous
+            # turn's stale session.current_concept_id (they used to run
+            # concurrently via asyncio.gather, so layer2 could never see layer1's
+            # own output). Fall back to the prior turn's concept only if layer1
+            # found nothing new to talk about.
+            intent, concepts = await self._layer1_intent_concept(message, db, user_id, session)
+            concept_ids_for_bkt = concepts or (
+                [session.current_concept_id] if session.current_concept_id else []
+            )
+
+            (p_mastery, delta, kt_before, kt_after), (frustration, engagement, cognitive) = (
                 await asyncio.gather(
-                    self._layer1_intent_concept(message, db, user_id, session),
-                    self._layer2_bkt_update(db, user_id, session.current_concept_id and [session.current_concept_id] or [], intent if False else "question"),
+                    self._layer2_bkt_update(db, user_id, concept_ids_for_bkt, intent),
                     self._layer3_affect(message, session),
                 )
             )
