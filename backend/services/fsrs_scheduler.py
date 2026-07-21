@@ -53,7 +53,7 @@ def apply_fsrs_review(flashcard, grade_str: str) -> dict:
 
     updated_card, _log = _scheduler.review_card(card, rating, now)
 
-    retrievability = _scheduler.get_retrievability(updated_card, now)
+    retrievability = updated_card.get_retrievability(now)
 
     return {
         "new_state":        STATE_TO_STR[updated_card.state],

@@ -929,7 +929,7 @@ async def submit_question_answers(
         attempt = models.QuestionAttempt(
             question_set_id=question_set_id,
             user_id=question_set.user_id,
-            attempt_number=question_set.attempt_count + 1,
+            attempt_number=(question_set.attempts or 0) + 1,
             answers=json.dumps(answers),
             score=score,
             correct_count=correct_count,
@@ -940,7 +940,10 @@ async def submit_question_answers(
 
         db.add(attempt)
 
-        question_set.attempt_count += 1
+        # NOTE: models.QuestionSet has no `attempt_count` column (only `attempts`)
+        # -- `question_set.attempt_count += 1` unconditionally raised AttributeError
+        # on every submission, pre-existing and unrelated to this session's changes.
+        question_set.attempts = (question_set.attempts or 0) + 1
         if score > question_set.best_score:
             question_set.best_score = score
 
@@ -1403,14 +1406,14 @@ async def submit_answers(
 
         score = (correct_count / len(questions)) * 100 if questions else 0
 
-        question_set.attempt_count += 1
+        question_set.attempts = (question_set.attempts or 0) + 1
         if score > question_set.best_score:
             question_set.best_score = score
 
         attempt = models.QuestionAttempt(
             question_set_id=question_set_id,
             user_id=user.id,
-            attempt_number=question_set.attempt_count,
+            attempt_number=question_set.attempts,
             answers=json.dumps(answers),
             score=score,
             correct_count=correct_count,

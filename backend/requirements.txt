@@ -47,7 +47,14 @@ numpy>=1.26.0
 scipy>=1.13.0
 
 # Spaced Repetition - FSRS (Free Spaced Repetition Scheduler)
-fsrs>=6.0.0
+# Pinned <4.0 deliberately: services/fsrs_scheduler.py is written against the
+# pre-rewrite API (FSRS class, Card.reps/lapses/scheduled_days/get_retrievability).
+# fsrs 4.x-6.x renamed FSRS->Scheduler and replaced reps/lapses with a single
+# `step` counter -- installing >=6.0.0 as previously pinned here breaks every
+# flashcard spaced-repetition review with ImportError/AttributeError. Bumping
+# past 3.x requires rewriting fsrs_scheduler.py against the new Card/Scheduler
+# API, not just changing this pin.
+fsrs>=3.1.0,<4.0.0
 
 # Data Processing
 pandas>=1.5.0
