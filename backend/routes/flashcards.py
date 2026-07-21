@@ -15,6 +15,7 @@ import models
 from deps import call_ai, enforce_request_user_scope, get_current_user, get_db, get_user_by_email, get_user_by_username, unified_ai
 from services.ai_json_parser import parse_json_array_response
 from services.document_flashcard_source import build_document_flashcard_source
+from services.content_bandit import get_content_bandit, is_auto_difficulty
 from uid_utils import resolve_by_id_or_uid
 
 logger = logging.getLogger(__name__)
@@ -618,6 +619,24 @@ async def generate_flashcards_endpoint(
     if doc_ids_list:
         context_prompt_content = _collect_context_doc_chunks_for_prompt(user.id, doc_ids_list)
 
+    # Truncated to 50 chars to match Flashcard.category's column width -- the same
+    # string gets written to card.category below so sr_review can look it back up
+    # for reward resolution without needing a schema change.
+    bandit_topic = (topic or chat_content or "general").strip()[:50]
+    if is_auto_difficulty(difficulty) and bandit_topic:
+        try:
+            selection = get_content_bandit().select_difficulty(
+                db, str(user.id), "flashcard", bandit_topic,
+            )
+            difficulty = selection.difficulty
+            logger.info(
+                f"[FLASHCARD ROUTE] auto-difficulty resolved to '{difficulty}' "
+                f"(method={selection.selection_method}) for topic='{bandit_topic}'"
+            )
+        except Exception as e:
+            logger.warning(f"[FLASHCARD ROUTE] content bandit selection failed, defaulting to medium: {e}")
+            difficulty = "medium"
+
     from graphs.flashcard_graph import get_flashcard_graph
 
     graph = get_flashcard_graph()
@@ -752,6 +771,7 @@ async def generate_flashcards_endpoint(
             question=card_data.get("question", ""),
             answer=card_data.get("answer", ""),
             difficulty=card_data.get("difficulty", difficulty),
+            category=bandit_topic,
         )
         db.add(card)
         db.commit()
@@ -1027,6 +1047,18 @@ async def sr_review(request: SRReviewRequest, db: Session = Depends(get_db)):
         models.FlashcardSet.id == card.set_id
     ).first()
     set_title = flashcard_set.title if flashcard_set else ""
+
+    bandit_topic_key = card.category if card.category and card.category != "general" else (
+        set_title.replace("Flashcards: ", "") if set_title else ""
+    )
+    if bandit_topic_key:
+        try:
+            grade_accuracy = {"again": 0.0, "hard": 0.33, "good": 0.67, "easy": 1.0}.get(grade_str, 0.5)
+            get_content_bandit().resolve_reward(
+                db, str(user.id), "flashcard", bandit_topic_key, grade_accuracy,
+            )
+        except Exception as e:
+            logger.warning(f"[SR_REVIEW] content bandit reward resolution failed: {e}")
 
     try:
         from services.gamification_system import award_points

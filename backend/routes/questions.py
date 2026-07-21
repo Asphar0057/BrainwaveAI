@@ -22,6 +22,7 @@ from deps import (
 )
 from services.ai_json_parser import parse_json_array_response
 from services.math_processor import process_math_in_response
+from services.content_bandit import get_content_bandit, is_auto_difficulty
 
 logger = logging.getLogger(__name__)
 router = APIRouter(
@@ -361,6 +362,20 @@ async def generate_practice_questions(
 
         if not topic and not content:
             raise HTTPException(status_code=400, detail="Topic or content required")
+
+        if is_auto_difficulty(difficulty) and topic:
+            try:
+                selection = get_content_bandit().select_difficulty(
+                    db, str(user.id), "quiz", topic.strip()[:50],
+                )
+                difficulty = selection.difficulty
+                logger.info(
+                    f"[QUIZ ROUTE] auto-difficulty resolved to '{difficulty}' "
+                    f"(method={selection.selection_method}) for topic='{topic}'"
+                )
+            except Exception as e:
+                logger.warning(f"[QUIZ ROUTE] content bandit selection failed, defaulting to medium: {e}")
+                difficulty = "medium"
 
         questions_data = []
         if load_test_fallback:
@@ -950,6 +965,14 @@ async def submit_question_answers(
         db.commit()
 
         topic = (question_set.title or "").replace("Practice: ", "").strip()
+
+        if topic:
+            try:
+                get_content_bandit().resolve_reward(
+                    db, str(question_set.user_id), "quiz", topic[:50], score / 100.0,
+                )
+            except Exception as e:
+                logger.warning(f"[QUIZ SUBMIT] content bandit reward resolution failed: {e}")
 
         try:
             from tutor import chroma_store

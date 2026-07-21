@@ -24,6 +24,7 @@ from deps import (
 from services.ai_json_parser import parse_json_array_response
 from services.websocket_manager import manager
 from services.admin_analytics import check_admin
+from services.content_bandit import get_content_bandit, is_auto_difficulty
 from uid_utils import resolve_by_id_or_uid
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,21 @@ async def create_solo_quiz(
         subject = payload.get("subject")
         difficulty = payload.get("difficulty", "intermediate")
         question_count = payload.get("question_count", 10)
+
+        if is_auto_difficulty(difficulty) and subject:
+            try:
+                selection = get_content_bandit().select_difficulty(
+                    db, str(current_user.id), "quiz", subject.strip()[:50],
+                    arms=["beginner", "intermediate", "advanced"],
+                )
+                difficulty = selection.difficulty
+                logger.info(
+                    f"[SOLO_QUIZ] auto-difficulty resolved to '{difficulty}' "
+                    f"(method={selection.selection_method}) for subject='{subject}'"
+                )
+            except Exception as e:
+                logger.warning(f"[SOLO_QUIZ] content bandit selection failed, defaulting to intermediate: {e}")
+                difficulty = "intermediate"
 
         quiz = models.SoloQuiz(
             user_id=current_user.id,
@@ -240,6 +256,95 @@ async def complete_solo_quiz(
                 )
         except Exception as chroma_err:
             logger.warning(f"Chroma write failed on solo quiz complete: {chroma_err}")
+
+        # ── Personalization loop: weak-area/mastery tracking + bandit reward ──
+        # Solo quiz completion previously only touched SoloQuiz/gamification/chroma
+        # -- never fed the same UserWeakArea/TopicMastery tables flashcards/chat/
+        # notes all read from (routes/questions.py::submit_question_answers does
+        # this for practice questions; this mirrors that pattern here), and never
+        # closed the difficulty-bandit loop opened in create_solo_quiz.
+        try:
+            topic = (quiz.subject or "").strip()
+            correct_count = round((score / 100) * quiz.question_count) if score is not None else 0
+            incorrect_count = max(quiz.question_count - correct_count, 0)
+            accuracy_frac = (score or 0) / 100.0
+
+            if topic:
+                now = datetime.now(timezone.utc)
+                existing_wa = db.query(models.UserWeakArea).filter(
+                    models.UserWeakArea.user_id == current_user.id,
+                    models.UserWeakArea.topic == topic[:255],
+                ).first()
+                if existing_wa:
+                    total = (existing_wa.total_questions or 0) + quiz.question_count
+                    correct_total = (existing_wa.correct_count or 0) + correct_count
+                    wrong_total = (existing_wa.incorrect_count or 0) + incorrect_count
+                    acc = round(correct_total / total * 100, 1) if total else 0.0
+                    existing_wa.total_questions = total
+                    existing_wa.correct_count = correct_total
+                    existing_wa.incorrect_count = wrong_total
+                    existing_wa.accuracy = acc
+                    existing_wa.weakness_score = max(existing_wa.weakness_score or 0.0, round((100 - acc) * 0.8, 1))
+                    existing_wa.last_practiced = now
+                    if score < 60:
+                        existing_wa.consecutive_wrong = (existing_wa.consecutive_wrong or 0) + incorrect_count
+                        existing_wa.status = "critical" if acc < 50 else "needs_practice"
+                        existing_wa.priority = min(10, (existing_wa.priority or 5) + 1)
+                    elif score >= 80:
+                        existing_wa.status = "improving"
+                        existing_wa.improvement_rate = min(1.0, (existing_wa.improvement_rate or 0.0) + 0.1)
+                elif score < 75:
+                    db.add(models.UserWeakArea(
+                        user_id=current_user.id,
+                        topic=topic[:255],
+                        total_questions=quiz.question_count,
+                        correct_count=correct_count,
+                        incorrect_count=incorrect_count,
+                        accuracy=round(score, 1),
+                        weakness_score=round((100 - score) * 0.8, 1),
+                        consecutive_wrong=incorrect_count,
+                        practice_sessions=1,
+                        last_practiced=now,
+                        improvement_rate=0.0,
+                        status="critical" if score < 50 else "needs_practice",
+                        priority=8 if score < 50 else 5,
+                    ))
+
+                mastery = db.query(models.TopicMastery).filter(
+                    models.TopicMastery.user_id == current_user.id,
+                    models.TopicMastery.topic_name == topic,
+                ).first()
+                if mastery:
+                    mastery.questions_asked = (mastery.questions_asked or 0) + quiz.question_count
+                    mastery.correct_answers = (mastery.correct_answers or 0) + correct_count
+                    mastery.last_practiced = now
+                    mastery.mastery_level = min(1.0, (mastery.mastery_level or 0.0) * 0.9 + accuracy_frac * 0.1)
+                    mastery.confidence_level = accuracy_frac
+                else:
+                    db.add(models.TopicMastery(
+                        user_id=current_user.id,
+                        topic_name=topic,
+                        questions_asked=quiz.question_count,
+                        correct_answers=correct_count,
+                        mastery_level=0.1 * accuracy_frac,
+                        confidence_level=accuracy_frac,
+                        last_practiced=now,
+                    ))
+
+                db.commit()
+
+                try:
+                    get_content_bandit().resolve_reward(
+                        db, str(current_user.id), "quiz", topic[:50], accuracy_frac,
+                    )
+                except Exception as e:
+                    logger.warning(f"[SOLO_QUIZ] content bandit reward resolution failed: {e}")
+        except Exception as _wa_err:
+            logger.warning(f"[SOLO_QUIZ] weak-area/mastery update failed: {_wa_err}")
+            try:
+                db.rollback()
+            except Exception:
+                pass
 
         from services.gamification_system import award_points, calculate_solo_quiz_points
 
