@@ -38,30 +38,12 @@ async def fetch_context(state: FlashcardGenState) -> dict:
 
     if db_factory:
         try:
-            from models import UserWeakArea, TopicMastery
+            from services.personalization_context import get_personalization_context
             db = db_factory()
             try:
-                uid = int(user_id)
-                weak_areas = (
-                    db.query(UserWeakArea)
-                    .filter(UserWeakArea.user_id == uid)
-                    .order_by(UserWeakArea.weakness_score.desc())
-                    .limit(5)
-                    .all()
-                )
-                for wa in weak_areas:
-                    if wa.topic and wa.topic not in weaknesses:
-                        weaknesses.append(wa.topic)
-
-                mastery = (
-                    db.query(TopicMastery)
-                    .filter(TopicMastery.user_id == uid, TopicMastery.mastery_level >= 0.7)
-                    .limit(5)
-                    .all()
-                )
-                for tm in mastery:
-                    if tm.topic_name and tm.topic_name not in strengths:
-                        strengths.append(tm.topic_name)
+                ctx = get_personalization_context(db, user_id)
+                weaknesses = ctx.weaknesses
+                strengths = ctx.strengths
             finally:
                 db.close()
         except Exception as e:
