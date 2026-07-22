@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, Text, ViewStyle, Animated, Keyboard, Platform } from 'react-native';
-import PagerView from 'react-native-pager-view';
+import PagerView, { AppPagerHandle } from '../components/AppPager';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NavigationContainer } from '@react-navigation/native';
@@ -27,6 +27,7 @@ import KnowledgeHubScreen from '../screens/KnowledgeHubScreen';
 import SlideExplorerScreen from '../screens/SlideExplorerScreen';
 import CanvasHubScreen from '../screens/CanvasHubScreen';
 import LearningPathsScreen from '../screens/social/LearningPathsScreen';
+import LeaderboardScreen from '../screens/social/LeaderboardScreen';
 import HapticTouchable from '../components/HapticTouchable';
 import ScreenErrorBoundary from '../components/ScreenErrorBoundary';
 import { useAppTheme } from '../contexts/ThemeContext';
@@ -48,6 +49,7 @@ type RootStackParamList = {
   XpAnalytics: undefined;
   WeaknessPractice: undefined;
   LearningPaths: undefined;
+  Leaderboard: undefined;
 };
 
 const TABS: { label: string; icon: IoniconsName; activeIcon: IoniconsName }[] = [
@@ -61,7 +63,7 @@ const TABS: { label: string; icon: IoniconsName; activeIcon: IoniconsName }[] = 
 type Props = { user: AuthUser; onLogout: () => void; onUserUpdate?: (patch: Partial<AuthUser>) => void };
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-type AppTarget = 'flashcards' | 'notes' | 'aimedia' | 'settings' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'xpAnalytics' | 'weaknessPractice' | 'learningPaths';
+type AppTarget = 'flashcards' | 'notes' | 'aimedia' | 'settings' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'xpAnalytics' | 'weaknessPractice' | 'learningPaths' | 'leaderboard';
 
 function MainTabs({ user, onLogout, onUserUpdate, onNavigate }: Props & { onNavigate: (screen: AppTarget) => void }) {
   const insets = useSafeAreaInsets();
@@ -71,7 +73,7 @@ function MainTabs({ user, onLogout, onUserUpdate, onNavigate }: Props & { onNavi
   const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
   useFonts({ Inter_700Bold });
   const [index, setIndex] = useState(2);
-  const pager = useRef<PagerView>(null);
+  const pager = useRef<AppPagerHandle>(null);
   const kbHeight = useRef(new Animated.Value(0)).current;
 
   const goTo = (i: number) => {
@@ -152,7 +154,7 @@ function MainTabs({ user, onLogout, onUserUpdate, onNavigate }: Props & { onNavi
             <View key="0" collapsable={false} style={s.page}><AIChatScreen user={user} /></View>
             <View key="1" collapsable={false} style={s.page}><MoreScreen user={user} onNavigate={onNavigate} onNavigateToAI={() => goTo(0)} /></View>
             <View key="2" collapsable={false} style={s.page}><HomeScreen user={user} onNavigate={onNavigate} onNavigateToAI={() => goTo(0)} onSwipeLeftPage={() => goTo(3)} onSwipeRightPage={() => goTo(1)} /></View>
-            <View key="3" collapsable={false} style={s.page}><SocialScreen user={user} /></View>
+            <View key="3" collapsable={false} style={s.page}><SocialScreen user={user} onOpenLeaderboard={() => onNavigate('leaderboard')} /></View>
             <View key="4" collapsable={false} style={s.page}><ProfileScreen user={user} onLogout={onLogout} onUserUpdate={onUserUpdate} onNavigate={onNavigate} /></View>
           </PagerView>
 
@@ -230,6 +232,7 @@ export default function TabNavigator({ user, onLogout, onUserUpdate }: Props) {
                   if (screen === 'xpAnalytics') navigation.navigate('XpAnalytics');
                   if (screen === 'weaknessPractice') navigation.navigate('WeaknessPractice');
                   if (screen === 'learningPaths') navigation.navigate('LearningPaths');
+                  if (screen === 'leaderboard') navigation.navigate('Leaderboard');
                 }}
               />
             )}
@@ -327,6 +330,11 @@ export default function TabNavigator({ user, onLogout, onUserUpdate }: Props) {
           <Stack.Screen name="LearningPaths">
             {({ navigation }) => (
               <ScreenErrorBoundary label="Learning Paths"><LearningPathsScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="Leaderboard">
+            {({ navigation }) => (
+              <ScreenErrorBoundary label="Leaderboard"><LeaderboardScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
             )}
           </Stack.Screen>
         </Stack.Navigator>

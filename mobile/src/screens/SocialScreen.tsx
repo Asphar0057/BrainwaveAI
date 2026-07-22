@@ -5,7 +5,7 @@ import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold } from '@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../services/auth';
 import {
-  getFriends, getFriendRequests, getFriendsLeaderboard,
+  getFriends, getFriendRequests, getLeaderboard,
   getQuizBattles, getChallenges, getFriendActivityFeed,
 } from '../services/api';
 import HapticTouchable from '../components/HapticTouchable';
@@ -13,7 +13,6 @@ import TileGleam from '../components/TileGleam';
 import NeumorphicTexture, { cbTileCardGradient } from '../components/NeumorphicTexture';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FriendsScreen       from './social/FriendsScreen';
-import LeaderboardScreen   from './social/LeaderboardScreen';
 import GamesScreen         from './social/GamesScreen';
 import QuizPlaylistScreen  from './social/QuizPlaylistScreen';
 import SoloQuizScreen      from './social/SoloQuizScreen';
@@ -24,7 +23,7 @@ import { useAppTheme } from '../contexts/ThemeContext';
 import { rgbaFromHex, darkenColor, lightenColor } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
-type Section = 'friends' | 'leaderboard' | 'games' | 'quiz' | 'solo' | 'playlists' | 'paths';
+type Section = 'friends' | 'games' | 'quiz' | 'solo' | 'playlists' | 'paths';
 type HubData = {
   friendCount:    number;
   requestCount:   number;
@@ -36,7 +35,7 @@ type HubData = {
   lbEntries:      any[];
   friendList:     any[];
 };
-type Props = { user: AuthUser };
+type Props = { user: AuthUser; onOpenLeaderboard?: () => void };
 
 function inits(name: string): string {
   return (name || '?').replace(/_/g, ' ').split(' ').map((p: string) => p[0] ?? '').join('').slice(0, 2).toUpperCase();
@@ -126,7 +125,7 @@ function Tile({ icon, label, sub, badge, onPress, accent, s }: {
 
 // ─── Main screen ────────────────────────────────────────────────────────────
 
-export default function SocialScreen({ user }: Props) {
+export default function SocialScreen({ user, onOpenLeaderboard }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
   const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
@@ -144,7 +143,7 @@ export default function SocialScreen({ user }: Props) {
       const [friends, requests, lb, battles, challenges, feed] = await Promise.allSettled([
         getFriends(user.username),
         getFriendRequests(user.username),
-        getFriendsLeaderboard(user.username),
+        getLeaderboard('global', 20),
         getQuizBattles(user.username),
         getChallenges(user.username),
         getFriendActivityFeed(user.username),
@@ -186,7 +185,6 @@ export default function SocialScreen({ user }: Props) {
   if (!fontsLoaded) return null;
 
   if (screen === 'friends')     return <FriendsScreen       user={user} onBack={() => setScreen(null)} />;
-  if (screen === 'leaderboard') return <LeaderboardScreen   user={user} onBack={() => setScreen(null)} />;
   if (screen === 'games')       return <GamesScreen         user={user} onBack={() => setScreen(null)} />;
   if (screen === 'quiz')        return <QuizPlaylistScreen  user={user} onBack={() => setScreen(null)} />;
   if (screen === 'solo')        return <SoloQuizScreen      user={user} onBack={() => setScreen(null)} />;
@@ -335,7 +333,7 @@ export default function SocialScreen({ user }: Props) {
             })()}
 
             {/* ══ LEADERBOARD PODIUM — same design as leaderboard page ══ */}
-            <SectionRow label="leaderboard" cta={() => setScreen('leaderboard')} ctaLabel="full board" />
+            <SectionRow label="leaderboard" cta={onOpenLeaderboard} ctaLabel="full board" />
             <View style={s.podiumCard}>
               <LinearGradient
                 colors={[rgbaFromHex(accent, 0.08), rgbaFromHex(selectedTheme.bgPrimary, 0)]}

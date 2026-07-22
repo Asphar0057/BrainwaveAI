@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import { View, StyleSheet, ViewStyle, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, Pattern, Line, RadialGradient, Stop, Rect, Circle } from 'react-native-svg';
 import { Canvas, Fill, LinearGradient as SkLinearGradient, useCanvasSize, vec } from '@shopify/react-native-skia';
@@ -129,6 +129,34 @@ type NeumorphicTextureProps = {
   gradientEnd?: { x: number; y: number };
 };
 
+function SkiaTexture({
+  grainOpacity,
+  baseFrequency,
+  gradientColors,
+  gradientStart,
+  gradientEnd,
+}: Required<Pick<NeumorphicTextureProps, 'grainOpacity' | 'baseFrequency' | 'gradientColors' | 'gradientStart' | 'gradientEnd'>>) {
+  const { ref: canvasRef, size: canvasSize } = useCanvasSize();
+  return (
+    <Canvas ref={canvasRef} style={StyleSheet.absoluteFill}>
+      {canvasSize.width > 0 && canvasSize.height > 0 && (
+        <>
+          <Fill>
+            <SkLinearGradient
+              start={vec(canvasSize.width * gradientStart.x, canvasSize.height * gradientStart.y)}
+              end={vec(canvasSize.width * gradientEnd.x, canvasSize.height * gradientEnd.y)}
+              colors={gradientColors}
+            />
+          </Fill>
+          <Fill blendMode="overlay" opacity={grainOpacity}>
+            <GrainNoise baseFrequency={baseFrequency} />
+          </Fill>
+        </>
+      )}
+    </Canvas>
+  );
+}
+
 /**
  * Ported from .cb-tile-texture::before (diagonal hatch + corner glow, exact gradients)
  * and .cb-tile-texture::after (feTurbulence grain, mix-blend-mode: overlay) — the
@@ -146,7 +174,6 @@ export default function NeumorphicTexture({
   gradientEnd,
 }: NeumorphicTextureProps) {
   const id = useMemo(() => `nt-${instanceSeed++}`, []);
-  const { ref: canvasRef, size: canvasSize } = useCanvasSize();
   const grainDots = useMemo(
     () => Array.from({ length: 220 }, () => ({
       x: Math.random() * 100,
@@ -170,22 +197,9 @@ export default function NeumorphicTexture({
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       {grainVariant === 'skia' && gradientColors && gradientStart && gradientEnd && (
-        <Canvas ref={canvasRef} style={StyleSheet.absoluteFill}>
-          {canvasSize.width > 0 && canvasSize.height > 0 && (
-            <>
-              <Fill>
-                <SkLinearGradient
-                  start={vec(canvasSize.width * gradientStart.x, canvasSize.height * gradientStart.y)}
-                  end={vec(canvasSize.width * gradientEnd.x, canvasSize.height * gradientEnd.y)}
-                  colors={gradientColors}
-                />
-              </Fill>
-              <Fill blendMode="overlay" opacity={grainOpacity}>
-                <GrainNoise baseFrequency={baseFrequency} />
-              </Fill>
-            </>
-          )}
-        </Canvas>
+        Platform.OS === 'web'
+          ? <LinearGradient colors={gradientColors as [string, string, ...string[]]} start={gradientStart} end={gradientEnd} style={StyleSheet.absoluteFill} />
+          : <SkiaTexture grainOpacity={grainOpacity} baseFrequency={baseFrequency} gradientColors={gradientColors} gradientStart={gradientStart} gradientEnd={gradientEnd} />
       )}
       <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
         <Defs>

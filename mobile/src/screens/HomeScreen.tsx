@@ -386,18 +386,14 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
                   type.includes('note') ? 'note saved' :
                   type.includes('chat') ? 'ai chat' :
                   'activity';
-                const isLast = idx === recentActivity.length - 1;
                 return (
                   <View key={item.id ?? idx} style={styles.timelineItem}>
-                    <View style={styles.timelineLeft}>
-                      <View style={styles.timelineDot}>
-                        <Ionicons name={icon} size={12} color={selectedTheme.accentHover} />
-                      </View>
-                      {!isLast && <View style={styles.timelineLine} />}
+                    <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
+                    <NeumorphicTexture />
+                    <View style={styles.timelineDot}>
+                      <Ionicons name={icon} size={15} color={selectedTheme.accentHover} />
                     </View>
-                    <View style={[styles.timelineCard, isLast && { marginBottom: 0 }]}>
-                      <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
-                      <NeumorphicTexture />
+                    <View style={styles.timelineContent}>
                       <Text style={styles.timelineLabel}>{label}</Text>
                       {subject ? <Text style={styles.timelineSubject} numberOfLines={1}>{subject}</Text> : null}
                       <Text style={styles.timelineActor}>{actor}</Text>
@@ -508,10 +504,10 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   const DIM = theme.textSecondary;
   const CARD_BORDER = theme.border;
   const SHADOW = darkenColor(theme.primary, theme.isLight ? 72 : 4);
-  const horizontalPadding = 6;
+  const horizontalPadding = layout.isTablet ? 20 : 16;
   const heroMinHeight = layout.isLandscape
     ? Math.min(440, Math.max(330, layout.height * 0.68))
-    : Math.min(440, Math.max(330, layout.height * 0.48));
+    : Math.min(380, Math.max(310, layout.height * 0.42));
 
   return StyleSheet.create({
   safe: { flex: 1, backgroundColor: 'transparent', overflow: 'hidden' },
@@ -573,7 +569,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
     marginTop: 4,
-    marginBottom: 8,
+    marginBottom: 22,
+    paddingHorizontal: horizontalPadding,
   },
   heroSection: {
     minHeight: heroMinHeight,
@@ -583,7 +580,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     paddingVertical: 12,
     overflow: 'hidden',
     borderRadius: 28,
-    marginHorizontal: 4,
+    marginHorizontal: 0,
     boxShadow: cbTileShadowExact(),
     ...cbTileBorder(0.22),
   } as ViewStyle,
@@ -919,7 +916,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
     paddingHorizontal: horizontalPadding,
-    gap: 10,
+    gap: 12,
+    marginBottom: 22,
   },
   activityHeader: {
     flexDirection: 'row',
@@ -932,34 +930,34 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     color: GOLD_L,
     letterSpacing: -0.3,
   },
-  timelineWrap: { gap: 0 },
-  timelineItem: { flexDirection: 'row', gap: 12 },
-  timelineLeft: { alignItems: 'center', width: 28 },
+  timelineWrap: { gap: 10 },
+  timelineItem: {
+    minHeight: 76,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    borderRadius: 20,
+    overflow: 'hidden',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    boxShadow: cbTileShadow(0.055),
+  } as ViewStyle,
   timelineDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 38,
+    height: 38,
+    borderRadius: 13,
     backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.52 : 0.64),
     borderWidth: 1,
     borderColor: rgbaFromHex(theme.accentHover, 0.25),
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
-  timelineLine: {
+  timelineContent: {
     flex: 1,
-    width: 1,
-    backgroundColor: CARD_BORDER,
-    marginVertical: 4,
-  },
-  timelineCard: {
-    flex: 1,
-    borderRadius: 20,
-    overflow: 'hidden',
-    padding: 12,
-    marginBottom: 8,
     gap: 3,
-    boxShadow: cbTileShadow(0.055),
-  } as ViewStyle,
+    minWidth: 0,
+  },
   timelineLabel: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 11,

@@ -6,15 +6,16 @@ import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../services/auth';
 import { generatePracticeQuestions, getWeaknessAnalysis } from '../services/api';
-import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
-import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../components/NeumorphicTexture';
+import { cbTileShadow } from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
 type Props = { user: AuthUser; onBack: () => void };
+type Severity = 'critical' | 'practice' | 'improving';
+type Filter = 'all' | Severity;
 type WeakTopic = {
   topic: string;
   mastery_level?: number;
@@ -22,10 +23,26 @@ type WeakTopic = {
   questions_asked?: number;
   correct_answers?: number;
   last_practiced?: string | null;
+  severity?: Severity;
 };
 
-function asTopics(value: unknown): WeakTopic[] {
-  return Array.isArray(value) ? value.filter((item) => item && typeof item === 'object') as WeakTopic[] : [];
+function asTopics(value: unknown, severity?: Severity): WeakTopic[] {
+  return Array.isArray(value)
+    ? value.filter((item) => item && typeof item === 'object').map((item) => ({ ...(item as WeakTopic), severity: (item as WeakTopic).severity || severity }))
+    : [];
+}
+
+function topicAccuracy(topic: WeakTopic) {
+  const raw = topic.accuracy ?? (topic.mastery_level ?? 0) * 100;
+  return Math.max(0, Math.min(100, Math.round(raw)));
+}
+
+function topicSeverity(topic: WeakTopic): Severity {
+  if (topic.severity) return topic.severity;
+  const accuracy = topicAccuracy(topic);
+  if (accuracy < 45) return 'critical';
+  if (accuracy < 70) return 'practice';
+  return 'improving';
 }
 
 export default function WeaknessPracticeScreen({ user, onBack }: Props) {
@@ -37,6 +54,7 @@ export default function WeaknessPracticeScreen({ user, onBack }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
+  const [filter, setFilter] = useState<Filter>('all');
   const [generatingTopic, setGeneratingTopic] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -46,8 +64,7 @@ export default function WeaknessPracticeScreen({ user, onBack }: Props) {
       return;
     }
     try {
-      const data = await getWeaknessAnalysis(user.id);
-      setAnalysis(data);
+      setAnalysis(await getWeaknessAnalysis(user.id));
     } catch (error) {
       Alert.alert('Weakness practice', error instanceof Error ? error.message : 'Failed to load weak areas');
     } finally {
@@ -58,8 +75,31 @@ export default function WeaknessPracticeScreen({ user, onBack }: Props) {
 
   useEffect(() => { load(); }, [load]);
 
-  const weaknesses = asTopics(analysis?.weaknesses).slice(0, 8);
-  const mastery = asTopics(analysis?.topic_mastery).slice(0, 8);
+  const topics = useMemo(() => {
+    const nested = analysis?.weak_areas && typeof analysis.weak_areas === 'object'
+      ? [
+        ...asTopics(analysis.weak_areas.critical, 'critical'),
+        ...asTopics(analysis.weak_areas.needs_practice || analysis.weak_areas.moderate, 'practice'),
+        ...asTopics(analysis.weak_areas.improving || analysis.weak_areas.minor, 'improving'),
+      ]
+      : [];
+    const source = [...asTopics(analysis?.weaknesses), ...nested];
+    const fallback = source.length ? source : asTopics(analysis?.topic_mastery);
+    const unique = new Map<string, WeakTopic>();
+    fallback.forEach((topic) => {
+      const key = String(topic.topic || '').trim().toLowerCase();
+      if (key && !unique.has(key)) unique.set(key, topic);
+    });
+    return [...unique.values()].sort((a, b) => topicAccuracy(a) - topicAccuracy(b)).slice(0, 12);
+  }, [analysis]);
+  const counts = {
+    critical: topics.filter((topic) => topicSeverity(topic) === 'critical').length,
+    practice: topics.filter((topic) => topicSeverity(topic) === 'practice').length,
+    improving: topics.filter((topic) => topicSeverity(topic) === 'improving').length,
+  };
+  const visibleTopics = filter === 'all' ? topics : topics.filter((topic) => topicSeverity(topic) === filter);
+  const overallAccuracy = Math.max(0, Math.min(100, Math.round(analysis?.overall_accuracy || 0)));
+  const priorityTopic = topics[0];
 
   const generateSet = async (topic: string) => {
     setGeneratingTopic(topic);
@@ -71,7 +111,7 @@ export default function WeaknessPracticeScreen({ user, onBack }: Props) {
         difficulty: 'mixed',
         title: `Weakness practice: ${topic}`,
       });
-      Alert.alert('Practice set ready', 'Open Question Bank to start the generated set.');
+      Alert.alert('Practice set ready', `A 10-question set for ${topic} is ready in Question Bank.`);
     } catch (error) {
       Alert.alert('Generate failed', error instanceof Error ? error.message : 'Could not generate practice questions');
     } finally {
@@ -85,66 +125,89 @@ export default function WeaknessPracticeScreen({ user, onBack }: Props) {
     <View style={s.root}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
       <GeoBackground />
-      <AmbientBubbles theme={selectedTheme} variant="social" opacity={0.68} />
       <ScrollView
         contentContainerStyle={s.scroll}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={selectedTheme.accent} />}
       >
-        <View style={s.topBar}>
-          <HapticTouchable style={s.iconBtn} onPress={onBack} haptic="light">
-            <Ionicons name="chevron-back" size={18} color={selectedTheme.accent} />
+        <View style={s.header}>
+          <HapticTouchable style={s.iconBtn} onPress={onBack} haptic="light" accessibilityLabel="Back">
+            <Ionicons name="chevron-back" size={20} color={selectedTheme.accentHover} />
           </HapticTouchable>
-          <Text style={s.topMeta}>{analysis?.overall_accuracy ? `${Math.round(analysis.overall_accuracy)}% accuracy` : 'adaptive'}</Text>
-        </View>
-
-        <View style={s.hero}>
-          <NeumorphicLayer grainOpacity={0.26} />
-          <Text style={s.heroGhost}>01</Text>
-          <Text style={s.heroTitle}>weakness practice</Text>
+          <View style={s.headerCopy}>
+            <Text style={s.kicker}>PERFORMANCE MAP</Text>
+            <Text style={s.title}>weakness</Text>
+          </View>
+          <HapticTouchable style={s.iconBtn} onPress={() => { setRefreshing(true); load(); }} haptic="light" accessibilityLabel="Refresh weakness analysis">
+            <Ionicons name="refresh" size={17} color={selectedTheme.accentHover} />
+          </HapticTouchable>
         </View>
 
         {!user.id ? (
-          <View style={s.empty}>
-            <Ionicons name="person-circle-outline" size={42} color={selectedTheme.accent} />
-            <Text style={s.emptyTitle}>reload your session</Text>
-            <Text style={s.emptyText}>the mobile account cache is missing the numeric user id needed for weakness analysis</Text>
-          </View>
+          <EmptyState icon="person-circle-outline" title="reload your session" copy="Your account needs to refresh before weakness analysis can load." styles={s} />
         ) : loading ? (
-          <ActivityIndicator color={selectedTheme.accent} size="large" style={{ marginTop: 44 }} />
-        ) : weaknesses.length === 0 && mastery.length === 0 ? (
-          <View style={s.empty}>
-            <Ionicons name="pulse-outline" size={42} color={selectedTheme.accent} />
-            <Text style={s.emptyTitle}>no weak areas yet</Text>
-            <Text style={s.emptyText}>complete question bank sets and the app will identify targeted practice topics</Text>
-          </View>
+          <ActivityIndicator color={selectedTheme.accent} size="large" style={{ marginTop: 80 }} />
+        ) : topics.length === 0 ? (
+          <EmptyState icon="checkmark-circle-outline" title="no weak areas" copy="Complete more Question Bank sets and targeted topics will appear here." styles={s} />
         ) : (
           <>
-            <View style={s.summaryRow}>
-              <Summary label="topics" value={String(analysis?.total_topics_studied ?? mastery.length)} styles={s} />
-              <Summary label="need practice" value={String(analysis?.topics_needing_practice ?? weaknesses.length)} styles={s} />
-              <Summary label="accuracy" value={`${Math.round(analysis?.overall_accuracy || 0)}%`} styles={s} />
+            <View style={s.priorityCard}>
+              <View style={s.priorityTop}>
+                <View style={s.priorityIcon}><Ionicons name="locate-outline" size={20} color={s.accentInk.color} /></View>
+                <View style={s.priorityCopy}>
+                  <Text style={s.priorityKicker}>NEXT BEST FOCUS</Text>
+                  <Text style={s.priorityTitle} numberOfLines={2}>{priorityTopic?.topic || 'Targeted practice'}</Text>
+                </View>
+                <View style={s.priorityScore}>
+                  <Text style={s.priorityScoreValue}>{topicAccuracy(priorityTopic)}</Text>
+                  <Text style={s.priorityScoreUnit}>%</Text>
+                </View>
+              </View>
+              <View style={s.priorityTrack}><View style={[s.priorityFill, { width: `${Math.max(4, topicAccuracy(priorityTopic))}%` }]} /></View>
+              <HapticTouchable style={s.primaryPracticeBtn} onPress={() => generateSet(priorityTopic.topic)} disabled={generatingTopic === priorityTopic.topic} haptic="medium">
+                {generatingTopic === priorityTopic.topic ? <ActivityIndicator color={s.accentInk.color} size="small" /> : <Ionicons name="flash" size={16} color={s.accentInk.color} />}
+                <Text style={s.primaryPracticeText}>{generatingTopic === priorityTopic.topic ? 'BUILDING SET…' : 'PRACTICE PRIORITY'}</Text>
+              </HapticTouchable>
             </View>
 
-            <View style={s.section}>
-              <Text style={s.sectionTitle}>priority topics</Text>
-              {(weaknesses.length ? weaknesses : mastery).map((topic) => {
-                const pct = Math.max(0, Math.min(100, Math.round(topic.accuracy ?? (topic.mastery_level || 0) * 100)));
-                return (
-                  <View key={topic.topic} style={s.topicCard}>
-                    <View style={s.topicTop}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={s.topicTitle}>{topic.topic}</Text>
-                        <Text style={s.topicMeta}>{topic.correct_answers ?? 0}/{topic.questions_asked ?? 0} correct · mastery {Math.round((topic.mastery_level || 0) * 100)}%</Text>
-                      </View>
-                      <HapticTouchable style={s.practiceBtn} onPress={() => generateSet(topic.topic)} disabled={generatingTopic === topic.topic} haptic="medium">
-                        {generatingTopic === topic.topic ? <ActivityIndicator color={selectedTheme.bgPrimary} size="small" /> : <Ionicons name="flash-outline" size={16} color={s.practiceBtnText.color} />}
-                      </HapticTouchable>
-                    </View>
-                    <View style={s.track}><View style={[s.fill, { width: `${Math.max(4, pct)}%` }]} /></View>
-                  </View>
-                );
-              })}
+            <View style={s.summaryRow}>
+              <Summary icon="alert-circle-outline" label="critical" value={String(counts.critical)} styles={s} />
+              <Summary icon="barbell-outline" label="practice" value={String(counts.practice)} styles={s} />
+              <Summary icon="trending-up-outline" label="accuracy" value={`${overallAccuracy}%`} styles={s} />
+            </View>
+
+            <View style={s.filterRow}>
+              {([
+                ['all', 'All', topics.length],
+                ['critical', 'Critical', counts.critical],
+                ['practice', 'Practice', counts.practice],
+                ['improving', 'Improving', counts.improving],
+              ] as [Filter, string, number][]).map(([key, label, count]) => (
+                <HapticTouchable key={key} style={[s.filterBtn, filter === key && s.filterBtnActive]} onPress={() => setFilter(key)} haptic="selection">
+                  <Text style={[s.filterText, filter === key && s.filterTextActive]}>{label}</Text>
+                  <Text style={[s.filterCount, filter === key && s.filterTextActive]}>{count}</Text>
+                </HapticTouchable>
+              ))}
+            </View>
+
+            <View style={s.listCard}>
+              <View style={s.listHeader}>
+                <View>
+                  <Text style={s.listKicker}>PRIORITY ORDER</Text>
+                  <Text style={s.listTitle}>{filter === 'all' ? 'all weak areas' : filter}</Text>
+                </View>
+                <Text style={s.listMeta}>{visibleTopics.length} topics</Text>
+              </View>
+              {visibleTopics.length ? visibleTopics.map((topic, index) => (
+                <TopicRow
+                  key={`${topic.topic}-${index}`}
+                  index={index}
+                  topic={topic}
+                  loading={generatingTopic === topic.topic}
+                  onPractice={() => generateSet(topic.topic)}
+                  styles={s}
+                />
+              )) : <Text style={s.emptyInline}>No topics in this category yet.</Text>}
             </View>
           </>
         )}
@@ -153,46 +216,108 @@ export default function WeaknessPracticeScreen({ user, onBack }: Props) {
   );
 }
 
-function Summary({ label, value, styles }: { label: string; value: string; styles: ReturnType<typeof createStyles> }) {
+function Summary({ icon, label, value, styles }: { icon: React.ComponentProps<typeof Ionicons>['name']; label: string; value: string; styles: ReturnType<typeof createStyles> }) {
   return (
     <View style={styles.summaryCard}>
+      <Ionicons name={icon} size={15} color={styles.iconColor.color} />
       <Text style={styles.summaryValue}>{value}</Text>
       <Text style={styles.summaryLabel}>{label}</Text>
     </View>
   );
 }
 
+function TopicRow({ index, topic, loading, onPractice, styles }: { index: number; topic: WeakTopic; loading: boolean; onPractice: () => void; styles: ReturnType<typeof createStyles> }) {
+  const accuracy = topicAccuracy(topic);
+  const severity = topicSeverity(topic);
+  return (
+    <View style={styles.topicRow}>
+      <View style={styles.topicRank}><Text style={styles.topicRankText}>{String(index + 1).padStart(2, '0')}</Text></View>
+      <View style={styles.topicBody}>
+        <View style={styles.topicTitleRow}>
+          <Text style={styles.topicTitle} numberOfLines={1}>{topic.topic}</Text>
+          <View style={[styles.severityPill, styles[`severity_${severity}`]]}><Text style={styles.severityText}>{severity}</Text></View>
+        </View>
+        <Text style={styles.topicMeta}>{topic.correct_answers ?? 0}/{topic.questions_asked ?? 0} correct · {accuracy}% mastery</Text>
+        <View style={styles.topicTrack}><View style={[styles.topicFill, { width: `${Math.max(4, accuracy)}%` }]} /></View>
+      </View>
+      <HapticTouchable style={styles.practiceBtn} onPress={onPractice} disabled={loading} haptic="medium" accessibilityLabel={`Practice ${topic.topic}`}>
+        {loading ? <ActivityIndicator color={styles.accentInk.color} size="small" /> : <Ionicons name="arrow-forward" size={16} color={styles.accentInk.color} />}
+      </HapticTouchable>
+    </View>
+  );
+}
+
+function EmptyState({ icon, title, copy, styles }: { icon: React.ComponentProps<typeof Ionicons>['name']; title: string; copy: string; styles: ReturnType<typeof createStyles> }) {
+  return (
+    <View style={styles.empty}>
+      <View style={styles.emptyIcon}><Ionicons name={icon} size={30} color={styles.iconColor.color} /></View>
+      <Text style={styles.emptyTitle}>{title}</Text>
+      <Text style={styles.emptyText}>{copy}</Text>
+    </View>
+  );
+}
+
 function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>, topInset: number) {
   const surface = theme.panel;
-  const border = rgbaFromHex(theme.accentHover, theme.isLight ? 0.16 : 0.18);
+  const border = rgbaFromHex(theme.accentHover, theme.isLight ? 0.18 : 0.2);
   const accentInk = theme.isLight ? darkenColor(theme.accent, 38) : theme.bgPrimary;
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bgPrimary },
-    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 18, paddingTop: Math.max(topInset + 12, 52), paddingBottom: 118, gap: 14 },
-    topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    topMeta: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase' },
-    iconBtn: { width: 40, height: 40, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.06) },
-    hero: { borderRadius: 30, padding: 20, overflow: 'hidden', boxShadow: cbModalShadow(0.14) } as ViewStyle,
-    heroGhost: { position: 'absolute', right: 15, top: 0, fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 92 : 76, lineHeight: layout.isTablet ? 98 : 82, color: rgbaFromHex(theme.textPrimary, theme.isLight ? 0.035 : 0.055), letterSpacing: -4 },
-    eyebrow: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 10, letterSpacing: 1.8, textTransform: 'uppercase' },
-    heroTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 34, letterSpacing: 0, marginTop: 8 },
-    heroCopy: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 13, marginTop: 4 },
-    empty: { alignItems: 'center', paddingVertical: 48, gap: 9 },
-    emptyTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 22 },
-    emptyText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 13, textAlign: 'center', maxWidth: 320 },
-    summaryRow: { flexDirection: 'row', gap: 10 },
-    summaryCard: { flex: 1, minHeight: 82, borderRadius: 20, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 14, justifyContent: 'center', boxShadow: cbTileShadow(0.055) } as ViewStyle,
-    summaryValue: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 24, letterSpacing: 0 },
-    summaryLabel: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 9, textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 4 },
-    section: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 16, gap: 12, boxShadow: cbTileShadow(0.08) } as ViewStyle,
-    sectionTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 18 },
-    topicCard: { borderRadius: 18, borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.12), backgroundColor: rgbaFromHex(theme.panelAlt, theme.isLight ? 0.84 : 0.72), padding: 13, gap: 12, boxShadow: cbTileShadow(0.045) } as ViewStyle,
-    topicTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    topicTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 16, letterSpacing: 0 },
-    topicMeta: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11, marginTop: 4 },
-    practiceBtn: { width: 40, height: 40, borderRadius: 13, backgroundColor: theme.accentHover, alignItems: 'center', justifyContent: 'center' },
-    practiceBtnText: { color: accentInk },
-    track: { height: 5, borderRadius: 3, overflow: 'hidden', backgroundColor: rgbaFromHex(theme.accent, 0.13) },
-    fill: { height: '100%', borderRadius: 3, backgroundColor: theme.accentHover },
+    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 16, paddingTop: Math.max(topInset + 10, 50), paddingBottom: 110, gap: 12 },
+    header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12 },
+    iconBtn: { width: 42, height: 42, borderRadius: 15, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), alignItems: 'center', justifyContent: 'center' },
+    headerCopy: { flex: 1 },
+    kicker: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 8, letterSpacing: 1.7 },
+    title: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 32, lineHeight: 36, letterSpacing: -0.8 },
+    priorityCard: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.9), padding: 16, gap: 13, boxShadow: cbTileShadow(0.08) } as ViewStyle,
+    priorityTop: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+    priorityIcon: { width: 43, height: 43, borderRadius: 14, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center' },
+    priorityCopy: { flex: 1 },
+    priorityKicker: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 8, letterSpacing: 1.4 },
+    priorityTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 18, lineHeight: 22, marginTop: 3 },
+    priorityScore: { flexDirection: 'row', alignItems: 'flex-end' },
+    priorityScoreValue: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 31, letterSpacing: -1 },
+    priorityScoreUnit: { fontFamily: 'Inter_900Black', color: theme.accent, fontSize: 12, marginBottom: 5 },
+    priorityTrack: { height: 5, borderRadius: 3, overflow: 'hidden', backgroundColor: rgbaFromHex(theme.accent, 0.12) },
+    priorityFill: { height: '100%', borderRadius: 3, backgroundColor: theme.accentHover },
+    primaryPracticeBtn: { height: 43, borderRadius: 13, backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+    primaryPracticeText: { fontFamily: 'Inter_900Black', color: accentInk, fontSize: 10, letterSpacing: 1 },
+    summaryRow: { flexDirection: 'row', gap: 8 },
+    summaryCard: { flex: 1, minHeight: 86, borderRadius: 18, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.8), padding: 11, justifyContent: 'center', boxShadow: cbTileShadow(0.045) } as ViewStyle,
+    summaryValue: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 23, marginTop: 5 },
+    summaryLabel: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 8, textTransform: 'uppercase', letterSpacing: 1, marginTop: 2 },
+    filterRow: { height: 42, flexDirection: 'row', gap: 5 },
+    filterBtn: { flex: 1, borderRadius: 13, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.76), alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
+    filterBtnActive: { backgroundColor: theme.accent, borderColor: theme.accentHover },
+    filterText: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 8 },
+    filterTextActive: { color: accentInk },
+    filterCount: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 9, marginTop: 1 },
+    listCard: { borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), padding: 14, gap: 3, boxShadow: cbTileShadow(0.06) } as ViewStyle,
+    listHeader: { minHeight: 49, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingBottom: 9 },
+    listKicker: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 8, letterSpacing: 1.4 },
+    listTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 18, marginTop: 2, textTransform: 'lowercase' },
+    listMeta: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 9 },
+    topicRow: { minHeight: 82, borderTopWidth: 1, borderTopColor: theme.border, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
+    topicRank: { width: 30, height: 30, borderRadius: 9, backgroundColor: rgbaFromHex(theme.accent, 0.1), alignItems: 'center', justifyContent: 'center' },
+    topicRankText: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 8 },
+    topicBody: { flex: 1, gap: 6 },
+    topicTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+    topicTitle: { flex: 1, fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 12 },
+    topicMeta: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 9 },
+    topicTrack: { height: 3, borderRadius: 2, overflow: 'hidden', backgroundColor: rgbaFromHex(theme.accent, 0.1) },
+    topicFill: { height: '100%', borderRadius: 2, backgroundColor: theme.accentHover },
+    severityPill: { borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3 },
+    severity_critical: { backgroundColor: rgbaFromHex('#ef6a6a', 0.16) },
+    severity_practice: { backgroundColor: rgbaFromHex('#e6b85c', 0.16) },
+    severity_improving: { backgroundColor: rgbaFromHex('#69bea8', 0.16) },
+    severityText: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 6.5, textTransform: 'uppercase', letterSpacing: 0.5 },
+    practiceBtn: { width: 40, height: 40, borderRadius: 13, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center' },
+    empty: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), alignItems: 'center', paddingVertical: 54, paddingHorizontal: 24, gap: 9 },
+    emptyIcon: { width: 58, height: 58, borderRadius: 20, backgroundColor: rgbaFromHex(theme.accent, 0.12), alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+    emptyTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 21 },
+    emptyText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, lineHeight: 18, textAlign: 'center', maxWidth: 300 },
+    emptyInline: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11, paddingVertical: 18, textAlign: 'center' },
+    iconColor: { color: theme.accentHover },
+    accentInk: { color: accentInk },
   });
 }

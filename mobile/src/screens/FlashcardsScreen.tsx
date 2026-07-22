@@ -1,14 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   Animated,
   ActivityIndicator,
   Alert,
   TextInput,
   ScrollView,
+  RefreshControl,
   KeyboardAvoidingView,
   Platform,
   GestureResponderEvent,
@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import PagerView from 'react-native-pager-view';
+import PagerView, { AppPagerHandle } from '../components/AppPager';
 import HapticTouchable from '../components/HapticTouchable';
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
@@ -27,9 +27,12 @@ import {
   createFlashcard,
   createFlashcardSet,
   generateFlashcards,
+  getAllFlashcards,
   getFlashcardHistory,
+  getFlashcardsForReview,
   getFlashcardsInSet,
   getFlashcardStatistics,
+  markFlashcardForReview,
 } from '../services/api';
 import { triggerHaptic } from '../utils/haptics';
 import { darkenColor, getDefaultTheme, lightenColor, rgbaFromHex } from '../utils/theme';
@@ -80,10 +83,16 @@ type FlashcardSet = {
 
 type Flashcard = {
   id: number;
+  set_id?: number;
+  set_title?: string;
   question: string;
   answer: string;
   difficulty: string;
+  marked_for_review?: boolean;
 };
+
+type ReviewSet = { set_id: number; set_title: string; cards: Flashcard[] };
+type ReviewData = { total_cards: number; sets: ReviewSet[] };
 
 type ManualDraftCard = {
   question: string;
@@ -199,23 +208,49 @@ function StudyView({
   cards,
   onBack,
   onComplete,
+  onToggleReview,
 }: {
   set: FlashcardSet;
   cards: Flashcard[];
   onBack: () => void;
   onComplete: (stats: { correct: number; incorrect: number }) => void;
+  onToggleReview: (cardId: number, marked: boolean) => Promise<void>;
 }) {
   const layout = useResponsiveLayout();
   const useLandscapeLayout = layout.isLandscape && layout.width >= 700;
   const [idx, setIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [stats, setStats] = useState({ correct: 0, incorrect: 0 });
+  const [reviewCardIds, setReviewCardIds] = useState(() => new Set(cards.filter((item) => item.marked_for_review).map((item) => item.id)));
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const pagerRef = useRef<PagerView>(null);
+  const pagerRef = useRef<AppPagerHandle>(null);
   const cardTouchRef = useRef({ startX: 0, startY: 0, moved: false });
   const card = cards[idx];
   const progressPct = cards.length > 0 ? ((idx + 1) / cards.length) * 100 : 0;
   const remaining = Math.max(cards.length - idx - 1, 0);
+  const currentMarkedForReview = card ? reviewCardIds.has(card.id) : false;
+
+  const toggleCurrentReview = async () => {
+    if (!card) return;
+    const nextMarked = !currentMarkedForReview;
+    setReviewCardIds((current) => {
+      const next = new Set(current);
+      if (nextMarked) next.add(card.id);
+      else next.delete(card.id);
+      return next;
+    });
+    try {
+      await onToggleReview(card.id, nextMarked);
+    } catch {
+      setReviewCardIds((current) => {
+        const next = new Set(current);
+        if (nextMarked) next.delete(card.id);
+        else next.add(card.id);
+        return next;
+      });
+      Alert.alert('Review update failed', 'Please try marking this card again.');
+    }
+  };
 
   const doFlip = () => {
     if (!card) return;
@@ -328,10 +363,26 @@ function StudyView({
                         {pageFlipped ? 'ANSWER' : 'QUESTION'}
                       </Text>
                     </View>
-                    <View style={[s.diffPill, pageFlipped && s.diffPillFlipped]}>
-                      <Text style={[s.diffText, pageFlipped && s.diffTextFlipped]}>
-                        {studyCard.difficulty?.toUpperCase() ?? 'MEDIUM'}
-                      </Text>
+                    <View style={s.cardTopActions}>
+                      {isCurrent ? (
+                        <HapticTouchable
+                          style={[s.reviewToggle, currentMarkedForReview && s.reviewToggleActive]}
+                          onPress={toggleCurrentReview}
+                          onPressIn={() => { cardTouchRef.current.moved = true; }}
+                          haptic="selection"
+                          accessibilityLabel={currentMarkedForReview ? 'Remove from review' : 'Mark for review'}
+                        >
+                          <Ionicons name={currentMarkedForReview ? 'bookmark' : 'bookmark-outline'} size={14} color={currentMarkedForReview ? INK : QUESTION_TEXT} />
+                          <Text style={[s.reviewToggleText, currentMarkedForReview && s.reviewToggleTextActive]}>
+                            {currentMarkedForReview ? 'IN REVIEW' : 'REVIEW'}
+                          </Text>
+                        </HapticTouchable>
+                      ) : null}
+                      <View style={[s.diffPill, pageFlipped && s.diffPillFlipped]}>
+                        <Text style={[s.diffText, pageFlipped && s.diffTextFlipped]}>
+                          {studyCard.difficulty?.toUpperCase() ?? 'MEDIUM'}
+                        </Text>
+                      </View>
                     </View>
                   </View>
 
@@ -342,6 +393,11 @@ function StudyView({
                     bounces={false}
                     nestedScrollEnabled
                   >
+                    {set.id === -1 && studyCard.set_title ? (
+                      <Text style={[s.randomCardSource, pageFlipped && s.randomCardSourceFlipped]} numberOfLines={1}>
+                        FROM {studyCard.set_title.toUpperCase()}
+                      </Text>
+                    ) : null}
                     <Text style={[s.cardText, pageFlipped && s.cardTextFlipped]}>
                       {pageFlipped ? studyCard.answer : studyCard.question}
                     </Text>
@@ -766,7 +822,11 @@ function FlashcardsSets({
   const [sets, setSets] = useState<FlashcardSet[]>([]);
   const [loading, setLoading] = useState(true);
   const [fcStats, setFcStats] = useState<Record<string, number> | null>(null);
+  const [reviewData, setReviewData] = useState<ReviewData>({ total_cards: 0, sets: [] });
   const [loadingCards, setLoadingCards] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [activeView, setActiveView] = useState<'sets' | 'queue' | 'review' | 'sources' | 'stats'>('sets');
+  const layout = useResponsiveLayout();
 
   useEffect(() => {
     setLoading(true);
@@ -777,7 +837,27 @@ function FlashcardsSets({
       })
       .catch(() => setLoading(false));
     getFlashcardStatistics(user.username).then(setFcStats).catch(() => {});
+    getFlashcardsForReview(user.username).then((data) => setReviewData({
+      total_cards: data?.total_cards ?? 0,
+      sets: Array.isArray(data?.sets) ? data.sets : [],
+    })).catch(() => {});
   }, [user.username, refreshTick]);
+
+  const refreshCollection = async () => {
+    setRefreshing(true);
+    try {
+      const [history, statistics, review] = await Promise.all([
+        getFlashcardHistory(user.username),
+        getFlashcardStatistics(user.username),
+        getFlashcardsForReview(user.username),
+      ]);
+      setSets(history?.flashcard_history ?? []);
+      setFcStats(statistics);
+      setReviewData({ total_cards: review?.total_cards ?? 0, sets: Array.isArray(review?.sets) ? review.sets : [] });
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const startStudy = async (set: FlashcardSet) => {
     setLoadingCards(true);
@@ -792,10 +872,75 @@ function FlashcardsSets({
     }
   };
 
+  const startReviewStudy = (set: FlashcardSet) => {
+    const reviewSet = reviewData.sets.find((item) => item.set_id === set.id);
+    if (reviewSet?.cards.length) onOpenStudy(set, reviewSet.cards);
+  };
+
+  const startRandomStudy = async () => {
+    setLoadingCards(true);
+    try {
+      const data = await getAllFlashcards(user.username);
+      const allCards = Array.isArray(data) ? data as Flashcard[] : [];
+      if (!allCards.length) {
+        Alert.alert('No flashcards yet', 'Create a set before starting a random session.');
+        return;
+      }
+      const cards = [...allCards]
+        .map((item) => ({ item, order: Math.random() }))
+        .sort((a, b) => a.order - b.order)
+        .slice(0, 20)
+        .map(({ item }) => item);
+      const randomSet = buildSetDraft({
+        id: -1,
+        title: 'Random cards',
+        card_count: cards.length,
+        source_type: 'mixed sets',
+      });
+      onOpenStudy(randomSet, cards);
+    } catch {
+      Alert.alert('Unable to mix cards', 'The random session could not be loaded.');
+    } finally {
+      setLoadingCards(false);
+    }
+  };
+
   const totalCards = fcStats?.total_cards ?? '—';
   const totalSets = fcStats?.total_sets ?? '—';
   const mastered = fcStats?.cards_mastered ?? '—';
   const accuracy = fcStats?.average_accuracy != null ? `${Math.round(fcStats.average_accuracy)}%` : '—';
+  const cleanTitle = (title: string) => title
+    .replace(/^flashcards\s*(from|:)\s*/i, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const sourceLabel = (source?: string) => {
+    const normalized = (source ?? 'manual').replace(/_/g, ' ').toLowerCase();
+    if (normalized.includes('document')) return 'document';
+    if (normalized.includes('topic') || normalized === 'ai') return 'AI generated';
+    if (normalized.includes('media')) return 'media';
+    return normalized;
+  };
+  const collectionSets = useMemo(() => {
+    if (activeView === 'queue') return [...sets].filter((set) => set.accuracy_percentage < 100).sort((a, b) => a.accuracy_percentage - b.accuracy_percentage);
+    if (activeView === 'review') return reviewData.sets.map((item) => buildSetDraft({
+      id: item.set_id,
+      title: item.set_title,
+      card_count: item.cards.length,
+      source_type: 'marked for review',
+    }));
+    if (activeView === 'sources') return sets.filter((set) => /document|pdf/i.test(`${set.source_type} ${set.title}`));
+    return sets;
+  }, [sets, activeView, reviewData]);
+  const columns = layout.width >= 700 ? 3 : 2;
+  const coverColors = ['#df6b6b', '#69beb8', '#68aac7', '#e99b76', '#8dbfab', '#dcc86d'];
+  const navItems = [
+    { key: 'sets' as const, label: 'My sets', icon: 'albums-outline' as const },
+    { key: 'queue' as const, label: 'Queue', icon: 'radio-button-on-outline' as const },
+    { key: 'review' as const, label: 'Review', icon: 'refresh-outline' as const },
+    { key: 'sources' as const, label: 'Sources', icon: 'document-outline' as const },
+    { key: 'stats' as const, label: 'Stats', icon: 'stats-chart-outline' as const },
+  ];
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
@@ -810,87 +955,116 @@ function FlashcardsSets({
         <View style={{ flex: 1 }}>
           <Text style={s.title}>flashcards</Text>
         </View>
-        <Ionicons name="layers-outline" size={22} color={GOLD_D} />
-      </View>
-
-      <View style={s.statsStrip}>
-        {[
-          { val: totalSets, lbl: 'SETS' },
-          { val: totalCards, lbl: 'CARDS' },
-          { val: mastered, lbl: 'MASTERED' },
-          { val: accuracy, lbl: 'ACCURACY' },
-        ].map((item, index) => (
-          <View key={item.lbl} style={[s.statCell, index > 0 && { borderLeftWidth: 1, borderLeftColor: BORDER }]}>
-            <Text style={s.statVal}>{item.val}</Text>
-            <Text style={s.statLbl}>{item.lbl}</Text>
-          </View>
-        ))}
+        <View style={{ width: 22 }} />
       </View>
 
       {loading ? (
         <ActivityIndicator color={ACCENT} style={{ marginTop: 40 }} />
       ) : (
-        <FlatList
-          data={sets}
-          keyExtractor={(item) => String(item.id)}
-          contentContainerStyle={s.listContent}
-          showsVerticalScrollIndicator={false}
-          ListHeaderComponent={(
-            <View style={s.createRow}>
-              <HapticTouchable style={s.createBtnPrimary} onPress={() => onOpenCreate('ai')} haptic="medium">
-                <Ionicons name="sparkles" size={15} color={BASE_ACTION_TEXT} />
-                <Text style={s.createBtnPrimaryText}>AI generate</Text>
-              </HapticTouchable>
-              <HapticTouchable style={s.createBtnSecondary} onPress={() => onOpenCreate('manual')} haptic="light">
-                <Ionicons name="add" size={16} color={BASE_ACTION_TEXT} />
-                <Text style={s.createBtnSecondaryText}>manual</Text>
-              </HapticTouchable>
-            </View>
-          )}
-          ListEmptyComponent={(
-            <View style={s.empty}>
-              <Text style={s.emptyTitle}>no flashcard sets yet</Text>
-              <Text style={s.emptyHint}>start with AI generate or manual create</Text>
-            </View>
-          )}
-          renderItem={({ item }) => (
-            <HapticTouchable
-              style={s.setCard}
-              onPress={() => startStudy(item)}
-              activeOpacity={0.85}
-              haptic="light"
-            >
-              <View style={s.setCardTop}>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.setTitle} numberOfLines={2}>{item.title.toLowerCase()}</Text>
-                  {!!item.description && (
-                    <Text style={s.setDesc} numberOfLines={2}>{item.description}</Text>
-                  )}
-                </View>
-                <View style={s.countBadge}>
-                  <Text style={s.countText}>{item.card_count}</Text>
-                  <Text style={s.countLbl}>cards</Text>
-                </View>
-              </View>
-
-              <View style={s.masteryRow}>
-                <View style={s.masteryBar}>
-                  <View style={[s.masteryFill, { width: `${item.accuracy_percentage}%` as const }]} />
-                </View>
-                <Text style={s.masteryPct}>{Math.round(item.accuracy_percentage)}%</Text>
-              </View>
-
-              <View style={s.setCardBottom}>
-                <View style={s.sourcePill}>
-                  <Text style={s.sourceText}>{(item.source_type ?? 'manual').replace('_', ' ').toUpperCase()}</Text>
-                </View>
-                <View style={s.studyBtn}>
-                  <Text style={s.studyBtnText}>study</Text>
-                </View>
-              </View>
+        <View style={s.workspace}>
+          <View style={s.workspaceActions}>
+            <HapticTouchable style={s.generateAction} onPress={() => onOpenCreate('ai')} haptic="medium">
+              <Ionicons name="sparkles" size={15} color={BASE_ACTION_TEXT} />
+              <Text style={s.generateActionText}>Generate</Text>
             </HapticTouchable>
+            <HapticTouchable style={s.manualAction} onPress={() => onOpenCreate('manual')} haptic="light" accessibilityLabel="Create manually">
+              <Ionicons name="create-outline" size={17} color={GOLD_L} />
+              <Text style={s.manualActionText}>Manual</Text>
+            </HapticTouchable>
+            <HapticTouchable style={s.randomAction} onPress={startRandomStudy} haptic="medium" accessibilityLabel="Study random cards from all sets">
+              <Ionicons name="shuffle" size={17} color={GOLD_L} />
+              <Text style={s.manualActionText}>Random</Text>
+            </HapticTouchable>
+          </View>
+
+          <View style={s.workspaceNav}>
+            {navItems.map((item) => (
+              <HapticTouchable key={item.key} style={[s.workspaceNavItem, activeView === item.key && s.workspaceNavItemActive]} onPress={() => setActiveView(item.key)} haptic="selection">
+                <Ionicons name={item.icon} size={14} color={activeView === item.key ? INK : DIM2} />
+                <Text style={[s.workspaceNavText, activeView === item.key && s.workspaceNavTextActive]}>{item.label}</Text>
+              </HapticTouchable>
+            ))}
+          </View>
+
+          <View style={s.collectionHeader}>
+            <View>
+              <Text style={s.collectionKicker}>{activeView === 'sets' ? 'YOUR COLLECTION' : activeView.toUpperCase()}</Text>
+              <Text style={s.collectionTitle}>{activeView === 'stats' ? 'Statistics' : navItems.find((item) => item.key === activeView)?.label}</Text>
+            </View>
+            {activeView !== 'stats' ? (
+              <Text style={s.collectionCount}>
+                {activeView === 'review' ? `${reviewData.total_cards} cards` : `${collectionSets.length} sets`}
+              </Text>
+            ) : null}
+          </View>
+
+          {activeView === 'stats' ? (
+            <View style={s.statsWorkspace}>
+              {[
+                { val: totalSets, lbl: 'SETS', icon: 'albums-outline' as const },
+                { val: totalCards, lbl: 'CARDS', icon: 'layers-outline' as const },
+                { val: mastered, lbl: 'MASTERED', icon: 'checkmark-circle-outline' as const },
+                { val: accuracy, lbl: 'ACCURACY', icon: 'analytics-outline' as const },
+              ].map((item) => (
+                <View key={item.lbl} style={s.statWorkspaceCard}>
+                  <Ionicons name={item.icon} size={18} color={ACCENT} />
+                  <Text style={s.statWorkspaceValue}>{item.val}</Text>
+                  <Text style={s.statWorkspaceLabel}>{item.lbl}</Text>
+                </View>
+              ))}
+            </View>
+          ) : collectionSets.length === 0 ? (
+            <View style={s.empty}>
+              <Ionicons name="albums-outline" size={32} color={GOLD_D} />
+              <Text style={s.emptyTitle}>nothing here yet</Text>
+              <Text style={s.emptyHint}>this workspace will fill as you study</Text>
+            </View>
+          ) : (
+            <ScrollView
+              style={s.collectionScroll}
+              contentContainerStyle={[s.collectionGrid, { gap: columns === 3 ? 10 : 9 }]}
+              showsVerticalScrollIndicator={false}
+              bounces
+              refreshControl={(
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={refreshCollection}
+                  tintColor={ACCENT}
+                  colors={[ACCENT]}
+                />
+              )}
+            >
+              {collectionSets.map((item, index) => (
+                  <HapticTouchable
+                    key={item.id}
+                    style={[s.collectionCard, { width: columns === 3 ? '31.8%' : '48.6%' }]}
+                    onPress={() => activeView === 'review' ? startReviewStudy(item) : startStudy(item)}
+                    haptic="medium"
+                    accessibilityLabel={`Study ${cleanTitle(item.title)}`}
+                  >
+                    <View style={[s.collectionCover, { backgroundColor: coverColors[index % coverColors.length] }]}>
+                      <Text style={s.collectionCardTitle} numberOfLines={3}>{cleanTitle(item.title)}</Text>
+                      <Text style={s.collectionCardCount}>{item.card_count} CARDS</Text>
+                    </View>
+                    <View style={s.collectionCardMeta}>
+                      <View style={s.collectionMasteryRow}>
+                        <Text style={s.collectionMasteryLabel}>MASTERY</Text>
+                        <Text style={s.collectionMasteryValue}>{Math.round(item.accuracy_percentage)}%</Text>
+                      </View>
+                      <Text style={s.collectionSource} numberOfLines={1}>{sourceLabel(item.source_type).toUpperCase()}</Text>
+                      <View style={s.collectionMasteryBar}>
+                        <View style={[s.collectionMasteryFill, { width: `${Math.max(3, item.accuracy_percentage)}%` as const }]} />
+                      </View>
+                      <View style={s.collectionStudyBtn}>
+                        <Text style={s.collectionStudyText}>STUDY NOW</Text>
+                        <Ionicons name="arrow-forward" size={12} color={BASE_ACTION_TEXT} />
+                      </View>
+                    </View>
+                  </HapticTouchable>
+              ))}
+            </ScrollView>
           )}
-        />
+        </View>
       )}
 
       {loadingCards && (
@@ -954,6 +1128,10 @@ export default function FlashcardsScreen({ user, onBack }: Props) {
             set={route.params.set}
             cards={route.params.cards}
             onBack={() => navigation.goBack()}
+            onToggleReview={async (cardId, marked) => {
+              await markFlashcardForReview(cardId, marked);
+              setRefreshTick((value) => value + 1);
+            }}
             onComplete={(stats) => navigation.reset({
               index: 1,
               routes: [
@@ -993,6 +1171,8 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   const cardHeight = useLandscapeStudyLayout
     ? Math.max(240, Math.min(layout.height - 132, Math.round(cardWidth * 0.9)))
     : Math.max(260, Math.min(layout.height - 300, 520));
+  const collectionCardHeight = layout.height >= 840 ? 228 : layout.height >= 760 ? 205 : 184;
+  const collectionCoverHeight = Math.round(collectionCardHeight * 0.45);
   return StyleSheet.create({
   safe: { flex: 1, backgroundColor: BG },
   header: {
@@ -1008,6 +1188,77 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   },
   title: { fontFamily: 'Inter_900Black', fontSize: 32, color: GOLD_L, letterSpacing: -0.8 },
   subtitle: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM2, letterSpacing: 2.2, marginTop: 4, textTransform: 'uppercase' },
+
+  workspace: {
+    flex: 1,
+    width: '100%',
+    maxWidth: layout.contentMaxWidth,
+    alignSelf: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  workspaceActions: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+  generateAction: { flex: 1, height: 52, borderRadius: 17, backgroundColor: BASE_ACTION_BG, borderWidth: 1, borderColor: BASE_ACTION_BORDER, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  generateActionText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: BASE_ACTION_TEXT, letterSpacing: 0.4, textTransform: 'uppercase' },
+  manualAction: { width: 92, height: 52, borderRadius: 17, borderWidth: 1, borderColor: BORDER, backgroundColor: rgbaFromHex(SURFACE, 0.9), flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  randomAction: { width: 92, height: 52, borderRadius: 17, borderWidth: 1, borderColor: softAccentBorder, backgroundColor: softAccent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  manualActionText: { fontFamily: 'Inter_700Bold', fontSize: 11, color: GOLD_L, letterSpacing: 0.4, textTransform: 'uppercase' },
+  workspaceNav: { height: 42, flexDirection: 'row', gap: 5, marginBottom: 10 },
+  workspaceNavItem: { flex: 1, height: 42, borderRadius: 999, borderWidth: 1, borderColor: BORDER, backgroundColor: rgbaFromHex(SURFACE, 0.86), flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 4 },
+  workspaceNavItemActive: { backgroundColor: ACCENT, borderColor: ACCENT2 },
+  workspaceNavText: { fontFamily: 'Inter_600SemiBold', fontSize: 8.5, color: DIM2, textAlign: 'center' },
+  workspaceNavTextActive: { color: INK },
+  collectionHeader: { minHeight: 46, borderBottomWidth: 1, borderBottomColor: BORDER, marginBottom: 10, paddingBottom: 7, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  collectionKicker: { fontFamily: 'Inter_700Bold', fontSize: 8, color: ACCENT, letterSpacing: 1.8, marginBottom: 3 },
+  collectionTitle: { fontFamily: 'Inter_900Black', fontSize: 24, color: GOLD_L, letterSpacing: -0.8 },
+  collectionCount: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM2, marginBottom: 3 },
+  collectionScroll: { flex: 1 },
+  collectionGrid: { flexDirection: 'row', flexWrap: 'wrap', alignContent: 'flex-start', paddingBottom: 18 },
+  collectionCard: { height: collectionCardHeight, borderRadius: 17, borderWidth: 1, borderColor: BORDER, backgroundColor: rgbaFromHex(SURFACE, 0.95), overflow: 'hidden' },
+  collectionCover: { height: collectionCoverHeight, paddingHorizontal: 12, paddingVertical: 11, alignItems: 'center', justifyContent: 'center' },
+  collectionCardTitle: { fontFamily: 'Inter_900Black', fontSize: 13, lineHeight: 16, color: '#171411', textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 },
+  collectionCardCount: { fontFamily: 'Inter_700Bold', fontSize: 7.5, color: rgbaFromHex('#171411', 0.66), letterSpacing: 1.4, marginTop: 7 },
+  collectionCardMeta: { flex: 1, padding: 11, justifyContent: 'space-between' },
+  collectionMasteryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  collectionMasteryLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 7, color: DIM2, letterSpacing: 1.2 },
+  collectionMasteryValue: { fontFamily: 'Inter_700Bold', fontSize: 9, color: ACCENT },
+  collectionSource: { fontFamily: 'Inter_600SemiBold', fontSize: 7, color: DIM2, letterSpacing: 0.8, marginTop: 3 },
+  collectionMasteryBar: { width: '100%', height: 3, borderRadius: 2, backgroundColor: rgbaFromHex(ACCENT, 0.12), overflow: 'hidden', marginTop: 3 },
+  collectionMasteryFill: { height: '100%', borderRadius: 2, backgroundColor: ACCENT },
+  collectionStudyBtn: { height: 36, borderRadius: 11, backgroundColor: BASE_ACTION_BG, borderWidth: 1, borderColor: BASE_ACTION_BORDER, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  collectionStudyText: { fontFamily: 'Inter_900Black', fontSize: 9, color: BASE_ACTION_TEXT, letterSpacing: 1.1 },
+  statsWorkspace: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignContent: 'flex-start' },
+  statWorkspaceCard: { width: '48.5%', minHeight: 140, borderRadius: 20, borderWidth: 1, borderColor: BORDER, backgroundColor: rgbaFromHex(SURFACE, 0.94), padding: 16, justifyContent: 'center', alignItems: 'center' },
+  statWorkspaceValue: { fontFamily: 'Inter_900Black', fontSize: 30, color: GOLD_L, marginTop: 9 },
+  statWorkspaceLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 8, color: DIM2, letterSpacing: 1.5, marginTop: 4 },
+
+  libraryHeader: { gap: 14, marginBottom: 4 },
+  continueCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: softAccentBorder,
+    backgroundColor: rgbaFromHex(SURFACE_RAISED, 0.96),
+    padding: 18,
+    overflow: 'hidden',
+  },
+  continueTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  continueEyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  continueIcon: { width: 30, height: 30, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: ACCENT },
+  continueEyebrow: { fontFamily: 'Inter_700Bold', fontSize: 9, color: DIM2, letterSpacing: 1.5 },
+  continueProgress: { fontFamily: 'Inter_900Black', fontSize: 18, color: ACCENT },
+  continueTitle: { fontFamily: 'Inter_900Black', fontSize: 23, lineHeight: 28, color: GOLD_L, letterSpacing: -0.7, maxWidth: '92%' },
+  continueMetaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 9 },
+  continueMeta: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM2 },
+  continueRail: { height: 4, borderRadius: 2, backgroundColor: rgbaFromHex(ACCENT, 0.12), overflow: 'hidden', marginTop: 14 },
+  continueRailFill: { height: '100%', borderRadius: 2, backgroundColor: ACCENT },
+
+  libraryStatsRow: { flexDirection: 'row', gap: 8 },
+  libraryStat: { flex: 1, minHeight: 62, borderRadius: 17, borderWidth: 1, borderColor: BORDER, backgroundColor: rgbaFromHex(SURFACE, 0.9), paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' },
+  libraryStatVal: { fontFamily: 'Inter_900Black', fontSize: 17, color: GOLD_L },
+  libraryStatLbl: { fontFamily: 'Inter_400Regular', fontSize: 8, color: DIM2, letterSpacing: 1, marginTop: 2, textTransform: 'uppercase' },
+  libraryStatAccent: { flex: 1, minHeight: 62, borderRadius: 17, backgroundColor: ACCENT, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' },
+  libraryStatAccentVal: { fontFamily: 'Inter_900Black', fontSize: 17, color: INK },
+  libraryStatAccentLbl: { fontFamily: 'Inter_600SemiBold', fontSize: 8, color: INK, opacity: 0.72, letterSpacing: 0.7, marginTop: 2, textTransform: 'uppercase' },
 
   statsStrip: {
     width: '100%',
@@ -1031,36 +1282,56 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
     padding: 16,
-    gap: 12,
+    gap: 9,
     paddingBottom: 120,
     flexGrow: 1,
   },
-  createRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  createRow: { flexDirection: 'row', gap: 10 },
   createBtnPrimary: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 7, backgroundColor: BASE_ACTION_BG, borderRadius: 18, paddingVertical: 15,
+    flex: 1, minHeight: 68, flexDirection: 'row', alignItems: 'center',
+    gap: 11, backgroundColor: BASE_ACTION_BG, borderRadius: 20, paddingVertical: 12, paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: softAccentBorder,
   },
-  createBtnPrimaryText: { fontFamily: 'Inter_700Bold', fontSize: 14, color: BASE_ACTION_TEXT },
+  createBtnPrimaryText: { fontFamily: 'Inter_900Black', fontSize: 14, color: BASE_ACTION_TEXT },
+  createBtnPrimarySub: { fontFamily: 'Inter_400Regular', fontSize: 9, color: BASE_ACTION_TEXT, opacity: 0.7, marginTop: 2 },
   createBtnSecondary: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 7, borderRadius: 18, paddingVertical: 15,
-    borderWidth: 1, borderColor: softAccentBorder, backgroundColor: BASE_ACTION_BG,
+    width: 68, minHeight: 68, alignItems: 'center', justifyContent: 'center',
+    borderRadius: 20,
+    borderWidth: 1, borderColor: softAccentBorder, backgroundColor: rgbaFromHex(SURFACE, 0.94),
   },
   createBtnSecondaryText: { fontFamily: 'Inter_700Bold', fontSize: 14, color: BASE_ACTION_TEXT },
 
+  libraryTitleRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 6 },
+  libraryTitle: { fontFamily: 'Inter_900Black', fontSize: 21, color: GOLD_L, letterSpacing: -0.5 },
+  libraryCount: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM2, marginTop: 3 },
+  searchBox: { minHeight: 48, borderRadius: 16, borderWidth: 1, borderColor: BORDER, backgroundColor: rgbaFromHex(INPUT_BG, 0.94), paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  searchInput: { flex: 1, color: INPUT_TEXT, fontFamily: 'Inter_400Regular', fontSize: 13, paddingVertical: 12 },
+  filterRow: { flexDirection: 'row', gap: 8, marginBottom: 2 },
+  filterChip: { borderRadius: 999, borderWidth: 1, borderColor: BORDER, backgroundColor: rgbaFromHex(SURFACE, 0.78), paddingHorizontal: 13, paddingVertical: 8 },
+  filterChipActive: { backgroundColor: softAccentFill, borderColor: softAccentBorder },
+  filterChipText: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: DIM2, textTransform: 'capitalize' },
+  filterChipTextActive: { color: GOLD_L },
+
   setCard: {
-    backgroundColor: rgbaFromHex(SURFACE, 0.98),
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: softAccentBorder,
-    padding: 18,
+    minHeight: 88,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
+    backgroundColor: rgbaFromHex(SURFACE, 0.94),
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: BORDER,
+    paddingHorizontal: 13,
+    paddingVertical: 12,
   },
+  setIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: softAccent, borderWidth: 1, borderColor: softAccentBorder, flexShrink: 0 },
+  setCardBody: { flex: 1, minWidth: 0, gap: 5 },
+  setOpenBtn: { width: 30, height: 30, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: rgbaFromHex(ACCENT, 0.08), flexShrink: 0 },
   setCardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  setTitle: { fontFamily: 'Inter_900Black', fontSize: 17, color: GOLD_L, lineHeight: 22 },
+  setTitle: { fontFamily: 'Inter_700Bold', fontSize: 14, color: GOLD_L, lineHeight: 18 },
   setDesc: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM2, marginTop: 3, lineHeight: 16 },
+  setMeta: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM2 },
 
   countBadge: {
     backgroundColor: softAccent,
@@ -1074,10 +1345,10 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   countText: { fontFamily: 'Inter_900Black', fontSize: 18, color: GOLD_L },
   countLbl: { fontFamily: 'Inter_400Regular', fontSize: 8, color: GOLD_D, letterSpacing: 1, marginTop: 1 },
 
-  masteryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  masteryRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 1 },
   masteryBar: { flex: 1, height: 3, backgroundColor: DIM, borderRadius: 2, overflow: 'hidden' },
   masteryFill: { height: '100%', backgroundColor: ACCENT, borderRadius: 2 },
-  masteryPct: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: GOLD_D, width: 36, textAlign: 'right' },
+  masteryPct: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: GOLD_D, width: 30, textAlign: 'right' },
 
   setCardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sourcePill: { backgroundColor: BASE_ACTION_BG, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: BASE_ACTION_BORDER },
@@ -1364,6 +1635,11 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   },
   cardFlipped: { backgroundColor: rgbaFromHex(ANSWER_SURFACE, 0.96), borderColor: ANSWER_CHIP_BORDER },
   cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cardTopActions: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  reviewToggle: { minHeight: 28, borderRadius: 999, paddingHorizontal: 9, borderWidth: 1, borderColor: QUESTION_CHIP_BORDER, backgroundColor: QUESTION_CHIP_BG, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
+  reviewToggleActive: { backgroundColor: ACCENT, borderColor: ACCENT2 },
+  reviewToggleText: { fontFamily: 'Inter_700Bold', fontSize: 7, color: QUESTION_TEXT, letterSpacing: 0.7 },
+  reviewToggleTextActive: { color: INK },
   cardSidePill: { borderRadius: 999, paddingHorizontal: 11, paddingVertical: 6, backgroundColor: QUESTION_CHIP_BG, borderWidth: 1, borderColor: QUESTION_CHIP_BORDER },
   cardSidePillFlipped: { backgroundColor: ANSWER_CHIP_BG, borderColor: ANSWER_CHIP_BORDER },
   cardSide: { fontFamily: 'Inter_600SemiBold', fontSize: 7, color: QUESTION_TEXT, letterSpacing: 1.7 },
@@ -1376,6 +1652,8 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   },
   cardText: { fontFamily: 'Inter_900Black', fontSize: 23, color: QUESTION_TEXT, lineHeight: 31 },
   cardTextFlipped: { color: ANSWER_TEXT },
+  randomCardSource: { fontFamily: 'Inter_700Bold', fontSize: 8, color: QUESTION_TEXT, opacity: 0.58, letterSpacing: 1.2, marginBottom: 10 },
+  randomCardSourceFlipped: { color: ANSWER_TEXT },
   cardFooter: { alignItems: 'center' },
   cardHintText: {
     fontFamily: 'Inter_600SemiBold',

@@ -6226,6 +6226,13 @@
   box-shadow: 0 8px 28px color-mix(in srgb, var(--fc-accent) 26%, transparent);
 }
 
+.fc-ask-ai-toggle-btn.fc-review-toggle-active {
+  background: var(--fc-accent);
+  border-color: var(--fc-accent);
+  color: var(--fc-bg-primary);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--fc-accent) 30%, transparent);
+}
+
 /* Cinematic dimmed backdrop behind the dock */
 .fc-ask-ai-backdrop {
   position: fixed;

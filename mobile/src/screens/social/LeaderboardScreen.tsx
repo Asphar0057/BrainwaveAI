@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../../services/auth';
-import { getFriendsLeaderboard, getGlobalLeaderboard } from '../../services/api';
+import { getLeaderboard } from '../../services/api';
 import HapticTouchable from '../../components/HapticTouchable';
 import AmbientBubbles from '../../components/AmbientBubbles';
 import GeoBackground from '../../components/GeoBackground';
@@ -25,35 +26,7 @@ function getMedalRing(theme: ReturnType<typeof useAppTheme>['selectedTheme'], me
   return darkenColor(theme.accent, theme.isLight ? 14 : 8);
 }
 
-function DotGrid() {
-  const { selectedTheme } = useAppTheme();
-  const { width } = useResponsiveLayout();
-  const dotColor = rgbaFromHex(selectedTheme.accent, 0.16);
-  const dotSpacingX = 24;
-  const dotSpacingY = 30;
-  const cols = Math.floor((width - 56) / dotSpacingX);
-  const rows = 28;
-  return (
-    <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-      {Array.from({ length: rows }).map((_, r) =>
-        Array.from({ length: cols }).map((_, c) => (
-          <View
-            key={`${r}-${c}`}
-            style={{
-              position: 'absolute',
-              left: 56 + c * dotSpacingX,
-              top: r * dotSpacingY,
-              width: 2, height: 2, borderRadius: 1,
-              backgroundColor: dotColor,
-            }}
-          />
-        ))
-      )}
-    </View>
-  );
-}
-
-function Avatar({ name, size = 44, medal }: { name: string; size?: number; medal?: MedalKey }) {
+function Avatar({ name, picture, size = 44, medal }: { name: string; picture?: string; size?: number; medal?: MedalKey }) {
   const { selectedTheme } = useAppTheme();
   const ACCENT_DARK = darkenColor(selectedTheme.accent, selectedTheme.isLight ? 12 : 26);
   const CARD = selectedTheme.panelAlt;
@@ -68,9 +41,11 @@ function Avatar({ name, size = 44, medal }: { name: string; size?: number; medal
     >
       <LinearGradient
         colors={[rgbaFromHex(CARD, 0.98), rgbaFromHex(selectedTheme.bgPrimary, 0.98)]}
-        style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center' }}
+        style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}
       >
-        <Text style={{ fontFamily: 'Inter_900Black', fontSize: size * 0.33, color: TEXT }}>{initials}</Text>
+        {picture
+          ? <Image source={{ uri: picture }} style={{ width: size, height: size }} resizeMode="cover" />
+          : <Text style={{ fontFamily: 'Inter_900Black', fontSize: size * 0.33, color: TEXT }}>{initials}</Text>}
       </LinearGradient>
     </LinearGradient>
   );
@@ -81,6 +56,7 @@ type Props = { user: AuthUser; onBack: () => void };
 export default function LeaderboardScreen({ user, onBack }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
+  const insets = useSafeAreaInsets();
   const s    = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
   const pod  = useMemo(() => createPodStyles(selectedTheme), [selectedTheme]);
   const row  = useMemo(() => createRowStyles(selectedTheme), [selectedTheme]);
@@ -88,22 +64,24 @@ export default function LeaderboardScreen({ user, onBack }: Props) {
   const [fontsLoaded] = useFonts({ Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold });
 
   const [tab, setTab]               = useState<'global' | 'friends'>('global');
-  const [friends, setFriends]       = useState<any[]>([]);
-  const [global, setGlobal]         = useState<any[]>([]);
-  const [myRank, setMyRank]         = useState<any>(null);
+  const [boards, setBoards]         = useState<{ global: any[]; friends: any[] }>({ global: [], friends: [] });
+  const [myRanks, setMyRanks]       = useState<{ global: any; friends: any }>({ global: null, friends: null });
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [fr, gl] = await Promise.all([
-        getFriendsLeaderboard(user.username),
-        getGlobalLeaderboard(50),
+      const [gl, fr] = await Promise.all([
+        getLeaderboard('global', 50),
+        getLeaderboard('friends', 50),
       ]);
-      const fList = fr?.leaderboard ?? [];
-      setFriends(fList);
-      setMyRank(fr?.current_user_rank ?? fList.find((e: any) => e.is_current_user));
-      setGlobal(gl?.leaderboard ?? []);
+      const globalList = gl?.leaderboard ?? [];
+      const friendList = fr?.leaderboard ?? [];
+      setBoards({ global: globalList, friends: friendList });
+      setMyRanks({
+        global: gl?.current_user_rank ?? globalList.find((e: any) => e.is_current_user) ?? null,
+        friends: fr?.current_user_rank ?? friendList.find((e: any) => e.is_current_user) ?? null,
+      });
     } catch {} finally {
       setLoading(false);
       setRefreshing(false);
@@ -113,12 +91,14 @@ export default function LeaderboardScreen({ user, onBack }: Props) {
   useEffect(() => { load(); }, [load]);
   const onRefresh = () => { setRefreshing(true); load(); };
 
-  const list   = tab === 'friends' ? friends : global;
+  const list   = boards[tab];
+  const myRank = myRanks[tab];
   const top3   = list.slice(0, 3);
   const rest   = list.slice(3);
   const dname  = (e: any) => e.username || e.name || '?';
   const dscore = (e: any) => e.score ?? e.total_points ?? e.points ?? 0;
   const dstreak= (e: any) => e.streak ?? e.current_streak ?? 0;
+  const dpicture = (e: any) => e.picture_url ?? e.picture ?? e.photo_url ?? e.profile_picture;
 
   const GOLD_XL = selectedTheme.accent;
   const GOLD_L  = selectedTheme.accentHover;
@@ -149,12 +129,15 @@ export default function LeaderboardScreen({ user, onBack }: Props) {
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.58, 1]} style={StyleSheet.absoluteFillObject} />
       <GeoBackground />
       <AmbientBubbles theme={selectedTheme} variant="leaderboard" opacity={0.84} />
-      <DotGrid />
 
       {/* Top bar */}
-      <View style={s.topBar}>
+      <View style={[s.topBar, { paddingTop: Math.max(insets.top + 8, 16) }]}>
         <HapticTouchable onPress={onBack} style={s.backBtn} haptic="light">
           <Ionicons name="chevron-back" size={18} color={GOLD_M} />
+        </HapticTouchable>
+        <Text style={s.topLabel}>RANKINGS</Text>
+        <HapticTouchable onPress={onRefresh} style={s.backBtn} haptic="light" accessibilityLabel="Refresh leaderboard">
+          <Ionicons name="refresh" size={16} color={GOLD_M} />
         </HapticTouchable>
       </View>
 
@@ -163,7 +146,7 @@ export default function LeaderboardScreen({ user, onBack }: Props) {
         <LinearGradient colors={[rgbaFromHex(selectedTheme.accent, 0.24), rgbaFromHex(selectedTheme.panelAlt, 0.04), rgbaFromHex(selectedTheme.bgPrimary, 0)]} style={s.heroGlow}>
           <Ionicons name="trophy" size={46} color={GOLD_XL} />
         </LinearGradient>
-        <Text style={s.heroTitle}>leaderboard</Text>
+        <Text style={s.heroTitle}>leaderboards</Text>
         {myRank
           ? <Text style={s.heroSub}>you're ranked <Text style={{ color: GOLD_XL, fontFamily: 'Inter_700Bold' }}>#{myRank.rank ?? myRank}</Text></Text>
           : <Text style={s.heroSub}>see how you stack up</Text>
@@ -185,12 +168,29 @@ export default function LeaderboardScreen({ user, onBack }: Props) {
         contentContainerStyle={s.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={GOLD_M} />}
       >
+        {myRank && list.length > 0 && (
+          <LinearGradient
+            colors={[rgbaFromHex(selectedTheme.accent, 0.2), rgbaFromHex(selectedTheme.panel, 0.92)]}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={s.positionCard}
+          >
+            <View>
+              <Text style={s.positionLabel}>YOUR POSITION</Text>
+              <Text style={s.positionRank}>#{myRank.rank}</Text>
+            </View>
+            <View style={s.positionRight}>
+              <Text style={s.positionScore}>{dscore(myRank).toLocaleString()} XP</Text>
+              <Text style={s.positionScope}>{tab === 'global' ? 'worldwide' : 'among friends'}</Text>
+            </View>
+          </LinearGradient>
+        )}
         {list.length === 0 ? (
           <View style={empty.wrap}>
             <LinearGradient colors={[rgbaFromHex(selectedTheme.accent, 0.14), rgbaFromHex(selectedTheme.panelAlt, 0.04)]} style={empty.icon}>
               <Ionicons name="trophy-outline" size={40} color={GOLD_D} />
             </LinearGradient>
             <Text style={empty.title}>no rankings yet</Text>
+            <Text style={empty.sub}>{tab === 'friends' ? 'add friends and start competing' : 'earn XP to claim the first spot'}</Text>
           </View>
         ) : (
           <>
@@ -206,12 +206,12 @@ export default function LeaderboardScreen({ user, onBack }: Props) {
                   return (
                     <View key={medal} style={[pod.entry, medal === 'gold' && pod.entryFirst]}>
                       {medal === 'gold' && <Ionicons name="trophy" size={16} color={ringColor} style={{ marginBottom: 6 }} />}
-                      <Avatar name={dname(entry)} size={m.size} medal={medal} />
+                      <Avatar name={dname(entry)} picture={dpicture(entry)} size={m.size} medal={medal} />
                       <View style={[pod.badge, { borderColor: rgbaFromHex(ringColor, 0.44), backgroundColor: rgbaFromHex(ringColor, 0.12) }]}>
                         <Text style={[pod.badgeText, { color: ringColor }]}>{label}</Text>
                       </View>
-                      <Text style={pod.name} numberOfLines={1}>{dname(entry)}</Text>
-                      <Text style={pod.score}>{dscore(entry).toLocaleString()}</Text>
+                      <Text style={pod.name} numberOfLines={1}>{dname(entry)}{entry.is_current_user ? ' · you' : ''}</Text>
+                      <Text style={pod.score}>{dscore(entry).toLocaleString()} XP</Text>
                       <LinearGradient colors={[rgbaFromHex(ringColor, 0.22), rgbaFromHex(ringColor, 0.06)]} style={[pod.bar, { height: m.bar, borderTopColor: rgbaFromHex(ringColor, 0.38) }]} />
                     </View>
                   );
@@ -223,7 +223,7 @@ export default function LeaderboardScreen({ user, onBack }: Props) {
             {rest.length > 0 && (
               <View style={{ gap: 6 }}>
                 {rest.map((e: any, i: number) => {
-                  const rank    = i + 4;
+                  const rank    = e.rank ?? i + 4;
                   const isMe    = e.is_current_user;
                   const score   = dscore(e);
                   const streak  = dstreak(e);
@@ -235,7 +235,7 @@ export default function LeaderboardScreen({ user, onBack }: Props) {
                       <Text style={[row.rank, isMe && { color: GOLD_XL }]}>
                         {rank <= 9 ? `0${rank}` : rank}
                       </Text>
-                      <Avatar name={dname(e)} size={36} />
+                      <Avatar name={dname(e)} picture={dpicture(e)} size={36} />
                       <View style={{ flex: 1, gap: 4 }}>
                         <Text style={[row.name, isMe && { color: GOLD_XL }]}>
                           {dname(e)}{isMe ? '  (you)' : ''}
@@ -250,7 +250,7 @@ export default function LeaderboardScreen({ user, onBack }: Props) {
                       </View>
                       <View style={row.right}>
                         <Text style={[row.score, isMe && { color: GOLD_XL }]}>
-                          {score >= 1000 ? `${(score / 1000).toFixed(1)}k` : score}
+                          {score >= 1000 ? `${(score / 1000).toFixed(1)}k XP` : `${score} XP`}
                         </Text>
                         {streak > 0 && (
                           <View style={row.streakPill}>
@@ -266,7 +266,7 @@ export default function LeaderboardScreen({ user, onBack }: Props) {
             )}
           </>
         )}
-        <View style={{ height: 48 }} />
+        <View style={{ height: Math.max(insets.bottom + 28, 48) }} />
       </ScrollView>
     </View>
   );
@@ -280,8 +280,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   const BORDER      = theme.borderStrong;
   return StyleSheet.create({
     root: { flex: 1 },
-    topBar: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
+    topBar: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
     backBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: rgbaFromHex(SURFACE, 0.92), borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center' },
+    topLabel: { fontFamily: 'Inter_700Bold', fontSize: 10, letterSpacing: 2.4, color: DIM },
     hero:      { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', alignItems: 'center', paddingTop: 12, paddingBottom: 24, gap: 8 },
     heroGlow:  { width: 112, height: 112, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.24) },
     heroTitle: { fontFamily: 'Inter_900Black', fontSize: 40, color: theme.accentHover, letterSpacing: -2.2, marginTop: 8 },
@@ -292,6 +293,12 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     tabTextActive: { color: theme.accentHover },
     tabLine:       { position: 'absolute', bottom: -1, left: '15%', right: '15%', height: 2, backgroundColor: ACCENT, borderRadius: 1 },
     scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingLeft: 20, paddingRight: 20, paddingTop: 4, gap: 0 },
+    positionCard: { minHeight: 76, borderRadius: 18, borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.32), paddingHorizontal: 18, paddingVertical: 14, marginBottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', overflow: 'hidden' },
+    positionLabel: { fontFamily: 'Inter_700Bold', fontSize: 9, letterSpacing: 1.8, color: DIM, marginBottom: 3 },
+    positionRank: { fontFamily: 'Inter_900Black', fontSize: 28, lineHeight: 30, letterSpacing: -1, color: theme.accentHover },
+    positionRight: { alignItems: 'flex-end', gap: 3 },
+    positionScore: { fontFamily: 'Inter_900Black', fontSize: 17, color: ACCENT },
+    positionScope: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM },
   });
 }
 
@@ -331,5 +338,6 @@ function createEmptyStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'
     wrap:  { alignItems: 'center', paddingTop: 80, gap: 14 },
     icon:  { width: 88, height: 88, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: rgbaFromHex(theme.accent, 0.22) },
     title: { fontFamily: 'Inter_900Black', fontSize: 18, color: darkenColor(theme.accent, theme.isLight ? 12 : 26) },
+    sub: { fontFamily: 'Inter_400Regular', fontSize: 12, color: theme.textSecondary, textAlign: 'center' },
   });
 }

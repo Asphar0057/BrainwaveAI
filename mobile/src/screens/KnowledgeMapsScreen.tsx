@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   KeyboardAvoidingView,
+  LayoutAnimation,
   Modal,
   Platform,
   RefreshControl,
@@ -17,6 +19,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import Svg, { Defs, LinearGradient as SvgGradient, Path, Stop } from 'react-native-svg';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { AuthUser } from '../services/auth';
 import {
   addManualKnowledgeNode,
@@ -25,6 +29,7 @@ import {
   deleteKnowledgeNode,
   deleteKnowledgeRoadmap,
   expandKnowledgeNode,
+  exploreKnowledgeNode,
   getKnowledgeRoadmap,
   getKnowledgeRoadmaps,
   getPersonalizedXPRoadmap,
@@ -33,22 +38,98 @@ import {
   KnowledgeRoadmapDetail,
   saveKnowledgeNodeNotes,
 } from '../services/api';
-import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
-import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../components/NeumorphicTexture';
+import { cbTileShadow } from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
 type Props = { user: AuthUser; onBack: () => void };
+type NodePanelTab = 'learn' | 'notes' | 'ask';
+type GraphPoint = { node: KnowledgeNode; x: number; y: number };
+type GraphEdge = { id: string; from: GraphPoint; to: GraphPoint };
+type GraphModel = { points: GraphPoint[]; edges: GraphEdge[]; width: number; height: number };
+
+const NODE_WIDTH = 168;
+const NODE_HEIGHT = 104;
+const H_GAP = 22;
+const V_GAP = 54;
+const GRAPH_PAD = 30;
 
 function asArray(value: unknown): any[] {
   return Array.isArray(value) ? value : [];
 }
 
 function nodeTitle(node: KnowledgeNode | null) {
-  return node?.topic_name || 'node';
+  return node?.topic_name || 'Topic';
+}
+
+function makeGraph(nodes: KnowledgeNode[]): GraphModel {
+  if (!nodes.length) return { points: [], edges: [], width: 360, height: 420 };
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const children = new Map<number, KnowledgeNode[]>();
+  nodes.forEach((node) => {
+    if (node.parent_id != null && byId.has(node.parent_id)) {
+      children.set(node.parent_id, [...(children.get(node.parent_id) ?? []), node]);
+    }
+  });
+  const roots = nodes.filter((node) => node.parent_id == null || !byId.has(node.parent_id));
+  const pointById = new Map<number, GraphPoint>();
+  let leafIndex = 0;
+  let maxDepth = 0;
+
+  const place = (node: KnowledgeNode, depth: number): number => {
+    maxDepth = Math.max(maxDepth, depth);
+    const nodeChildren = children.get(node.id) ?? [];
+    let centerX: number;
+    if (!nodeChildren.length) {
+      centerX = GRAPH_PAD + leafIndex * (NODE_WIDTH + H_GAP) + NODE_WIDTH / 2;
+      leafIndex += 1;
+    } else {
+      const childCenters = nodeChildren.map((child) => place(child, depth + 1));
+      centerX = childCenters.reduce((sum, value) => sum + value, 0) / childCenters.length;
+    }
+    pointById.set(node.id, {
+      node,
+      x: centerX - NODE_WIDTH / 2,
+      y: GRAPH_PAD + depth * (NODE_HEIGHT + V_GAP),
+    });
+    return centerX;
+  };
+
+  roots.forEach((root) => place(root, 0));
+  nodes.forEach((node) => {
+    if (!pointById.has(node.id)) place(node, Math.max(0, node.depth_level ?? 0));
+  });
+  const points = [...pointById.values()];
+  const edges = nodes.flatMap((node) => {
+    if (node.parent_id == null) return [];
+    const from = pointById.get(node.parent_id);
+    const to = pointById.get(node.id);
+    return from && to ? [{ id: `${node.parent_id}-${node.id}`, from, to }] : [];
+  });
+  const maxX = Math.max(...points.map((point) => point.x + NODE_WIDTH));
+  return {
+    points,
+    edges,
+    width: Math.max(360, maxX + GRAPH_PAD),
+    height: Math.max(440, GRAPH_PAD * 2 + (maxDepth + 1) * NODE_HEIGHT + maxDepth * V_GAP),
+  };
+}
+
+function getNodePath(node: KnowledgeNode | null, nodes: KnowledgeNode[]) {
+  if (!node) return '';
+  const byId = new Map(nodes.map((item) => [item.id, item]));
+  const path: string[] = [];
+  let cursor: KnowledgeNode | undefined = node;
+  const seen = new Set<number>();
+  while (cursor && !seen.has(cursor.id)) {
+    seen.add(cursor.id);
+    path.unshift(cursor.topic_name);
+    cursor = cursor.parent_id != null ? byId.get(cursor.parent_id) : undefined;
+  }
+  return path.join('  ›  ');
 }
 
 export default function KnowledgeMapsScreen({ user, onBack }: Props) {
@@ -68,9 +149,11 @@ export default function KnowledgeMapsScreen({ user, onBack }: Props) {
   const [detail, setDetail] = useState<KnowledgeRoadmapDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [selectedNode, setSelectedNode] = useState<KnowledgeNode | null>(null);
+  const [showNodePanel, setShowNodePanel] = useState(false);
+  const [nodeTab, setNodeTab] = useState<NodePanelTab>('learn');
   const [nodeNotes, setNodeNotes] = useState('');
   const [busyNode, setBusyNode] = useState<number | null>(null);
-  const [chatNode, setChatNode] = useState<KnowledgeNode | null>(null);
+  const [exploringNode, setExploringNode] = useState<number | null>(null);
   const [chatQuestion, setChatQuestion] = useState('');
   const [chatAnswer, setChatAnswer] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
@@ -110,38 +193,16 @@ export default function KnowledgeMapsScreen({ user, onBack }: Props) {
       .slice(0, 5);
   }, [xpRoadmap]);
 
-  const orderedNodes = useMemo(() => {
-    const nodes = detail?.nodes_flat ?? [];
-    const byParent = new Map<number | null, KnowledgeNode[]>();
-    nodes.forEach((node) => {
-      const key = node.parent_id ?? null;
-      byParent.set(key, [...(byParent.get(key) ?? []), node]);
-    });
-    byParent.forEach((list) => list.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || '')));
-    const root = nodes.find((node) => node.parent_id == null) || nodes[0];
-    const output: KnowledgeNode[] = [];
-    const seen = new Set<number>();
-    const walk = (node?: KnowledgeNode) => {
-      if (!node || seen.has(node.id)) return;
-      seen.add(node.id);
-      output.push(node);
-      (byParent.get(node.id) ?? []).forEach(walk);
-    };
-    walk(root);
-    nodes.forEach((node) => walk(node));
-    return output;
-  }, [detail]);
+  const graph = useMemo(() => makeGraph(detail?.nodes_flat ?? []), [detail]);
+  const nodePath = useMemo(() => getNodePath(selectedNode, detail?.nodes_flat ?? []), [selectedNode, detail]);
 
   const openMap = async (map: KnowledgeRoadmap) => {
     setSelectedMap(map);
     setDetailLoading(true);
     setSelectedNode(null);
+    setShowNodePanel(false);
     try {
-      const data = await getKnowledgeRoadmap(map.id);
-      setDetail(data);
-      const root = data.nodes_flat.find((node) => node.parent_id == null) || data.nodes_flat[0] || null;
-      setSelectedNode(root);
-      setNodeNotes(root?.user_notes || '');
+      setDetail(await getKnowledgeRoadmap(map.id));
     } catch (error) {
       Alert.alert('Open map failed', error instanceof Error ? error.message : 'Could not load this map');
     } finally {
@@ -149,14 +210,19 @@ export default function KnowledgeMapsScreen({ user, onBack }: Props) {
     }
   };
 
-  const reloadDetail = async () => {
+  const reloadDetail = async (keepNodeId: number | null = selectedNode?.id ?? null) => {
     if (!selectedMap) return;
     const data = await getKnowledgeRoadmap(selectedMap.id);
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setDetail(data);
-    if (selectedNode) {
-      const updated = data.nodes_flat.find((node) => node.id === selectedNode.id) || null;
+    const targetId = keepNodeId;
+    if (targetId) {
+      const updated = data.nodes_flat.find((node) => node.id === targetId) || null;
       setSelectedNode(updated);
       setNodeNotes(updated?.user_notes || '');
+    } else {
+      setSelectedNode(null);
+      setNodeNotes('');
     }
   };
 
@@ -172,8 +238,7 @@ export default function KnowledgeMapsScreen({ user, onBack }: Props) {
       setTopic('');
       setShowCreate(false);
       await load();
-      const fresh = { id: created.roadmap_id, title: rootTopic, root_topic: rootTopic, total_nodes: created.total_nodes || 1, max_depth_reached: 0 };
-      await openMap(fresh);
+      await openMap({ id: created.roadmap_id, title: rootTopic, root_topic: rootTopic, total_nodes: created.total_nodes || 1, max_depth_reached: 0 });
     } catch (error) {
       Alert.alert('Create map', error instanceof Error ? error.message : 'Failed to create knowledge map');
     } finally {
@@ -190,7 +255,7 @@ export default function KnowledgeMapsScreen({ user, onBack }: Props) {
         onPress: async () => {
           try {
             await deleteKnowledgeRoadmap(map.id);
-            setMaps((prev) => prev.filter((item) => item.id !== map.id));
+            setMaps((current) => current.filter((item) => item.id !== map.id));
           } catch (error) {
             Alert.alert('Delete failed', error instanceof Error ? error.message : 'Could not delete map');
           }
@@ -199,16 +264,40 @@ export default function KnowledgeMapsScreen({ user, onBack }: Props) {
     ]);
   };
 
-  const selectNode = (node: KnowledgeNode) => {
+  const openNode = (node: KnowledgeNode, tab: NodePanelTab = 'learn') => {
     setSelectedNode(node);
     setNodeNotes(node.user_notes || '');
+    setNodeTab(tab);
+    setChatQuestion('');
+    setChatAnswer('');
+    setShowNodePanel(true);
+  };
+
+  const learnNode = async (node: KnowledgeNode) => {
+    openNode(node, 'learn');
+    if (node.ai_explanation || node.is_explored) return;
+    setExploringNode(node.id);
+    try {
+      const result = await exploreKnowledgeNode(node.id);
+      const explored = (result.node ?? result) as KnowledgeNode;
+      const merged = { ...node, ...explored, is_explored: true };
+      setSelectedNode(merged);
+      setDetail((current) => current ? {
+        ...current,
+        nodes_flat: current.nodes_flat.map((item) => item.id === node.id ? merged : item),
+      } : current);
+    } catch (error) {
+      Alert.alert('Learn about topic', error instanceof Error ? error.message : 'Could not generate this topic lesson');
+    } finally {
+      setExploringNode(null);
+    }
   };
 
   const expandNode = async (node: KnowledgeNode) => {
     setBusyNode(node.id);
     try {
       await expandKnowledgeNode(node.id);
-      await reloadDetail();
+      await reloadDetail(node.id);
     } catch (error) {
       Alert.alert('Expand failed', error instanceof Error ? error.message : 'Could not expand this node');
     } finally {
@@ -221,8 +310,9 @@ export default function KnowledgeMapsScreen({ user, onBack }: Props) {
     setBusyNode(selectedNode.id);
     try {
       await saveKnowledgeNodeNotes(selectedNode.id, nodeNotes);
-      await reloadDetail();
-      Alert.alert('Saved', 'Node notes updated.');
+      setSelectedNode((node) => node ? { ...node, user_notes: nodeNotes } : node);
+      setDetail((current) => current ? { ...current, nodes_flat: current.nodes_flat.map((node) => node.id === selectedNode.id ? { ...node, user_notes: nodeNotes } : node) } : current);
+      Alert.alert('Notes saved');
     } catch (error) {
       Alert.alert('Save failed', error instanceof Error ? error.message : 'Could not save notes');
     } finally {
@@ -243,10 +333,11 @@ export default function KnowledgeMapsScreen({ user, onBack }: Props) {
         topicName: childTopic.trim(),
         description: childDescription.trim(),
       });
+      const parentId = childModalNode.id;
       setChildTopic('');
       setChildDescription('');
       setChildModalNode(null);
-      await reloadDetail();
+      await reloadDetail(parentId);
     } catch (error) {
       Alert.alert('Add node failed', error instanceof Error ? error.message : 'Could not add child node');
     } finally {
@@ -264,8 +355,9 @@ export default function KnowledgeMapsScreen({ user, onBack }: Props) {
           setBusyNode(node.id);
           try {
             await deleteKnowledgeNode(node.id);
+            setShowNodePanel(false);
             setSelectedNode(null);
-            await reloadDetail();
+            await reloadDetail(null);
           } catch (error) {
             Alert.alert('Delete failed', error instanceof Error ? error.message : 'Could not delete node');
           } finally {
@@ -277,24 +369,25 @@ export default function KnowledgeMapsScreen({ user, onBack }: Props) {
   };
 
   const askNode = async () => {
-    if (!chatNode || !chatQuestion.trim()) {
-      Alert.alert('Ask something about this node');
+    if (!selectedNode || !chatQuestion.trim()) {
+      Alert.alert('Ask something about this topic');
       return;
     }
     setChatLoading(true);
     setChatAnswer('');
     try {
       const prompt = [
-        `Knowledge map node: ${chatNode.topic_name}`,
-        chatNode.description ? `Description: ${chatNode.description}` : '',
-        chatNode.ai_explanation ? `Existing explanation: ${chatNode.ai_explanation}` : '',
-        chatNode.key_concepts?.length ? `Key concepts: ${chatNode.key_concepts.join(', ')}` : '',
+        `Knowledge map path: ${nodePath}`,
+        `Current topic: ${selectedNode.topic_name}`,
+        selectedNode.description ? `Description: ${selectedNode.description}` : '',
+        selectedNode.ai_explanation ? `Existing explanation: ${selectedNode.ai_explanation}` : '',
+        selectedNode.key_concepts?.length ? `Key concepts: ${selectedNode.key_concepts.join(', ')}` : '',
         `Question: ${chatQuestion.trim()}`,
       ].filter(Boolean).join('\n');
       const result = await askAI(user.username, prompt, undefined, true, []);
       setChatAnswer(result.response || result.answer || 'No answer returned.');
     } catch (error) {
-      Alert.alert('Node chat failed', error instanceof Error ? error.message : 'Could not answer from this node');
+      Alert.alert('Topic chat failed', error instanceof Error ? error.message : 'Could not answer from this topic');
     } finally {
       setChatLoading(false);
     }
@@ -307,190 +400,191 @@ export default function KnowledgeMapsScreen({ user, onBack }: Props) {
       <View style={s.root}>
         <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
         <GeoBackground />
-        <AmbientBubbles theme={selectedTheme} variant="paths" opacity={0.74} />
-        <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
-          <View style={s.topBar}>
-            <HapticTouchable style={s.iconBtn} onPress={() => { setSelectedMap(null); setDetail(null); setSelectedNode(null); }} haptic="light">
-              <Ionicons name="chevron-back" size={18} color={selectedTheme.accent} />
+        <View style={s.mapScreen}>
+          <View style={s.mapHeader}>
+            <HapticTouchable style={s.iconBtn} onPress={() => { setSelectedMap(null); setDetail(null); setSelectedNode(null); setShowNodePanel(false); }} haptic="light" accessibilityLabel="Back to knowledge maps">
+              <Ionicons name="chevron-back" size={20} color={selectedTheme.accentHover} />
             </HapticTouchable>
-            <HapticTouchable style={s.iconBtn} onPress={reloadDetail} haptic="selection">
-              <Ionicons name="refresh-outline" size={18} color={selectedTheme.accent} />
+            <View style={s.mapHeaderCopy}>
+              <Text style={s.mapKicker}>KNOWLEDGE MAP</Text>
+              <Text style={s.mapHeaderTitle} numberOfLines={1}>{detail?.roadmap?.title || selectedMap.title}</Text>
+            </View>
+            <HapticTouchable style={s.iconBtn} onPress={() => reloadDetail()} haptic="selection" accessibilityLabel="Refresh map">
+              <Ionicons name="refresh" size={17} color={selectedTheme.accentHover} />
             </HapticTouchable>
           </View>
 
-          <View style={s.hero}>
-            <NeumorphicLayer grainOpacity={0.26} />
-            <Text style={s.heroGhost}>01</Text>
-            <Text style={s.heroTitle} numberOfLines={2}>{detail?.roadmap?.title || selectedMap.title}</Text>
-            <Text style={s.heroCopy}>{orderedNodes.length} nodes · depth {detail?.roadmap?.max_depth_reached ?? selectedMap.max_depth_reached ?? 0}</Text>
+          <View style={s.mapStatusRow}>
+            <View style={s.statusPill}><View style={[s.statusDot, { backgroundColor: selectedTheme.accentHover }]} /><Text style={s.statusText}>{detail?.nodes_flat.length ?? 0} topics</Text></View>
+            <View style={s.statusPill}><Ionicons name="git-branch-outline" size={13} color={selectedTheme.accent} /><Text style={s.statusText}>depth {detail?.roadmap?.max_depth_reached ?? 0}</Text></View>
+            <Text style={s.mapHint}>drag · pinch · tap a topic</Text>
           </View>
 
           {detailLoading ? (
-            <ActivityIndicator color={selectedTheme.accent} size="large" style={{ marginTop: 44 }} />
+            <View style={s.centerLoading}><ActivityIndicator color={selectedTheme.accent} size="large" /><Text style={s.loadingText}>building your map…</Text></View>
           ) : (
-            <>
-              <View style={s.nodeMap}>
-                {orderedNodes.map((node) => {
-                  const active = selectedNode?.id === node.id;
-                  const depth = Math.min(node.depth_level || 0, 5);
-                  return (
-                    <HapticTouchable key={node.id} style={[s.nodeRow, { marginLeft: depth * 18 }, active && s.nodeRowActive]} onPress={() => selectNode(node)} haptic="selection">
-                      <View style={s.nodeRail}>
-                        <View style={[s.nodeDot, node.expansion_status === 'expanded' && s.nodeDotDone]} />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={s.nodeTitle} numberOfLines={1}>{node.topic_name}</Text>
-                        <Text style={s.nodeMeta}>{node.expansion_status || 'unexpanded'} · level {node.depth_level || 0}</Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={16} color={selectedTheme.textSecondary} />
-                    </HapticTouchable>
-                  );
-                })}
-              </View>
-
-              {selectedNode ? (
-                <View style={s.detailPanel}>
-                  <View style={s.detailHead}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.sectionTitle}>{selectedNode.topic_name}</Text>
-                      <Text style={s.sectionHint}>{selectedNode.description || 'No description yet.'}</Text>
-                    </View>
-                    {selectedNode.parent_id ? (
-                      <HapticTouchable style={s.deleteBtn} onPress={() => removeNode(selectedNode)} haptic="warning">
-                        <Ionicons name="trash-outline" size={15} color={selectedTheme.danger} />
-                      </HapticTouchable>
-                    ) : null}
-                  </View>
-
-                  {!!selectedNode.ai_explanation && <Text style={s.bodyText}>{selectedNode.ai_explanation}</Text>}
-                  {selectedNode.key_concepts?.length ? (
-                    <View style={s.chipRow}>
-                      {selectedNode.key_concepts.map((concept) => <Text key={concept} style={s.conceptChipText}>{concept}</Text>)}
-                    </View>
-                  ) : null}
-
-                  <View style={s.actionRow}>
-                    <ActionIcon icon="sparkles-outline" label="expand" onPress={() => expandNode(selectedNode)} busy={busyNode === selectedNode.id} styles={s} />
-                    <ActionIcon icon="add" label="child" onPress={() => setChildModalNode(selectedNode)} styles={s} />
-                    <ActionIcon icon="chatbubble-ellipses-outline" label="chat" onPress={() => { setChatNode(selectedNode); setChatQuestion(''); setChatAnswer(''); }} styles={s} />
-                  </View>
-
-                  <Text style={s.label}>node notes</Text>
-                  <TextInput value={nodeNotes} onChangeText={setNodeNotes} placeholder="write what you learned here..." placeholderTextColor={selectedTheme.textSecondary} style={[s.input, s.textArea]} multiline />
-                  <HapticTouchable style={s.primaryBtn} onPress={saveNotes} disabled={busyNode === selectedNode.id}>
-                    {busyNode === selectedNode.id ? <ActivityIndicator color={selectedTheme.bgPrimary} /> : <Text style={s.primaryText}>save notes</Text>}
-                  </HapticTouchable>
-                </View>
-              ) : null}
-            </>
+            <GraphCanvas
+              graph={graph}
+              selectedId={selectedNode?.id ?? null}
+              busyNode={busyNode}
+              exploringNode={exploringNode}
+              onOpen={openNode}
+              onLearn={learnNode}
+              onExpand={expandNode}
+              theme={selectedTheme}
+              styles={s}
+            />
           )}
-        </ScrollView>
+        </View>
 
-        <Modal visible={!!chatNode} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setChatNode(null)}>
+        <Modal visible={showNodePanel && !!selectedNode} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowNodePanel(false)}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalRoot}>
             <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
-            <View style={s.modalHeader}>
-              <Text style={s.modalTitle} numberOfLines={1}>chat: {nodeTitle(chatNode)}</Text>
-              <HapticTouchable onPress={() => setChatNode(null)}><Ionicons name="close" size={22} color={selectedTheme.accent} /></HapticTouchable>
+            <View style={s.sheetHandle} />
+            <View style={s.nodeSheetHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.nodeSheetKicker}>TOPIC DEEP DIVE</Text>
+                <Text style={s.nodeSheetTitle} numberOfLines={2}>{nodeTitle(selectedNode)}</Text>
+              </View>
+              <HapticTouchable style={s.sheetClose} onPress={() => setShowNodePanel(false)} haptic="light"><Ionicons name="close" size={20} color={selectedTheme.accentHover} /></HapticTouchable>
             </View>
-            <View style={s.modalBody}>
-              <TextInput value={chatQuestion} onChangeText={setChatQuestion} placeholder="ask for examples, prerequisites, or a simpler explanation..." placeholderTextColor={selectedTheme.textSecondary} style={[s.input, s.textArea]} multiline autoFocus />
-              <HapticTouchable style={s.primaryBtn} onPress={askNode} disabled={chatLoading}>
-                {chatLoading ? <ActivityIndicator color={selectedTheme.bgPrimary} /> : <Text style={s.primaryText}>ask node</Text>}
-              </HapticTouchable>
-              {!!chatAnswer && <View style={s.answerCard}><Text style={s.bodyText}>{chatAnswer}</Text></View>}
+            <Text style={s.pathText} numberOfLines={2}>{nodePath}</Text>
+
+            <View style={s.nodeMetrics}>
+              <NodeMetric value={String(selectedNode?.key_concepts?.length ?? 0)} label="concepts" styles={s} />
+              <NodeMetric value={String(selectedNode?.real_world_examples?.length ?? 0)} label="examples" styles={s} />
+              <NodeMetric value={selectedNode?.user_notes ? 'yes' : 'no'} label="notes" styles={s} />
             </View>
+
+            <View style={s.nodeTabs}>
+              {([
+                ['learn', 'book-outline', 'Learn'],
+                ['notes', 'document-text-outline', 'Notes'],
+                ['ask', 'chatbubble-ellipses-outline', 'Ask'],
+              ] as [NodePanelTab, React.ComponentProps<typeof Ionicons>['name'], string][]).map(([key, icon, label]) => (
+                <HapticTouchable key={key} style={[s.nodeTab, nodeTab === key && s.nodeTabActive]} onPress={() => setNodeTab(key)} haptic="selection">
+                  <Ionicons name={icon} size={15} color={nodeTab === key ? s.accentInk.color : selectedTheme.textSecondary} />
+                  <Text style={[s.nodeTabText, nodeTab === key && s.nodeTabTextActive]}>{label}</Text>
+                </HapticTouchable>
+              ))}
+            </View>
+
+            {nodeTab === 'learn' ? (
+              <ScrollView contentContainerStyle={s.sheetScroll} showsVerticalScrollIndicator={false}>
+                {exploringNode === selectedNode?.id ? (
+                  <View style={s.lessonLoading}><ActivityIndicator color={selectedTheme.accent} /><Text style={s.loadingText}>learning this topic…</Text></View>
+                ) : selectedNode?.ai_explanation ? (
+                  <>
+                    <LearningSection icon="information-circle-outline" title="Overview" styles={s}><Text style={s.bodyText}>{selectedNode.ai_explanation}</Text></LearningSection>
+                    {!!selectedNode.key_concepts?.length && (
+                      <LearningSection icon="sparkles-outline" title="Key concepts" styles={s}>
+                        <View style={s.chipRow}>{selectedNode.key_concepts.map((concept) => <Text key={concept} style={s.conceptChip}>{concept}</Text>)}</View>
+                      </LearningSection>
+                    )}
+                    {!!selectedNode.why_important && <LearningSection icon="locate-outline" title="Why this matters" styles={s}><Text style={s.bodyText}>{selectedNode.why_important}</Text></LearningSection>}
+                    {!!selectedNode.real_world_examples?.length && (
+                      <LearningSection icon="earth-outline" title="Real-world examples" styles={s}>
+                        {selectedNode.real_world_examples.map((example, index) => <View key={`${example}-${index}`} style={s.exampleRow}><Text style={s.exampleIndex}>{String(index + 1).padStart(2, '0')}</Text><Text style={s.exampleText}>{example}</Text></View>)}
+                      </LearningSection>
+                    )}
+                    {!!selectedNode.learning_tips && <LearningSection icon="bulb-outline" title="Learning tip" styles={s}><Text style={s.bodyText}>{selectedNode.learning_tips}</Text></LearningSection>}
+                  </>
+                ) : (
+                  <View style={s.learnEmpty}>
+                    <View style={s.learnEmptyIcon}><Ionicons name="book-outline" size={28} color={selectedTheme.accentHover} /></View>
+                    <Text style={s.learnEmptyTitle}>learn about this topic</Text>
+                    <Text style={s.learnEmptyText}>Generate an explanation, key concepts, examples, and a learning tip.</Text>
+                    <HapticTouchable style={s.primaryBtn} onPress={() => selectedNode && learnNode(selectedNode)} haptic="medium"><Ionicons name="sparkles" size={16} color={s.accentInk.color} /><Text style={s.primaryText}>EXPLORE TOPIC</Text></HapticTouchable>
+                  </View>
+                )}
+                <View style={s.sheetActions}>
+                  {selectedNode?.expansion_status !== 'expanded' && (
+                    <HapticTouchable style={s.secondaryAction} onPress={() => selectedNode && expandNode(selectedNode)} disabled={busyNode === selectedNode?.id} haptic="medium">
+                      {busyNode === selectedNode?.id ? <ActivityIndicator color={selectedTheme.accentHover} size="small" /> : <Ionicons name="git-branch-outline" size={16} color={selectedTheme.accentHover} />}
+                      <Text style={s.secondaryActionText}>EXPAND SUBTOPICS</Text>
+                    </HapticTouchable>
+                  )}
+                  <HapticTouchable style={s.secondaryAction} onPress={() => { if (selectedNode) { setShowNodePanel(false); setChildModalNode(selectedNode); } }} haptic="selection"><Ionicons name="add" size={17} color={selectedTheme.accentHover} /><Text style={s.secondaryActionText}>ADD CHILD</Text></HapticTouchable>
+                  {!!selectedNode?.parent_id && <HapticTouchable style={s.dangerAction} onPress={() => selectedNode && removeNode(selectedNode)} haptic="warning"><Ionicons name="trash-outline" size={16} color={selectedTheme.danger} /></HapticTouchable>}
+                </View>
+              </ScrollView>
+            ) : nodeTab === 'notes' ? (
+              <View style={s.sheetForm}>
+                <Text style={s.formLabel}>PERSONAL NOTES</Text>
+                <TextInput value={nodeNotes} onChangeText={setNodeNotes} placeholder="Capture what you understand, questions, or memory cues…" placeholderTextColor={selectedTheme.textSecondary} style={[s.input, s.notesInput]} multiline textAlignVertical="top" />
+                <HapticTouchable style={s.primaryBtn} onPress={saveNotes} disabled={busyNode === selectedNode?.id} haptic="medium">
+                  {busyNode === selectedNode?.id ? <ActivityIndicator color={s.accentInk.color} /> : <><Ionicons name="save-outline" size={16} color={s.accentInk.color} /><Text style={s.primaryText}>SAVE NOTES</Text></>}
+                </HapticTouchable>
+              </View>
+            ) : (
+              <View style={s.sheetForm}>
+                <Text style={s.formLabel}>ASK ABOUT THIS TOPIC</Text>
+                <TextInput value={chatQuestion} onChangeText={setChatQuestion} placeholder="Ask for an analogy, prerequisites, or a simpler explanation…" placeholderTextColor={selectedTheme.textSecondary} style={[s.input, s.askInput]} multiline textAlignVertical="top" />
+                <HapticTouchable style={s.primaryBtn} onPress={askNode} disabled={chatLoading} haptic="medium">
+                  {chatLoading ? <ActivityIndicator color={s.accentInk.color} /> : <><Ionicons name="send" size={15} color={s.accentInk.color} /><Text style={s.primaryText}>ASK TOPIC</Text></>}
+                </HapticTouchable>
+                {!!chatAnswer && <ScrollView style={s.answerScroll}><View style={s.answerCard}><Text style={s.bodyText}>{chatAnswer}</Text></View></ScrollView>}
+              </View>
+            )}
           </KeyboardAvoidingView>
         </Modal>
 
-        <Modal visible={!!childModalNode} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setChildModalNode(null)}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalRoot}>
-            <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
-            <View style={s.modalHeader}>
-              <Text style={s.modalTitle}>add child node</Text>
-              <HapticTouchable onPress={() => setChildModalNode(null)}><Ionicons name="close" size={22} color={selectedTheme.accent} /></HapticTouchable>
-            </View>
-            <View style={s.modalBody}>
-              <Text style={s.sectionHint}>Parent: {nodeTitle(childModalNode)}</Text>
-              <Text style={s.label}>topic</Text>
-              <TextInput value={childTopic} onChangeText={setChildTopic} placeholder="specific subtopic" placeholderTextColor={selectedTheme.textSecondary} style={s.input} autoFocus />
-              <Text style={s.label}>description</Text>
-              <TextInput value={childDescription} onChangeText={setChildDescription} placeholder="optional" placeholderTextColor={selectedTheme.textSecondary} style={[s.input, s.textArea]} multiline />
-              <HapticTouchable style={s.primaryBtn} onPress={addChild} disabled={!!busyNode}>
-                {busyNode ? <ActivityIndicator color={selectedTheme.bgPrimary} /> : <Text style={s.primaryText}>add node</Text>}
-              </HapticTouchable>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
+        <ChildNodeModal
+          visible={!!childModalNode}
+          parent={childModalNode}
+          topic={childTopic}
+          description={childDescription}
+          busy={!!busyNode}
+          onTopic={setChildTopic}
+          onDescription={setChildDescription}
+          onClose={() => setChildModalNode(null)}
+          onAdd={addChild}
+          theme={selectedTheme}
+          styles={s}
+        />
       </View>
     );
   }
 
+  const totalNodes = maps.reduce((sum, map) => sum + (map.total_nodes || 0), 0);
   return (
     <View style={s.root}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
       <GeoBackground />
-      <AmbientBubbles theme={selectedTheme} variant="paths" opacity={0.74} />
-      <ScrollView
-        contentContainerStyle={s.scroll}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={selectedTheme.accent} />}
-      >
-        <View style={s.topBar}>
-          <HapticTouchable style={s.iconBtn} onPress={onBack} haptic="light">
-            <Ionicons name="chevron-back" size={18} color={selectedTheme.accent} />
-          </HapticTouchable>
-          <HapticTouchable style={s.iconBtn} onPress={() => setShowCreate(true)} haptic="medium">
-            <Ionicons name="add" size={20} color={selectedTheme.accent} />
-          </HapticTouchable>
+      <ScrollView contentContainerStyle={s.libraryScroll} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={selectedTheme.accent} />}>
+        <View style={s.libraryHeader}>
+          <HapticTouchable style={s.iconBtn} onPress={onBack} haptic="light" accessibilityLabel="Back"><Ionicons name="chevron-back" size={20} color={selectedTheme.accentHover} /></HapticTouchable>
+          <View style={s.libraryHeaderCopy}><Text style={s.mapKicker}>VISUAL LEARNING</Text><Text style={s.libraryTitle}>knowledge maps</Text></View>
+          <HapticTouchable style={s.iconBtnAccent} onPress={() => setShowCreate(true)} haptic="medium" accessibilityLabel="Create knowledge map"><Ionicons name="add" size={21} color={s.accentInk.color} /></HapticTouchable>
         </View>
 
-        <View style={s.hero}>
-          <NeumorphicLayer grainOpacity={0.26} />
-          <Text style={s.heroGhost}>01</Text>
-          <Text style={s.heroTitle}>knowledge maps</Text>
-          <Text style={s.heroCopy}>{maps.length} maps · {maps.reduce((sum, map) => sum + (map.total_nodes || 0), 0)} nodes tracked</Text>
+        <View style={s.libraryHero}>
+          <View style={s.heroCopyBlock}><Text style={s.heroEyebrow}>YOUR KNOWLEDGE UNIVERSE</Text><Text style={s.heroHeadline}>Connect ideas. Expand what matters.</Text></View>
+          <View style={s.heroMetrics}><View><Text style={s.heroMetricValue}>{maps.length}</Text><Text style={s.heroMetricLabel}>maps</Text></View><View style={s.heroMetricLine} /><View><Text style={s.heroMetricValue}>{totalNodes}</Text><Text style={s.heroMetricLabel}>topics</Text></View></View>
+          <HapticTouchable style={s.createHeroBtn} onPress={() => setShowCreate(true)} haptic="medium"><Ionicons name="git-network-outline" size={17} color={s.accentInk.color} /><Text style={s.createHeroText}>CREATE A NEW MAP</Text></HapticTouchable>
         </View>
 
-        {recommendedTopics.length > 0 ? (
-          <View style={s.section}>
-            <Text style={s.sectionTitle}>recommended paths</Text>
-            <View style={s.chipRow}>
-              {recommendedTopics.map((item) => (
-                <HapticTouchable key={item} style={s.topicChip} onPress={() => createMap(item)} disabled={creating} haptic="selection">
-                  <Ionicons name="sparkles-outline" size={13} color={selectedTheme.accentHover} />
-                  <Text style={s.topicChipText}>{item}</Text>
-                </HapticTouchable>
-              ))}
-            </View>
+        {!!recommendedTopics.length && (
+          <View style={s.recommendedSection}>
+            <View style={s.sectionHeading}><View><Text style={s.sectionKicker}>SUGGESTED STARTS</Text><Text style={s.sectionTitle}>recommended paths</Text></View><Ionicons name="sparkles-outline" size={18} color={selectedTheme.accent} /></View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.recommendedRow}>
+              {recommendedTopics.map((item) => <HapticTouchable key={item} style={s.recommendedChip} onPress={() => createMap(item)} disabled={creating} haptic="selection"><Ionicons name="add-circle-outline" size={15} color={selectedTheme.accentHover} /><Text style={s.recommendedText} numberOfLines={1}>{item}</Text></HapticTouchable>)}
+            </ScrollView>
           </View>
-        ) : null}
+        )}
 
-        {loading ? (
-          <ActivityIndicator color={selectedTheme.accent} size="large" style={{ marginTop: 44 }} />
-        ) : maps.length === 0 ? (
-          <View style={s.empty}>
-            <Ionicons name="git-network-outline" size={40} color={selectedTheme.accent} />
-            <Text style={s.emptyTitle}>no maps yet</Text>
-            <Text style={s.emptyText}>create a topic map to organize concepts and prerequisites</Text>
-          </View>
+        {loading ? <ActivityIndicator color={selectedTheme.accent} size="large" style={{ marginTop: 50 }} /> : !maps.length ? (
+          <View style={s.empty}><View style={s.emptyIcon}><Ionicons name="git-network-outline" size={31} color={selectedTheme.accentHover} /></View><Text style={s.emptyTitle}>start your first map</Text><Text style={s.emptyText}>Choose a broad topic, then expand it into a living network of connected ideas.</Text></View>
         ) : (
-          <View style={s.list}>
-            {maps.map((map) => (
-              <HapticTouchable key={map.id} style={s.mapCard} onPress={() => openMap(map)} haptic="selection" activeOpacity={0.86}>
-                <View style={s.mapTop}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.mapTitle} numberOfLines={2}>{map.title}</Text>
-                    <Text style={s.mapTopic}>{map.root_topic}</Text>
-                  </View>
-                  <HapticTouchable style={s.deleteBtn} onPress={() => removeMap(map)} haptic="warning">
-                    <Ionicons name="trash-outline" size={15} color={selectedTheme.textSecondary} />
-                  </HapticTouchable>
-                </View>
-                <View style={s.metricRow}>
-                  <View style={s.metric}><Text style={s.metricValue}>{map.total_nodes || 1}</Text><Text style={s.metricLabel}>nodes</Text></View>
-                  <View style={s.metric}><Text style={s.metricValue}>{map.max_depth_reached || 0}</Text><Text style={s.metricLabel}>depth</Text></View>
-                  <View style={s.metric}><Text style={s.metricValue}>open</Text><Text style={s.metricLabel}>explore</Text></View>
+          <View style={s.mapList}>
+            <View style={s.sectionHeading}><View><Text style={s.sectionKicker}>YOUR LIBRARY</Text><Text style={s.sectionTitle}>continue exploring</Text></View><Text style={s.sectionCount}>{maps.length} maps</Text></View>
+            {maps.map((map, index) => (
+              <HapticTouchable key={map.id} style={s.libraryMapCard} onPress={() => openMap(map)} haptic="selection" activeOpacity={0.88}>
+                <MiniMapPreview index={index} styles={s} />
+                <View style={s.libraryMapBody}>
+                  <View style={s.libraryMapTop}><Text style={s.libraryMapTitle} numberOfLines={2}>{map.title}</Text><HapticTouchable style={s.mapDelete} onPress={() => removeMap(map)} haptic="warning"><Ionicons name="trash-outline" size={14} color={selectedTheme.textSecondary} /></HapticTouchable></View>
+                  <Text style={s.libraryMapMeta}>{map.total_nodes || 1} topics · depth {map.max_depth_reached || 0}</Text>
+                  <View style={s.libraryMapFooter}><View style={s.openMapPill}><Ionicons name="navigate-outline" size={13} color={s.accentInk.color} /><Text style={s.openMapText}>OPEN GRAPH</Text></View><Ionicons name="arrow-forward" size={17} color={selectedTheme.accentHover} /></View>
                 </View>
               </HapticTouchable>
             ))}
@@ -501,16 +595,13 @@ export default function KnowledgeMapsScreen({ user, onBack }: Props) {
       <Modal visible={showCreate} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCreate(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalRoot}>
           <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
-          <View style={s.modalHeader}>
-            <Text style={s.modalTitle}>new knowledge map</Text>
-            <HapticTouchable onPress={() => setShowCreate(false)}><Ionicons name="close" size={22} color={selectedTheme.accent} /></HapticTouchable>
-          </View>
-          <View style={s.modalBody}>
-            <Text style={s.label}>root topic</Text>
-            <TextInput value={topic} onChangeText={setTopic} placeholder="machine learning, photosynthesis..." placeholderTextColor={selectedTheme.textSecondary} style={s.input} autoFocus />
-            <HapticTouchable style={s.primaryBtn} onPress={() => createMap()} disabled={creating}>
-              {creating ? <ActivityIndicator color={selectedTheme.bgPrimary} /> : <Text style={s.primaryText}>create map</Text>}
-            </HapticTouchable>
+          <View style={s.sheetHandle} />
+          <View style={s.createHeader}><View><Text style={s.nodeSheetKicker}>NEW KNOWLEDGE MAP</Text><Text style={s.createTitle}>What do you want to understand?</Text></View><HapticTouchable style={s.sheetClose} onPress={() => setShowCreate(false)}><Ionicons name="close" size={20} color={selectedTheme.accentHover} /></HapticTouchable></View>
+          <View style={s.createBody}>
+            <Text style={s.formLabel}>ROOT TOPIC</Text>
+            <TextInput value={topic} onChangeText={setTopic} placeholder="Machine learning, photosynthesis…" placeholderTextColor={selectedTheme.textSecondary} style={s.input} autoFocus returnKeyType="done" onSubmitEditing={() => createMap()} />
+            <Text style={s.createHint}>Start broad. You can expand any concept into subtopics after the map is created.</Text>
+            <HapticTouchable style={s.primaryBtn} onPress={() => createMap()} disabled={creating} haptic="medium">{creating ? <ActivityIndicator color={s.accentInk.color} /> : <><Ionicons name="sparkles" size={16} color={s.accentInk.color} /><Text style={s.primaryText}>BUILD KNOWLEDGE MAP</Text></>}</HapticTouchable>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -518,73 +609,373 @@ export default function KnowledgeMapsScreen({ user, onBack }: Props) {
   );
 }
 
-function ActionIcon({ icon, label, onPress, busy, styles }: { icon: React.ComponentProps<typeof Ionicons>['name']; label: string; onPress: () => void; busy?: boolean; styles: ReturnType<typeof createStyles> }) {
+function GraphCanvas({ graph, selectedId, busyNode, exploringNode, onOpen, onLearn, onExpand, theme, styles }: {
+  graph: GraphModel;
+  selectedId: number | null;
+  busyNode: number | null;
+  exploringNode: number | null;
+  onOpen: (node: KnowledgeNode) => void;
+  onLearn: (node: KnowledgeNode) => void;
+  onExpand: (node: KnowledgeNode) => void;
+  theme: ReturnType<typeof useAppTheme>['selectedTheme'];
+  styles: ReturnType<typeof createStyles>;
+}) {
+  const pan = useRef(new Animated.ValueXY({ x: 16, y: 16 })).current;
+  const panStart = useRef({ x: 16, y: 16 });
+  const pinchStart = useRef<{ distance: number; zoom: number; pan: { x: number; y: number } } | null>(null);
+  const zoomRef = useRef(0.92);
+  const [zoom, setZoomState] = useState(0.92);
+  const [viewport, setViewport] = useState({ width: 360, height: 560 });
+  const viewportRef = useRef(viewport);
+  const graphRef = useRef(graph);
+
+  useEffect(() => { viewportRef.current = viewport; }, [viewport]);
+  useEffect(() => { graphRef.current = graph; }, [graph]);
+
+  const setZoom = useCallback((value: number) => {
+    const bounded = Math.max(0.36, Math.min(1.3, value));
+    zoomRef.current = bounded;
+    setZoomState(bounded);
+    return bounded;
+  }, []);
+
+  const clampPan = useCallback((position: { x: number; y: number }, scale = zoomRef.current) => {
+    const currentViewport = viewportRef.current;
+    const currentGraph = graphRef.current;
+    const horizontalEnd = currentViewport.width - currentGraph.width * scale - 28;
+    const verticalEnd = currentViewport.height - currentGraph.height * scale - 28;
+    return {
+      x: Math.max(Math.min(28, horizontalEnd), Math.min(Math.max(28, horizontalEnd), position.x)),
+      y: Math.max(Math.min(28, verticalEnd), Math.min(Math.max(28, verticalEnd), position.y)),
+    };
+  }, []);
+
+  const moveTo = useCallback((position: { x: number; y: number }, animated = true) => {
+    const next = clampPan(position);
+    panStart.current = next;
+    if (animated) {
+      Animated.spring(pan, { toValue: next, useNativeDriver: false, damping: 18, stiffness: 180, mass: 0.8 }).start();
+    } else {
+      pan.setValue(next);
+    }
+  }, [clampPan, pan]);
+
+  const focusNode = useCallback((nodeId?: number | null, scale = 0.92) => {
+    const point = graph.points.find((item) => item.node.id === nodeId)
+      ?? graph.points.find((item) => item.node.parent_id == null)
+      ?? graph.points[0];
+    if (!point) return;
+    const nextZoom = setZoom(scale);
+    const x = viewport.width / 2 - (point.x + NODE_WIDTH / 2) * nextZoom;
+    const y = Math.max(30, viewport.height * 0.16) - point.y * nextZoom;
+    requestAnimationFrame(() => moveTo({ x, y }));
+  }, [graph.points, moveTo, setZoom, viewport.height, viewport.width]);
+
+  const overview = useCallback(() => {
+    const nextZoom = setZoom(Math.max(0.34, Math.min(0.78, (viewport.width - 30) / graph.width, (viewport.height - 34) / graph.height)));
+    const x = (viewport.width - graph.width * nextZoom) / 2;
+    const y = (viewport.height - graph.height * nextZoom) / 2;
+    requestAnimationFrame(() => moveTo({ x, y }));
+  }, [graph.height, graph.width, moveTo, setZoom, viewport.height, viewport.width]);
+
+  const panGesture = useMemo(() => Gesture.Pan()
+    .runOnJS(true)
+    .minDistance(2)
+    .maxPointers(1)
+    .shouldCancelWhenOutside(false)
+    .onBegin(() => {
+      pan.stopAnimation((value) => { panStart.current = value; });
+    })
+    .onUpdate((event) => {
+      pan.setValue({ x: panStart.current.x + event.translationX, y: panStart.current.y + event.translationY });
+    })
+    .onEnd(() => {
+      pan.stopAnimation((value) => moveTo(value));
+    })
+    .onFinalize(() => {
+      pan.stopAnimation((value) => moveTo(value));
+    }), [moveTo, pan]);
+
+  const pinchGesture = useMemo(() => Gesture.Pinch()
+    .runOnJS(true)
+    .shouldCancelWhenOutside(false)
+    .onBegin(() => {
+      pan.stopAnimation((value) => {
+        panStart.current = value;
+        pinchStart.current = { distance: 1, zoom: zoomRef.current, pan: value };
+      });
+    })
+    .onUpdate((event) => {
+      const start = pinchStart.current;
+      if (!start) return;
+      const nextZoom = setZoom(start.zoom * event.scale);
+      const center = { x: viewportRef.current.width / 2, y: viewportRef.current.height / 2 };
+      const ratio = nextZoom / start.zoom;
+      pan.setValue({
+        x: center.x - (center.x - start.pan.x) * ratio,
+        y: center.y - (center.y - start.pan.y) * ratio,
+      });
+    })
+    .onFinalize(() => {
+      pinchStart.current = null;
+      pan.stopAnimation((value) => moveTo(value));
+    }), [moveTo, pan, setZoom]);
+
+  const canvasGesture = useMemo(() => Gesture.Simultaneous(panGesture, pinchGesture), [panGesture, pinchGesture]);
+
+  useEffect(() => { focusNode(selectedId); }, [graph, viewport.height, viewport.width]);
+
+  const changeZoom = (amount: number) => {
+    const oldZoom = zoomRef.current;
+    const nextZoom = setZoom(oldZoom + amount);
+    const center = { x: viewport.width / 2, y: viewport.height / 2 };
+    const ratio = nextZoom / oldZoom;
+    moveTo({ x: center.x - (center.x - panStart.current.x) * ratio, y: center.y - (center.y - panStart.current.y) * ratio });
+  };
+
+  const originCorrection = {
+    x: graph.width * (1 - zoom) / 2,
+    y: graph.height * (1 - zoom) / 2,
+  };
+
   return (
-    <HapticTouchable style={styles.actionIcon} onPress={onPress} disabled={busy} haptic="medium">
-      {busy ? <ActivityIndicator color={styles.actionIconText.color} size="small" /> : <Ionicons name={icon} size={16} color={styles.actionIconText.color} />}
-      <Text style={styles.actionIconLabel}>{label}</Text>
-    </HapticTouchable>
+    <GestureDetector gesture={canvasGesture}>
+    <View style={styles.graphViewport} onLayout={(event) => setViewport({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })}>
+      <View style={styles.graphGrid} pointerEvents="none" />
+      <Animated.View
+        style={{
+          position: 'absolute',
+          left: Animated.subtract(pan.x, originCorrection.x),
+          top: Animated.subtract(pan.y, originCorrection.y),
+          width: graph.width,
+          height: graph.height,
+          transform: [{ scale: zoom }],
+        }}
+      >
+        <Svg width={graph.width} height={graph.height} style={StyleSheet.absoluteFillObject} pointerEvents="none">
+          <Defs><SvgGradient id="edge" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor={theme.accentHover} stopOpacity="0.72" /><Stop offset="1" stopColor={theme.accent} stopOpacity="0.2" /></SvgGradient></Defs>
+          {graph.edges.map((edge) => {
+            const x1 = edge.from.x + NODE_WIDTH / 2;
+            const y1 = edge.from.y + NODE_HEIGHT;
+            const x2 = edge.to.x + NODE_WIDTH / 2;
+            const y2 = edge.to.y;
+            const mid = (y1 + y2) / 2;
+            return <Path key={edge.id} d={`M ${x1} ${y1} C ${x1} ${mid}, ${x2} ${mid}, ${x2} ${y2}`} fill="none" stroke="url(#edge)" strokeWidth={2.3} />;
+          })}
+        </Svg>
+        {graph.points.map(({ node, x, y }) => {
+          const selected = selectedId === node.id;
+          const expanded = node.expansion_status === 'expanded' || node.has_generated_subtopics;
+          return (
+            <View key={node.id} style={[styles.graphNode, { left: x, top: y }, selected && styles.graphNodeSelected, node.is_explored && styles.graphNodeExplored]}>
+              <HapticTouchable style={styles.graphNodeMain} onPress={() => onOpen(node)} haptic="selection">
+                <View style={[styles.graphNodeIcon, expanded && styles.graphNodeIconExpanded]}><Ionicons name={node.is_explored ? 'sparkles' : 'map-outline'} size={15} color={node.is_explored ? styles.accentInk.color : theme.accentHover} /></View>
+                <View style={{ flex: 1 }}><Text style={styles.graphNodeTitle} numberOfLines={2}>{node.topic_name}</Text><Text style={styles.graphNodeMeta}>level {node.depth_level ?? 0}{node.user_notes ? ' · notes' : ''}</Text></View>
+              </HapticTouchable>
+              <View style={styles.graphNodeActions}>
+                <HapticTouchable style={styles.graphNodeAction} onPress={() => onLearn(node)} disabled={exploringNode === node.id} haptic="medium">{exploringNode === node.id ? <ActivityIndicator color={theme.accentHover} size="small" /> : <><Ionicons name="book-outline" size={12} color={theme.accentHover} /><Text style={styles.graphNodeActionText}>LEARN</Text></>}</HapticTouchable>
+                {!expanded && <HapticTouchable style={styles.graphNodeAction} onPress={() => onExpand(node)} disabled={busyNode === node.id} haptic="medium">{busyNode === node.id ? <ActivityIndicator color={theme.accentHover} size="small" /> : <><Ionicons name="add" size={13} color={theme.accentHover} /><Text style={styles.graphNodeActionText}>EXPAND</Text></>}</HapticTouchable>}
+              </View>
+            </View>
+          );
+        })}
+      </Animated.View>
+      <View style={styles.zoomControls}>
+        <HapticTouchable style={styles.zoomBtn} onPress={() => changeZoom(-0.12)} haptic="selection" accessibilityLabel="Zoom out"><Ionicons name="remove" size={18} color={theme.accentHover} /></HapticTouchable>
+        <Text style={styles.zoomValue}>{Math.round(zoom * 100)}%</Text>
+        <HapticTouchable style={styles.zoomBtn} onPress={() => changeZoom(0.12)} haptic="selection" accessibilityLabel="Zoom in"><Ionicons name="add" size={18} color={theme.accentHover} /></HapticTouchable>
+        <View style={styles.zoomDivider} />
+        <HapticTouchable style={styles.zoomBtnWide} onPress={() => focusNode(selectedId)} haptic="selection"><Ionicons name="locate-outline" size={15} color={theme.accentHover} /><Text style={styles.zoomBtnText}>FOCUS</Text></HapticTouchable>
+        <HapticTouchable style={styles.zoomBtnWide} onPress={overview} haptic="selection"><Ionicons name="scan-outline" size={15} color={theme.accentHover} /><Text style={styles.zoomBtnText}>OVERVIEW</Text></HapticTouchable>
+      </View>
+      <View style={styles.graphGestureHint} pointerEvents="none"><Ionicons name="hand-left-outline" size={13} color={theme.textSecondary} /><Text style={styles.graphGestureText}>Drag anywhere · pinch to zoom</Text></View>
+    </View>
+    </GestureDetector>
+  );
+}
+
+function NodeMetric({ value, label, styles }: { value: string; label: string; styles: ReturnType<typeof createStyles> }) {
+  return <View style={styles.nodeMetric}><Text style={styles.nodeMetricValue}>{value}</Text><Text style={styles.nodeMetricLabel}>{label}</Text></View>;
+}
+
+function LearningSection({ icon, title, children, styles }: { icon: React.ComponentProps<typeof Ionicons>['name']; title: string; children: React.ReactNode; styles: ReturnType<typeof createStyles> }) {
+  return <View style={styles.learningCard}><View style={styles.learningCardHead}><Ionicons name={icon} size={16} color={styles.iconColor.color} /><Text style={styles.learningCardTitle}>{title}</Text></View>{children}</View>;
+}
+
+function MiniMapPreview({ index, styles }: { index: number; styles: ReturnType<typeof createStyles> }) {
+  return (
+    <View style={[styles.miniMap, index % 2 === 1 && styles.miniMapAlt]}>
+      <View style={styles.miniLineVertical} /><View style={styles.miniLineLeft} /><View style={styles.miniLineRight} />
+      <View style={[styles.miniNode, styles.miniNodeRoot]} /><View style={[styles.miniNode, styles.miniNodeLeft]} /><View style={[styles.miniNode, styles.miniNodeRight]} /><View style={[styles.miniNode, styles.miniNodeBottom]} />
+    </View>
+  );
+}
+
+function ChildNodeModal({ visible, parent, topic, description, busy, onTopic, onDescription, onClose, onAdd, theme, styles }: {
+  visible: boolean;
+  parent: KnowledgeNode | null;
+  topic: string;
+  description: string;
+  busy: boolean;
+  onTopic: (value: string) => void;
+  onDescription: (value: string) => void;
+  onClose: () => void;
+  onAdd: () => void;
+  theme: ReturnType<typeof useAppTheme>['selectedTheme'];
+  styles: ReturnType<typeof createStyles>;
+}) {
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalRoot}>
+        <LinearGradient colors={[theme.bgTop, theme.bgPrimary, theme.bgBottom]} style={StyleSheet.absoluteFillObject} />
+        <View style={styles.sheetHandle} />
+        <View style={styles.createHeader}><View style={{ flex: 1 }}><Text style={styles.nodeSheetKicker}>ADD TO {parent?.topic_name?.toUpperCase()}</Text><Text style={styles.createTitle}>New connected topic</Text></View><HapticTouchable style={styles.sheetClose} onPress={onClose}><Ionicons name="close" size={20} color={theme.accentHover} /></HapticTouchable></View>
+        <View style={styles.createBody}>
+          <Text style={styles.formLabel}>TOPIC</Text><TextInput value={topic} onChangeText={onTopic} placeholder="Specific subtopic" placeholderTextColor={theme.textSecondary} style={styles.input} autoFocus />
+          <Text style={styles.formLabel}>DESCRIPTION</Text><TextInput value={description} onChangeText={onDescription} placeholder="Why this belongs in the map…" placeholderTextColor={theme.textSecondary} style={[styles.input, styles.askInput]} multiline textAlignVertical="top" />
+          <HapticTouchable style={styles.primaryBtn} onPress={onAdd} disabled={busy} haptic="medium">{busy ? <ActivityIndicator color={styles.accentInk.color} /> : <><Ionicons name="add" size={17} color={styles.accentInk.color} /><Text style={styles.primaryText}>ADD TO GRAPH</Text></>}</HapticTouchable>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
 
 function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>, topInset: number) {
   const surface = theme.panel;
-  const border = rgbaFromHex(theme.accentHover, theme.isLight ? 0.16 : 0.18);
-  const accentInk = theme.isLight ? darkenColor(theme.accent, 38) : theme.bgPrimary;
+  const border = rgbaFromHex(theme.accentHover, theme.isLight ? 0.18 : 0.22);
+  const accentInk = theme.isLight ? darkenColor(theme.accent, 40) : theme.bgPrimary;
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bgPrimary },
-    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 18, paddingTop: Math.max(topInset + 12, 52), paddingBottom: 118, gap: 14 },
-    topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    iconBtn: { width: 40, height: 40, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.06) },
-    hero: { borderRadius: 30, padding: 20, overflow: 'hidden', boxShadow: cbModalShadow(0.14) } as ViewStyle,
-    heroGhost: { position: 'absolute', right: 15, top: 0, fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 92 : 76, lineHeight: layout.isTablet ? 98 : 82, color: rgbaFromHex(theme.textPrimary, theme.isLight ? 0.035 : 0.055), letterSpacing: -4 },
-    eyebrow: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 10, letterSpacing: 1.8, textTransform: 'uppercase' },
-    heroTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 32, letterSpacing: 0, marginTop: 8 },
-    heroCopy: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 13, marginTop: 4 },
-    section: { borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), borderRadius: 24, padding: 15, gap: 12, boxShadow: cbTileShadow(0.08) } as ViewStyle,
-    sectionTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 17, letterSpacing: 0 },
-    sectionHint: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, marginTop: 3, lineHeight: 18 },
-    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    topicChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: theme.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: rgbaFromHex(theme.panelAlt, 0.84), maxWidth: '100%' },
-    topicChipText: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 12 },
-    conceptChipText: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 12, borderWidth: 1, borderColor: theme.border, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 7, backgroundColor: rgbaFromHex(theme.panelAlt, 0.84) },
-    empty: { alignItems: 'center', paddingVertical: 48, gap: 9 },
-    emptyTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 22 },
-    emptyText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 13, textAlign: 'center' },
-    list: { gap: 12 },
-    mapCard: { borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 16, gap: 15, boxShadow: cbTileShadow(0.07) } as ViewStyle,
-    mapTop: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-    mapTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 18, letterSpacing: 0 },
-    mapTopic: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, marginTop: 4 },
-    deleteBtn: { width: 34, height: 34, borderRadius: 11, borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' },
-    metricRow: { flexDirection: 'row', gap: 10 },
-    metric: { flex: 1, borderRadius: 13, borderWidth: 1, borderColor: theme.border, backgroundColor: rgbaFromHex(theme.panelAlt, 0.8), padding: 11 },
-    metricValue: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 17, letterSpacing: 0 },
-    metricLabel: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 9, textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 3 },
-    nodeMap: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 12, gap: 8, boxShadow: cbTileShadow(0.08) } as ViewStyle,
-    nodeRow: { minHeight: 58, borderRadius: 18, borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.12), backgroundColor: rgbaFromHex(theme.panelAlt, 0.78), paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
-    nodeRowActive: { borderColor: theme.accentHover, backgroundColor: rgbaFromHex(theme.accent, 0.12) },
-    nodeRail: { width: 24, alignItems: 'center' },
-    nodeDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: theme.textSecondary, backgroundColor: rgbaFromHex(surface, 0.9) },
-    nodeDotDone: { borderColor: theme.accentHover, backgroundColor: rgbaFromHex(theme.accentHover, 0.25) },
-    nodeTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 14, letterSpacing: 0 },
-    nodeMeta: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11, marginTop: 3 },
-    detailPanel: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 16, gap: 13, boxShadow: cbTileShadow(0.08) } as ViewStyle,
-    detailHead: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-    bodyText: { fontFamily: 'Inter_400Regular', color: theme.textPrimary, fontSize: 13, lineHeight: 21 },
-    actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    actionIcon: { minWidth: 74, borderRadius: 16, borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.14), backgroundColor: rgbaFromHex(theme.accent, 0.1), paddingHorizontal: 10, paddingVertical: 10, alignItems: 'center', gap: 5 },
-    actionIconText: { color: theme.accentHover },
-    actionIconLabel: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 9, textTransform: 'uppercase', letterSpacing: 1 },
-    label: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 10, letterSpacing: 1.6, textTransform: 'uppercase' },
-    input: { minHeight: 50, borderRadius: 13, borderWidth: 1, borderColor: border, paddingHorizontal: 14, color: theme.textPrimary, backgroundColor: rgbaFromHex(surface, 0.92), fontFamily: 'Inter_600SemiBold' },
-    textArea: { minHeight: 118, paddingTop: 13, textAlignVertical: 'top' },
-    primaryBtn: { height: 52, borderRadius: 14, backgroundColor: theme.accentHover, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
-    primaryText: { fontFamily: 'Inter_900Black', color: accentInk, fontSize: 13, textTransform: 'uppercase', letterSpacing: 1.1 },
-    answerCard: { borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 16, gap: 10, boxShadow: cbTileShadow(0.07) } as ViewStyle,
+    libraryScroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 16, paddingTop: Math.max(topInset + 10, 50), paddingBottom: 110, gap: 13 },
+    libraryHeader: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12 },
+    libraryHeaderCopy: { flex: 1 },
+    mapKicker: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 8, letterSpacing: 1.7 },
+    libraryTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 30, lineHeight: 35, letterSpacing: -1 },
+    iconBtn: { width: 42, height: 42, borderRadius: 15, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.84), alignItems: 'center', justifyContent: 'center' },
+    iconBtnAccent: { width: 42, height: 42, borderRadius: 15, borderWidth: 1, borderColor: theme.accentHover, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center' },
+    libraryHero: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.9), padding: 17, gap: 14, boxShadow: cbTileShadow(0.08) } as ViewStyle,
+    heroCopyBlock: { gap: 4 },
+    heroEyebrow: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 8, letterSpacing: 1.5 },
+    heroHeadline: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 22, lineHeight: 27, maxWidth: 290 },
+    heroMetrics: { flexDirection: 'row', alignItems: 'center', gap: 17 },
+    heroMetricValue: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 25 },
+    heroMetricLabel: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 8, letterSpacing: 1, textTransform: 'uppercase' },
+    heroMetricLine: { width: 1, height: 32, backgroundColor: theme.border },
+    createHeroBtn: { height: 44, borderRadius: 13, backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+    createHeroText: { fontFamily: 'Inter_900Black', color: accentInk, fontSize: 10, letterSpacing: 1 },
+    recommendedSection: { borderRadius: 21, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.8), padding: 14, gap: 11 },
+    sectionHeading: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+    sectionKicker: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 8, letterSpacing: 1.4 },
+    sectionTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 18, marginTop: 2 },
+    sectionCount: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 9 },
+    recommendedRow: { gap: 8 },
+    recommendedChip: { maxWidth: 210, height: 38, borderRadius: 12, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(theme.panelAlt, 0.8), flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 11 },
+    recommendedText: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 10, flexShrink: 1 },
+    mapList: { gap: 10 },
+    libraryMapCard: { minHeight: 150, borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.86), overflow: 'hidden', flexDirection: 'row', boxShadow: cbTileShadow(0.06) } as ViewStyle,
+    miniMap: { width: 112, backgroundColor: rgbaFromHex(theme.accent, 0.15), overflow: 'hidden' },
+    miniMapAlt: { backgroundColor: rgbaFromHex(theme.accentHover, 0.1) },
+    miniLineVertical: { position: 'absolute', left: 55, top: 29, width: 2, height: 72, backgroundColor: rgbaFromHex(theme.accentHover, 0.42) },
+    miniLineLeft: { position: 'absolute', left: 28, top: 67, width: 30, height: 2, transform: [{ rotate: '-30deg' }], backgroundColor: rgbaFromHex(theme.accentHover, 0.42) },
+    miniLineRight: { position: 'absolute', left: 55, top: 67, width: 31, height: 2, transform: [{ rotate: '30deg' }], backgroundColor: rgbaFromHex(theme.accentHover, 0.42) },
+    miniNode: { position: 'absolute', width: 16, height: 16, borderRadius: 6, borderWidth: 2, borderColor: theme.accentHover, backgroundColor: theme.panel },
+    miniNodeRoot: { left: 48, top: 22, backgroundColor: theme.accent },
+    miniNodeLeft: { left: 22, top: 75 },
+    miniNodeRight: { left: 75, top: 75 },
+    miniNodeBottom: { left: 48, top: 111 },
+    libraryMapBody: { flex: 1, padding: 14, justifyContent: 'space-between' },
+    libraryMapTop: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
+    libraryMapTitle: { flex: 1, fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 16, lineHeight: 20 },
+    mapDelete: { width: 30, height: 30, borderRadius: 10, borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' },
+    libraryMapMeta: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 10 },
+    libraryMapFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    openMapPill: { borderRadius: 9, backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 7 },
+    openMapText: { fontFamily: 'Inter_900Black', color: accentInk, fontSize: 7.5, letterSpacing: 0.7 },
+    empty: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.84), alignItems: 'center', paddingVertical: 48, paddingHorizontal: 24, gap: 9 },
+    emptyIcon: { width: 58, height: 58, borderRadius: 20, backgroundColor: rgbaFromHex(theme.accent, 0.12), alignItems: 'center', justifyContent: 'center' },
+    emptyTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 21 },
+    emptyText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, lineHeight: 18, textAlign: 'center', maxWidth: 300 },
+    mapScreen: { flex: 1, paddingTop: Math.max(topInset + 8, 48), paddingHorizontal: 12, paddingBottom: 12, gap: 9 },
+    mapHeader: { minHeight: 53, flexDirection: 'row', alignItems: 'center', gap: 10 },
+    mapHeaderCopy: { flex: 1 },
+    mapHeaderTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 21, lineHeight: 25 },
+    mapStatusRow: { minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 7 },
+    statusPill: { height: 27, borderRadius: 9, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8 },
+    statusDot: { width: 6, height: 6, borderRadius: 3 },
+    statusText: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 8 },
+    mapHint: { flex: 1, fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 8, textAlign: 'right' },
+    centerLoading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+    loadingText: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 11 },
+    graphViewport: { flex: 1, borderRadius: 24, borderWidth: 1, borderColor: border, overflow: 'hidden', backgroundColor: rgbaFromHex(theme.bgPrimary, 0.88) },
+    graphGrid: { ...StyleSheet.absoluteFillObject, opacity: 0.22, backgroundColor: rgbaFromHex(theme.panelAlt, 0.25) },
+    graphNode: { position: 'absolute', width: NODE_WIDTH, height: NODE_HEIGHT, borderRadius: 18, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.98), overflow: 'hidden', boxShadow: cbTileShadow(0.12) } as ViewStyle,
+    graphNodeSelected: { borderColor: theme.accentHover, borderWidth: 2 },
+    graphNodeExplored: { backgroundColor: rgbaFromHex(theme.accent, theme.isLight ? 0.16 : 0.1) },
+    graphNodeMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 10, paddingTop: 9 },
+    graphNodeIcon: { width: 30, height: 30, borderRadius: 10, backgroundColor: rgbaFromHex(theme.accent, 0.11), alignItems: 'center', justifyContent: 'center' },
+    graphNodeIconExpanded: { borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.3) },
+    graphNodeTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 12, lineHeight: 15 },
+    graphNodeMeta: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 8, marginTop: 3 },
+    graphNodeActions: { height: 34, borderTopWidth: 1, borderTopColor: theme.border, flexDirection: 'row' },
+    graphNodeAction: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
+    graphNodeActionText: { fontFamily: 'Inter_700Bold', color: theme.accentHover, fontSize: 7, letterSpacing: 0.55 },
+    zoomControls: { position: 'absolute', left: 10, right: 10, bottom: 10, minHeight: 46, borderRadius: 15, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.96), flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, gap: 3, boxShadow: cbTileShadow(0.12) } as ViewStyle,
+    zoomBtn: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+    zoomValue: { width: 39, textAlign: 'center', fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 8 },
+    zoomDivider: { width: 1, height: 23, backgroundColor: border, marginHorizontal: 3 },
+    zoomBtnWide: { flex: 1, minWidth: 72, height: 34, borderRadius: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: rgbaFromHex(theme.accent, 0.08) },
+    zoomBtnText: { fontFamily: 'Inter_700Bold', color: theme.accentHover, fontSize: 7, letterSpacing: 0.5 },
+    graphGestureHint: { position: 'absolute', top: 10, alignSelf: 'center', height: 29, borderRadius: 10, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.9), flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10 },
+    graphGestureText: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 8 },
     modalRoot: { flex: 1, backgroundColor: theme.bgPrimary },
-    modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 22, paddingBottom: 12, gap: 12 },
-    modalTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 23, flex: 1 },
-    modalBody: { padding: 20, gap: 13 },
+    sheetHandle: { width: 42, height: 5, borderRadius: 3, backgroundColor: rgbaFromHex(theme.textSecondary, 0.3), alignSelf: 'center', marginTop: 9 },
+    nodeSheetHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingHorizontal: 18, paddingTop: 14 },
+    nodeSheetKicker: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 8, letterSpacing: 1.5 },
+    nodeSheetTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 25, lineHeight: 29, marginTop: 3 },
+    sheetClose: { width: 38, height: 38, borderRadius: 13, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), alignItems: 'center', justifyContent: 'center' },
+    pathText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 10, lineHeight: 14, marginHorizontal: 18, marginTop: 8 },
+    nodeMetrics: { flexDirection: 'row', gap: 8, marginHorizontal: 18, marginTop: 12 },
+    nodeMetric: { flex: 1, minHeight: 54, borderRadius: 14, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.76), alignItems: 'center', justifyContent: 'center' },
+    nodeMetricValue: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 16 },
+    nodeMetricLabel: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 7.5, textTransform: 'uppercase', letterSpacing: 0.7 },
+    nodeTabs: { height: 44, flexDirection: 'row', gap: 6, marginHorizontal: 18, marginTop: 12 },
+    nodeTab: { flex: 1, borderRadius: 13, borderWidth: 1, borderColor: border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+    nodeTabActive: { backgroundColor: theme.accent, borderColor: theme.accentHover },
+    nodeTabText: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 9 },
+    nodeTabTextActive: { color: accentInk },
+    sheetScroll: { padding: 18, paddingBottom: 42, gap: 11 },
+    learningCard: { borderRadius: 19, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.8), padding: 14, gap: 10 },
+    learningCardHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    learningCardTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 14 },
+    bodyText: { fontFamily: 'Inter_400Regular', color: theme.textPrimary, fontSize: 12, lineHeight: 19 },
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+    conceptChip: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 9, borderRadius: 999, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(theme.panelAlt, 0.8), paddingHorizontal: 9, paddingVertical: 7 },
+    exampleRow: { flexDirection: 'row', gap: 10, borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 9 },
+    exampleIndex: { fontFamily: 'Inter_900Black', color: theme.accent, fontSize: 9 },
+    exampleText: { flex: 1, fontFamily: 'Inter_400Regular', color: theme.textPrimary, fontSize: 11, lineHeight: 17 },
+    lessonLoading: { minHeight: 220, alignItems: 'center', justifyContent: 'center', gap: 12 },
+    learnEmpty: { minHeight: 270, borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.78), alignItems: 'center', justifyContent: 'center', padding: 22, gap: 9 },
+    learnEmptyIcon: { width: 56, height: 56, borderRadius: 19, backgroundColor: rgbaFromHex(theme.accent, 0.12), alignItems: 'center', justifyContent: 'center', marginBottom: 3 },
+    learnEmptyTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 19 },
+    learnEmptyText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11, lineHeight: 17, textAlign: 'center' },
+    sheetActions: { flexDirection: 'row', gap: 7, marginTop: 2 },
+    secondaryAction: { flex: 1, minHeight: 43, borderRadius: 13, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(theme.accent, 0.08), flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+    secondaryActionText: { fontFamily: 'Inter_700Bold', color: theme.accentHover, fontSize: 7.5, letterSpacing: 0.6 },
+    dangerAction: { width: 43, height: 43, borderRadius: 13, borderWidth: 1, borderColor: rgbaFromHex(theme.danger, 0.25), alignItems: 'center', justifyContent: 'center' },
+    sheetForm: { flex: 1, padding: 18, gap: 11 },
+    formLabel: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 9, letterSpacing: 1.4 },
+    input: { minHeight: 50, borderRadius: 14, borderWidth: 1, borderColor: border, paddingHorizontal: 14, color: theme.textPrimary, backgroundColor: rgbaFromHex(surface, 0.92), fontFamily: 'Inter_600SemiBold', fontSize: 12 },
+    notesInput: { minHeight: 230, paddingTop: 14 },
+    askInput: { minHeight: 112, paddingTop: 14 },
+    primaryBtn: { minHeight: 48, borderRadius: 14, backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 15 },
+    primaryText: { fontFamily: 'Inter_900Black', color: accentInk, fontSize: 9, letterSpacing: 1 },
+    answerScroll: { flex: 1 },
+    answerCard: { borderRadius: 19, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), padding: 14 },
+    createHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: 18 },
+    createTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 23, lineHeight: 28, marginTop: 4, maxWidth: 310 },
+    createBody: { paddingHorizontal: 18, gap: 12 },
+    createHint: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11, lineHeight: 17 },
+    iconColor: { color: theme.accentHover },
+    accentInk: { color: accentInk },
   });
 }

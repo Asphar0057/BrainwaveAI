@@ -449,6 +449,18 @@ export async function expandKnowledgeNode(nodeId: number) {
   return res.json() as Promise<{ status: string; message?: string; child_nodes?: KnowledgeNode[] }>;
 }
 
+export async function exploreKnowledgeNode(nodeId: number) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/explore_node/${nodeId}`, {
+    method: 'POST',
+    headers,
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to explore knowledge node');
+  }
+  return res.json() as Promise<{ status?: string; node?: KnowledgeNode } & Partial<KnowledgeNode>>;
+}
+
 export async function saveKnowledgeNodeNotes(nodeId: number, notes: string) {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}/save_node_notes/${nodeId}`, {
@@ -866,6 +878,40 @@ export async function getFlashcardsInSet(setId: number) {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}/get_flashcards_in_set?set_id=${setId}`, { headers });
   return res.json(); // { set_title, flashcards: [{id, question, answer, difficulty}] }
+}
+
+export async function getAllFlashcards(userId: string, limit = 2000) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/get_flashcards?user_id=${encodeURIComponent(userId)}&limit=${limit}`, { headers });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to load flashcards');
+  }
+  return res.json();
+}
+
+export async function getFlashcardsForReview(userId: string) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/get_flashcards_for_review?user_id=${encodeURIComponent(userId)}`, { headers });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to load review cards');
+  }
+  return res.json();
+}
+
+export async function markFlashcardForReview(cardId: number, marked: boolean) {
+  const headers = await authHeaders();
+  const body = new FormData();
+  body.append('card_id', String(cardId));
+  body.append('marked', String(marked));
+  const res = await fetch(`${API_URL}/mark_flashcard_for_review`, {
+    method: 'POST',
+    headers,
+    body,
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to update review card');
+  }
+  return res.json();
 }
 
 export async function generateFlashcards(payload: {
@@ -1645,10 +1691,16 @@ export async function giveKudos(userId: string, recipientId: number, kudosType =
 }
 
 // ── Leaderboard ───────────────────────────────────────────────────────
-export async function getFriendsLeaderboard(userId: string) {
+export async function getLeaderboard(category: 'global' | 'friends' = 'global', limit = 50) {
   const headers = await authHeaders();
-  const res = await fetch(`${API_URL}/leaderboard?user_id=${encodeURIComponent(userId)}`, { headers });
-  return res.json(); // { leaderboard: [{rank, username, score, streak, is_current_user}], current_user_rank }
+  const params = new URLSearchParams({ category, limit: String(limit) });
+  const res = await fetch(`${API_URL}/leaderboard?${params.toString()}`, { headers });
+  if (!res.ok) throw new Error(`Leaderboard request failed (${res.status})`);
+  return res.json();
+}
+
+export async function getFriendsLeaderboard(_userId: string) {
+  return getLeaderboard('friends', 50);
 }
 
 export async function getGlobalLeaderboard(limit = 20) {

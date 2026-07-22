@@ -68,6 +68,7 @@ const FC_ICONS = {
   chevronRight: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
   chevronLeft: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>,
   link: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>,
+  bookmark: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/></svg>,
 };
 
 const cleanFlashcardChoiceText = (value) => {
@@ -174,6 +175,7 @@ const Flashcards = () => {
   
   const [reviewCards, setReviewCards] = useState({ total_cards: 0, sets: [] });
   const [loadingReviewCards, setLoadingReviewCards] = useState(false);
+  const [loadingRandomCards, setLoadingRandomCards] = useState(false);
 
   
   const [dueCards, setDueCards] = useState({ due_count: 0, new_count: 0, review_count: 0, learning_count: 0, relearning_count: 0, cards: [] });
@@ -525,7 +527,7 @@ const Flashcards = () => {
     setLoadingReviewCards(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/get_flashcards_for_review?user_id=${userName}`, {
+      const response = await fetch(`${API_URL}/get_flashcards_for_review?user_id=${encodeURIComponent(userName)}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -645,7 +647,7 @@ const Flashcards = () => {
     try {
       const token = localStorage.getItem('token');
       const formData = new FormData();
-      formData.append('flashcard_id', flashcardId);
+      formData.append('card_id', flashcardId);
       formData.append('marked', marked.toString());
       
       const response = await fetch(`${API_URL}/mark_flashcard_for_review`, {
@@ -655,13 +657,54 @@ const Flashcards = () => {
       });
       
       if (response.ok) {
-        
+        setFlashcards((cards) => cards.map((card) => card.id === flashcardId ? { ...card, marked_for_review: marked } : card));
+        setShuffledCards((cards) => cards.map((card) => card.id === flashcardId ? { ...card, marked_for_review: marked } : card));
         loadReviewCards();
         return true;
       }
       return false;
     } catch (error) {
             return false;
+    }
+  };
+
+  const startRandomCards = async () => {
+    if (!userName || loadingRandomCards) return;
+    setLoadingRandomCards(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/get_flashcards?user_id=${encodeURIComponent(userName)}&limit=2000`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Failed to load random cards');
+      const allCards = await response.json();
+      if (!Array.isArray(allCards) || allCards.length === 0) {
+        showPopup('No Flashcards Yet', 'Create a flashcard set before starting a random session.');
+        return;
+      }
+      const randomCards = [...allCards]
+        .map((card) => ({ card, order: Math.random() }))
+        .sort((a, b) => a.order - b.order)
+        .slice(0, 20)
+        .map(({ card }) => card);
+      setFlashcards(randomCards);
+      setShuffledCards(randomCards);
+      setCurrentCard(0);
+      setIsFlipped(false);
+      setShowStudyResults(false);
+      setStudySessionStats({ correct: 0, incorrect: 0, skipped: 0 });
+      gradedCardsRef.current.clear();
+      setCurrentSetInfo({
+        saved: false,
+        setId: null,
+        setTitle: 'Random Cards',
+        cardCount: randomCards.length,
+      });
+      setPreviewMode(true);
+    } catch (error) {
+      showPopup('Random Cards', error.message || 'Could not start a random session.');
+    } finally {
+      setLoadingRandomCards(false);
     }
   };
 
@@ -2588,6 +2631,15 @@ const Flashcards = () => {
                 {FC_ICONS.chat}
                 <span>Ask AI</span>
               </button>
+              <button
+                className={`fc-ask-ai-toggle-btn ${previewCards[currentCard]?.marked_for_review ? 'fc-review-toggle-active' : ''}`}
+                onClick={() => markCardForReview(previewCards[currentCard].id, !previewCards[currentCard].marked_for_review)}
+                type="button"
+                title={previewCards[currentCard]?.marked_for_review ? 'Remove from review' : 'Mark for review'}
+              >
+                {FC_ICONS.bookmark}
+                <span>{previewCards[currentCard]?.marked_for_review ? 'In Review' : 'Mark Review'}</span>
+              </button>
               <button className="fc-exit-btn fc-exit-styled" onClick={() => {
 
                 setShowStudyResults(true);
@@ -2946,6 +2998,15 @@ const Flashcards = () => {
                     {FC_ICONS.chat}
                     <span>Ask AI</span>
                   </button>
+                  <button
+                    className={`fc-ask-ai-toggle-btn ${currentStudyCards[currentCard]?.marked_for_review ? 'fc-review-toggle-active' : ''}`}
+                    onClick={() => markCardForReview(currentStudyCards[currentCard].id, !currentStudyCards[currentCard].marked_for_review)}
+                    type="button"
+                    title={currentStudyCards[currentCard]?.marked_for_review ? 'Remove from review' : 'Mark for review'}
+                  >
+                    {FC_ICONS.bookmark}
+                    <span>{currentStudyCards[currentCard]?.marked_for_review ? 'In Review' : 'Mark Review'}</span>
+                  </button>
                   <button className="fc-exit-btn fc-exit-styled" onClick={exitStudyMode}>
                     EXIT {FC_ICONS.chevronRight}
                   </button>
@@ -3053,6 +3114,9 @@ const Flashcards = () => {
                 <button className={`fc-qb-strip-btn ${activePanel === 'review' ? 'active' : ''}`} data-tip="Needs Review" onClick={() => { setSidebarCollapsed(false); setActivePanel('review'); }} type="button">
                   {FC_ICONS.refresh}
                 </button>
+                <button className="fc-qb-strip-btn" data-tip="Random Cards" onClick={startRandomCards} type="button" disabled={loadingRandomCards}>
+                  {FC_ICONS.shuffle}
+                </button>
                 <button className={`fc-qb-strip-btn ${activePanel === 'sources' ? 'active' : ''}`} data-tip="PDF Sources" onClick={() => { setSidebarCollapsed(false); setActivePanel('sources'); loadUploadedDocuments(); }} type="button">
                   {FC_ICONS.file}
                 </button>
@@ -3101,6 +3165,10 @@ const Flashcards = () => {
                   <button className={`fc-qb-view-link ${activePanel === 'review' ? 'fc-qb-view-link--active' : ''}`} onClick={() => setActivePanel('review')} type="button">
                     {FC_ICONS.refresh}
                     <span>Needs Review</span>
+                  </button>
+                  <button className="fc-qb-view-link" onClick={startRandomCards} type="button" disabled={loadingRandomCards}>
+                    {FC_ICONS.shuffle}
+                    <span>{loadingRandomCards ? 'Mixing Cards…' : 'Random Cards'}</span>
                   </button>
                 </nav>
               </div>

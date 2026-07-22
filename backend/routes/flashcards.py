@@ -85,6 +85,9 @@ def get_flashcards(
             "question": card.question,
             "answer": card.answer,
             "difficulty": card.difficulty,
+            "times_reviewed": card.times_reviewed or 0,
+            "correct_count": card.correct_count or 0,
+            "marked_for_review": bool(getattr(card, "marked_for_review", False)),
             "created_at": (card.created_at or fs.created_at).isoformat() + "Z",
         })
     return result
@@ -365,6 +368,9 @@ def get_flashcards_for_review(user_id: str = Query(None), db: Session = Depends(
             "difficulty": card.difficulty or "medium",
             "times_reviewed": card.times_reviewed or 0,
             "correct_count": card.correct_count or 0,
+            "marked_for_review": True,
+            "set_id": card.set_id,
+            "set_title": sets_dict[card.set_id]["set_title"],
         })
 
     return {"total_cards": len(cards), "sets": list(sets_dict.values())}
