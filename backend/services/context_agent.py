@@ -60,6 +60,7 @@ class WeakConcept:
     last_seen: Optional[datetime]
     recommended_action: str
     importance_score: float
+    evidence: Optional[str] = None
 
 @dataclass
 class StudentProfile:
@@ -298,6 +299,7 @@ class CentralContextAgent:
 
                 sources = _get_struggle_sources(db, user_id, s.concept_id)
                 action = _recommend_action(s.p_mastery, sources)
+                evidence = _get_evidence_snippet(db, user_id, s.concept_name)
 
                 wc = WeakConcept(
                     concept_id=s.concept_id,
@@ -310,6 +312,7 @@ class CentralContextAgent:
                     last_seen=s.last_updated,
                     recommended_action=action,
                     importance_score=min(1.0, (1 - s.p_mastery) + (0.1 if "chat" in sources else 0)),
+                    evidence=evidence,
                 )
                 if s.p_mastery < 0.5:
                     weak_concepts.append(wc)
@@ -433,6 +436,33 @@ def _get_struggle_sources(db, user_id: int, concept_id: str) -> List[str]:
     except Exception:
         pass
     return sources
+
+def _get_evidence_snippet(db, user_id: int, concept_name: str) -> Optional[str]:
+    """A real quoted moment behind a weak-area label, not just a source-type tag.
+
+    AgentEvent (the source of struggle_sources above) never persisted the
+    actual message text -- only source/event_type/correctness -- so
+    struggle_sources could say "chat" but never show what the student
+    actually said. ChatConceptSignal stores that snippet already
+    (tutor/nodes.py::persist_updates), so pull the most recent one here.
+    """
+    import models
+
+    if not concept_name:
+        return None
+    try:
+        sig = (
+            db.query(models.ChatConceptSignal)
+            .filter(
+                models.ChatConceptSignal.user_id == user_id,
+                models.ChatConceptSignal.concept.ilike(concept_name),
+            )
+            .order_by(models.ChatConceptSignal.created_at.desc())
+            .first()
+        )
+        return sig.message_snippet if sig else None
+    except Exception:
+        return None
 
 def _recommend_action(p_mastery: float, sources: List[str]) -> str:
     if p_mastery < 0.3:

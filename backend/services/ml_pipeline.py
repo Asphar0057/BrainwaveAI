@@ -539,6 +539,68 @@ class MessageMLPipeline:
 
         return out
 
+    def build_weak_concept_profile(self, db, user_id: int, max_concepts: int = 3) -> Dict:
+        """Real per-concept weak-area evidence for the chat addendum.
+
+        Previously `build_system_prompt_addendum`'s `profile` argument was never
+        populated by any caller (chat.py always called it with the default
+        `None`), so the "Weak areas" line never appeared in the system prompt
+        regardless of how much weakness data existed -- chat looked
+        unpersonalized even when the DB had real signal. This builds that
+        profile from UserWeakArea (open-vocabulary concept names, extracted by
+        dkt/language_analyzer's phrase extractor, so it also catches concepts
+        never seen before -- unlike this pipeline's own embedding-similarity
+        concept cache) plus a real quoted snippet from ChatConceptSignal as
+        evidence, so the model sees the actual moment the struggle showed up.
+
+        Anti-nagging: rows are excluded once weakness_score decays below 0.15
+        (already decremented on correct signals elsewhere -- see
+        tutor/nodes.py::persist_updates) or once last_updated is >30 days old
+        with no reinforcement, so an old, resolved, or since-forgotten mention
+        does not get repeated forever. Long-dormant concepts are instead
+        surfaced once at session start via dkt/temporal_decay.get_decayed_concepts
+        (a separate, complementary "let's review this" nudge), not on every turn.
+        """
+        try:
+            import models
+            from datetime import timedelta
+
+            cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+            weak_areas = (
+                db.query(models.UserWeakArea)
+                .filter(
+                    models.UserWeakArea.user_id == user_id,
+                    models.UserWeakArea.weakness_score >= 0.15,
+                    models.UserWeakArea.last_updated >= cutoff,
+                )
+                .order_by(models.UserWeakArea.weakness_score.desc())
+                .limit(max_concepts)
+                .all()
+            )
+
+            weak_concepts = []
+            for wa in weak_areas:
+                evidence_row = (
+                    db.query(models.ChatConceptSignal)
+                    .filter(
+                        models.ChatConceptSignal.user_id == user_id,
+                        models.ChatConceptSignal.concept.ilike(wa.topic),
+                    )
+                    .order_by(models.ChatConceptSignal.created_at.desc())
+                    .first()
+                )
+                weak_concepts.append({
+                    "concept_name": wa.topic,
+                    "weakness_score": round(wa.weakness_score or 0.0, 2),
+                    "evidence": evidence_row.message_snippet if evidence_row else None,
+                    "last_updated": wa.last_updated,
+                })
+
+            return {"weak_concepts": weak_concepts}
+        except Exception as e:
+            logger.warning(f"[ML] weak concept profile fetch failed: {e}")
+            return {"weak_concepts": []}
+
     def build_system_prompt_addendum(
         self,
         out: MLOutput,
@@ -558,8 +620,15 @@ class MessageMLPipeline:
         if profile:
             weak = profile.get("weak_concepts", [])
             if weak:
-                names = [w.get("concept_name", "") for w in weak[:3]]
-                lines.append(f"Weak areas: {', '.join(names)}")
+                lines.append("Weak areas (with evidence — reference these specifically, don't just say 'weak areas'):")
+                for w in weak[:3]:
+                    name = w.get("concept_name", "")
+                    score = w.get("weakness_score")
+                    entry = f"- {name}" + (f" (struggle signal {score:.2f})" if score is not None else "")
+                    evidence = w.get("evidence")
+                    if evidence:
+                        entry += f' — student said: "{evidence}"'
+                    lines.append(entry)
 
         if session_brief:
             lines.append(f"Session context: {session_brief}")
