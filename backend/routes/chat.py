@@ -1064,8 +1064,10 @@ async def ask_ai(
 
             pipeline = MessageMLPipeline(None, get_memory_service())
             ml_output = await pipeline.process(question, str(user.id), ctx, db)
+            weak_profile = pipeline.build_weak_concept_profile(db, user.id)
             ml_addendum = pipeline.build_system_prompt_addendum(
                 ml_output,
+                profile=weak_profile,
                 require_follow_up=bool(tutor_mode),
             )
 
