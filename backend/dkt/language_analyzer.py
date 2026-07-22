@@ -139,6 +139,8 @@ _OVERRIDES: list[tuple[re.Pattern, str]] = [
     (re.compile(r"\b(explain|go\s+over)\s+(again|once\s+more|one\s+more\s+time)\b", re.I), "re_ask"),
     (re.compile(r"\bstill\s+don'?t\s+(get|understand)\b", re.I), "re_ask"),
     (re.compile(r"\bi'?m\s+(lost|confused|stuck)\b", re.I), "confusion"),
+    (re.compile(r"\b(i|i'?m)\s+(really\s+|honestly\s+)*(struggle|struggling)\s+(with|on|in)\b", re.I), "confusion"),
+    (re.compile(r"\b(i'?m|i\s+am)\s+(really\s+|honestly\s+)*(weak|bad|not\s+good|not\s+great)\s+(at|in|with)\b", re.I), "confusion"),
     (re.compile(r"\bwait[\s,]+what\b", re.I), "confusion"),
     (re.compile(r"\bso\s+basically\b.{0,60}\?", re.I), "doubt"),
     (re.compile(r"\b(is\s+that|am\s+i)\s+(right|correct)\s*\?", re.I), "doubt"),
@@ -427,6 +429,12 @@ _STOPWORDS = {
     "just","like","as","than","more","some","any","also","not","mean",
     "explain","tell","think","know","understand","make","use","get","see",
     "right","correct","wrong","good","bad","new","old","now","then","here",
+    # Hedges/self-report words that describe the student's state rather than
+    # the subject matter -- left in, these dominate the n-gram window and the
+    # extractor picks e.g. "honestly really struggle" as the "concept" instead
+    # of the actual topic the student named later in the same sentence.
+    "honestly","really","struggle","struggling","definitely","actually",
+    "totally","completely","kind","sort","weak","trouble","never","always",
 }
 
 def _match_concepts(text: str, vocab: dict[str, int]) -> list[str]:
