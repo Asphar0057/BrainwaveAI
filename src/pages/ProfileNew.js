@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { X, Check, Pencil, Award, BarChart3, Crown, Rocket, ShieldCheck, LogOut, Trash2, MessageSquare, LayoutDashboard, User, CreditCard, Target, Settings, BookOpen, Sparkles, Plus, Gauge } from 'lucide-react';
 import { SidebarShell, SidebarSection, SidebarMenuItem, SidebarStats, SidebarStatBox, SidebarActions, SidebarAction, SidebarStripButton, SidebarStripDivider, SidebarStripSpacer } from '../components/Sidebar';
+import WeaknessTracker from '../components/WeaknessTracker/WeaknessTracker';
 import { API_URL } from '../config';
 import { signOutAppSession } from '../utils/authSession';
 import './ProfileNew.css';
@@ -895,6 +896,7 @@ const ProfileNew = () => {
                 <SidebarStripButton icon={<BookOpen size={18} />} tip="Personal Info" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-personal'); }} />
                 <SidebarStripButton icon={<Target size={18} />} tip="Learning Goals" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-goals'); }} />
                 <SidebarStripButton icon={<Sparkles size={18} />} tip="Subjects" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-subjects'); }} />
+                <SidebarStripButton icon={<BarChart3 size={18} />} tip="Mastery" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-mastery'); }} />
                 <SidebarStripDivider />
                 <SidebarStripButton icon={<Settings size={18} />} tip="Settings" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-settings'); }} />
                 <SidebarStripButton icon={<Trash2 size={18} />} tip="Account" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-account'); }} />
@@ -913,6 +915,7 @@ const ProfileNew = () => {
               <SidebarMenuItem icon={<BookOpen size={16} />} label="Personal Info" onClick={() => scrollToSection('pn-section-personal')} />
               <SidebarMenuItem icon={<Target size={16} />} label="Learning Goals" onClick={() => scrollToSection('pn-section-goals')} />
               <SidebarMenuItem icon={<Sparkles size={16} />} label="Subjects" onClick={() => scrollToSection('pn-section-subjects')} />
+              <SidebarMenuItem icon={<BarChart3 size={16} />} label="Mastery" onClick={() => scrollToSection('pn-section-mastery')} />
             </SidebarSection>
 
             <SidebarSection heading="Account">
@@ -1268,6 +1271,13 @@ const ProfileNew = () => {
               </button>
             ))}
           </div>
+        </section>
+
+        <div className="pn-divider" />
+
+        <section className="pn-section" id="pn-section-mastery">
+          <div className="pn-section-label">MASTERY &amp; WEAK AREAS</div>
+          <WeaknessTracker userId={userName} token={token} onNavigate={navigate} />
         </section>
 
         <div className="pn-divider" />

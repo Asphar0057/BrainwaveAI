@@ -295,6 +295,9 @@ export default function WeaknessTracker({ userId, token, onNavigate }) {
                           </span>
                         </div>
                         <MasteryBar value={c.p_mastery} />
+                        {c.evidence && (
+                          <p className="wt-evidence">&ldquo;{c.evidence}&rdquo;</p>
+                        )}
                         <div className="wt-concept-footer">
                           <div className="wt-sources">
                             {(c.struggle_sources || []).map(s => (
