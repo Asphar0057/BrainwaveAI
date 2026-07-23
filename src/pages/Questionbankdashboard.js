@@ -195,7 +195,8 @@ const QuestionBankDashboard = () => {
   const [customContent, setCustomContent] = useState('');
   const [customTitle, setCustomTitle] = useState('');
   const [questionCount, setQuestionCount] = useState(10);
-  const [difficultyMix, setDifficultyMix] = useState({ easy: 30, medium: 50, hard: 20 }); 
+  const [difficultyMix, setDifficultyMix] = useState({ easy: 30, medium: 50, hard: 20 });
+  const [adaptiveDifficulty, setAdaptiveDifficulty] = useState(false);
   const [questionTypes, setQuestionTypes] = useState(['multiple_choice', 'true_false', 'short_answer']);
   const autoStartRef = useRef(null);
 
@@ -679,7 +680,8 @@ const QuestionBankDashboard = () => {
         difficultyMix: difficultyCount,
         questionTypes: selectedQuestionTypes,
         topics: selectedTopics.length > 0 ? selectedTopics : null,
-        title: null
+        title: null,
+        adaptiveDifficulty
       });
 
       
@@ -725,7 +727,8 @@ const QuestionBankDashboard = () => {
           questionCount: questionCount || 10,
           difficultyMix: difficultyCount,
           questionTypes: selectedQuestionTypes,
-          topics: selectedTopics.length > 0 ? selectedTopics : null
+          topics: selectedTopics.length > 0 ? selectedTopics : null,
+          adaptiveDifficulty
         });
 
         if (response.status === 'success') {
@@ -913,7 +916,8 @@ const QuestionBankDashboard = () => {
         difficultyMix: difficultyCount,
         questionTypes: selectedQuestionTypes,
         customPrompt: customPrompt.trim() || null,
-        sessionId: `qb_custom_${userId}_${Date.now()}`
+        sessionId: `qb_custom_${userId}_${Date.now()}`,
+        adaptiveDifficulty
       });
 
       
@@ -1731,6 +1735,14 @@ const QuestionBankDashboard = () => {
                   <div className="qbd-difficulty-total">
                     Total: {difficultyCount.easy + difficultyCount.medium + difficultyCount.hard} questions
                   </div>
+                  <label className="qbd-checkbox-label" style={{ marginTop: '8px' }}>
+                    <input
+                      type="checkbox"
+                      checked={adaptiveDifficulty}
+                      onChange={(e) => setAdaptiveDifficulty(e.target.checked)}
+                    />
+                    <span>Adaptive difficulty (let past performance on this topic override the mix above)</span>
+                  </label>
                 </div>
 
                 <div className="qbd-setting-group">
@@ -1991,6 +2003,14 @@ const QuestionBankDashboard = () => {
               <div className="qbd-difficulty-total">
                 Total: {difficultyCount.easy + difficultyCount.medium + difficultyCount.hard} questions
               </div>
+              <label className="qbd-checkbox-label" style={{ marginTop: '8px' }}>
+                <input
+                  type="checkbox"
+                  checked={adaptiveDifficulty}
+                  onChange={(e) => setAdaptiveDifficulty(e.target.checked)}
+                />
+                <span>Adaptive difficulty (let past performance on this topic override the mix above)</span>
+              </label>
             </div>
 
             <div className="qbd-setting-group">
@@ -2169,6 +2189,14 @@ const QuestionBankDashboard = () => {
               <div className="qbd-difficulty-total">
                 Total: {difficultyCount.easy + difficultyCount.medium + difficultyCount.hard} questions
               </div>
+              <label className="qbd-checkbox-label" style={{ marginTop: '8px' }}>
+                <input
+                  type="checkbox"
+                  checked={adaptiveDifficulty}
+                  onChange={(e) => setAdaptiveDifficulty(e.target.checked)}
+                />
+                <span>Adaptive difficulty (let past performance on this topic override the mix above)</span>
+              </label>
             </div>
 
             <div className="qbd-custom-input-wrapper" style={{ marginBottom: 0 }}>

@@ -393,6 +393,37 @@ def register_question_bank_api(app, unified_ai, get_db_func):
                 "question generation from PDF/custom content"
             )
 
+            # Content-difficulty-bandit wiring for the question-bank's own generation
+            # path (this is what the dashboard's "Generate" button for custom/PDF
+            # content actually calls -- routes/questions.py::generate_practice_questions
+            # is reachable only from a narrow auto-context deep link, not this UI).
+            # difficulty_mix here is a RELATIVE WEIGHT dict (see agents.py
+            # _generate_questions_single, which normalizes by sum()), not a single
+            # difficulty string, so "adaptive" means: pick one difficulty via the
+            # bandit, then express it as a heavily-skewed mix so the existing
+            # weight-based generation code needs no other changes.
+            if request.adaptive_difficulty:
+                bandit_topic = (
+                    (effective_topics[0] if effective_topics else "")
+                    or (request.custom_prompt or "")
+                    or (request.title or "")
+                    or "general"
+                ).strip()[:50]
+                try:
+                    from services.content_bandit import get_content_bandit
+                    selection = get_content_bandit().select_difficulty(
+                        db, str(user.id), "quiz", bandit_topic,
+                    )
+                    request.difficulty_mix = {
+                        d: (10 if d == selection.difficulty else 0) for d in ("easy", "medium", "hard")
+                    }
+                    logger.info(
+                        f"[QB_GENERATE] auto-difficulty resolved to '{selection.difficulty}' "
+                        f"(method={selection.selection_method}) for topic='{bandit_topic}'"
+                    )
+                except Exception as e:
+                    logger.warning(f"[QB_GENERATE] content bandit selection failed, using default mix: {e}")
+
             if request.source_id:
                 document = db.query(models.UploadedDocument).filter(
                     models.UploadedDocument.id == request.source_id,
@@ -1550,6 +1581,32 @@ def register_question_bank_api(app, unified_ai, get_db_func):
                 })
 
             score = int((earned_points / total_points) * 100) if total_points > 0 else 0
+
+            # Close the content-difficulty-bandit loop for practice quizzes. Generation
+            # (routes/questions.py::generate_practice_questions) calls select_difficulty
+            # with domain="quiz", topic=<original request topic>.strip()[:50] -- but the
+            # live UI submits answers here, not through questions.py's own
+            # /submit_question_answers (which has zero frontend callers and was the only
+            # place resolve_reward used to be wired). No schema change was made to round-trip
+            # the exact selection-time topic string, so this recovers it best-effort from
+            # the first question's own `topic` field (the model is asked to echo the
+            # request topic back per-question) or the question set's title as a fallback --
+            # matches for typical short topic names, but a topic longer than 50 chars could
+            # truncate slightly differently here than at selection time and miss the bandit
+            # state hash. Good enough to close the loop for the common case without a migration.
+            try:
+                bandit_topic_key = ""
+                if results:
+                    bandit_topic_key = (results[0].get("topic") or "").strip()[:50]
+                if not bandit_topic_key:
+                    bandit_topic_key = (question_set.title or "").strip()[:50]
+                if bandit_topic_key:
+                    from services.content_bandit import get_content_bandit
+                    get_content_bandit().resolve_reward(
+                        db, str(user.id), "quiz", bandit_topic_key, score / 100.0,
+                    )
+            except Exception as bandit_err:
+                logger.warning(f"[QB_SUBMIT] content bandit reward resolution failed: {bandit_err}")
 
             adaptive_integration = None
             try:

@@ -87,7 +87,7 @@ class QuestionBankAgentService {
 
   
   async generateFromPDF(params) {
-    const { userId, sourceId, questionCount, difficultyMix, questionTypes, topics, title } = params;
+    const { userId, sourceId, questionCount, difficultyMix, questionTypes, topics, title, adaptiveDifficulty } = params;
 
     const response = await aiAwareFetch(`${API_URL}/qb/generate_from_pdf`, {
       method: 'POST',
@@ -103,7 +103,8 @@ class QuestionBankAgentService {
         difficulty_mix: difficultyMix,
         question_types: questionTypes || ['multiple_choice', 'true_false', 'short_answer'],
         topics: topics || null,
-        title: title || null
+        title: title || null,
+        adaptive_difficulty: Boolean(adaptiveDifficulty)
       })
     });
 
@@ -290,7 +291,8 @@ class QuestionBankAgentService {
       questionTypes,
       topics,
       customPrompt,
-      sessionId
+      sessionId,
+      adaptiveDifficulty
     } = params;
     const response = await aiAwareFetch(`${API_URL}/qb/generate_from_pdf`, {
       method: 'POST',
@@ -308,7 +310,8 @@ class QuestionBankAgentService {
         question_types: questionTypes || ['multiple_choice', 'true_false', 'short_answer'],
         topics: topics || [],
         custom_prompt: customPrompt || null,
-        session_id: sessionId || null
+        session_id: sessionId || null,
+        adaptive_difficulty: Boolean(adaptiveDifficulty)
       })
     });
 

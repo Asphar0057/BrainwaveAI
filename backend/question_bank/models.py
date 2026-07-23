@@ -18,6 +18,10 @@ class QuestionGenerationRequest(BaseModel):
     title: Optional[str] = None
     custom_prompt: Optional[str] = None
     session_id: Optional[str] = None
+    # When true, difficulty_mix (above) is ignored and overwritten server-side with a
+    # single difficulty chosen by ContentDifficultyBandit for this student+topic --
+    # see generate_from_pdf's resolution step right before the source_type dispatch.
+    adaptive_difficulty: bool = False
 
 
 class AnswerSubmission(BaseModel):
