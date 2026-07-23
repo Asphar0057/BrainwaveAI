@@ -8,6 +8,7 @@ import PyPDF2
 from fastapi import HTTPException
 
 from services.ai_json_parser import parse_json_array_response
+from services.difficulty_allocation import allocate_difficulty_counts
 
 from .utils import _filter_analysis_by_topics
 
@@ -1109,26 +1110,12 @@ class QuestionGeneratorAgent:
         reference_content: str
     ) -> List[Dict[str, Any]]:
 
-        total_diff = sum(difficulty_distribution.values())
-        if total_diff > 0 and question_count >= 3:
-            easy_count = max(1, round(question_count * difficulty_distribution.get('easy', 30) / total_diff))
-            medium_count = max(1, round(question_count * difficulty_distribution.get('medium', 50) / total_diff))
-            hard_count = max(0, question_count - easy_count - medium_count)
-        elif question_count == 2:
-            easy_count = 1
-            medium_count = 1
-            hard_count = 0
-        elif question_count == 1:
-            if difficulty_distribution.get('hard', 20) >= difficulty_distribution.get('medium', 50):
-                easy_count, medium_count, hard_count = 0, 0, 1
-            elif difficulty_distribution.get('easy', 30) >= difficulty_distribution.get('medium', 50):
-                easy_count, medium_count, hard_count = 1, 0, 0
-            else:
-                easy_count, medium_count, hard_count = 0, 1, 0
-        else:
-            easy_count = question_count // 3
-            medium_count = question_count // 3
-            hard_count = question_count - easy_count - medium_count
+        difficulty_counts = allocate_difficulty_counts(
+            question_count, difficulty_distribution,
+        )
+        easy_count = difficulty_counts["easy"]
+        medium_count = difficulty_counts["medium"]
+        hard_count = difficulty_counts["hard"]
 
         logger.info(f"Agentic generation: {easy_count} easy, {medium_count} medium, {hard_count} hard")
 

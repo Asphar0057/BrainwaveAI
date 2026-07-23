@@ -11,7 +11,7 @@ import {
   MOCK_FOLDERS,
   MOCK_SAVED_NOTE,
   MOCK_TOKEN,
-} from '../helpers/testUtils';
+} from '../../testUtils';
 
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({

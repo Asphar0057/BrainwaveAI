@@ -49,6 +49,7 @@ class MultiPDFGenerationRequest(BaseModel):
     reference_document_id: Optional[int] = None
     content_document_ids: Optional[List[int]] = None
     session_id: Optional[str] = None
+    adaptive_difficulty: bool = False
 
 
 class SourceSelection(BaseModel):
@@ -67,6 +68,7 @@ class MultiSourceGenerationRequest(BaseModel):
     title: Optional[str] = None
     custom_prompt: Optional[str] = None
     session_id: Optional[str] = None
+    adaptive_difficulty: bool = False
 
 
 class RelatedPDFGenerationRequest(BaseModel):

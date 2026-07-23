@@ -918,7 +918,7 @@ export async function generateFlashcards(payload: {
   userId: string;
   topic: string;
   cardCount: number;
-  difficulty: 'easy' | 'medium' | 'hard';
+  difficulty: 'adaptive' | 'easy' | 'medium' | 'hard';
   additionalSpecs?: string;
   setTitle?: string;
   isPublic?: boolean;
@@ -946,6 +946,29 @@ export async function generateFlashcards(payload: {
     await readApiError(res, 'Failed to generate flashcards');
   }
 
+  return res.json();
+}
+
+export async function reviewFlashcard(payload: {
+  userId: string;
+  cardId: number;
+  wasCorrect: boolean;
+  mode?: string;
+}) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/flashcards/review`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_id: payload.userId,
+      card_id: String(payload.cardId),
+      was_correct: payload.wasCorrect,
+      mode: payload.mode ?? 'mobile',
+    }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to save flashcard review');
+  }
   return res.json();
 }
 

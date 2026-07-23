@@ -21,6 +21,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../../services/auth';
 import { API_URL } from '../../services/api';
 import GeoBackground from '../../components/GeoBackground';
+import SocialTileMaterial from '../../components/SocialTileMaterial';
 import HapticTouchable from '../../components/HapticTouchable';
 import { cbTileShadow } from '../../components/NeumorphicTexture';
 import { useAppTheme } from '../../contexts/ThemeContext';
@@ -348,7 +349,7 @@ export default function LearningPathsScreen({ onBack }: Props) {
             <View style={s.collectionHeader}><View><Text style={s.kicker}>YOUR COLLECTION</Text><Text style={s.collectionTitle}>My paths</Text></View><Text style={s.routeCount}>{filtered.length} paths</Text></View>
 
             {!filtered.length ? (
-              <View style={s.empty}><View style={s.emptyIcon}><Ionicons name="navigate-outline" size={28} color={selectedTheme.accentHover} /></View><Text style={s.emptyTitle}>{paths.length ? 'No matching paths' : 'Build your first route'}</Text><Text style={s.emptyText}>{paths.length ? 'Try another search or filter.' : 'Generate a structured, step-by-step curriculum.'}</Text>{!paths.length && <HapticTouchable style={s.emptyBtn} onPress={() => setShowCreate(true)} haptic="medium"><Text style={s.emptyBtnText}>GET STARTED</Text></HapticTouchable>}</View>
+              <View style={s.empty}><SocialTileMaterial /><View style={s.emptyIcon}><Ionicons name="navigate-outline" size={28} color={selectedTheme.accentHover} /></View><Text style={s.emptyTitle}>{paths.length ? 'No matching paths' : 'Build your first route'}</Text><Text style={s.emptyText}>{paths.length ? 'Try another search or filter.' : 'Generate a structured, step-by-step curriculum.'}</Text>{!paths.length && <HapticTouchable style={s.emptyBtn} onPress={() => setShowCreate(true)} haptic="medium"><Text style={s.emptyBtnText}>GET STARTED</Text></HapticTouchable>}</View>
             ) : (
               <ScrollView style={s.collectionScroll} contentContainerStyle={s.pathGrid} showsVerticalScrollIndicator={false} bounces refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={selectedTheme.accent} />}>
                 {filtered.map((path, index) => <PathCard key={path.id} path={path} index={index} onOpen={() => openPath(path)} onDelete={() => deletePath(path)} color={difficultyColor[path.difficulty ?? 'intermediate'] ?? selectedTheme.accent} theme={selectedTheme} styles={s} ink={ink} />)}
@@ -375,6 +376,7 @@ function PathCard({ path, index, onOpen, onDelete, color, theme, styles, ink }: 
   const percent = progressOf(path);
   return (
     <HapticTouchable style={styles.pathCard} onPress={onOpen} haptic="selection" activeOpacity={0.88}>
+      <SocialTileMaterial />
       <LinearGradient colors={[rgbaFromHex(color, 0.28), rgbaFromHex(theme.panel, 0.94)]} start={{ x: 0, y: 0 }} end={{ x: 0.75, y: 1 }} style={styles.pathCardBanner}>
         <View style={styles.pathCardTop}><Text style={styles.pathDifficulty}>{(path.difficulty ?? 'intermediate').toUpperCase()}</Text><HapticTouchable style={styles.deleteBtn} onPress={(event) => { event.stopPropagation(); onDelete(); }} haptic="warning"><Ionicons name="trash-outline" size={13} color={theme.textSecondary} /></HapticTouchable></View>
         <Text style={styles.pathCardTitle} numberOfLines={3}>{path.title}</Text>
@@ -441,9 +443,9 @@ function CreatePathModal({ visible, topic, difficulty, length, goals, generating
 }
 
 function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>, topInset: number) {
-  const surface = theme.panel;
-  const surfaceAlt = theme.panelAlt;
-  const border = rgbaFromHex(theme.accentHover, theme.isLight ? 0.18 : 0.2);
+  const surface = '#0b0c0f';
+  const surfaceAlt = '#050506';
+  const border = 'rgba(216,179,141,0.22)';
   const ink = theme.isLight ? darkenColor(theme.accent, 38) : theme.bgPrimary;
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bgPrimary },
@@ -472,7 +474,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     pathGrid: { flexDirection: 'row', flexWrap: 'wrap', alignContent: 'flex-start', justifyContent: 'space-between', rowGap: 9, paddingBottom: 22 },
     percentBadge: { minWidth: 48, height: 34, borderRadius: 12, backgroundColor: rgbaFromHex(theme.accent, 0.12), borderWidth: 1, borderColor: border, alignItems: 'center', justifyContent: 'center' },
     percentBadgeText: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 11 },
-    libraryHero: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.91), padding: 17, gap: 15, boxShadow: cbTileShadow(0.09) } as ViewStyle,
+    libraryHero: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: surface, padding: 17, gap: 15, boxShadow: cbTileShadow(0.09) } as ViewStyle,
     heroTop: { flexDirection: 'row', gap: 12 },
     heroEyebrow: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 8, letterSpacing: 1.5 },
     heroHeadline: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 22, lineHeight: 27, marginTop: 4, maxWidth: 265 },
@@ -497,7 +499,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     continueMeta: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 9 },
     resumePill: { borderRadius: 10, backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 7 },
     resumeText: { fontFamily: 'Inter_900Black', color: ink, fontSize: 7.5, letterSpacing: 0.7 },
-    controlsCard: { borderRadius: 20, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), padding: 10, gap: 9 },
+    controlsCard: { borderRadius: 20, borderWidth: 1, borderColor: border, backgroundColor: surface, padding: 10, gap: 9 },
     searchBox: { height: 37, borderRadius: 12, backgroundColor: rgbaFromHex(surfaceAlt, 0.76), borderWidth: 1, borderColor: border, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10 },
     searchInput: { flex: 1, fontFamily: 'Inter_600SemiBold', color: theme.textPrimary, fontSize: 11 },
     filterRow: { flexDirection: 'row', gap: 6 },
@@ -512,7 +514,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     sectionTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 19, marginTop: 2 },
     routeCount: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 9 },
     pathList: { gap: 11 },
-    pathCard: { width: '48%', height: layout.height >= 820 ? 220 : 196, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.94), boxShadow: cbTileShadow(0.06) } as ViewStyle,
+    pathCard: { width: '48%', height: layout.height >= 820 ? 220 : 196, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: border, backgroundColor: surface, boxShadow: cbTileShadow(0.06) } as ViewStyle,
     pathCardBanner: { height: layout.height >= 820 ? 101 : 88, padding: 10, justifyContent: 'space-between' },
     pathCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     pathIndex: { width: 35, height: 35, borderRadius: 12, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.58), alignItems: 'center', justifyContent: 'center' },
@@ -534,7 +536,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     openPathText: { fontFamily: 'Inter_900Black', fontSize: 7.5, letterSpacing: 0.7 },
     loading: { minHeight: 280, alignItems: 'center', justifyContent: 'center', gap: 10 },
     loadingText: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 10 },
-    empty: { minHeight: 300, borderRadius: 23, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), alignItems: 'center', justifyContent: 'center', padding: 25, gap: 9 },
+    empty: { minHeight: 300, borderRadius: 26, overflow: 'hidden', borderWidth: 1, borderColor: border, backgroundColor: surface, alignItems: 'center', justifyContent: 'center', padding: 25, gap: 9 },
     emptyIcon: { width: 56, height: 56, borderRadius: 19, backgroundColor: rgbaFromHex(theme.accent, 0.11), alignItems: 'center', justifyContent: 'center', marginBottom: 3 },
     emptyTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 19 },
     emptyText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11, lineHeight: 17, textAlign: 'center', maxWidth: 290 },

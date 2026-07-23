@@ -160,6 +160,8 @@ const Analytics = () => {
   const streak = gamStats.current_streak || 0;
   const rank = gamStats.global_rank || gamStats.rank || '—';
   const totalPoints = gamStats.total_points || 0;
+  const quizHistory = Array.isArray(quizPerf?.quiz_history) ? quizPerf.quiz_history : [];
+  const averageQuizScore = Number(quizPerf?.avg_score) || 0;
   const totalActs = (gamStats.total_chat_sessions || gamStats.total_ai_chats || 0) +
     (gamStats.total_notes_created || 0) +
     (gamStats.total_flashcards_created || 0) +
@@ -541,12 +543,12 @@ const Analytics = () => {
               <div className="an-quiz-card">
                 <div className="an-quiz-header">
                   <span className="an-chart-title">Quiz History</span>
-                  <span className="an-quiz-avg">avg {quizPerf.avg_score.toFixed(0)}%</span>
+                  <span className="an-quiz-avg">avg {averageQuizScore.toFixed(0)}%</span>
                 </div>
                 <div className="an-quiz-list">
-                  {quizPerf.quiz_history.length === 0 ? (
+                  {quizHistory.length === 0 ? (
                     <div className="an-empty-state">No quizzes taken yet</div>
-                  ) : quizPerf.quiz_history.slice(-10).map((q, i) => {
+                  ) : quizHistory.slice(-10).map((q, i) => {
                     const sc = q.total > 0 ? (q.score / q.total) * 100 : q.score;
                     const col = sc >= 80 ? '#10b981' : sc >= 60 ? '#f59e0b' : '#ef4444';
                     return (

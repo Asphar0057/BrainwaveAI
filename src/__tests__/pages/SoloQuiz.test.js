@@ -6,7 +6,7 @@ import {
   clearLocalStorage,
   MOCK_GENERATED_QUIZ,
   MOCK_USERNAME,
-} from '../helpers/testUtils';
+} from '../../testUtils';
 
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
@@ -24,31 +24,8 @@ jest.mock('../../services/quizAgentService', () => ({
   },
 }));
 
-jest.mock('../../services/contextService', () => ({
-  __esModule: true,
-  default: {
-    listDocuments: jest.fn(),
-    isHsModeEnabled: jest.fn(),
-  },
-}));
-
-jest.mock('../../components/ContextSelector', () => ({ onOpen, docCount }) => (
-  <div data-testid="context-selector">
-    <button data-testid="context-toggle" onClick={onOpen}>
-      Context ({docCount})
-    </button>
-  </div>
-));
-
-jest.mock('../../components/ContextPanel', () => ({ isOpen, onClose }) => (
-  <div data-testid="context-panel" data-open={String(isOpen)}>
-    <button onClick={onClose}>Close</button>
-  </div>
-));
-
 import SoloQuiz from '../../pages/SoloQuiz';
 import quizAgentService from '../../services/quizAgentService';
-import contextService from '../../services/contextService';
 
 const renderSoloQuiz = async () => {
   let utils;
@@ -71,8 +48,6 @@ describe('SoloQuiz', () => {
     quizAgentService.generateQuiz.mockResolvedValue(MOCK_GENERATED_QUIZ);
     quizAgentService.getCompletedQuizzes.mockResolvedValue([]);
     quizAgentService.getStatistics.mockResolvedValue(null);
-    contextService.listDocuments.mockResolvedValue({ user_docs: [] });
-    contextService.isHsModeEnabled.mockReturnValue(false);
   });
 
   afterEach(() => clearLocalStorage());
@@ -116,14 +91,15 @@ describe('SoloQuiz', () => {
       expect(startBtn !== null || true).toBe(true);
     });
 
-    it('renders context selector', async () => {
+    it('renders quiz workspace navigation', async () => {
       await renderSoloQuiz();
-      expect(screen.getByTestId('context-selector')).toBeInTheDocument();
+      expect(screen.getByText('Quiz Workspace')).toBeInTheDocument();
     });
 
-    it('renders context panel', async () => {
+    it('renders completed and statistics navigation', async () => {
       await renderSoloQuiz();
-      expect(screen.getByTestId('context-panel')).toBeInTheDocument();
+      expect(screen.getByText('Completed')).toBeInTheDocument();
+      expect(screen.getByText('Statistics')).toBeInTheDocument();
     });
   });
 
@@ -320,7 +296,7 @@ describe('SoloQuiz', () => {
             expect(true).toBe(true);
           });
           
-          expect(screen.getByTestId('context-selector')).toBeInTheDocument();
+          expect(screen.getByText(/quiz generation failed/i)).toBeInTheDocument();
         }
       }
     });
@@ -354,28 +330,12 @@ describe('SoloQuiz', () => {
       }
     });
 
-    it('does not crash when contextService.listDocuments fails', async () => {
-      const contextService = require('../../services/contextService').default;
-      contextService.listDocuments.mockRejectedValueOnce(new Error('Context unavailable'));
-      await expect(renderSoloQuiz()).resolves.not.toThrow();
-    });
-  });
-
-  
-  describe('Context Panel', () => {
-    it('panel is closed by default', async () => {
-      await renderSoloQuiz();
-      expect(screen.getByTestId('context-panel').getAttribute('data-open')).toBe('false');
-    });
-
-    it('opens context panel on toggle click', async () => {
+    it('switches to completed quizzes from the sidebar', async () => {
       await renderSoloQuiz();
       await act(async () => {
-        fireEvent.click(screen.getByTestId('context-toggle'));
+        fireEvent.click(screen.getByText('Completed'));
       });
-      await waitFor(() => {
-        expect(screen.getByTestId('context-panel').getAttribute('data-open')).toBe('true');
-      });
+      expect(screen.getByText('No Completed Quizzes Yet')).toBeInTheDocument();
     });
   });
 

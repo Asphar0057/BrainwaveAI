@@ -13,8 +13,8 @@ import {
   removeFriend, giveKudos,
 } from '../../services/api';
 import HapticTouchable from '../../components/HapticTouchable';
-import AmbientBubbles from '../../components/AmbientBubbles';
 import GeoBackground from '../../components/GeoBackground';
+import SocialTileMaterial from '../../components/SocialTileMaterial';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../../utils/theme';
 import { useResponsiveLayout } from '../../hooks/useResponsiveLayout';
@@ -32,35 +32,6 @@ function activityIcon(type = ''): React.ComponentProps<typeof Ionicons>['name'] 
   if (type.includes('flash')) return 'layers';
   if (type.includes('chat'))  return 'chatbubble';
   return 'star';
-}
-
-function DotGrid() {
-  const { selectedTheme } = useAppTheme();
-  const { width } = useResponsiveLayout();
-  const dotSpacingX = 24;
-  const dotSpacingY = 30;
-  const cols = Math.floor((width - 56) / dotSpacingX);
-  const rows = 28;
-  return (
-    <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-      {Array.from({ length: rows }).map((_, r) =>
-        Array.from({ length: cols }).map((_, c) => (
-          <View
-            key={`${r}-${c}`}
-            style={{
-              position: 'absolute',
-              left: 56 + c * dotSpacingX,
-              top: r * dotSpacingY,
-              width: 2,
-              height: 2,
-              borderRadius: 1,
-              backgroundColor: rgbaFromHex(darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26), 0.16),
-            }}
-          />
-        ))
-      )}
-    </View>
-  );
 }
 
 function Avatar({ name, size = 44 }: { name: string; size?: number }) {
@@ -189,40 +160,79 @@ export default function FriendsScreen({ user, onBack }: Props) {
     <View style={s.root}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
       <GeoBackground />
-      <AmbientBubbles theme={selectedTheme} variant="friends" opacity={0.82} />
-      <DotGrid />
 
-{/* Top bar */}
+      {/* Product header */}
       <View style={s.topBar}>
         <HapticTouchable onPress={onBack} style={s.backBtn} haptic="light">
           <Ionicons name="chevron-back" size={18} color={selectedTheme.accent} />
         </HapticTouchable>
-        {requests.length > 0 && (
-          <View style={s.requestBadge}>
-            <Text style={s.requestBadgeText}>{requests.length} pending</Text>
-          </View>
-        )}
+        <View style={s.headerCopy}>
+          <Text style={s.brandSub}>cerbyl / community</Text>
+          <Text style={s.headerTitle}>your circle</Text>
+        </View>
+        <HapticTouchable style={s.headerSignal} onPress={() => setTab('requests')} haptic="light">
+          <Ionicons name="mail-outline" size={17} color={selectedTheme.accentHover} />
+          {requests.length > 0 && (
+            <View style={s.headerSignalBadge}>
+              <Text style={s.headerSignalBadgeText}>{requests.length}</Text>
+            </View>
+          )}
+        </HapticTouchable>
       </View>
 
-      {/* Hero */}
+      {/* Circle summary */}
       <View style={s.hero}>
-        <LinearGradient colors={[rgbaFromHex(darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26), 0.32), rgbaFromHex(darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26), 0.08), rgbaFromHex(selectedTheme.bgPrimary, 0)]} style={s.heroGlow}>
-          <Ionicons name="people" size={46} color={selectedTheme.accentHover} />
+        <LinearGradient
+          colors={['#0b0c0f', '#050506']}
+          start={{ x: 0.2887, y: 0.0468 }}
+          end={{ x: 0.7113, y: 0.9532 }}
+          style={s.heroPanel}
+        >
+          <SocialTileMaterial />
+          <View style={s.heroCopy}>
+            <Text style={s.heroKicker}>learning is social</Text>
+            <Text style={s.heroTitle}>{friends.length > 0 ? 'progress feels\nbetter together' : 'build your\nlearning circle'}</Text>
+            <Text style={s.heroSub}>{friends.length > 0 ? 'Keep your people close and momentum visible.' : 'Find people who make showing up easier.'}</Text>
+          </View>
+          <View style={s.heroOrbit}>
+            <View style={s.heroOrbitRing} />
+            <View style={[s.heroOrbitNode, s.heroOrbitNodeA]} />
+            <View style={[s.heroOrbitNode, s.heroOrbitNodeB]} />
+            <LinearGradient colors={[selectedTheme.accentHover, selectedTheme.accent]} style={s.heroOrbitCore}>
+              <Ionicons name="people" size={23} color={selectedTheme.bgPrimary} />
+            </LinearGradient>
+          </View>
+          <View style={s.heroStats}>
+            <View style={s.heroStat}>
+              <Text style={s.heroStatValue}>{friends.length}</Text>
+              <Text style={s.heroStatLabel}>connected</Text>
+            </View>
+            <View style={s.heroStatDivider} />
+            <View style={s.heroStat}>
+              <Text style={s.heroStatValue}>{requests.length}</Text>
+              <Text style={s.heroStatLabel}>requests</Text>
+            </View>
+            <View style={s.heroStatDivider} />
+            <View style={s.heroStat}>
+              <Text style={s.heroStatValue}>{feed.length}</Text>
+              <Text style={s.heroStatLabel}>signals</Text>
+            </View>
+          </View>
         </LinearGradient>
-        <Text style={s.heroTitle}>friends</Text>
-        <Text style={s.heroSub}>{friends.length} connected</Text>
       </View>
 
       {/* Search */}
       <View style={s.searchWrap}>
-        <LinearGradient colors={[rgbaFromHex(darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26), 0.32), rgbaFromHex(darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26), 0.1)]} style={s.searchBorder}>
-          <View style={s.searchInner}>
-            <Ionicons name="search-outline" size={14} color={darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26)} />
+        <Text style={s.searchLabel}>find your people</Text>
+        <View style={s.searchInner}>
+            <View style={s.searchIcon}>
+              <Ionicons name="search-outline" size={15} color={selectedTheme.accentHover} />
+            </View>
             <TextInput
               style={s.searchInput}
               value={searchQ}
               onChangeText={doSearch}
-              placeholder="find people..."
+              placeholder="search by username"
               placeholderTextColor={selectedTheme.textSecondary}
               autoCapitalize="none"
               autoCorrect={false}
@@ -235,8 +245,7 @@ export default function FriendsScreen({ user, onBack }: Props) {
                   </HapticTouchable>
                 )
             }
-          </View>
-        </LinearGradient>
+        </View>
       </View>
 
       {/* Search results */}
@@ -266,15 +275,19 @@ export default function FriendsScreen({ user, onBack }: Props) {
       )}
 
       {/* Tabs */}
+      <View style={s.tabShell}>
       <View style={s.tabRow}>
         {(['friends', 'requests', 'activity'] as const).map(t => (
-          <HapticTouchable key={t} style={s.tabItem} onPress={() => setTab(t)} haptic="selection">
+          <HapticTouchable key={t} style={[s.tabItem, tab === t && s.tabItemActive]} onPress={() => setTab(t)} haptic="selection">
             <Text style={[s.tabText, tab === t && s.tabTextActive]}>
-              {t}{t === 'requests' && requests.length > 0 ? ` (${requests.length})` : ''}
+              {t}
             </Text>
-            {tab === t && <View style={s.tabLine} />}
+            {t === 'requests' && requests.length > 0 && (
+              <View style={s.tabCount}><Text style={s.tabCountText}>{requests.length}</Text></View>
+            )}
           </HapticTouchable>
         ))}
+      </View>
       </View>
 
       <ScrollView
@@ -286,6 +299,7 @@ export default function FriendsScreen({ user, onBack }: Props) {
         {tab === 'friends' && (
           friends.length === 0 ? (
             <View style={empty.wrap}>
+              <SocialTileMaterial />
               <LinearGradient colors={[rgbaFromHex(darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26), 0.18), rgbaFromHex(darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26), 0.04)]} style={empty.icon}>
                 <Ionicons name="people-outline" size={40} color={darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26)} />
               </LinearGradient>
@@ -298,6 +312,7 @@ export default function FriendsScreen({ user, onBack }: Props) {
             const kudosed  = kudosSent.has(f.id);
             return (
               <View key={f.id ?? i} style={fc.wrap}>
+                <SocialTileMaterial />
                 <View style={fc.accent} />
                 <View style={fc.body}>
                   <View style={fc.row}>
@@ -342,6 +357,7 @@ export default function FriendsScreen({ user, onBack }: Props) {
         {tab === 'requests' && (
           requests.length === 0 ? (
             <View style={empty.wrap}>
+              <SocialTileMaterial />
               <LinearGradient colors={[rgbaFromHex(darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26), 0.18), rgbaFromHex(darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26), 0.04)]} style={empty.icon}>
                 <Ionicons name="mail-outline" size={40} color={darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26)} />
               </LinearGradient>
@@ -350,6 +366,7 @@ export default function FriendsScreen({ user, onBack }: Props) {
             </View>
           ) : requests.map((r: any, i: number) => (
             <View key={r.id ?? i} style={rq.wrap}>
+              <SocialTileMaterial />
               <View style={rq.accent} />
               <View style={rq.body}>
                 <View style={rq.row}>
@@ -378,6 +395,7 @@ export default function FriendsScreen({ user, onBack }: Props) {
         {tab === 'activity' && (
           feed.length === 0 ? (
             <View style={empty.wrap}>
+              <SocialTileMaterial />
               <LinearGradient colors={[rgbaFromHex(darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26), 0.18), rgbaFromHex(darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26), 0.04)]} style={empty.icon}>
                 <Ionicons name="pulse-outline" size={40} color={darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26)} />
               </LinearGradient>
@@ -389,6 +407,7 @@ export default function FriendsScreen({ user, onBack }: Props) {
             const icon  = activityIcon(item.activity_type);
             return (
               <View key={item.id ?? i} style={af.row}>
+                <SocialTileMaterial />
                 {i < feed.length - 1 && <View style={af.line} />}
                 <View style={[af.iconWrap, { backgroundColor: rgbaFromHex(color, 0.1), borderColor: rgbaFromHex(color, 0.3) }]}>
                   <Ionicons name={icon} size={13} color={color} />
@@ -419,51 +438,189 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   const SURFACE = theme.panel;
   const SURFACE_ALT = theme.panelAlt;
   return StyleSheet.create({
-    root: { flex: 1 },
-    topBar: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
-    backBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: rgbaFromHex(SURFACE, 0.88), borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' },
-    requestBadge: { backgroundColor: rgbaFromHex(ACCENT_DARK, 0.14), borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: theme.borderStrong },
-    requestBadgeText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: theme.accent },
-    hero: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', alignItems: 'center', paddingTop: 12, paddingBottom: 24, gap: 8 },
-    heroGlow: { width: 100, height: 100, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: rgbaFromHex(ACCENT_DARK, 0.3) },
-    heroTitle: { fontFamily: 'Inter_900Black', fontSize: 42, color: theme.accentHover, letterSpacing: -2, marginTop: 6 },
-    heroSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: theme.textSecondary, letterSpacing: 1 },
-    searchWrap: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingLeft: 20, paddingRight: 20, marginBottom: 14 },
-    searchBorder: { borderRadius: 14, padding: 1 },
-    searchInner: { flexDirection: 'row', alignItems: 'center', backgroundColor: rgbaFromHex(SURFACE_ALT, 0.94), borderRadius: 13, paddingHorizontal: 12, paddingVertical: 11, gap: 10 },
-    searchInput: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 14, color: theme.accentHover },
-    resultsSheet: { width: '100%', maxWidth: layout.contentMaxWidth - 40, alignSelf: 'center', marginLeft: 20, marginRight: 20, backgroundColor: rgbaFromHex(SURFACE, 0.94), borderRadius: 14, borderWidth: 1, borderColor: theme.borderStrong, marginBottom: 12, overflow: 'hidden' },
-    resultRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 11, gap: 10 },
+    root: { flex: 1, backgroundColor: theme.bgPrimary },
+    topBar: {
+      width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
+      height: 70, flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: 16, gap: 12,
+    },
+    backBtn: {
+      width: 40, height: 40, borderRadius: 14,
+      backgroundColor: rgbaFromHex(SURFACE_ALT, 0.76),
+      borderWidth: 1, borderColor: theme.borderStrong,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    headerCopy: { flex: 1 },
+    brandSub: {
+      fontFamily: 'Inter_600SemiBold', fontSize: 7.5, color: theme.accentHover,
+      letterSpacing: 1.7, textTransform: 'uppercase',
+    },
+    headerTitle: {
+      marginTop: 2, fontFamily: 'Inter_900Black', fontSize: 25,
+      color: theme.textPrimary, letterSpacing: -0.8,
+    },
+    headerSignal: {
+      width: 40, height: 40, borderRadius: 14, alignItems: 'center',
+      justifyContent: 'center', borderWidth: 1, borderColor: theme.borderStrong,
+      backgroundColor: rgbaFromHex(SURFACE_ALT, 0.76),
+    },
+    headerSignalBadge: {
+      position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18,
+      borderRadius: 9, paddingHorizontal: 4, alignItems: 'center',
+      justifyContent: 'center', backgroundColor: theme.danger,
+      borderWidth: 2, borderColor: theme.bgPrimary,
+    },
+    headerSignalBadgeText: { fontFamily: 'Inter_900Black', fontSize: 8, color: '#fff' },
+    hero: {
+      width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
+      paddingHorizontal: 16,
+    },
+    heroPanel: {
+      minHeight: 218, padding: 20, overflow: 'hidden',
+      borderRadius: 24,
+      borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)',
+    },
+    heroCopy: { width: '66%' },
+    heroKicker: {
+      fontFamily: 'Inter_600SemiBold', fontSize: 8, color: theme.accentHover,
+      letterSpacing: 1.8, textTransform: 'uppercase',
+    },
+    heroTitle: {
+      marginTop: 9, fontFamily: 'Inter_900Black', fontSize: 25,
+      lineHeight: 27, color: theme.textPrimary, letterSpacing: -0.9,
+    },
+    heroSub: {
+      marginTop: 8, fontFamily: 'Inter_400Regular', fontSize: 9.5,
+      lineHeight: 14, color: theme.textSecondary,
+    },
+    heroOrbit: {
+      position: 'absolute', width: 90, height: 90, right: 15, top: 28,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    heroOrbitRing: {
+      position: 'absolute', width: 86, height: 86, borderRadius: 43,
+      borderWidth: 1, borderStyle: 'dashed',
+      borderColor: rgbaFromHex(theme.accentHover, 0.32),
+    },
+    heroOrbitCore: {
+      width: 51, height: 51, borderRadius: 17,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    heroOrbitNode: {
+      position: 'absolute', width: 10, height: 10, borderRadius: 5,
+      borderWidth: 2, borderColor: theme.bgPrimary,
+      backgroundColor: theme.accentHover,
+    },
+    heroOrbitNodeA: { left: 2, top: 18 },
+    heroOrbitNodeB: { right: 4, bottom: 14 },
+    heroStats: {
+      position: 'absolute', left: 20, right: 20, bottom: 15, height: 50,
+      flexDirection: 'row', alignItems: 'center',
+      borderRadius: 18, borderWidth: 1, borderColor: theme.border,
+      backgroundColor: rgbaFromHex(theme.bgPrimary, 0.58),
+    },
+    heroStat: { flex: 1, alignItems: 'center' },
+    heroStatValue: {
+      fontFamily: 'Inter_900Black', fontSize: 16,
+      color: theme.accentHover, letterSpacing: -0.3,
+    },
+    heroStatLabel: {
+      marginTop: 2, fontFamily: 'Inter_600SemiBold', fontSize: 6.5,
+      color: theme.textSecondary, letterSpacing: 0.8, textTransform: 'uppercase',
+    },
+    heroStatDivider: { width: 1, height: 21, backgroundColor: theme.border },
+    searchWrap: {
+      width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
+      paddingHorizontal: 16, marginTop: 16, marginBottom: 12,
+    },
+    searchLabel: {
+      marginLeft: 4, marginBottom: 7, fontFamily: 'Inter_600SemiBold',
+      fontSize: 8, color: theme.accentHover, letterSpacing: 1.6,
+      textTransform: 'uppercase',
+    },
+    searchInner: {
+      minHeight: 51, flexDirection: 'row', alignItems: 'center',
+      backgroundColor: '#0b0c0f', borderRadius: 19,
+      paddingHorizontal: 9, gap: 9, borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)',
+    },
+    searchIcon: {
+      width: 34, height: 34, borderRadius: 12, alignItems: 'center',
+      justifyContent: 'center', backgroundColor: rgbaFromHex(ACCENT_DARK, 0.11),
+      borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.18),
+    },
+    searchInput: {
+      flex: 1, fontFamily: 'Inter_400Regular', fontSize: 13,
+      color: theme.textPrimary, paddingVertical: 0,
+    },
+    resultsSheet: {
+      width: '100%', maxWidth: layout.contentMaxWidth - 32, alignSelf: 'center',
+      marginHorizontal: 16, backgroundColor: '#0b0c0f',
+      borderRadius: 18,
+      borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)',
+      marginBottom: 12, overflow: 'hidden',
+    },
+    resultRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13, paddingVertical: 12, gap: 10 },
     resultDivider: { borderBottomWidth: 1, borderBottomColor: theme.border },
-    resultName: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: theme.accentHover },
+    resultName: { fontFamily: 'Inter_900Black', fontSize: 13, color: theme.textPrimary },
     resultSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: theme.textSecondary, marginTop: 1 },
-    addChip: { backgroundColor: rgbaFromHex(ACCENT_DARK, 0.14), borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: theme.borderStrong },
+    addChip: { backgroundColor: rgbaFromHex(ACCENT_DARK, 0.14), borderRadius: 999, paddingHorizontal: 11, paddingVertical: 7, borderWidth: 1, borderColor: theme.borderStrong },
     addChipSent: { backgroundColor: 'transparent', borderColor: theme.border },
-    addChipText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: theme.accentHover },
-    tabRow: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', flexDirection: 'row', paddingLeft: 20, paddingRight: 20, marginBottom: 14, borderBottomWidth: 1, borderBottomColor: theme.border },
-    tabItem: { flex: 1, alignItems: 'center', paddingBottom: 10, position: 'relative' },
-    tabText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: theme.textSecondary },
+    addChipText: { fontFamily: 'Inter_700Bold', fontSize: 10, color: theme.accentHover },
+    tabShell: {
+      width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
+      paddingHorizontal: 16, marginBottom: 12,
+    },
+    tabRow: {
+      height: 45, flexDirection: 'row', padding: 4,
+      borderRadius: 17, borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)',
+      backgroundColor: '#050506',
+    },
+    tabItem: {
+      flex: 1, flexDirection: 'row', alignItems: 'center',
+      justifyContent: 'center', gap: 5, borderRadius: 13,
+    },
+    tabItemActive: {
+      backgroundColor: rgbaFromHex(theme.accentHover, 0.13),
+      borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.18),
+    },
+    tabText: {
+      fontFamily: 'Inter_600SemiBold', fontSize: 9,
+      color: theme.textSecondary, textTransform: 'uppercase', letterSpacing: 0.6,
+    },
     tabTextActive: { color: theme.accentHover },
-    tabLine: { position: 'absolute', bottom: -1, left: '10%', right: '10%', height: 2, backgroundColor: theme.accent, borderRadius: 1 },
-    list: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingLeft: 20, paddingRight: 20, gap: 8, paddingBottom: 48 },
+    tabCount: {
+      minWidth: 15, height: 15, borderRadius: 8, paddingHorizontal: 4,
+      alignItems: 'center', justifyContent: 'center',
+      backgroundColor: theme.accentHover,
+    },
+    tabCountText: { fontFamily: 'Inter_900Black', fontSize: 7, color: theme.bgPrimary },
+    list: {
+      width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
+      paddingHorizontal: 16, gap: 9, paddingBottom: 48,
+    },
   });
 }
 
 function createFriendCardStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
   const ACCENT_DARK = darkenColor(theme.accent, theme.isLight ? 10 : 26);
   return StyleSheet.create({
-    wrap: { flexDirection: 'row', backgroundColor: rgbaFromHex(theme.panel, 0.88), borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: theme.border },
-    accent: { width: 3, backgroundColor: ACCENT_DARK },
-    body: { flex: 1, padding: 14 },
+    wrap: {
+      flexDirection: 'row', minHeight: 76,
+      backgroundColor: '#0b0c0f',
+      borderRadius: 18,
+      overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)',
+    },
+    accent: { width: 3, backgroundColor: ACCENT_DARK, opacity: 0.76 },
+    body: { flex: 1, paddingHorizontal: 13, paddingVertical: 12 },
     row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    name: { fontFamily: 'Inter_900Black', fontSize: 15, color: theme.accentHover },
+    name: { fontFamily: 'Inter_900Black', fontSize: 14, color: theme.textPrimary },
     chips: { flexDirection: 'row', gap: 6, marginTop: 6 },
-    streakChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: rgbaFromHex(theme.warning, 0.12), borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: rgbaFromHex(theme.warning, 0.22) },
-    streakText: { fontFamily: 'Inter_700Bold', fontSize: 10, color: theme.warning },
-    masterChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: rgbaFromHex(ACCENT_DARK, 0.1), borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: theme.borderStrong },
-    masterText: { fontFamily: 'Inter_700Bold', fontSize: 10, color: theme.accent },
+    streakChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: rgbaFromHex(theme.warning, 0.1), borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: rgbaFromHex(theme.warning, 0.2) },
+    streakText: { fontFamily: 'Inter_700Bold', fontSize: 8, color: theme.warning },
+    masterChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: rgbaFromHex(ACCENT_DARK, 0.08), borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: theme.borderStrong },
+    masterText: { fontFamily: 'Inter_700Bold', fontSize: 8, color: theme.accentHover },
     actions: { gap: 6 },
-    iconBtn: { width: 32, height: 32, borderRadius: 10, backgroundColor: theme.panelAlt, borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' },
+    iconBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: rgbaFromHex(theme.panelAlt, 0.78), borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' },
     iconBtnActive: { backgroundColor: rgbaFromHex(theme.danger, 0.12), borderColor: rgbaFromHex(theme.danger, 0.22) },
   });
 }
@@ -471,27 +628,35 @@ function createFriendCardStyles(theme: ReturnType<typeof useAppTheme>['selectedT
 function createRequestStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
   const ACCENT_DARK = darkenColor(theme.accent, theme.isLight ? 10 : 26);
   return StyleSheet.create({
-    wrap: { flexDirection: 'row', backgroundColor: rgbaFromHex(theme.panel, 0.88), borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: theme.borderStrong },
+    wrap: {
+      flexDirection: 'row', backgroundColor: '#0b0c0f',
+      borderRadius: 18,
+      overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)',
+    },
     accent: { width: 3, backgroundColor: theme.accent },
     body: { flex: 1, padding: 14, gap: 12 },
     row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    name: { fontFamily: 'Inter_900Black', fontSize: 15, color: theme.accentHover },
+    name: { fontFamily: 'Inter_900Black', fontSize: 14, color: theme.textPrimary },
     sub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: theme.textSecondary, marginTop: 2 },
     actions: { flexDirection: 'row', gap: 8 },
-    acceptBtn: { borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
-    acceptText: { fontFamily: 'Inter_700Bold', fontSize: 13, color: theme.bgPrimary },
-    declineBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: rgbaFromHex(ACCENT_DARK, 0.22), paddingVertical: 10, backgroundColor: rgbaFromHex(theme.panelAlt, 0.92) },
-    declineText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: theme.textSecondary },
+    acceptBtn: { borderRadius: 999, paddingVertical: 10, alignItems: 'center' },
+    acceptText: { fontFamily: 'Inter_900Black', fontSize: 10, color: theme.bgPrimary, textTransform: 'uppercase', letterSpacing: 0.8 },
+    declineBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 999, borderWidth: 1, borderColor: rgbaFromHex(ACCENT_DARK, 0.22), paddingVertical: 10, backgroundColor: rgbaFromHex(theme.panelAlt, 0.92) },
+    declineText: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: theme.textSecondary, textTransform: 'uppercase', letterSpacing: 0.8 },
   });
 }
 
 function createActivityStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
   const ACCENT_DARK = darkenColor(theme.accent, theme.isLight ? 10 : 26);
   return StyleSheet.create({
-    row: { flexDirection: 'row', gap: 12, paddingVertical: 6, position: 'relative' },
-    line: { position: 'absolute', left: 71, top: 36, bottom: -6, width: 1, backgroundColor: rgbaFromHex(ACCENT_DARK, 0.16) },
-    iconWrap: { width: 32, height: 32, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1 },
-    text: { fontFamily: 'Inter_400Regular', fontSize: 13, color: theme.accentHover, lineHeight: 20 },
+    row: {
+      minHeight: 68, flexDirection: 'row', gap: 12, padding: 12,
+      position: 'relative', borderRadius: 20, borderWidth: 1,
+      borderColor: 'rgba(216,179,141,0.22)', backgroundColor: '#0b0c0f', overflow: 'hidden',
+    },
+    line: { position: 'absolute', left: 28, top: 45, bottom: -16, width: 1, backgroundColor: rgbaFromHex(ACCENT_DARK, 0.18) },
+    iconWrap: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1 },
+    text: { fontFamily: 'Inter_400Regular', fontSize: 12, color: theme.accentHover, lineHeight: 18 },
     bold: { fontFamily: 'Inter_700Bold', color: theme.textPrimary },
     dim: { color: theme.textSecondary },
     topic: { fontFamily: 'Inter_600SemiBold' },
@@ -502,9 +667,15 @@ function createActivityStyles(theme: ReturnType<typeof useAppTheme>['selectedThe
 function createEmptyStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
   const ACCENT_DARK = darkenColor(theme.accent, theme.isLight ? 10 : 26);
   return StyleSheet.create({
-    wrap: { alignItems: 'center', paddingTop: 64, gap: 14 },
-    icon: { width: 88, height: 88, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: rgbaFromHex(ACCENT_DARK, 0.24) },
-    title: { fontFamily: 'Inter_900Black', fontSize: 18, color: ACCENT_DARK },
-    hint: { fontFamily: 'Inter_400Regular', fontSize: 13, color: theme.textSecondary, textAlign: 'center', paddingHorizontal: 24 },
+    wrap: {
+      minHeight: 190, alignItems: 'center', justifyContent: 'center',
+      gap: 11, padding: 24,
+      borderRadius: 22,
+      borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)',
+      backgroundColor: '#0b0c0f', overflow: 'hidden',
+    },
+    icon: { width: 70, height: 70, borderRadius: 35, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderStyle: 'dashed', borderColor: rgbaFromHex(ACCENT_DARK, 0.32) },
+    title: { fontFamily: 'Inter_900Black', fontSize: 17, color: theme.textPrimary },
+    hint: { fontFamily: 'Inter_400Regular', fontSize: 11, lineHeight: 16, color: theme.textSecondary, textAlign: 'center', paddingHorizontal: 24 },
   });
 }

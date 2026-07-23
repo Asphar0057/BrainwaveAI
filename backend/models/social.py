@@ -248,6 +248,8 @@ class SoloQuiz(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     subject = Column(String(100), nullable=False)
     difficulty = Column(String(20), default="intermediate")
+    bandit_episode_id = Column(String(36), nullable=True, index=True)
+    bandit_topic_key = Column(String(50), nullable=True)
     status = Column(String(20), default="active")
 
     question_count = Column(Integer, default=10)

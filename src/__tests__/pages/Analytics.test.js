@@ -14,7 +14,7 @@ import {
   MOCK_FLASHCARD_DETAILS,
   MOCK_TOKEN,
   MOCK_USERNAME,
-} from '../helpers/testUtils';
+} from '../../testUtils';
 
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
@@ -27,8 +27,6 @@ jest.mock('../../contexts/ThemeContext', () => ({
     selectedTheme: { id: 'default', tokens: { '--accent': '#D7B38C' } },
   }),
 }));
-
-jest.mock('../../components/GeoBackground', () => () => <div data-testid="geo-bg" />);
 
 const FETCH_ROUTES = {
   get_weekly_progress: MOCK_WEEKLY_PROGRESS,
@@ -52,10 +50,9 @@ const renderAnalytics = async () => {
     );
   });
   
-  await waitFor(
-    () => expect(screen.queryByText(/loading analytics/i)).not.toBeInTheDocument(),
-    { timeout: 3000 }
-  );
+  await waitFor(() => {
+    expect(document.querySelector('.an-loading')).not.toBeInTheDocument();
+  }, { timeout: 3000 });
   return utils;
 };
 
@@ -93,10 +90,10 @@ describe('Analytics', () => {
       await expect(renderAnalytics()).resolves.not.toThrow();
     });
 
-    it('renders geo background', async () => {
+    it('renders the analytics background', async () => {
       await renderAnalytics();
-      
-      expect(screen.getByTestId('geo-bg')).toBeInTheDocument();
+
+      expect(document.querySelector('.an-bg')).toBeInTheDocument();
     });
 
     it('renders Overview tab button', async () => {
@@ -105,9 +102,9 @@ describe('Analytics', () => {
       expect(screen.getByText('OVERVIEW')).toBeInTheDocument();
     });
 
-    it('renders Detailed Stats tab button', async () => {
+    it('renders Deep Stats tab button', async () => {
       await renderAnalytics();
-      expect(screen.getByText('DETAILED STATS')).toBeInTheDocument();
+      expect(screen.getByText('DEEP STATS')).toBeInTheDocument();
     });
 
     it('renders ML Insights tab button', async () => {
@@ -187,10 +184,10 @@ describe('Analytics', () => {
   describe('Tab Switching', () => {
     beforeEach(() => setupLocalStorage());
 
-    it('switches to Detailed Stats tab and triggers stat load', async () => {
+    it('switches to Deep Stats tab and triggers stat load', async () => {
       await renderAnalytics();
       
-      const detailedTab = screen.getByText('DETAILED STATS');
+      const detailedTab = screen.getByText('DEEP STATS');
       await act(async () => { fireEvent.click(detailedTab); });
       await waitFor(() => {
         const urls = global.fetch.mock.calls.map(([u]) => u);
@@ -214,7 +211,7 @@ describe('Analytics', () => {
     it('does not crash when switching tabs rapidly', async () => {
       await renderAnalytics();
       const overviewTab = screen.getByText('OVERVIEW');
-      const detailedTab = screen.getByText('DETAILED STATS');
+      const detailedTab = screen.getByText('DEEP STATS');
       const mlTab = screen.getByText('ML INSIGHTS');
       await act(async () => {
         fireEvent.click(detailedTab);
@@ -234,22 +231,12 @@ describe('Analytics', () => {
       await renderAnalytics();
       const callCountBefore = global.fetch.mock.calls.length;
 
-      const timeButtons = screen
-        .queryAllByRole('button')
-        .filter((btn) =>
-          ['week', 'month', 'year', 'all'].some((r) =>
-            btn.textContent.toLowerCase().includes(r)
-          )
-        );
-
-      if (timeButtons.length > 1) {
-        await act(async () => {
-          fireEvent.click(timeButtons[1]);
-        });
-        await waitFor(() => {
-          expect(global.fetch.mock.calls.length).toBeGreaterThan(callCountBefore);
-        });
-      }
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'WEEK' }));
+      });
+      await waitFor(() => {
+        expect(global.fetch.mock.calls.length).toBeGreaterThan(callCountBefore);
+      });
     });
 
     it('sends correct time range param in requests', async () => {
@@ -270,36 +257,30 @@ describe('Analytics', () => {
   });
 
   
-  describe('Metric Toggle', () => {
+  describe('Time Range Controls', () => {
     beforeEach(() => setupLocalStorage());
 
-    it('renders metric toggle buttons', async () => {
+    it('renders all time range buttons', async () => {
       await renderAnalytics();
-      const metricButtons = screen
-        .queryAllByRole('button')
-        .filter((btn) =>
-          ['points', 'chats', 'notes', 'flashcards', 'quizzes', 'study'].some((m) =>
-            btn.textContent.toLowerCase().includes(m)
-          )
-        );
-      expect(metricButtons.length).toBeGreaterThan(0);
+      for (const label of ['WEEK', 'MONTH', 'YEAR', 'ALL']) {
+        expect(screen.getByRole('button', { name: label })).toBeInTheDocument();
+      }
     });
 
-    it('does not crash when metric toggle buttons are clicked', async () => {
+    it('keeps the controls available after changing ranges', async () => {
       await renderAnalytics();
-      const metricButtons = screen
-        .queryAllByRole('button')
-        .filter((btn) =>
-          ['points', 'chats', 'notes', 'flashcards', 'quizzes'].some((m) =>
-            btn.textContent.toLowerCase().includes(m)
-          )
-        );
       await act(async () => {
-        for (const btn of metricButtons.slice(0, 2)) {
-          fireEvent.click(btn);
-        }
+        fireEvent.click(screen.getByRole('button', { name: 'WEEK' }));
       });
-      expect(true).toBe(true);
+      await waitFor(() => {
+        expect(document.querySelector('.an-loading')).not.toBeInTheDocument();
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'YEAR' }));
+      });
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'YEAR' })).toHaveClass('active');
+      });
     });
   });
 

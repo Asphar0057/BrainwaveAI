@@ -33,6 +33,7 @@ import {
   getFlashcardsInSet,
   getFlashcardStatistics,
   markFlashcardForReview,
+  reviewFlashcard,
 } from '../services/api';
 import { triggerHaptic } from '../utils/haptics';
 import { darkenColor, getDefaultTheme, lightenColor, rgbaFromHex } from '../utils/theme';
@@ -99,7 +100,7 @@ type ManualDraftCard = {
   answer: string;
 };
 
-type Difficulty = 'easy' | 'medium' | 'hard';
+type Difficulty = 'adaptive' | 'easy' | 'medium' | 'hard';
 type CreateMode = 'ai' | 'manual';
 
 type Props = { user: AuthUser; onBack?: () => void };
@@ -112,7 +113,7 @@ type FlashcardsStackParamList = {
 
 const FlashcardsStack = createNativeStackNavigator<FlashcardsStackParamList>();
 
-const difficultyOptions: Difficulty[] = ['easy', 'medium', 'hard'];
+const difficultyOptions: Difficulty[] = ['adaptive', 'easy', 'medium', 'hard'];
 const cardCountOptions = [5, 10, 15, 20];
 
 function applyTheme(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
@@ -209,12 +210,14 @@ function StudyView({
   onBack,
   onComplete,
   onToggleReview,
+  onAnswer,
 }: {
   set: FlashcardSet;
   cards: Flashcard[];
   onBack: () => void;
   onComplete: (stats: { correct: number; incorrect: number }) => void;
   onToggleReview: (cardId: number, marked: boolean) => Promise<void>;
+  onAnswer: (cardId: number, correct: boolean) => Promise<void>;
 }) {
   const layout = useResponsiveLayout();
   const useLandscapeLayout = layout.isLandscape && layout.width >= 700;
@@ -261,6 +264,11 @@ function StudyView({
   };
 
   const answer = (correct: boolean) => {
+    if (card?.id) {
+      void onAnswer(card.id, correct).catch(() => {
+        // Keep the study session responsive if review telemetry is unavailable.
+      });
+    }
     const key = correct ? 'correct' : 'incorrect';
     const next = { ...stats, [key]: stats[key] + 1 };
     setStats(next);
@@ -1132,6 +1140,11 @@ export default function FlashcardsScreen({ user, onBack }: Props) {
               await markFlashcardForReview(cardId, marked);
               setRefreshTick((value) => value + 1);
             }}
+            onAnswer={(cardId, correct) => reviewFlashcard({
+              userId: user.username,
+              cardId,
+              wasCorrect: correct,
+            })}
             onComplete={(stats) => navigation.reset({
               index: 1,
               routes: [

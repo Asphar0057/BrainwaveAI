@@ -4,11 +4,11 @@ handler functions (not mocks) and a real isolated scratch DB. This is NOT a
 pytest file -- it's a narrated, human-readable proof that the fixes made
 2026-07-23 actually work, with before/after DB state printed at each step.
 
-Flashcard generation uses AI_LOAD_TEST_FALLBACK_USERS so it runs fully offline
-and deterministically for the first 5 (cold-start) calls. Solo-quiz, the 6th
-flashcard call, and question-bank generation make real Groq calls (keys are
-configured locally) to also prove genuine end-to-end behavior, not just the
-bandit's own internals.
+Flashcard generation uses AI_LOAD_TEST_FALLBACK_USERS so it runs fully offline.
+The first five generated episodes are explicitly completed with deterministic
+rewards so cold-start progression reflects completed learning activities.
+Solo-quiz and question-bank generation make real Groq calls (keys are configured
+locally) to also prove genuine end-to-end behavior.
 
 Run:  cd backend && python tests/demo_bandit_sample_calls.py
 """
@@ -82,12 +82,13 @@ async def main():
     hr("DEMO 1 -- ContentDifficultyBandit: flashcard generation + review")
     # =====================================================================
     from routes.flashcards import generate_flashcards_endpoint, update_flashcard_review, FlashcardReviewRequest
-    from services.content_bandit import encode_content_state
+    from services.content_bandit import encode_content_state, get_content_bandit
 
     print("\nSample call: POST /generate_flashcards  {user_id, topic='Photosynthesis', difficulty='auto'}")
-    print("(repeated 6x to cross the cold-start line at 5 interactions; kept on the")
-    print(" offline load-test fallback throughout so this loop is fast and deterministic --")
-    print(" a real persisted card is seeded separately below for the /flashcards/review call)\n")
+    print("(repeated 6x; the first 5 are completed with deterministic rewards so")
+    print(" abandoned generations cannot advance cold start. The 6th episode is linked")
+    print(" to a persisted set and resolved through /flashcards/review below.)\n")
+    latest_episode_id = None
     for i in range(6):
         db = fresh_db()
         result = await generate_flashcards_endpoint(
@@ -99,14 +100,31 @@ async def main():
             .filter_by(student_id=str(uid), state_hash=state_hash)
             .order_by(m.BanditEpisodeLog.timestamp.desc()).first()
         )
+        latest_episode_id = episode.id
         print(f"  call {i+1}: resolved_difficulty={episode.strategy_selected!r:10} method={episode.selection_method!r:8} cards_returned={len(result.get('flashcards', []))} persisted={result.get('persisted', True)}")
+        if i < 5:
+            get_content_bandit().resolve_reward(
+                db,
+                str(uid),
+                "flashcard",
+                "Photosynthesis",
+                accuracy=0.8,
+                episode_id=episode.id,
+            )
         db.close()
 
     # Seed one real, persisted Flashcard row (as a completed generation would
     # have created) so /flashcards/review has something real to review without
     # depending on a real AI call succeeding inside this loop.
     db = fresh_db()
-    fc_set = m.FlashcardSet(user_id=uid, title="Flashcards: Photosynthesis", description="demo seed", source_type="topic")
+    fc_set = m.FlashcardSet(
+        user_id=uid,
+        title="Flashcards: Photosynthesis",
+        description="demo seed",
+        source_type="topic",
+        bandit_episode_id=latest_episode_id,
+        bandit_topic_key="Photosynthesis",
+    )
     db.add(fc_set)
     db.commit()
     db.refresh(fc_set)

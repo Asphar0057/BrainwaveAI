@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
-import { clearLocalStorage } from '../helpers/testUtils';
+import { clearLocalStorage } from '../../testUtils';
 import QuizHub from '../../pages/QuizHub';
 import contextService from '../../services/contextService';
 

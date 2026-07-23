@@ -121,7 +121,7 @@ class QuestionBankAgentService {
 
   
   async generateFromMultiplePDFs(params) {
-    const { userId, sourceIds, questionCount, difficultyMix, title, questionTypes, topics } = params;
+    const { userId, sourceIds, questionCount, difficultyMix, title, questionTypes, topics, adaptiveDifficulty } = params;
 
     const response = await aiAwareFetch(`${API_URL}/qb/generate_from_multiple_pdfs`, {
       method: 'POST',
@@ -136,7 +136,8 @@ class QuestionBankAgentService {
         difficulty_mix: difficultyMix,
         title: title,
         question_types: questionTypes || ['multiple_choice', 'true_false', 'short_answer'],
-        topics: topics
+        topics: topics,
+        adaptive_difficulty: Boolean(adaptiveDifficulty)
       })
     });
 
@@ -191,7 +192,8 @@ class QuestionBankAgentService {
       topics,
       customPrompt,
       referenceDocumentId,
-      contentDocumentIds
+      contentDocumentIds,
+      adaptiveDifficulty
     } = params;
 
     const response = await aiAwareFetch(`${API_URL}/qb/smart_generate`, {
@@ -210,7 +212,8 @@ class QuestionBankAgentService {
         topics: topics,
         custom_prompt: customPrompt,
         reference_document_id: referenceDocumentId,
-        content_document_ids: contentDocumentIds
+        content_document_ids: contentDocumentIds,
+        adaptive_difficulty: Boolean(adaptiveDifficulty)
       })
     });
 
@@ -252,7 +255,8 @@ class QuestionBankAgentService {
       questionTypes,
       topics,
       customPrompt,
-      sessionId
+      sessionId,
+      adaptiveDifficulty
     } = params;
     const response = await aiAwareFetch(`${API_URL}/qb/generate_from_sources`, {
       method: 'POST',
@@ -268,7 +272,8 @@ class QuestionBankAgentService {
         question_types: questionTypes || ['multiple_choice', 'true_false', 'short_answer'],
         topics: topics || [],
         custom_prompt: customPrompt || null,
-        session_id: sessionId || null
+        session_id: sessionId || null,
+        adaptive_difficulty: Boolean(adaptiveDifficulty)
       })
     });
 

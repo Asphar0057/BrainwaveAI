@@ -9,8 +9,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../../services/auth';
 import { createSoloQuiz, getSoloQuiz, completeSoloQuiz, SoloQuizQuestion } from '../../services/api';
 import HapticTouchable from '../../components/HapticTouchable';
-import AmbientBubbles from '../../components/AmbientBubbles';
 import GeoBackground from '../../components/GeoBackground';
+import SocialTileMaterial from '../../components/SocialTileMaterial';
 import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../../components/NeumorphicTexture';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../../utils/theme';
@@ -18,7 +18,7 @@ import { useResponsiveLayout } from '../../hooks/useResponsiveLayout';
 
 type Props = { user: AuthUser; onBack: () => void };
 type Stage = 'generator' | 'loading' | 'session' | 'review';
-type Difficulty = 'easy' | 'medium' | 'hard';
+type Difficulty = 'adaptive' | 'easy' | 'medium' | 'hard';
 
 type AnsweredResult = {
   question_text: string;
@@ -139,7 +139,6 @@ export default function SoloQuizScreen({ user, onBack }: Props) {
     <View style={s.root}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.58, 1]} style={StyleSheet.absoluteFillObject} />
       <GeoBackground />
-      <AmbientBubbles theme={selectedTheme} variant="quiz" opacity={0.82} />
 
       <View style={s.topBar}>
         <HapticTouchable
@@ -174,7 +173,7 @@ export default function SoloQuizScreen({ user, onBack }: Props) {
 
           <Text style={s.fieldLabel}>DIFFICULTY</Text>
           <View style={s.chipRow}>
-            {(['easy', 'medium', 'hard'] as const).map(d => (
+            {(['adaptive', 'easy', 'medium', 'hard'] as const).map(d => (
               <HapticTouchable
                 key={d}
                 style={[s.chip, difficulty === d && s.chipActive]}
@@ -285,6 +284,7 @@ function QuizSession({
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
         <View style={s.questionCard}>
+          <SocialTileMaterial />
           <Text style={s.questionText}>{question.question}</Text>
         </View>
 
@@ -378,12 +378,12 @@ function QuizReview({
 }
 
 function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
-  const CARD = theme.panel;
-  const CARD_ALT = theme.panelAlt;
-  const ACCENT = theme.accent;
-  const ACCENT_HOVER = theme.accentHover;
+  const CARD = '#0b0c0f';
+  const CARD_ALT = '#050506';
+  const ACCENT = '#D8B38D';
+  const ACCENT_HOVER = '#D8B38D';
   const DIM = theme.textSecondary;
-  const BORDER = theme.borderStrong;
+  const BORDER = 'rgba(216,179,141,0.22)';
   const INK = theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary;
 
   return StyleSheet.create({
@@ -436,7 +436,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     progressFill: { height: '100%', backgroundColor: ACCENT, borderRadius: 3 },
     progressLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: DIM, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 16 },
 
-    questionCard: { backgroundColor: rgbaFromHex(CARD, 0.9), borderRadius: 22, borderWidth: 1, borderColor: BORDER, padding: 20, marginBottom: 18, boxShadow: cbTileShadow(0.07) } as ViewStyle,
+    questionCard: { backgroundColor: CARD, borderRadius: 22, borderWidth: 1, borderColor: BORDER, padding: 20, marginBottom: 18, overflow: 'hidden', boxShadow: cbTileShadow(0.07) } as ViewStyle,
     questionText: { fontFamily: 'Inter_900Black', fontSize: 19, lineHeight: 26, color: ACCENT_HOVER },
 
     optionBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: rgbaFromHex(CARD_ALT, 0.85), borderRadius: 16, borderWidth: 1, borderColor: BORDER, padding: 14, boxShadow: cbTileShadow(0.04) } as ViewStyle,

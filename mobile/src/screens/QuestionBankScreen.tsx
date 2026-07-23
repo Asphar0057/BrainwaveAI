@@ -339,7 +339,7 @@ export default function QuestionBankScreen({ user, onBack }: Props) {
             <TextInput value={topic} onChangeText={setTopic} placeholder="calculus, biology, react hooks..." placeholderTextColor={selectedTheme.textSecondary} style={s.input} autoFocus />
             <Text style={s.label}>difficulty</Text>
             <View style={s.choiceRow}>
-              {['mixed', 'easy', 'medium', 'hard'].map((item) => (
+              {['adaptive', 'mixed', 'easy', 'medium', 'hard'].map((item) => (
                 <HapticTouchable key={item} style={[s.choice, difficulty === item && s.choiceActive]} onPress={() => setDifficulty(item)} haptic="selection">
                   <Text style={[s.choiceText, difficulty === item && s.choiceTextActive]}>{item}</Text>
                 </HapticTouchable>

@@ -7,7 +7,7 @@ Unit/statistical tests for the three bandit/RL subsystems:
 These did not exist before (repo-wide grep found zero tests touching Bandit*
 classes/tables). Written 2026-07-23 to close that gap and verify the actual
 math (Thompson sampling convergence, alpha/beta updates, delayed-reward
-resolution, neural-arm uncertainty shrinkage) against a REAL sqlite db, not
+resolution, neural-arm uncertainty/persistence) against a REAL sqlite db, not
 mocks -- run against an isolated scratch DB file, never the dev DB.
 
 Run:  cd backend && python -m pytest tests/test_bandit_algorithms.py -v
@@ -45,6 +45,8 @@ from services.rl_strategy_agent import (  # noqa: E402
     StrategyBandit, StateFeatures, encode_state,
 )
 from dkt.style_bandit import StyleBandit, build_context  # noqa: E402
+from services.difficulty_allocation import allocate_difficulty_counts  # noqa: E402
+from services.content_bandit import resolve_flashcard_set_reward  # noqa: E402
 
 
 @pytest.fixture()
@@ -78,18 +80,35 @@ class TestContentDifficultyBandit:
             sel = bandit.select_difficulty(db, sid, "flashcard", "algebra")
             assert sel.selection_method == "rule", f"pull {i} should be cold-start rule"
             assert sel.difficulty == "medium"  # middle of easy/medium/hard
-        db.commit()
+            bandit.resolve_reward(
+                db, sid, "flashcard", "algebra", accuracy=0.7,
+                episode_id=sel.episode_id,
+            )
 
     def test_switches_to_bandit_after_cold_start(self, db):
         bandit = ContentDifficultyBandit()
         sid = f"student-{uuid.uuid4().hex[:8]}"
         for _ in range(COLD_START_INTERACTIONS):
-            bandit.select_difficulty(db, sid, "flashcard", "algebra")
-        db.commit()
+            sel = bandit.select_difficulty(db, sid, "flashcard", "algebra")
+            bandit.resolve_reward(
+                db, sid, "flashcard", "algebra", accuracy=0.7,
+                episode_id=sel.episode_id,
+            )
         sel = bandit.select_difficulty(db, sid, "flashcard", "algebra")
         assert sel.selection_method == "bandit"
         assert set(sel.thompson_samples.keys()) == {"easy", "medium", "hard"}
         db.commit()
+
+    def test_abandoned_generations_do_not_end_cold_start(self, db):
+        bandit = ContentDifficultyBandit()
+        sid = f"student-{uuid.uuid4().hex[:8]}"
+        for _ in range(COLD_START_INTERACTIONS + 3):
+            sel = bandit.select_difficulty(db, sid, "quiz", "abandoned")
+            assert sel.selection_method == "rule"
+        db.commit()
+
+        next_selection = bandit.select_difficulty(db, sid, "quiz", "abandoned")
+        assert next_selection.selection_method == "rule"
 
     def test_alpha_beta_update_arithmetic(self, db):
         bandit = ContentDifficultyBandit()
@@ -183,45 +202,93 @@ class TestContentDifficultyBandit:
             f"distribution={ {a: last_100.count(a) for a in true_accuracy} }"
         )
 
-    def test_domain_topic_arm_vocabulary_collision(self, db):
-        """Reproduces a real bug: practice-quiz (routes/questions.py) and solo-quiz
-        (routes/social.py) both use domain='quiz' but different arm vocabularies
-        (easy/medium/hard vs beginner/intermediate/advanced). Because state_hash
-        is only a function of (domain, topic), both flows share one BanditState/
-        interaction_count bucket even though their arm labels are incompatible.
-        """
+    def test_exact_episode_resolution_handles_out_of_order_completion(self, db):
         bandit = ContentDifficultyBandit()
         sid = f"student-{uuid.uuid4().hex[:8]}"
-        topic = "shared_topic"
+        topic = "same-topic"
+        older = bandit.select_difficulty(db, sid, "quiz", topic)
+        newer = bandit.select_difficulty(db, sid, "quiz", topic)
+        db.commit()
 
-        # Practice-quiz vocabulary
-        for _ in range(3):
-            sel = bandit.select_difficulty(db, sid, "quiz", topic, arms=["easy", "medium", "hard"])
-            assert sel.difficulty in ("easy", "medium", "hard")
-
-        # Solo-quiz vocabulary, SAME domain+topic -> same state_hash
-        for _ in range(3):
-            sel2 = bandit.select_difficulty(db, sid, "quiz", topic, arms=["beginner", "intermediate", "advanced"])
-            assert sel2.difficulty in ("beginner", "intermediate", "advanced")
-
-        state_hash_easy_vocab = encode_content_state("quiz", topic)
-        state_hash_beginner_vocab = encode_content_state("quiz", topic)
-        assert state_hash_easy_vocab == state_hash_beginner_vocab, (
-            "confirms the collision: both vocabularies hash to the identical state"
+        resolved = bandit.resolve_reward(
+            db, sid, "quiz", topic, accuracy=1.0, episode_id=older.episode_id,
         )
+        assert resolved is True
 
-        interaction_count = (
-            db.query(models.BanditEpisodeLog)
-            .filter_by(student_id=sid, state_hash=state_hash_easy_vocab)
-            .count()
+        older_row = db.query(models.BanditEpisodeLog).filter_by(id=older.episode_id).one()
+        newer_row = db.query(models.BanditEpisodeLog).filter_by(id=newer.episode_id).one()
+        assert older_row.reward_received == pytest.approx(1.0)
+        assert newer_row.reward_received is None
+
+    @pytest.mark.parametrize(
+        ("count", "mix", "expected"),
+        [
+            (10, {"easy": 3, "medium": 5, "hard": 2}, {"easy": 3, "medium": 5, "hard": 2}),
+            (10, {"easy": 1, "medium": 0, "hard": 0}, {"easy": 10, "medium": 0, "hard": 0}),
+            (10, {"easy": 0, "medium": 1, "hard": 0}, {"easy": 0, "medium": 10, "hard": 0}),
+            (10, {"easy": 0, "medium": 0, "hard": 1}, {"easy": 0, "medium": 0, "hard": 10}),
+            (1, {"easy": 3, "medium": 5, "hard": 2}, {"easy": 0, "medium": 1, "hard": 0}),
+        ],
+    )
+    def test_difficulty_allocation_is_exact(self, count, mix, expected):
+        allocated = allocate_difficulty_counts(count, mix)
+        assert allocated == expected
+        assert sum(allocated.values()) == count
+
+    def test_all_quiz_surfaces_use_canonical_arm_vocabulary(self, db):
+        bandit = ContentDifficultyBandit()
+        selection = bandit.select_difficulty(
+            db, f"student-{uuid.uuid4().hex[:8]}", "quiz", "shared-topic",
         )
-        assert interaction_count == 6, (
-            "cold-start counter is shared across both vocabularies -- 3 practice-quiz "
-            "pulls + 3 solo-quiz pulls advance the SAME counter, so whichever flow the "
-            "student uses second exits cold-start early using priors that came from a "
-            "vocabulary its own arms don't recognize (silently dropped, see "
-            "content_bandit.py _thompson_sample's `if row.strategy_id in params` guard)"
+        assert selection.difficulty in {"easy", "medium", "hard"}
+
+    def test_flashcard_reward_waits_for_representative_set_evidence(self, db):
+        bandit = ContentDifficultyBandit()
+        user_id = _mk_user(db, f"user_{uuid.uuid4().hex[:8]}@test.local")
+        topic = "cell biology"
+        selection = bandit.select_difficulty(
+            db, str(user_id), "flashcard", topic,
         )
+        flashcard_set = models.FlashcardSet(
+            user_id=user_id,
+            title="Flashcards: Cell Biology",
+            bandit_episode_id=selection.episode_id,
+            bandit_topic_key=topic,
+        )
+        db.add(flashcard_set)
+        db.flush()
+        cards = [
+            models.Flashcard(
+                set_id=flashcard_set.id,
+                question=f"Question {index}",
+                answer=f"Answer {index}",
+                times_reviewed=0,
+                correct_count=0,
+            )
+            for index in range(3)
+        ]
+        db.add_all(cards)
+        db.commit()
+
+        for index, was_correct in enumerate((True, False)):
+            cards[index].times_reviewed = 1
+            cards[index].correct_count = int(was_correct)
+            db.commit()
+            assert resolve_flashcard_set_reward(
+                db, flashcard_set, str(user_id), float(was_correct),
+            ) is False
+
+        cards[2].times_reviewed = 1
+        cards[2].correct_count = 1
+        db.commit()
+        assert resolve_flashcard_set_reward(
+            db, flashcard_set, str(user_id), 1.0,
+        ) is True
+
+        episode = db.query(models.BanditEpisodeLog).filter_by(
+            id=selection.episode_id,
+        ).one()
+        assert episode.reward_received == pytest.approx((2 / 3 - 0.5) * 2)
 
 
 # ---------------------------------------------------------------------------
@@ -402,20 +469,11 @@ class TestStyleBandit:
             f"trained={trained_mu:.3f}"
         )
 
-    def test_uncertainty_shrinks_after_updates(self):
-        """UCB-style exploration bonus (alpha * std across MC-dropout samples)
-        should shrink for an arm as it accumulates updates on a consistent
-        context/reward -- otherwise the bandit would keep over-exploring an
-        already-well-understood arm forever.
-
-        Must measure mu/std from a SINGLE batch of MC forward passes (mirroring
-        _NeuralArm.score's own implementation) rather than diffing two separate
-        score() calls -- each score() call redraws its own 30 dropout masks, so
-        subtracting two independent calls conflates sampling noise in mu with
-        the std term itself and is not a meaningful measurement.
-        """
+    def test_uncertainty_is_active_at_cold_start_and_after_updates(self):
+        """MC-dropout must contribute a real exploration signal from turn one."""
         import torch
         random.seed(5)
+        torch.manual_seed(5)
         bandit = StyleBandit()
         ctx = build_context("medium", [0.3, 0.4, 0.5], session_gap_days=1, n_interactions=10)
         arm = "conceptual"
@@ -436,24 +494,11 @@ class TestStyleBandit:
             bandit.update(arm, ctx, reward=0.8)
         std_after = mc_std()
 
-        # NOT a monotonic shrink-with-training test. _NeuralArm.__init__ zero-inits
-        # the final layer's weights (nn.init.zeros_), so a fresh arm's output is
-        # dropout-invariant regardless of which hidden units get zeroed -- the
-        # last layer maps everything to the same constant (its bias). MC-dropout
-        # "uncertainty" is therefore artificially ~0 at cold start, not a genuine
-        # reflection of low epistemic uncertainty, and only becomes real once
-        # gradient updates move the final layer's weights away from zero. That
-        # means the UCB explore bonus (alpha*std) contributes ~nothing to arm
-        # selection until an arm has been updated at least once -- confirmed here.
-        assert std_before < 1e-4, (
-            f"expected near-zero uncertainty at cold start due to zero-inited final "
-            f"layer, got {std_before:.4f} -- if this changes, the 'UCB bonus is inert "
-            f"until first update' characteristic no longer holds and downstream docs "
-            f"about cold-start behavior need revisiting"
+        assert std_before > 1e-3, (
+            f"expected non-trivial cold-start uncertainty, got {std_before:.4f}"
         )
         assert std_after > 1e-3, (
-            f"expected uncertainty to become non-trivial once the final layer's "
-            f"zero-init has been perturbed by training, got {std_after:.4f}"
+            f"expected uncertainty to remain measurable after training, got {std_after:.4f}"
         )
 
     def test_json_roundtrip_preserves_learned_weights(self):

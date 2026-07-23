@@ -48,26 +48,32 @@ async def create_solo_quiz(
         subject = payload.get("subject")
         difficulty = payload.get("difficulty", "intermediate")
         question_count = payload.get("question_count", 10)
+        bandit_selection = None
+        bandit_topic_key = None
 
         if is_auto_difficulty(difficulty) and subject:
             try:
-                selection = get_content_bandit().select_difficulty(
-                    db, str(current_user.id), "quiz", subject.strip()[:50],
-                    arms=["beginner", "intermediate", "advanced"],
+                bandit_topic_key = subject.strip()[:50]
+                bandit_selection = get_content_bandit().select_difficulty(
+                    db, str(current_user.id), "quiz", bandit_topic_key,
                 )
-                difficulty = selection.difficulty
+                difficulty = bandit_selection.difficulty
                 logger.info(
                     f"[SOLO_QUIZ] auto-difficulty resolved to '{difficulty}' "
-                    f"(method={selection.selection_method}) for subject='{subject}'"
+                    f"(method={bandit_selection.selection_method}) for subject='{subject}'"
                 )
             except Exception as e:
-                logger.warning(f"[SOLO_QUIZ] content bandit selection failed, defaulting to intermediate: {e}")
-                difficulty = "intermediate"
+                logger.warning(f"[SOLO_QUIZ] content bandit selection failed, defaulting to medium: {e}")
+                difficulty = "medium"
+                bandit_selection = None
+                bandit_topic_key = None
 
         quiz = models.SoloQuiz(
             user_id=current_user.id,
             subject=subject,
             difficulty=difficulty,
+            bandit_episode_id=bandit_selection.episode_id if bandit_selection else None,
+            bandit_topic_key=bandit_topic_key,
             question_count=question_count,
             time_limit_seconds=300
         )
@@ -335,7 +341,12 @@ async def complete_solo_quiz(
 
                 try:
                     get_content_bandit().resolve_reward(
-                        db, str(current_user.id), "quiz", topic[:50], accuracy_frac,
+                        db,
+                        str(current_user.id),
+                        "quiz",
+                        quiz.bandit_topic_key or topic[:50],
+                        accuracy_frac,
+                        episode_id=quiz.bandit_episode_id,
                     )
                 except Exception as e:
                     logger.warning(f"[SOLO_QUIZ] content bandit reward resolution failed: {e}")

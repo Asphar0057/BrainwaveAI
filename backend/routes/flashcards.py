@@ -15,7 +15,11 @@ import models
 from deps import call_ai, enforce_request_user_scope, get_current_user, get_db, get_user_by_email, get_user_by_username, unified_ai
 from services.ai_json_parser import parse_json_array_response
 from services.document_flashcard_source import build_document_flashcard_source
-from services.content_bandit import get_content_bandit, is_auto_difficulty
+from services.content_bandit import (
+    get_content_bandit,
+    is_auto_difficulty,
+    resolve_flashcard_set_reward,
+)
 from uid_utils import resolve_by_id_or_uid
 
 logger = logging.getLogger(__name__)
@@ -53,6 +57,7 @@ class FlashcardCreateRequest(BaseModel):
     question: str
     answer: str
     difficulty: Optional[str] = "medium"
+
 
 @router.get("/get_flashcards")
 def get_flashcards(
@@ -629,19 +634,21 @@ async def generate_flashcards_endpoint(
     # string gets written to card.category below so sr_review can look it back up
     # for reward resolution without needing a schema change.
     bandit_topic = (topic or chat_content or "general").strip()[:50]
+    bandit_selection = None
     if is_auto_difficulty(difficulty) and bandit_topic:
         try:
-            selection = get_content_bandit().select_difficulty(
+            bandit_selection = get_content_bandit().select_difficulty(
                 db, str(user.id), "flashcard", bandit_topic,
             )
-            difficulty = selection.difficulty
+            difficulty = bandit_selection.difficulty
             logger.info(
                 f"[FLASHCARD ROUTE] auto-difficulty resolved to '{difficulty}' "
-                f"(method={selection.selection_method}) for topic='{bandit_topic}'"
+                f"(method={bandit_selection.selection_method}) for topic='{bandit_topic}'"
             )
         except Exception as e:
             logger.warning(f"[FLASHCARD ROUTE] content bandit selection failed, defaulting to medium: {e}")
             difficulty = "medium"
+            bandit_selection = None
 
     from graphs.flashcard_graph import get_flashcard_graph
 
@@ -772,6 +779,8 @@ async def generate_flashcards_endpoint(
             else f"Generated from {generation_type}"
         ),
         source_type=generation_type,
+        bandit_episode_id=bandit_selection.episode_id if bandit_selection else None,
+        bandit_topic_key=bandit_topic if bandit_selection else None,
         is_public=is_public,
     )
     db.add(new_set)
@@ -907,13 +916,12 @@ async def update_flashcard_review(request: FlashcardReviewRequest, db: Session =
     # study loop most users actually use. Mirrors sr_review's bandit_topic_key
     # resolution and its "again/hard/good/easy"-style accuracy mapping, using
     # the boolean grade this endpoint actually has.
-    bandit_topic_key = card.category if card.category and card.category != "general" else (
-        set_title.replace("Flashcards: ", "") if set_title else ""
-    )
-    if bandit_topic_key and owner_id:
+    if flashcard_set and owner_id:
         try:
-            get_content_bandit().resolve_reward(
-                db, owner_id, "flashcard", bandit_topic_key,
+            resolve_flashcard_set_reward(
+                db,
+                flashcard_set,
+                owner_id,
                 1.0 if request.was_correct else 0.0,
             )
         except Exception as e:
@@ -1083,14 +1091,14 @@ async def sr_review(request: SRReviewRequest, db: Session = Depends(get_db)):
     ).first()
     set_title = flashcard_set.title if flashcard_set else ""
 
-    bandit_topic_key = card.category if card.category and card.category != "general" else (
-        set_title.replace("Flashcards: ", "") if set_title else ""
-    )
-    if bandit_topic_key:
+    if flashcard_set:
         try:
             grade_accuracy = {"again": 0.0, "hard": 0.33, "good": 0.67, "easy": 1.0}.get(grade_str, 0.5)
-            get_content_bandit().resolve_reward(
-                db, str(user.id), "flashcard", bandit_topic_key, grade_accuracy,
+            resolve_flashcard_set_reward(
+                db,
+                flashcard_set,
+                str(user.id),
+                grade_accuracy,
             )
         except Exception as e:
             logger.warning(f"[SR_REVIEW] content bandit reward resolution failed: {e}")

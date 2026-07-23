@@ -363,19 +363,24 @@ async def generate_practice_questions(
         if not topic and not content:
             raise HTTPException(status_code=400, detail="Topic or content required")
 
+        bandit_selection = None
+        bandit_topic_key = None
         if is_auto_difficulty(difficulty) and topic:
             try:
-                selection = get_content_bandit().select_difficulty(
-                    db, str(user.id), "quiz", topic.strip()[:50],
+                bandit_topic_key = topic.strip()[:50]
+                bandit_selection = get_content_bandit().select_difficulty(
+                    db, str(user.id), "quiz", bandit_topic_key,
                 )
-                difficulty = selection.difficulty
+                difficulty = bandit_selection.difficulty
                 logger.info(
                     f"[QUIZ ROUTE] auto-difficulty resolved to '{difficulty}' "
-                    f"(method={selection.selection_method}) for topic='{topic}'"
+                    f"(method={bandit_selection.selection_method}) for topic='{topic}'"
                 )
             except Exception as e:
                 logger.warning(f"[QUIZ ROUTE] content bandit selection failed, defaulting to medium: {e}")
                 difficulty = "medium"
+                bandit_selection = None
+                bandit_topic_key = None
 
         questions_data = []
         if load_test_fallback:
@@ -413,7 +418,14 @@ async def generate_practice_questions(
 
         if not questions_data:
             fallback_started = time.perf_counter()
-            difficulty_mix = payload.get("difficulty_mix", {"easy": 3, "medium": 5, "hard": 2})
+            difficulty_mix = (
+                {
+                    level: question_count if level == difficulty else 0
+                    for level in ("easy", "medium", "hard")
+                }
+                if bandit_selection
+                else payload.get("difficulty_mix", {"easy": 3, "medium": 5, "hard": 2})
+            )
             type_instructions = []
             if "multiple_choice" in question_types:
                 type_instructions.append("multiple choice questions with 4 options")
@@ -484,6 +496,10 @@ Generate exactly {question_count} high-quality questions:"""
             raise HTTPException(status_code=500, detail="No questions were generated")
 
         if load_test_fallback:
+            # select_difficulty() flushes its episode. This early-return path has no
+            # persisted question set to commit later, so commit the episode explicitly.
+            if bandit_selection:
+                db.commit()
             return {
                 "status": "success",
                 "question_set_id": "load-test",
@@ -513,6 +529,8 @@ Generate exactly {question_count} high-quality questions:"""
             description=f"Practice questions for {topic[:100]}",
             source_type="custom",
             total_questions=len(questions_data),
+            bandit_episode_id=bandit_selection.episode_id if bandit_selection else None,
+            bandit_topic_key=bandit_topic_key,
         )
         db.add(question_set)
         db.commit()

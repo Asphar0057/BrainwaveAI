@@ -12,8 +12,8 @@ import {
   declineQuizBattle, getFriends,
 } from '../../services/api';
 import HapticTouchable from '../../components/HapticTouchable';
-import AmbientBubbles from '../../components/AmbientBubbles';
 import GeoBackground from '../../components/GeoBackground';
+import SocialTileMaterial from '../../components/SocialTileMaterial';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../../utils/theme';
 import { useResponsiveLayout } from '../../hooks/useResponsiveLayout';
@@ -167,8 +167,6 @@ export default function GamesScreen({ user, onBack }: Props) {
     <View style={s.root}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.58, 1]} style={StyleSheet.absoluteFillObject} />
       <GeoBackground />
-      <AmbientBubbles theme={selectedTheme} variant="games" opacity={0.82} />
-      <DotGrid />
 
 {/* Top bar */}
       <View style={s.topBar}>
@@ -184,9 +182,10 @@ export default function GamesScreen({ user, onBack }: Props) {
 
       {/* Hero */}
       <View style={s.hero}>
-        <LinearGradient colors={[rgbaFromHex(selectedTheme.accent, 0.24), rgbaFromHex(selectedTheme.panelAlt, 0.04), 'transparent']} style={s.heroGlow}>
+        <SocialTileMaterial />
+        <View style={s.heroGlow}>
           <Ionicons name="flash" size={46} color={GOLD_XL} />
-        </LinearGradient>
+        </View>
         <Text style={s.heroTitle}>battles</Text>
         <Text style={s.heroSub}>{active.length} active · {pending.length} incoming</Text>
       </View>
@@ -205,6 +204,7 @@ export default function GamesScreen({ user, onBack }: Props) {
             <Text style={s.section}>incoming challenges</Text>
             {pending.map((b: any, i: number) => (
               <View key={b.id ?? i} style={card.wrap}>
+                <SocialTileMaterial />
                 <View style={card.accent} />
                 <View style={card.body}>
                   <View style={card.row}>
@@ -219,6 +219,7 @@ export default function GamesScreen({ user, onBack }: Props) {
                     <HapticTouchable style={{ flex: 1 }} onPress={() => doAccept(b.id)} haptic="success">
                       <LinearGradient colors={[selectedTheme.accentHover, selectedTheme.accent]} start={{ x: 0.05, y: 0 }} end={{ x: 0.95, y: 1 }} style={card.acceptBtn}>
                         <Text style={card.acceptText}>accept battle</Text>
+                        <Ionicons name="chevron-forward" size={15} color={selectedTheme.bgPrimary} />
                       </LinearGradient>
                     </HapticTouchable>
                     <HapticTouchable style={card.declineBtn} onPress={() => doDecline(b.id)} haptic="warning">
@@ -237,6 +238,7 @@ export default function GamesScreen({ user, onBack }: Props) {
             <Text style={s.section}>live battles</Text>
             {active.map((b: any, i: number) => (
               <View key={b.id ?? i} style={card.wrap}>
+                <SocialTileMaterial />
                 <View style={[card.accent, { backgroundColor: GOLD_M }]} />
                 <View style={card.body}>
                   <View style={vs.row}>
@@ -269,6 +271,7 @@ export default function GamesScreen({ user, onBack }: Props) {
             <Text style={s.section}>sent challenges</Text>
             {outgoing.map((b: any, i: number) => (
               <View key={b.id ?? i} style={card.wrap}>
+                <SocialTileMaterial />
                 <View style={[card.accent, { backgroundColor: DIM }]} />
                 <View style={[card.body, card.rowOnly]}>
                   <Avatar name={opponentName(b)} size={36} />
@@ -295,6 +298,7 @@ export default function GamesScreen({ user, onBack }: Props) {
               const resultColor = b.status === 'completed' ? (won ? GOLD_M : DIM) : DIM;
               return (
                 <View key={b.id ?? i} style={[card.wrap, { opacity: 0.7 }]}>
+                  <SocialTileMaterial />
                   <View style={[card.accent, { backgroundColor: DIM }]} />
                   <View style={[card.body, card.rowOnly]}>
                     <Avatar name={opponentName(b)} size={36} />
@@ -315,6 +319,7 @@ export default function GamesScreen({ user, onBack }: Props) {
         {/* Empty */}
         {battles.length === 0 && (
           <View style={empty.wrap}>
+            <SocialTileMaterial />
             <LinearGradient colors={[rgbaFromHex(selectedTheme.accent, 0.14), rgbaFromHex(selectedTheme.panelAlt, 0.04)]} style={empty.icon}>
               <Ionicons name="game-controller-outline" size={44} color={GOLD_D} />
             </LinearGradient>
@@ -448,8 +453,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   const ACCENT = theme.accent;
   const ACCENT_DARK = darkenColor(theme.accent, theme.isLight ? 12 : 26);
   const DIM = theme.textSecondary;
-  const SURFACE = theme.panel;
-  const BORDER = theme.borderStrong;
+  const SURFACE = '#0b0c0f';
+  const BORDER = 'rgba(216,179,141,0.22)';
   const INK = theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary;
   return StyleSheet.create({
     root: { flex: 1 },
@@ -457,9 +462,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     backBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: rgbaFromHex(SURFACE, 0.92), borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center' },
     cta: { borderRadius: 12, paddingHorizontal: 15, paddingVertical: 10 },
     ctaText: { fontFamily: 'Inter_700Bold', fontSize: 13, color: INK },
-    hero: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', alignItems: 'center', paddingTop: 12, paddingBottom: 24, gap: 8 },
-    heroGlow: { width: 112, height: 112, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.24) },
-    heroTitle: { fontFamily: 'Inter_900Black', fontSize: 44, color: theme.accentHover, letterSpacing: -2.2, marginTop: 8 },
+    hero: { width: '90%', minHeight: 180, maxWidth: layout.contentMaxWidth - 40, alignSelf: 'center', alignItems: 'flex-start', justifyContent: 'flex-end', padding: 20, gap: 6, borderRadius: 26, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)' },
+    heroGlow: { position: 'absolute', right: 18, top: 18, width: 58, height: 58, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)', backgroundColor: 'rgba(216,179,141,0.08)' },
+    heroTitle: { fontFamily: 'Inter_900Black', fontSize: 38, color: '#D8B38D', letterSpacing: -1.8 },
     heroSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM, letterSpacing: 1 },
     divider: { height: 1, width: '100%', maxWidth: layout.contentMaxWidth - 40, alignSelf: 'center', marginLeft: 20, marginRight: 20, backgroundColor: BORDER },
     scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingLeft: 20, paddingRight: 20, paddingTop: 16, gap: 8 },
@@ -470,11 +475,11 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
 function createCardStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
   const ACCENT = theme.accent;
   const DIM = theme.textSecondary;
-  const SURFACE = theme.panel;
-  const BORDER = theme.borderStrong;
+  const SURFACE = '#0b0c0f';
+  const BORDER = 'rgba(216,179,141,0.22)';
   const INK = theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary;
   return StyleSheet.create({
-    wrap: { flexDirection: 'row', backgroundColor: rgbaFromHex(SURFACE, 0.94), borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: BORDER },
+    wrap: { flexDirection: 'row', backgroundColor: SURFACE, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: BORDER },
     accent: { width: 3, backgroundColor: darkenColor(theme.accent, theme.isLight ? 12 : 26) },
     body: { flex: 1, padding: 14, gap: 12 },
     row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -484,7 +489,7 @@ function createCardStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']
     newBadge: { backgroundColor: rgbaFromHex(ACCENT, 0.14), borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.22) },
     newBadgeText: { fontFamily: 'Inter_700Bold', fontSize: 9, color: ACCENT },
     actions: { flexDirection: 'row', gap: 8 },
-    acceptBtn: { borderRadius: 10, paddingVertical: 10, alignItems: 'center', justifyContent: 'center' },
+    acceptBtn: { borderRadius: 10, paddingVertical: 10, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
     acceptText: { fontFamily: 'Inter_700Bold', fontSize: 13, color: INK },
     declineBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center' },
     declineText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: DIM },
@@ -509,7 +514,7 @@ function createVersusStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme
 function createEmptyStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
   const INK = theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary;
   return StyleSheet.create({
-    wrap: { alignItems: 'center', paddingTop: 64, gap: 14 },
+    wrap: { minHeight: 230, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 14, borderRadius: 26, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)', backgroundColor: '#0b0c0f' },
     icon: { width: 88, height: 88, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: rgbaFromHex(theme.accent, 0.22) },
     title: { fontFamily: 'Inter_900Black', fontSize: 18, color: darkenColor(theme.accent, theme.isLight ? 12 : 26) },
     hint: { fontFamily: 'Inter_400Regular', fontSize: 13, color: theme.textSecondary },

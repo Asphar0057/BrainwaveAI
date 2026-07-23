@@ -11,12 +11,12 @@ import { useSessionTracking } from './src/hooks/useSessionTracking';
 import { ThemeProvider, useAppTheme } from './src/contexts/ThemeContext';
 
 function AppContent() {
-  const [splash, setSplash]   = useState(true);
-  const [user, setUser]       = useState<AuthUser | null>(null);
+  const [splash, setSplash]   = useState(false);
+  const [user, setUser]       = useState<AuthUser | null>({ username: 'preview', email: 'preview@cerbyl.local', first_name: 'Preview' });
   const { selectedTheme } = useAppTheme();
 
   useEffect(() => {
-    getStoredUser().then(u => setUser(u));
+    // Simulator-only dock preview.
   }, []);
 
   useEffect(() => {

@@ -9,8 +9,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../../services/auth';
 import { getChallenges, createChallenge, joinChallenge, getFriends } from '../../services/api';
 import HapticTouchable from '../../components/HapticTouchable';
-import AmbientBubbles from '../../components/AmbientBubbles';
 import GeoBackground from '../../components/GeoBackground';
+import SocialTileMaterial from '../../components/SocialTileMaterial';
 import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../../components/NeumorphicTexture';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../../utils/theme';
@@ -126,7 +126,6 @@ export default function QuizPlaylistScreen({ user, onBack }: Props) {
     <View style={s.root}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.58, 1]} style={StyleSheet.absoluteFillObject} />
       <GeoBackground />
-      <AmbientBubbles theme={selectedTheme} variant="quiz" opacity={0.82} />
       {/* Header */}
       <View style={s.topBar}>
         <HapticTouchable onPress={onBack} style={s.backBtn} haptic="light">
@@ -163,6 +162,7 @@ export default function QuizPlaylistScreen({ user, onBack }: Props) {
       >
         {display.length === 0 ? (
           <View style={s.empty}>
+            <SocialTileMaterial />
             <Ionicons name="library-outline" size={48} color={DIM} />
             <Text style={s.emptyTitle}>{tab === 'mine' ? 'no sets yet' : 'no challenges found'}</Text>
             <Text style={s.emptyHint}>{tab === 'mine' ? 'create your first quiz challenge' : 'be the first to create one'}</Text>
@@ -178,6 +178,7 @@ export default function QuizPlaylistScreen({ user, onBack }: Props) {
           const dColor  = diffColor(c.difficulty);
           return (
             <View key={c.id ?? i} style={s.card}>
+              <SocialTileMaterial />
               {/* Card top row */}
               <View style={s.cardHeader}>
                 <View style={[s.subjectBadge, { borderColor: dColor + '60', backgroundColor: dColor + '15' }]}>
@@ -239,6 +240,7 @@ export default function QuizPlaylistScreen({ user, onBack }: Props) {
                     : <>
                         <Ionicons name={joined ? 'checkmark-circle' : 'play-circle-outline'} size={14} color={joined ? GOLD_M : INK} />
                         <Text style={[s.joinBtnText, joined && { color: GOLD_M }]}>{joined ? 'joined' : 'join challenge'}</Text>
+                        {!joined && <Ionicons name="chevron-forward" size={15} color={INK} />}
                       </>
                   }
                 </HapticTouchable>
@@ -332,13 +334,13 @@ export default function QuizPlaylistScreen({ user, onBack }: Props) {
 
 function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
   const BG = theme.bgPrimary;
-  const CARD = theme.panel;
-  const CARD_ALT = theme.panelAlt;
-  const ACCENT = theme.accent;
-  const ACCENT_HOVER = theme.accentHover;
+  const CARD = '#0b0c0f';
+  const CARD_ALT = '#050506';
+  const ACCENT = '#D8B38D';
+  const ACCENT_HOVER = '#D8B38D';
   const ACCENT_DARK = darkenColor(theme.accent, theme.isLight ? 12 : 26);
   const DIM = theme.textSecondary;
-  const BORDER = theme.borderStrong;
+  const BORDER = 'rgba(216,179,141,0.22)';
   const INK = theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary;
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: 'transparent' },
@@ -396,7 +398,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       paddingHorizontal: 20,
       paddingBottom: 48,
     },
-    card: { backgroundColor: rgbaFromHex(CARD, 0.9), borderRadius: 20, borderWidth: 1, borderColor: BORDER, padding: 18, marginBottom: 12, gap: 12, boxShadow: cbTileShadow(0.07) } as ViewStyle,
+    card: { backgroundColor: CARD, borderRadius: 20, borderWidth: 1, borderColor: BORDER, padding: 18, marginBottom: 12, gap: 12, overflow: 'hidden', boxShadow: cbTileShadow(0.07) } as ViewStyle,
     cardHeader: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
     subjectBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 4, backgroundColor: rgbaFromHex(ACCENT, 0.10), borderRadius: 7, borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.20) },
     subjectText: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: DIM, letterSpacing: 0.5 },
@@ -417,7 +419,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     statsRow: { flexDirection: 'row', gap: 8 },
     statChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: rgbaFromHex(ACCENT, 0.12), borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.22) },
     statText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: ACCENT },
-    empty: { alignItems: 'center', paddingTop: 80, gap: 10 },
+    empty: { minHeight: 230, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 10, borderRadius: 26, overflow: 'hidden', borderWidth: 1, borderColor: BORDER, backgroundColor: CARD },
     emptyTitle: { fontFamily: 'Inter_900Black', fontSize: 18, color: ACCENT_HOVER },
     emptyHint: { fontFamily: 'Inter_400Regular', fontSize: 13, color: rgbaFromHex(theme.textSecondary, 0.8) },
     emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: rgbaFromHex(ACCENT, 0.14), borderRadius: 14, paddingHorizontal: 20, paddingVertical: 12, borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.28), marginTop: 12, boxShadow: cbTileShadow(0.05) } as ViewStyle,

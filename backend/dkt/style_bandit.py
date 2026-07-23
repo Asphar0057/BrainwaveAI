@@ -92,7 +92,10 @@ class _NeuralArm(nn.Module):
         )
         nn.init.xavier_uniform_(self.net[0].weight)
         nn.init.xavier_uniform_(self.net[3].weight)
-        nn.init.zeros_(self.net[6].weight)
+        # Small non-zero output weights keep fresh arms near the same prior mean
+        # while allowing MC-dropout to express uncertainty from the first turn.
+        nn.init.normal_(self.net[6].weight, mean=0.0, std=0.05)
+        nn.init.zeros_(self.net[6].bias)
         self.optimizer = torch.optim.Adam(self.parameters(), lr=5e-3)
         self.n_updates = 0
 

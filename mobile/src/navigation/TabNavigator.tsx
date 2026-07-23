@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, Text, ViewStyle, Animated, Keyboard, Platform } from 'react-native';
 import PagerView, { AppPagerHandle } from '../components/AppPager';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useFocusEffect } from '@react-navigation/native';
 import { NavigationIndependentTree } from '@react-navigation/core';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -35,7 +35,7 @@ import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 type RootStackParamList = {
-  Main: undefined;
+  Main: { selectedTab?: number; tabRequestKey?: number } | undefined;
   Flashcards: undefined;
   Notes: undefined;
   AIMedia: undefined;
@@ -65,14 +65,18 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 type AppTarget = 'flashcards' | 'notes' | 'aimedia' | 'settings' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'xpAnalytics' | 'weaknessPractice' | 'learningPaths' | 'leaderboard';
 
-function MainTabs({ user, onLogout, onUserUpdate, onNavigate }: Props & { onNavigate: (screen: AppTarget) => void }) {
+function MainTabs({ user, onLogout, onUserUpdate, onNavigate, requestedTab, tabRequestKey }: Props & {
+  onNavigate: (screen: AppTarget) => void;
+  requestedTab?: number;
+  tabRequestKey?: number;
+}) {
   const insets = useSafeAreaInsets();
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
   const useSideRail = layout.sideRailTabs;
   const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
   useFonts({ Inter_700Bold });
-  const [index, setIndex] = useState(2);
+  const [index, setIndex] = useState(3);
   const pager = useRef<AppPagerHandle>(null);
   const kbHeight = useRef(new Animated.Value(0)).current;
 
@@ -80,6 +84,14 @@ function MainTabs({ user, onLogout, onUserUpdate, onNavigate }: Props & { onNavi
     pager.current?.setPage(i);
     setIndex(i);
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      if (requestedTab == null) return;
+      const frame = requestAnimationFrame(() => goTo(requestedTab));
+      return () => cancelAnimationFrame(frame);
+    }, [requestedTab, tabRequestKey])
+  );
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -146,7 +158,7 @@ function MainTabs({ user, onLogout, onUserUpdate, onNavigate }: Props & { onNavi
           <PagerView
             ref={pager}
             style={{ flex: 1 }}
-            initialPage={2}
+            initialPage={3}
             onPageSelected={e => setIndex(e.nativeEvent.position)}
             overdrag={false}
             scrollEnabled={true}
@@ -213,11 +225,13 @@ export default function TabNavigator({ user, onLogout, onUserUpdate }: Props) {
           }}
         >
           <Stack.Screen name="Main">
-            {({ navigation }) => (
+            {({ navigation, route }) => (
               <MainTabs
                 user={user}
                 onLogout={onLogout}
                 onUserUpdate={onUserUpdate}
+                requestedTab={route.params?.selectedTab}
+                tabRequestKey={route.params?.tabRequestKey}
                 onNavigate={(screen) => {
                   if (screen === 'flashcards') navigation.navigate('Flashcards');
                   if (screen === 'notes') navigation.navigate('Notes');
@@ -334,7 +348,12 @@ export default function TabNavigator({ user, onLogout, onUserUpdate }: Props) {
           </Stack.Screen>
           <Stack.Screen name="Leaderboard">
             {({ navigation }) => (
-              <ScreenErrorBoundary label="Leaderboard"><LeaderboardScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
+              <ScreenErrorBoundary label="Leaderboard">
+                <LeaderboardScreen
+                  user={user}
+                  onBack={() => navigation.popTo('Main', { selectedTab: 3, tabRequestKey: Date.now() })}
+                />
+              </ScreenErrorBoundary>
             )}
           </Stack.Screen>
         </Stack.Navigator>

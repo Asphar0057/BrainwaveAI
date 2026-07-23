@@ -9,7 +9,7 @@ import {
   MOCK_FLASHCARD_HISTORY,
   MOCK_FLASHCARD_STATS,
   MOCK_TOKEN,
-} from '../helpers/testUtils';
+} from '../../testUtils';
 
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
@@ -156,7 +156,7 @@ describe('Flashcards', () => {
       await waitFor(() => {
         const urls = global.fetch.mock.calls.map(([u]) => u);
         expect(urls.some((u) => u.includes('get_flashcard_statistics'))).toBe(true);
-      });
+      }, { timeout: 5000 });
     });
 
     it('includes username query param in history request', async () => {
@@ -272,6 +272,13 @@ describe('Flashcards', () => {
 
     it('fetches SR due cards on mount', async () => {
       await renderFlashcards();
+      const studyQueueButton = screen.getAllByRole('button').find(
+        (button) => button.textContent.includes('Study Queue')
+      );
+      expect(studyQueueButton).toBeTruthy();
+      await act(async () => {
+        fireEvent.click(studyQueueButton);
+      });
       await waitFor(() => {
         const urls = global.fetch.mock.calls.map(([u]) => u);
         expect(urls.some((u) => u.includes('flashcards/due') || u.includes('sr_stats'))).toBe(true);

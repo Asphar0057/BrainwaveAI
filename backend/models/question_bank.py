@@ -29,6 +29,8 @@ def create_question_bank_models(Base):
         description = Column(Text)
         source_type = Column(String(50))
         source_id = Column(Integer, nullable=True)
+        bandit_episode_id = Column(String(36), nullable=True, index=True)
+        bandit_topic_key = Column(String(50), nullable=True)
         total_questions = Column(Integer, default=0)
         best_score = Column(Integer, default=0)
         attempts = Column(Integer, default=0)

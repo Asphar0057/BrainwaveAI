@@ -16,6 +16,8 @@ class FlashcardSet(Base):
     description = Column(Text, default="")
     source_type = Column(String(50), default="manual")
     source_id = Column(Integer, nullable=True)
+    bandit_episode_id = Column(String(36), nullable=True, index=True)
+    bandit_topic_key = Column(String(50), nullable=True)
     is_public = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

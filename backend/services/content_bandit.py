@@ -54,6 +54,54 @@ def encode_content_state(domain: str, topic: str) -> str:
     return hashlib.sha256(key.encode()).hexdigest()[:32]
 
 
+def resolve_flashcard_set_reward(
+    db,
+    flashcard_set,
+    user_id: str,
+    legacy_accuracy: float,
+) -> bool:
+    """Resolve one generation decision from representative set-level evidence."""
+    if not flashcard_set:
+        return False
+
+    topic_key = (
+        flashcard_set.bandit_topic_key
+        or flashcard_set.title.replace("Flashcards: ", "")
+    ).strip()[:50]
+    if not topic_key:
+        return False
+
+    episode_id = flashcard_set.bandit_episode_id
+    if not episode_id:
+        return get_content_bandit().resolve_reward(
+            db, user_id, "flashcard", topic_key, legacy_accuracy,
+        )
+
+    import models
+
+    cards = db.query(models.Flashcard).filter(
+        models.Flashcard.set_id == flashcard_set.id,
+    ).all()
+    reviewed_cards = [card for card in cards if (card.times_reviewed or 0) > 0]
+    evidence_threshold = min(3, len(cards))
+    if not cards or len(reviewed_cards) < evidence_threshold:
+        return False
+
+    total_reviews = sum(card.times_reviewed or 0 for card in reviewed_cards)
+    total_correct = sum(card.correct_count or 0 for card in reviewed_cards)
+    if total_reviews <= 0:
+        return False
+
+    return get_content_bandit().resolve_reward(
+        db,
+        user_id,
+        "flashcard",
+        topic_key,
+        total_correct / total_reviews,
+        episode_id=episode_id,
+    )
+
+
 @dataclass
 class DifficultySelection:
     difficulty: str
@@ -71,16 +119,18 @@ class ContentDifficultyBandit:
         student_id: str,
         domain: str,
         topic: str,
-        arms: Optional[List[str]] = None,
     ) -> DifficultySelection:
-        """`arms` lets each domain use its own vocabulary (flashcards/quiz use
-        easy/medium/hard; solo quiz uses beginner/intermediate/advanced) -- the
-        bandit itself doesn't care what the labels mean, only that they're the
-        same set every time for a given domain so priors line up."""
-        arm_ids = arms or DIFFICULTY_ARMS
+        """Select from the canonical easy/medium/hard vocabulary.
+
+        Keeping one vocabulary across all quiz surfaces prevents state and
+        cold-start counters from being split across incompatible arm labels.
+        """
+        arm_ids = DIFFICULTY_ARMS
         default_arm = arm_ids[len(arm_ids) // 2]
         state_hash = encode_content_state(domain, topic)
-        interaction_count = self._get_interaction_count(db, student_id, state_hash)
+        interaction_count = self._get_interaction_count(
+            db, student_id, state_hash, arm_ids,
+        )
 
         if interaction_count < COLD_START_INTERACTIONS:
             difficulty, method, samples = default_arm, "rule", {}
@@ -99,12 +149,25 @@ class ContentDifficultyBandit:
 
         return DifficultySelection(difficulty, state_hash, method, samples, episode_id)
 
-    def _get_interaction_count(self, db, student_id: str, state_hash: str) -> int:
+    def _get_interaction_count(
+        self,
+        db,
+        student_id: str,
+        state_hash: str,
+        arm_ids: List[str],
+    ) -> int:
+        """Count completed, attributable outcomes for the current arm vocabulary.
+
+        Generated-but-abandoned activities must not push a student out of cold
+        start, and legacy rows from an incompatible arm vocabulary must not count.
+        """
         try:
             import models
             return (
                 db.query(models.BanditEpisodeLog)
                 .filter_by(student_id=student_id, state_hash=state_hash)
+                .filter(models.BanditEpisodeLog.reward_received.isnot(None))
+                .filter(models.BanditEpisodeLog.strategy_selected.in_(arm_ids))
                 .count()
             )
         except Exception:
@@ -185,26 +248,32 @@ class ContentDifficultyBandit:
         domain: str,
         topic: str,
         accuracy: float,
-    ) -> None:
+        episode_id: Optional[str] = None,
+    ) -> bool:
         """Call at quiz-completion / flashcard-review time with a real 0..1
         accuracy figure for this (student, domain, topic). Attaches the reward
-        to the most recent unresolved selection for that state (if the bandit
-        made the choice) and always updates BanditState so future auto-picks
-        for this topic have real priors, even if the user explicitly picked
-        the difficulty this round."""
+        to the exact selection when ``episode_id`` is supplied. The state/topic
+        lookup remains only as a backwards-compatible fallback for legacy rows
+        created before generated content stored its episode identity."""
         import models
 
         state_hash = encode_content_state(domain, topic)
         reward = _clip((accuracy - 0.5) * 2, -1.0, 1.0)
 
         try:
-            episode = (
+            query = (
                 db.query(models.BanditEpisodeLog)
                 .filter_by(student_id=student_id, state_hash=state_hash)
                 .filter(models.BanditEpisodeLog.reward_received.is_(None))
-                .order_by(models.BanditEpisodeLog.timestamp.desc())
-                .first()
             )
+            if episode_id:
+                episode = query.filter(
+                    models.BanditEpisodeLog.id == episode_id,
+                ).first()
+            else:
+                episode = query.order_by(
+                    models.BanditEpisodeLog.timestamp.desc(),
+                ).first()
             if not episode:
                 # No prior selection to attribute this outcome to (e.g. the bandit
                 # never got a chance to choose for this exact topic key) -- nothing
@@ -213,7 +282,7 @@ class ContentDifficultyBandit:
                 logger.debug(
                     f"[ContentBandit] no pending episode for {domain}/{topic!r}, skipping reward"
                 )
-                return
+                return False
 
             difficulty = episode.strategy_selected
             episode.reward_received = reward
@@ -226,12 +295,14 @@ class ContentDifficultyBandit:
                 "accuracy=%.2f reward=%.2f difficulty=%s",
                 student_id, domain, topic[:25], accuracy, reward, difficulty,
             )
+            return True
         except Exception as e:
             logger.warning(f"[ContentBandit] resolve_reward failed: {e}")
             try:
                 db.rollback()
             except Exception:
                 pass
+            return False
 
     def _update_bandit_params(
         self, db, student_id: str, state_hash: str, strategy_id: str, reward: float,

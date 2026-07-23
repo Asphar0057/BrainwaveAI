@@ -753,7 +753,8 @@ const QuestionBankDashboard = () => {
           questionTypes: selectedQuestionTypes,
           customPrompt: customPrompt.trim() || null,
           referenceDocumentId: referenceDocId,
-          contentDocumentIds: selectedPDFs.filter(p => p.id !== referenceDocId).map(p => p.id)
+          contentDocumentIds: selectedPDFs.filter(p => p.id !== referenceDocId).map(p => p.id),
+          adaptiveDifficulty
         });
 
         
@@ -775,7 +776,8 @@ const QuestionBankDashboard = () => {
           title: selectedPDFs.length === 1 
             ? `Questions from ${selectedPDFs[0].filename}`
             : `Questions from ${selectedPDFs.length} documents`,
-          questionTypes: selectedQuestionTypes
+          questionTypes: selectedQuestionTypes,
+          adaptiveDifficulty
         });
 
         
@@ -876,7 +878,8 @@ const QuestionBankDashboard = () => {
         difficultyMix: difficultyCount,
         questionTypes: selectedQuestionTypes,
         customPrompt: customPrompt.trim() || null,
-        sessionId: `qb_sources_${userId}_${Date.now()}`
+        sessionId: `qb_sources_${userId}_${Date.now()}`,
+        adaptiveDifficulty
       });
 
       

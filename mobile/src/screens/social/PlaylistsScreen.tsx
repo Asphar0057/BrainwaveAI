@@ -11,8 +11,8 @@ import { AuthUser } from '../../services/auth';
 import { API_URL } from '../../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import HapticTouchable from '../../components/HapticTouchable';
-import AmbientBubbles from '../../components/AmbientBubbles';
 import GeoBackground from '../../components/GeoBackground';
+import SocialTileMaterial from '../../components/SocialTileMaterial';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../../utils/theme';
 import { useResponsiveLayout } from '../../hooks/useResponsiveLayout';
@@ -152,7 +152,6 @@ export default function PlaylistsScreen({ user, onBack }: Props) {
     <View style={s.root}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.58, 1]} style={StyleSheet.absoluteFillObject} />
       <GeoBackground />
-      <AmbientBubbles theme={selectedTheme} variant="playlists" opacity={0.8} />
 
       {/* Header */}
       <View>
@@ -169,6 +168,7 @@ export default function PlaylistsScreen({ user, onBack }: Props) {
 
         {/* Hero */}
         <View style={s.hero}>
+          <SocialTileMaterial />
           <Ionicons name="library" size={32} color={GOLD_XL} />
           <View style={s.heroText}>
             <Text style={s.heroTitle}>playlists</Text>
@@ -240,12 +240,14 @@ export default function PlaylistsScreen({ user, onBack }: Props) {
         >
           {playlists.length === 0 ? (
             <View style={s.empty}>
+              <SocialTileMaterial />
               <Ionicons name="library-outline" size={40} color={GOLD_D} />
               <Text style={s.emptyTitle}>{tab === 'mine' ? 'no playlists yet' : tab === 'following' ? 'not following any' : 'no playlists found'}</Text>
               <Text style={s.emptyHint}>{tab === 'mine' ? 'tap + new to create one' : 'try a different filter'}</Text>
             </View>
           ) : playlists.map((pl) => (
             <View key={pl.id} style={pc.wrap}>
+              <SocialTileMaterial />
               <View style={pc.accent} />
               <View style={pc.body}>
                 <View style={pc.topRow}>
@@ -262,6 +264,7 @@ export default function PlaylistsScreen({ user, onBack }: Props) {
                       <Text style={[pc.followText, pl.is_following && pc.followTextActive]}>
                         {pl.is_following ? 'following' : 'follow'}
                       </Text>
+                      {!pl.is_following && <Ionicons name="chevron-forward" size={15} color="#D8B38D" />}
                     </HapticTouchable>
                   )}
                 </View>
@@ -369,9 +372,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   const ACCENT_HOVER = theme.accentHover;
   const ACCENT_DARK = darkenColor(theme.accent, theme.isLight ? 12 : 26);
   const DIM = theme.textSecondary;
-  const SURFACE = theme.panel;
-  const SURFACE_ALT = theme.panelAlt;
-  const BORDER = theme.borderStrong;
+  const SURFACE = '#0b0c0f';
+  const SURFACE_ALT = '#050506';
+  const BORDER = 'rgba(216,179,141,0.22)';
   const INK = theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary;
   return StyleSheet.create({
     root: { flex: 1 },
@@ -379,7 +382,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     backBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: rgbaFromHex(SURFACE, 0.92), borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center' },
     cta: { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9 },
     ctaText: { fontFamily: 'Inter_700Bold', fontSize: 13, color: INK },
-    hero: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 14, gap: 14 },
+    hero: { width: '90%', minHeight: 104, maxWidth: layout.contentMaxWidth - 40, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', marginBottom: 14, padding: 18, gap: 14, borderRadius: 26, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)', backgroundColor: '#0b0c0f' },
     heroText: { gap: 2 },
     heroTitle: { fontFamily: 'Inter_900Black', fontSize: 34, color: ACCENT_HOVER, letterSpacing: -1.2 },
     heroSub: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM, letterSpacing: 1.8, textTransform: 'uppercase' },
@@ -398,7 +401,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     chipText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: DIM },
     chipTextActive: { color: ACCENT_HOVER },
     list: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 4, paddingBottom: 60, gap: 10 },
-    empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
+    empty: { minHeight: 230, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12, borderRadius: 26, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)', backgroundColor: '#0b0c0f' },
     emptyTitle: { fontFamily: 'Inter_900Black', fontSize: 18, color: ACCENT_DARK },
     emptyHint: { fontFamily: 'Inter_400Regular', fontSize: 13, color: DIM },
   });
@@ -409,16 +412,16 @@ function createPlaylistCardStyles(theme: ReturnType<typeof useAppTheme>['selecte
   const ACCENT_HOVER = theme.accentHover;
   const ACCENT_DARK = darkenColor(theme.accent, theme.isLight ? 12 : 26);
   const DIM = theme.textSecondary;
-  const SURFACE = theme.panel;
-  const BORDER = theme.borderStrong;
+  const SURFACE = '#0b0c0f';
+  const BORDER = 'rgba(216,179,141,0.22)';
   return StyleSheet.create({
-    wrap: { flexDirection: 'row', backgroundColor: rgbaFromHex(SURFACE, 0.94), borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: BORDER, shadowColor: ACCENT, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.08, shadowRadius: 22, elevation: 4 },
+    wrap: { flexDirection: 'row', backgroundColor: SURFACE, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: BORDER, shadowColor: ACCENT, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.08, shadowRadius: 22, elevation: 4 },
     accent: { width: 3, backgroundColor: ACCENT_DARK },
     body: { flex: 1, padding: 14, gap: 8 },
     topRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
     title: { fontFamily: 'Inter_900Black', fontSize: 15, color: ACCENT_HOVER, lineHeight: 20 },
     desc: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM, marginTop: 2 },
-    followBtn: { borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.28), backgroundColor: rgbaFromHex(ACCENT, 0.12) },
+    followBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.28), backgroundColor: rgbaFromHex(ACCENT, 0.12) },
     followBtnActive: { backgroundColor: rgbaFromHex(ACCENT, 0.20), borderColor: rgbaFromHex(ACCENT, 0.42) },
     followText: { fontFamily: 'Inter_700Bold', fontSize: 11, color: ACCENT_HOVER },
     followTextActive: { color: ACCENT },

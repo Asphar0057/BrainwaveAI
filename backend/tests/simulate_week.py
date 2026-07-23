@@ -314,7 +314,14 @@ def simulate_content_week(db, students, base_clock, days=7, log=None):
 
                 observed_correct = random.random() < chosen_true_acc
                 accuracy = 1.0 if observed_correct else random.uniform(0.0, 0.4)
-                bandit.resolve_reward(db, str(student.user_id), domain, topic, accuracy)
+                bandit.resolve_reward(
+                    db,
+                    str(student.user_id),
+                    domain,
+                    topic,
+                    accuracy,
+                    episode_id=sel.episode_id,
+                )
 
         db.commit()
         daily_stats.append({
