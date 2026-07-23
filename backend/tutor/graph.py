@@ -28,6 +28,14 @@ class TutorGraph:
         g.add_node("plan_tutor_steps",        nodes.plan_tutor_steps)
         g.add_node("evaluate_tutor_attempt",  nodes.evaluate_tutor_attempt)
         g.add_node("update_tutor_plan_progress", nodes.update_tutor_plan_progress)
+        # Was defined in nodes.py but never registered here, so it never ran: state["selected_style"]
+        # stayed permanently "" and both the STYLE_INSTRUCTIONS prompt injection (tutor/prompt.py's
+        # _style_section) and the reward-closing half in persist_updates (gated on `if selected_style`)
+        # were silently dead. Placed after update_tutor_plan_progress so intent (detect_intent),
+        # language_analysis (analyze_message), and student_state/session_gap_days/decayed_concepts
+        # (fetch_student_state) -- everything select_teaching_style reads -- are all already
+        # populated, and before build_prompt_and_respond, the only consumer of selected_style.
+        g.add_node("select_teaching_style",   nodes.select_teaching_style)
         g.add_node("build_prompt_and_respond",nodes.build_prompt_and_respond)
         g.add_node("evaluate_response",       nodes.evaluate_response)
         g.add_node("persist_updates",         nodes.persist_updates)
@@ -39,7 +47,8 @@ class TutorGraph:
         g.add_edge("gate_and_retrieve",       "plan_tutor_steps")
         g.add_edge("plan_tutor_steps",        "evaluate_tutor_attempt")
         g.add_edge("evaluate_tutor_attempt",  "update_tutor_plan_progress")
-        g.add_edge("update_tutor_plan_progress","build_prompt_and_respond")
+        g.add_edge("update_tutor_plan_progress","select_teaching_style")
+        g.add_edge("select_teaching_style",   "build_prompt_and_respond")
         g.add_edge("build_prompt_and_respond","evaluate_response")
         g.add_edge("evaluate_response",       "persist_updates")
         g.add_edge("persist_updates",         END)
