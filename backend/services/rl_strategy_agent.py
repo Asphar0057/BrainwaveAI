@@ -395,11 +395,25 @@ class StrategyBandit:
         frust_component = _clip(-(frust_after - frust_before) * 2, -1.0, 1.0)
         components["frustration_delta"] = frust_component
 
+        # Reweighted 2026-07-23 (see backend/tests/simulate_week.py + the ML/bandit audit).
+        # mastery_delta was previously the largest term (0.40) despite the BKT update it comes
+        # from depending only on message intent + fixed per-concept p_learn/p_slip/p_guess --
+        # it never reads which response_strategy was selected, so it's the weakest-attributed
+        # signal here w.r.t. "was THIS strategy good," and its noise was swamping the terms that
+        # actually reflect the student's reaction to the response just sent. A week-long
+        # simulation with a synthetic per-student "true best strategy" showed match-rate
+        # DECLINING (21% -> 3%, below the ~11% random floor for 9 arms) under the old weights.
+        # session_continuation and frustration/engagement deltas are measured on the very next
+        # message following this response, so they're the most directly attributable signals to
+        # "did the student react well to this reply" -- they now carry the majority of the
+        # weight. mastery_delta keeps a small non-zero weight rather than being zeroed out: over
+        # many turns a genuinely effective strategy should still show up there too, just more
+        # slowly and noisily than the behavioral signals.
         total = (
-            0.40 * mastery_component
-            + 0.25 * eng_component
-            + 0.20 * cont_component
-            + 0.15 * frust_component
+            0.15 * mastery_component
+            + 0.30 * eng_component
+            + 0.35 * cont_component
+            + 0.20 * frust_component
         )
         return {
             "total_reward": _clip(total, -1.0, 1.0),
