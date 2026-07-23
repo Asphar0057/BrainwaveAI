@@ -97,10 +97,44 @@ class QuizAgentService {
     return 'easy';
   }
 
-  
+
   async generateAdaptiveQuiz(params) {
-    
-    return this.generateQuiz(params);
+    // Was previously just an alias for generateQuiz(), which always computes a
+    // concrete difficulty client-side via _getDifficultyFromMix and never sends
+    // "auto" -- meaning "USE ADAPTIVE MODE" never actually reached the backend's
+    // ContentDifficultyBandit (is_auto_difficulty() only fires on the literal
+    // string "auto"/"adaptive", see backend/services/content_bandit.py). This
+    // now genuinely requests the bandit-picked difficulty instead of guessing
+    // one here, and surfaces which difficulty/selection method it landed on so
+    // the UI can show that this was in fact an adaptive pick.
+    const { userId, topic, questionCount = 10 } = params;
+
+    const createResponse = await this.request('/create_solo_quiz', {
+      method: 'POST',
+      body: JSON.stringify({
+        subject: topic,
+        difficulty: 'auto',
+        question_count: questionCount
+      })
+    });
+
+    if (!createResponse.quiz_id) {
+      return { success: false, questions: [] };
+    }
+
+    const quizResponse = await this.request(`/solo_quiz/${createResponse.quiz_id}`, {
+      method: 'GET'
+    });
+
+    return {
+      success: true,
+      questions: quizResponse.questions || [],
+      quiz_id: createResponse.quiz_id,
+      quiz: quizResponse.quiz,
+      adaptive_config: {
+        difficulty: quizResponse.quiz?.difficulty || null,
+      },
+    };
   }
 
   

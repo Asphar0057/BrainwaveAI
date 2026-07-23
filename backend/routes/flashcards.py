@@ -743,6 +743,14 @@ async def generate_flashcards_endpoint(
             }
             for idx, card_data in enumerate(flashcards_data)
         ]
+        # This branch never persists flashcards, but select_difficulty() above already
+        # `db.flush()`-ed a BanditEpisodeLog row on the same session (flush, not commit --
+        # relies on the caller/request scope to commit). Every other path through this
+        # function reaches a later db.commit() via saving the FlashcardSet/Flashcard rows;
+        # this early-return load-test path didn't, so get_db()'s session.close() at the end
+        # of the request silently rolled the episode log back -- meaning auto-difficulty
+        # could never learn anything while exercised via AI_LOAD_TEST_FALLBACK_USERS.
+        db.commit()
         return {
             "success": True,
             "status": "success",
@@ -889,6 +897,27 @@ async def update_flashcard_review(request: FlashcardReviewRequest, db: Session =
     ).first()
     set_title = flashcard_set.title if flashcard_set else ""
     owner_id = str(flashcard_set.user_id) if flashcard_set else ""
+
+    # Close the content-difficulty-bandit loop for the main "Study" review flow.
+    # generate_flashcards() (above) selects a difficulty via the bandit for this
+    # exact topic key, but until now only the separate FSRS "Due Cards" flow
+    # (sr_review, below) ever reported a reward back -- every /flashcards/review
+    # session was a one-way write into bandit_episode_log that never got
+    # credited or blamed, so auto-difficulty could never learn from the primary
+    # study loop most users actually use. Mirrors sr_review's bandit_topic_key
+    # resolution and its "again/hard/good/easy"-style accuracy mapping, using
+    # the boolean grade this endpoint actually has.
+    bandit_topic_key = card.category if card.category and card.category != "general" else (
+        set_title.replace("Flashcards: ", "") if set_title else ""
+    )
+    if bandit_topic_key and owner_id:
+        try:
+            get_content_bandit().resolve_reward(
+                db, owner_id, "flashcard", bandit_topic_key,
+                1.0 if request.was_correct else 0.0,
+            )
+        except Exception as e:
+            logger.warning(f"[FLASHCARD_REVIEW] content bandit reward resolution failed: {e}")
 
     from tutor import chroma_store
     if chroma_store.available() and owner_id:
