@@ -3424,6 +3424,7 @@ const Flashcards = () => {
                                 {difficultyLevel === 'easy' && 'EASY'}
                                 {difficultyLevel === 'medium' && 'MEDIUM'}
                                 {difficultyLevel === 'hard' && 'HARD'}
+                                {difficultyLevel === 'auto' && 'ADAPTIVE'}
                               </span>
                               <span className="fc-custom-select-arrow">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -3433,23 +3434,30 @@ const Flashcards = () => {
                             </button>
                             {difficultyDropdownOpen && (
                               <div className="fc-custom-dropdown">
-                                <button 
+                                <button
                                   className={`fc-custom-option ${difficultyLevel === 'easy' ? 'active' : ''}`}
                                   onClick={() => { setDifficultyLevel('easy'); setDifficultyDropdownOpen(false); }}
                                 >
                                   EASY
                                 </button>
-                                <button 
+                                <button
                                   className={`fc-custom-option ${difficultyLevel === 'medium' ? 'active' : ''}`}
                                   onClick={() => { setDifficultyLevel('medium'); setDifficultyDropdownOpen(false); }}
                                 >
                                   MEDIUM
                                 </button>
-                                <button 
+                                <button
                                   className={`fc-custom-option ${difficultyLevel === 'hard' ? 'active' : ''}`}
                                   onClick={() => { setDifficultyLevel('hard'); setDifficultyDropdownOpen(false); }}
                                 >
                                   HARD
+                                </button>
+                                <button
+                                  className={`fc-custom-option ${difficultyLevel === 'auto' ? 'active' : ''}`}
+                                  onClick={() => { setDifficultyLevel('auto'); setDifficultyDropdownOpen(false); }}
+                                  title="Lets past performance on this topic pick the difficulty for you"
+                                >
+                                  ADAPTIVE
                                 </button>
                               </div>
                             )}
@@ -3597,6 +3605,7 @@ const Flashcards = () => {
                                 {difficultyLevel === 'easy' && 'EASY'}
                                 {difficultyLevel === 'medium' && 'MEDIUM'}
                                 {difficultyLevel === 'hard' && 'HARD'}
+                                {difficultyLevel === 'auto' && 'ADAPTIVE'}
                               </span>
                               <span className="fc-custom-select-arrow">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -3606,23 +3615,30 @@ const Flashcards = () => {
                             </button>
                             {difficultyDropdownOpen && (
                               <div className="fc-custom-dropdown">
-                                <button 
+                                <button
                                   className={`fc-custom-option ${difficultyLevel === 'easy' ? 'active' : ''}`}
                                   onClick={() => { setDifficultyLevel('easy'); setDifficultyDropdownOpen(false); }}
                                 >
                                   EASY
                                 </button>
-                                <button 
+                                <button
                                   className={`fc-custom-option ${difficultyLevel === 'medium' ? 'active' : ''}`}
                                   onClick={() => { setDifficultyLevel('medium'); setDifficultyDropdownOpen(false); }}
                                 >
                                   MEDIUM
                                 </button>
-                                <button 
+                                <button
                                   className={`fc-custom-option ${difficultyLevel === 'hard' ? 'active' : ''}`}
                                   onClick={() => { setDifficultyLevel('hard'); setDifficultyDropdownOpen(false); }}
                                 >
                                   HARD
+                                </button>
+                                <button
+                                  className={`fc-custom-option ${difficultyLevel === 'auto' ? 'active' : ''}`}
+                                  onClick={() => { setDifficultyLevel('auto'); setDifficultyDropdownOpen(false); }}
+                                  title="Lets past performance on this topic pick the difficulty for you"
+                                >
+                                  ADAPTIVE
                                 </button>
                               </div>
                             )}
@@ -3853,6 +3869,7 @@ const Flashcards = () => {
                           <option value="easy">Easy</option>
                           <option value="medium">Medium</option>
                           <option value="hard">Hard</option>
+                          <option value="auto">Adaptive (based on your past performance)</option>
                         </select>
                       </div>
 
