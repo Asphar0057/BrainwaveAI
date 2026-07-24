@@ -60,12 +60,13 @@ if os.getenv("ENVIRONMENT", "development") == "production" and "sqlite" in DATAB
     raise RuntimeError("DATABASE_URL must be set to PostgreSQL in production. SQLite is not supported for production use.")
 
 _RL_SCHEDULER_LOCK_ID = int(os.getenv("RL_SCHEDULER_ADVISORY_LOCK_ID", "941731"))
+_KT_SCHEDULER_LOCK_ID = int(os.getenv("KT_SCHEDULER_ADVISORY_LOCK_ID", "941732"))
 
 
-def _acquire_rl_scheduler_lock():
-    mode = os.getenv("ENABLE_RL_SCHEDULER", "auto").strip().lower()
+def _acquire_scheduler_lock(lock_id: int, name: str, enable_env_var: str):
+    mode = os.getenv(enable_env_var, "auto").strip().lower()
     if mode in {"0", "false", "no", "off", "disabled"}:
-        logger.info("RL reward measurement scheduler disabled by env")
+        logger.info(f"{name} scheduler disabled by env")
         return None
 
     if "postgres" in DATABASE_URL.lower():
@@ -73,27 +74,27 @@ def _acquire_rl_scheduler_lock():
         try:
             acquired = conn.execute(
                 text("SELECT pg_try_advisory_lock(:lock_id)"),
-                {"lock_id": _RL_SCHEDULER_LOCK_ID},
+                {"lock_id": lock_id},
             ).scalar()
             if acquired:
-                logger.info("RL scheduler acquired PostgreSQL advisory lock %s", _RL_SCHEDULER_LOCK_ID)
-                return {"kind": "postgres", "handle": conn}
+                logger.info(f"{name} scheduler acquired PostgreSQL advisory lock {lock_id}")
+                return {"kind": "postgres", "handle": conn, "lock_id": lock_id}
         except Exception:
             conn.close()
             raise
         conn.close()
-        logger.info("RL scheduler skipped; advisory lock already held by another worker/replica")
+        logger.info(f"{name} scheduler skipped; advisory lock already held by another worker/replica")
         return None
 
     if mode == "auto":
-        logger.info("RL scheduler auto mode without PostgreSQL lock support; running in-process")
+        logger.info(f"{name} scheduler auto mode without PostgreSQL lock support; running in-process")
         return {"kind": "local", "handle": None}
 
-    logger.info("RL scheduler enabled without PostgreSQL lock support via env override")
+    logger.info(f"{name} scheduler enabled without PostgreSQL lock support via env override")
     return {"kind": "local", "handle": None}
 
 
-def _release_rl_scheduler_lock(lock_state) -> None:
+def _release_scheduler_lock(lock_state) -> None:
     if not lock_state:
         return
     if lock_state.get("kind") != "postgres":
@@ -104,7 +105,7 @@ def _release_rl_scheduler_lock(lock_state) -> None:
     try:
         conn.execute(
             text("SELECT pg_advisory_unlock(:lock_id)"),
-            {"lock_id": _RL_SCHEDULER_LOCK_ID},
+            {"lock_id": lock_state["lock_id"]},
         )
     except Exception:
         pass
@@ -408,34 +409,99 @@ async def lifespan(app: FastAPI):
         logger.warning(f"ContextAgent init failed: {e}")
 
     _scheduler = None
-    _scheduler_lock = None
+    _rl_scheduler_lock = None
+    _kt_scheduler_lock = None
     try:
         from apscheduler.schedulers.asyncio import AsyncIOScheduler
-        from services.rl_strategy_agent import get_bandit
 
-        _scheduler_lock = _acquire_rl_scheduler_lock()
-        if _scheduler_lock:
-            _bandit_instance = get_bandit()
-            _scheduler = AsyncIOScheduler()
-            reward_interval_seconds = int(os.getenv("RL_REWARD_MEASUREMENT_INTERVAL_SECONDS", "300"))
+        _scheduler = AsyncIOScheduler()
+        _any_job_added = False
 
-            def _run_reward_measurement():
-                _bandit_instance.measure_pending_rewards(SessionLocal)
+        try:
+            from services.rl_strategy_agent import get_bandit
 
-            _scheduler.add_job(
-                _run_reward_measurement,
-                "interval",
-                seconds=reward_interval_seconds,
-                id="rl_reward_measurement",
-                max_instances=1,
-                coalesce=True,
+            _rl_scheduler_lock = _acquire_scheduler_lock(
+                _RL_SCHEDULER_LOCK_ID, "RL reward measurement", "ENABLE_RL_SCHEDULER"
             )
+            if _rl_scheduler_lock:
+                _bandit_instance = get_bandit()
+                reward_interval_seconds = int(os.getenv("RL_REWARD_MEASUREMENT_INTERVAL_SECONDS", "300"))
+
+                def _run_reward_measurement():
+                    _bandit_instance.measure_pending_rewards(SessionLocal)
+
+                _scheduler.add_job(
+                    _run_reward_measurement,
+                    "interval",
+                    seconds=reward_interval_seconds,
+                    id="rl_reward_measurement",
+                    max_instances=1,
+                    coalesce=True,
+                )
+                _any_job_added = True
+                logger.info("RL reward measurement scheduler job added (%ss interval)", reward_interval_seconds)
+        except Exception as e:
+            logger.warning(f"RL scheduler job init failed: {e}")
+
+        try:
+            # DKT (dkt/trainer.py) requires an explicit training pass to ever
+            # reflect new interactions -- nothing previously called
+            # POST /api/kt/train automatically, so the model had never been
+            # trained at all in practice (confirmed: no dkt_model.pt on disk).
+            # This checks periodically and only actually retrains when enough
+            # new interaction volume has accumulated (dkt/trainer.py::should_retrain),
+            # reusing the same training_active guard as the manual endpoint
+            # (routes/knowledge_tracing.py) so a scheduled and a manual trigger
+            # can't run concurrently.
+            _kt_scheduler_lock = _acquire_scheduler_lock(
+                _KT_SCHEDULER_LOCK_ID, "DKT retraining", "ENABLE_KT_SCHEDULER"
+            )
+            if _kt_scheduler_lock:
+                kt_check_interval_seconds = int(os.getenv("KT_RETRAIN_CHECK_INTERVAL_SECONDS", "3600"))
+
+                def _run_kt_retrain_if_needed():
+                    from dkt.trainer import should_retrain, train
+                    from dkt.inference import invalidate_cache
+                    import routes.knowledge_tracing as _kt_routes
+
+                    with _kt_routes._training_lock:
+                        if _kt_routes._training_active:
+                            return
+                        if not should_retrain(SessionLocal):
+                            return
+                        _kt_routes._training_active = True
+
+                    try:
+                        result = train(SessionLocal)
+                        invalidate_cache()
+                        logger.info(f"[AKT] Scheduled retrain finished: {result}")
+                    except Exception as e:
+                        logger.error(f"[AKT] Scheduled retrain failed: {e}", exc_info=True)
+                    finally:
+                        _kt_routes._training_active = False
+
+                _scheduler.add_job(
+                    _run_kt_retrain_if_needed,
+                    "interval",
+                    seconds=kt_check_interval_seconds,
+                    id="kt_retrain_check",
+                    max_instances=1,
+                    coalesce=True,
+                )
+                _any_job_added = True
+                logger.info("DKT retraining scheduler job added (checks every %ss)", kt_check_interval_seconds)
+        except Exception as e:
+            logger.warning(f"KT scheduler job init failed: {e}")
+
+        if _any_job_added:
             _scheduler.start()
-            logger.info("RL reward measurement scheduler started (%ss interval)", reward_interval_seconds)
+        else:
+            _scheduler = None
     except ImportError:
-        logger.warning("APScheduler not installed — RL reward measurement disabled. Add apscheduler>=3.10.0 to requirements.txt")
+        logger.warning("APScheduler not installed — RL reward measurement and DKT retraining disabled. Add apscheduler>=3.10.0 to requirements.txt")
+        _scheduler = None
     except Exception as e:
-        logger.warning(f"RL scheduler init failed: {e}")
+        logger.warning(f"Scheduler init failed: {e}")
 
     logger.info("Startup complete")
     yield
@@ -445,7 +511,8 @@ async def lifespan(app: FastAPI):
             _scheduler.shutdown(wait=False)
         except Exception:
             pass
-    _release_rl_scheduler_lock(_scheduler_lock)
+    _release_scheduler_lock(_rl_scheduler_lock)
+    _release_scheduler_lock(_kt_scheduler_lock)
 
 _production_api = os.getenv("ENVIRONMENT", "development").strip().lower() == "production"
 app = FastAPI(

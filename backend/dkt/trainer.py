@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import functools
+import json
 import logging
 import os
+from datetime import datetime, timezone
 from typing import Optional
 
 import torch
@@ -21,7 +23,8 @@ from dkt.dataset import (
 
 logger = logging.getLogger(__name__)
 
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "dkt_model.pt")
+MODEL_PATH           = os.path.join(os.path.dirname(__file__), "dkt_model.pt")
+TRAINING_STATE_PATH  = os.path.join(os.path.dirname(__file__), "training_state.json")
 
 DEFAULTS = dict(
     d_model    = 64,
@@ -107,6 +110,13 @@ def train(db_session_factory, **kwargs) -> dict:
         "dropout":    cfg["dropout"],
     }, MODEL_PATH)
 
+    n_interactions_total = sum(len(seq) for seq in sequences.values())
+    with open(TRAINING_STATE_PATH, "w") as f:
+        json.dump({
+            "last_trained_at": datetime.now(timezone.utc).isoformat(),
+            "n_interactions":  n_interactions_total,
+        }, f)
+
     logger.info(f"[AKT] Model saved (best_val_loss={best_val_loss:.4f})")
     return {
         "status":         "success",
@@ -116,6 +126,44 @@ def train(db_session_factory, **kwargs) -> dict:
         "best_val_loss":  round(best_val_loss, 6),
         "history":        history[-5:],
     }
+
+def should_retrain(
+    db_session_factory,
+    min_new_interactions: int = 50,
+    min_hours_between: float = 6.0,
+    min_interactions_for_first_train: int = 20,
+) -> bool:
+    """Gates the periodic retraining scheduler (main.py) so it doesn't refit
+    the whole transformer from scratch on every tick -- only when there's
+    enough NEW interaction volume to plausibly move the model, and not more
+    often than `min_hours_between` regardless. Counts raw rows directly
+    (cheap COUNT queries) rather than building the full vocab/sequence
+    structure just to check whether a real training pass is warranted."""
+    from models import ChatConceptSignal, QuestionResult
+
+    db = db_session_factory()
+    try:
+        n_now = (
+            db.query(ChatConceptSignal).count()
+            + db.query(QuestionResult).count()
+        )
+    finally:
+        db.close()
+
+    if not os.path.exists(TRAINING_STATE_PATH):
+        return n_now >= min_interactions_for_first_train
+
+    try:
+        with open(TRAINING_STATE_PATH) as f:
+            state = json.load(f)
+        last_trained_at = datetime.fromisoformat(state["last_trained_at"])
+        hours_since = (datetime.now(timezone.utc) - last_trained_at).total_seconds() / 3600
+        new_interactions = n_now - state.get("n_interactions", 0)
+    except Exception as e:
+        logger.warning(f"[AKT] Failed to read training state, treating as never trained: {e}")
+        return n_now >= min_interactions_for_first_train
+
+    return hours_since >= min_hours_between and new_interactions >= min_new_interactions
 
 def _run_epoch(model, loader, criterion, device, optimizer):
     total_loss  = 0.0
