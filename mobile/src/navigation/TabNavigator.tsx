@@ -23,6 +23,7 @@ import KnowledgeMapsScreen from '../screens/KnowledgeMapsScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
 import XpAnalyticsScreen from '../screens/XpAnalyticsScreen';
 import WeaknessPracticeScreen from '../screens/WeaknessPracticeScreen';
+import TopicsHubScreen from '../screens/TopicsHubScreen';
 import KnowledgeHubScreen from '../screens/KnowledgeHubScreen';
 import SlideExplorerScreen from '../screens/SlideExplorerScreen';
 import CanvasHubScreen from '../screens/CanvasHubScreen';
@@ -48,6 +49,7 @@ type RootStackParamList = {
   Analytics: undefined;
   XpAnalytics: undefined;
   WeaknessPractice: undefined;
+  TopicsHub: undefined;
   LearningPaths: undefined;
   Leaderboard: undefined;
 };
@@ -63,7 +65,7 @@ const TABS: { label: string; icon: IoniconsName; activeIcon: IoniconsName }[] = 
 type Props = { user: AuthUser; onLogout: () => void; onUserUpdate?: (patch: Partial<AuthUser>) => void };
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-type AppTarget = 'flashcards' | 'notes' | 'aimedia' | 'settings' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'xpAnalytics' | 'weaknessPractice' | 'learningPaths' | 'leaderboard';
+type AppTarget = 'flashcards' | 'notes' | 'aimedia' | 'settings' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'xpAnalytics' | 'weaknessPractice' | 'topicsHub' | 'learningPaths' | 'leaderboard';
 
 function MainTabs({ user, onLogout, onUserUpdate, onNavigate, requestedTab, tabRequestKey }: Props & {
   onNavigate: (screen: AppTarget) => void;
@@ -245,6 +247,7 @@ export default function TabNavigator({ user, onLogout, onUserUpdate }: Props) {
                   if (screen === 'analytics') navigation.navigate('Analytics');
                   if (screen === 'xpAnalytics') navigation.navigate('XpAnalytics');
                   if (screen === 'weaknessPractice') navigation.navigate('WeaknessPractice');
+                  if (screen === 'topicsHub') navigation.navigate('TopicsHub');
                   if (screen === 'learningPaths') navigation.navigate('LearningPaths');
                   if (screen === 'leaderboard') navigation.navigate('Leaderboard');
                 }}
@@ -339,6 +342,11 @@ export default function TabNavigator({ user, onLogout, onUserUpdate }: Props) {
           <Stack.Screen name="WeaknessPractice">
             {({ navigation }) => (
               <ScreenErrorBoundary label="Weakness Practice"><WeaknessPracticeScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="TopicsHub">
+            {({ navigation }) => (
+              <ScreenErrorBoundary label="Topics Hub"><TopicsHubScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
             )}
           </Stack.Screen>
           <Stack.Screen name="LearningPaths">

@@ -881,6 +881,13 @@
   gap: 16px;
 }
 
+.wk-evidence {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.4;
+}
+
 .wk-metric {
   display: flex;
   flex-direction: column;

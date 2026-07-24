@@ -2100,6 +2100,23 @@ async def save_complete_profile(
         if "brainwave_goal" in payload:
             comprehensive_profile.brainwave_goal = payload["brainwave_goal"]
 
+        if "learning_preferences" in payload:
+            # Previously accepted here and silently dropped -- nothing read this
+            # field, so the quiz's Q1-Q5 answers never reached the DB at all.
+            # Now also derives a cold-start teaching-style prior for StyleBandit
+            # (dkt/style_bandit.py::derive_style_from_quiz), used only until the
+            # bandit has real per-student feedback to learn from -- see
+            # tutor/nodes.py::select_teaching_style.
+            learning_preferences = payload["learning_preferences"]
+            comprehensive_profile.learning_preferences = json.dumps(learning_preferences)
+            try:
+                from dkt.style_bandit import derive_style_from_quiz
+                derived_style = derive_style_from_quiz(learning_preferences)
+                if derived_style:
+                    comprehensive_profile.derived_teaching_style = derived_style
+            except Exception as e:
+                logger.warning(f"Failed to derive teaching style from quiz: {e}")
+
         if payload.get("quiz_completed"):
             comprehensive_profile.primary_archetype = payload.get("primary_archetype", "")
             comprehensive_profile.secondary_archetype = payload.get("secondary_archetype", "")

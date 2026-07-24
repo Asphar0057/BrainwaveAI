@@ -40,6 +40,21 @@ const Weaknesses = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activityFeed, setActivityFeed] = useState(null);
   const [activityLoading, setActivityLoading] = useState(false);
+  const [topicsHub, setTopicsHub] = useState(null);
+  const [topicsHubLoading, setTopicsHubLoading] = useState(false);
+  const [topicsHubFilter, setTopicsHubFilter] = useState('all');
+
+  const loadTopicsHub = async () => {
+    setTopicsHubLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/weakness-practice/mastery-overview?user_id=${encodeURIComponent(userName)}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) setTopicsHub(await res.json());
+    } catch (e) { /* silenced */ } finally {
+      setTopicsHubLoading(false);
+    }
+  };
 
   const loadActivityFeed = async () => {
     setActivityLoading(true);
@@ -137,6 +152,9 @@ const Weaknesses = () => {
             <button className="wk-side-icon-btn" title="Weak Areas" onClick={() => { setSidebarCollapsed(false); setActiveView('weak-areas'); }}>
               <Activity size={16} />
             </button>
+            <button className="wk-side-icon-btn" title="Topics Hub" onClick={() => { setSidebarCollapsed(false); setActiveView('topics-hub'); if (!topicsHub) loadTopicsHub(); }}>
+              <BookOpen size={16} />
+            </button>
             <button className="wk-side-icon-btn" title="Intelligence" onClick={() => { setSidebarCollapsed(false); setActiveView('intelligence'); }}>
               <Cpu size={16} />
             </button>
@@ -169,6 +187,14 @@ const Weaknesses = () => {
                 <Activity size={16} />
                 <span>Weak Areas</span>
                 {totalCount > 0 && <span className="wk-count">{totalCount}</span>}
+              </button>
+              <button
+                className={`wk-sidebar-item ${activeView === 'topics-hub' ? 'active' : ''}`}
+                onClick={() => { setActiveView('topics-hub'); if (!topicsHub) loadTopicsHub(); }}
+              >
+                <BookOpen size={16} />
+                <span>Topics Hub</span>
+                {topicsHub?.total_topics > 0 && <span className="wk-count">{topicsHub.total_topics}</span>}
               </button>
               <button
                 className={`wk-sidebar-item ${activeView === 'intelligence' ? 'active' : ''}`}
@@ -282,6 +308,63 @@ const Weaknesses = () => {
                     />
                   ))}
                 </div>
+              )}
+            </>
+          )}
+
+          {activeView === 'topics-hub' && (
+            <>
+              <div className="wk-view-header">
+                <span className="wk-view-kicker">Everything You've Learned</span>
+                <h2 className="wk-view-title">Topics Hub</h2>
+                <p className="wk-view-sub">
+                  {topicsHub?.total_topics > 0
+                    ? `${topicsHub.total_topics} topic${topicsHub.total_topics !== 1 ? 's' : ''} tracked · ${topicsHub.overall_mastery}% overall mastery`
+                    : 'Every topic you have studied, with mastery, accuracy, and practice history in one place'}
+                </p>
+              </div>
+
+              {topicsHubLoading ? (
+                <div className="wk-loading"><div className="wk-loading-dots"><span /><span /><span /></div><p>LOADING TOPICS</p></div>
+              ) : !topicsHub || topicsHub.total_topics === 0 ? (
+                <div className="wk-empty">
+                  <BookOpen size={56} />
+                  <h3>No topics tracked yet</h3>
+                  <p>Study with quizzes, flashcards, or chat to start building your topic mastery profile.</p>
+                  <button className="wk-cta-btn" onClick={() => navigate('/ai-chat')}>
+                    <Zap size={16} />
+                    Start Learning
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="wk-filter-row">
+                    {[
+                      { key: 'all', label: 'All Topics', count: topicsHub.total_topics },
+                      { key: 'mastered', label: 'Mastered', count: topicsHub.mastered_topics },
+                      { key: 'progressing', label: 'Progressing', count: topicsHub.progressing_topics },
+                      { key: 'needs_work', label: 'Needs Work', count: topicsHub.needs_work_topics },
+                    ].map(({ key, label, count }) => (
+                      <button
+                        key={key}
+                        className={`wk-filter-pill ${topicsHubFilter === key ? 'active' : ''} wk-filter-${key === 'needs_work' ? 'critical' : key === 'progressing' ? 'needs_practice' : key === 'mastered' ? 'improving' : 'all'}`}
+                        onClick={() => setTopicsHubFilter(key)}
+                      >
+                        {label}
+                        <span className="wk-filter-count">{count}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="wk-bento-grid">
+                    {(topicsHubFilter === 'all'
+                      ? [...topicsHub.topic_breakdown.mastered, ...topicsHub.topic_breakdown.progressing, ...topicsHub.topic_breakdown.needs_work]
+                      : topicsHub.topic_breakdown[topicsHubFilter] || []
+                    ).map((t, idx) => (
+                      <TopicHubCard key={idx} topic={t} onClick={() => handleTopicClick(t.topic)} />
+                    ))}
+                  </div>
+                </>
               )}
             </>
           )}
@@ -447,6 +530,91 @@ const WeaknessCard = ({ area, onClick }) => {
           <button
             className="wk-card-btn wk-card-btn--practice"
             onClick={(e) => { e.stopPropagation(); navigate(`/weakness-tips/${encodeURIComponent(area.topic)}`); }}
+          >
+            Practice
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ==================== TOPIC HUB CARD ====================
+
+const fmtLastPracticed = (iso) => {
+  if (!iso) return 'Never practiced';
+  const d = new Date(iso);
+  const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+  if (days <= 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (days < 30) return `${days}d ago`;
+  return `${Math.floor(days / 30)}mo ago`;
+};
+
+const TopicHubCard = ({ topic, onClick }) => {
+  const navigate = useNavigate();
+  const masteryPct = Math.round((topic.mastery_level || 0) * 100);
+  const cat = masteryPct >= 80 ? 'improving' : masteryPct >= 50 ? 'needs_practice' : 'critical';
+  const catColor = { critical: '#ef4444', needs_practice: '#f59e0b', improving: '#10b981' }[cat];
+  const catLabel = masteryPct >= 80 ? 'Mastered' : masteryPct >= 50 ? 'Progressing' : 'Needs Work';
+  const CoverIcon = masteryPct >= 80 ? CheckCircle : masteryPct >= 50 ? Brain : Target;
+
+  return (
+    <div className={`wk-card wk-card--${cat}`} onClick={onClick} onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+      <div className="cb-tile-texture" />
+      <div
+        className="wk-card-cover"
+        style={{
+          background: `linear-gradient(135deg, color-mix(in srgb, ${catColor} 22%, transparent) 0%, color-mix(in srgb, ${catColor} 8%, transparent) 100%)`,
+        }}
+      >
+        <div className="wk-card-cover-icon" style={{ color: catColor }}>
+          <CoverIcon size={40} />
+        </div>
+      </div>
+
+      <div className="wk-card-content">
+        <h3 className="wk-card-topic">{topic.topic || 'Unknown Topic'}</h3>
+
+        <div className="wk-card-header">
+          <div className="wk-card-badges">
+            {(topic.excels_at || []).slice(0, 1).map((s, i) => (
+              <span key={i} className="wk-badge wk-badge--card">{s}</span>
+            ))}
+          </div>
+          <span className="wk-card-cat" style={{ color: catColor }}>{catLabel}</span>
+        </div>
+
+        <div className="wk-card-bar-wrap">
+          <div className="wk-card-bar-track">
+            <div className="wk-card-bar-fill" style={{ width: `${masteryPct}%`, background: catColor }} />
+          </div>
+          <span className="wk-card-pct" style={{ color: catColor }}>{masteryPct}%</span>
+        </div>
+
+        <div className="wk-card-metrics">
+          <div className="wk-metric">
+            <span className="wk-metric-val">{topic.accuracy ?? 0}%</span>
+            <span className="wk-metric-lbl">Accuracy</span>
+          </div>
+          <div className="wk-metric">
+            <span className="wk-metric-val">{topic.times_studied || 0}</span>
+            <span className="wk-metric-lbl">Sessions</span>
+          </div>
+          <div className="wk-metric">
+            <span className="wk-metric-val">{fmtLastPracticed(topic.last_practiced)}</span>
+            <span className="wk-metric-lbl">Last Seen</span>
+          </div>
+        </div>
+
+        {(topic.struggles_with || []).length > 0 && (
+          <p className="wk-evidence">Struggles with: {topic.struggles_with.slice(0, 2).join(', ')}</p>
+        )}
+
+        <div className="wk-card-action-row">
+          <button
+            className="wk-card-btn wk-card-btn--practice"
+            onClick={(e) => { e.stopPropagation(); navigate(`/weakness-tips/${encodeURIComponent(topic.topic)}`); }}
           >
             Practice
           </button>

@@ -832,6 +832,15 @@ export async function getWeaknessAnalysis(userId: number) {
   return res.json();
 }
 
+export async function getMasteryOverview(userId: number) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/weakness-practice/mastery-overview?user_id=${encodeURIComponent(String(userId))}`, { headers });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to load topics hub');
+  }
+  return res.json();
+}
+
 // ── Social ────────────────────────────────────────────────────────────
 export async function getFriends(userId: string) {
   const headers = await authHeaders();

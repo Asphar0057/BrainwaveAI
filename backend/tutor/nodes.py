@@ -1179,10 +1179,10 @@ def select_teaching_style(state: TutorState) -> dict:
     analysis   = state.get("language_analysis") or {}
 
     if intent in ("greeting", "returning_greeting", "off_topic", "recall", "repetitive"):
-        return {"selected_style": "conceptual", "style_context": [], "style_scores": {}}
+        return {"selected_style": "Axiom", "style_context": [], "style_scores": {}, "style_selection_source": "rule"}
 
     if not db_factory:
-        return {"selected_style": "example_first", "style_context": [], "style_scores": {}}
+        return {"selected_style": "Exemplar", "style_context": [], "style_scores": {}, "style_selection_source": "rule"}
 
     try:
         from dkt.style_bandit import (
@@ -1195,6 +1195,18 @@ def select_teaching_style(state: TutorState) -> dict:
         try:
             bandit         = load_bandit(uid, db)
             recent_signals = get_recent_signals(uid, db)
+            quiz_style     = None
+            if all(arm.n_updates == 0 for arm in bandit.arms.values()):
+                # Bandit has zero real feedback yet -- its arms are still
+                # near-identical near-zero-initialized nets, so an early pick
+                # is close to random. Use the ProfileQuiz-derived style as a
+                # cold-start prior instead; the moment any arm gets a real
+                # update (via persist_updates' reward-closing), this check
+                # goes false forever for this student and the bandit takes
+                # over for real, as normal.
+                import models as _models
+                profile = db.query(_models.ComprehensiveUserProfile).filter_by(user_id=uid).first()
+                quiz_style = profile.derived_teaching_style if profile else None
         finally:
             db.close()
 
@@ -1203,18 +1215,50 @@ def select_teaching_style(state: TutorState) -> dict:
         session_gap      = state.get("session_gap_days")
         n_interactions   = len(recent_signals)
 
-        primary_concept  = analysis.get("primary_concept")
-        concept_mastery  = 0.5
-        mastery_dict     = None
-        n_decayed        = len(state.get("decayed_concepts") or [])
+        primary_concept    = analysis.get("primary_concept")
+        concept_mastery    = 0.5
+        mastery_dict       = None
+        n_decayed          = len(state.get("decayed_concepts") or [])
+        dkt_n_interactions = 0
         try:
             from dkt.inference import get_mastery
             m            = get_mastery(uid, db_factory, apply_decay=True)
             mastery_dict = m.get("effective_mastery") or {}
+            dkt_n_interactions = m.get("n_interactions", 0) if m.get("model_available") else 0
             if primary_concept and primary_concept in mastery_dict:
                 concept_mastery = mastery_dict[primary_concept]
         except Exception:
             pass
+
+        # Reconcile with BKT's real-time estimate for the same concept
+        # (services/mastery_reconciliation.py) so this scalar -- fed into
+        # StyleBandit's context vector -- is the same evidence-weighted
+        # blend as the number shown in the chat prompt, not a DKT-only
+        # figure that can silently disagree with it.
+        if primary_concept:
+            try:
+                import models as _models
+                from services.ml_pipeline import MessageMLPipeline
+                from services.mastery_reconciliation import blend_mastery
+                bkt_concept_id = primary_concept.strip().lower().replace(" ", "_")
+                recon_db = db_factory()
+                try:
+                    bkt_state = recon_db.query(_models.StudentKnowledgeState).filter_by(
+                        user_id=uid, concept_id=bkt_concept_id
+                    ).first()
+                finally:
+                    recon_db.close()
+                if bkt_state:
+                    bkt_mastery = MessageMLPipeline._decayed_mastery(
+                        bkt_state.p_mastery, bkt_state.last_updated, bkt_state.interaction_count or 0
+                    )
+                    dkt_mastery = mastery_dict.get(primary_concept) if mastery_dict else None
+                    concept_mastery = blend_mastery(
+                        bkt_mastery, bkt_state.interaction_count or 0,
+                        dkt_mastery, dkt_n_interactions if dkt_mastery is not None else 0,
+                    )
+            except Exception:
+                pass
 
         context = build_context(
             difficulty_level = difficulty,
@@ -1227,11 +1271,12 @@ def select_teaching_style(state: TutorState) -> dict:
         )
 
         explicit_style   = analysis.get("explicit_style")
-        selected, scores = bandit.select(context, forced=explicit_style)
+        forced_style     = explicit_style or quiz_style
+        selected, scores = bandit.select(context, forced=forced_style)
 
+        source = "explicit" if explicit_style else ("quiz_cold_start" if quiz_style else "bandit")
         logger.info(
-            f"[BANDIT] user={uid} selected={selected!r} "
-            f"{'(explicit override)' if explicit_style else ''} "
+            f"[BANDIT] user={uid} selected={selected!r} source={source} "
             f"scores={{{', '.join(f'{k}: {v:.3f}' for k, v in scores.items())}}}"
         )
 
@@ -1239,11 +1284,12 @@ def select_teaching_style(state: TutorState) -> dict:
             "selected_style": selected,
             "style_context":  context.tolist(),
             "style_scores":   scores,
+            "style_selection_source": source,
         }
 
     except Exception as e:
         logger.warning(f"[BANDIT] style selection failed: {e}")
-        return {"selected_style": "example_first", "style_context": [], "style_scores": {}}
+        return {"selected_style": "Exemplar", "style_context": [], "style_scores": {}, "style_selection_source": "fallback"}
 
 def _build_instructional_task(state: TutorState) -> str:
     intent   = state.get("intent", "")

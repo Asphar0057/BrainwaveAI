@@ -74,6 +74,7 @@ class TutorState(TypedDict, total=False):
     selected_style: str
     style_context: list[float]
     style_scores: dict
+    style_selection_source: str
     instructional_task: str
     response: str
     evaluation: EvalResult
