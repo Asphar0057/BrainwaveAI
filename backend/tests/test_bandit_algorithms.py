@@ -453,7 +453,7 @@ class TestStyleBandit:
         bandit = StyleBandit()
         ctx = build_context("medium", [0.3, 0.4, 0.5], session_gap_days=1, n_interactions=10)
 
-        arm = "step_by_step"
+        arm = "Cadence"
         baseline_scores = [bandit.arms[arm].score(ctx, alpha=0.0) for _ in range(10)]
         baseline_mu = sum(baseline_scores) / len(baseline_scores)
 
@@ -476,7 +476,7 @@ class TestStyleBandit:
         torch.manual_seed(5)
         bandit = StyleBandit()
         ctx = build_context("medium", [0.3, 0.4, 0.5], session_gap_days=1, n_interactions=10)
-        arm = "conceptual"
+        arm = "Axiom"
 
         def mc_std(n_batches=15, mc_samples=30):
             net = bandit.arms[arm].net
@@ -512,13 +512,13 @@ class TestStyleBandit:
         bandit = StyleBandit()
         ctx = build_context("hard", [0.6, 0.7], session_gap_days=0, n_interactions=30)
         for _ in range(20):
-            bandit.update("analogy", ctx, reward=0.9)
+            bandit.update("Bridge", ctx, reward=0.9)
 
-        before_state = {k: v.clone() for k, v in bandit.arms["analogy"].state_dict().items()}
+        before_state = {k: v.clone() for k, v in bandit.arms["Bridge"].state_dict().items()}
         payload = bandit.to_json()
 
         restored = StyleBandit.from_json(payload)
-        after_state = restored.arms["analogy"].state_dict()
+        after_state = restored.arms["Bridge"].state_dict()
 
         assert before_state.keys() == after_state.keys()
         for k in before_state:
@@ -527,10 +527,35 @@ class TestStyleBandit:
                 f"every server restart would silently reset this student's learned "
                 f"style preference back to a fresh prior"
             )
-        assert restored.arms["analogy"].n_updates == bandit.arms["analogy"].n_updates == 20
+        assert restored.arms["Bridge"].n_updates == bandit.arms["Bridge"].n_updates == 20
 
     def test_forced_style_bypasses_scoring(self):
         bandit = StyleBandit()
         ctx = build_context("medium", [], session_gap_days=0, n_interactions=0)
-        chosen, _ = bandit.select(ctx, forced="socratic")
-        assert chosen == "socratic"
+        chosen, _ = bandit.select(ctx, forced="Catalyst")
+        assert chosen == "Catalyst"
+
+    def test_legacy_style_names_translated_on_load(self):
+        """Styles were renamed from generic names (example_first, step_by_step,
+        analogy, conceptual, socratic, problem_solving) to unique names
+        (Exemplar, Cadence, Bridge, Axiom, Catalyst, Forge). Any
+        StudentStyleModel.bandit_state JSON persisted before the rename must
+        still load onto the correct (renamed) arm instead of being silently
+        dropped for an unrecognized key."""
+        import json as _json
+        import torch
+        bandit = StyleBandit()
+        ctx = build_context("hard", [0.5], session_gap_days=0, n_interactions=10)
+        for _ in range(15):
+            bandit.update("Cadence", ctx, reward=0.9)
+        legacy_payload = _json.dumps({
+            "step_by_step": bandit.arms["Cadence"].to_dict(),
+        })
+
+        restored = StyleBandit.from_json(legacy_payload)
+        assert restored.arms["Cadence"].n_updates == 15
+        for k in bandit.arms["Cadence"].state_dict():
+            assert torch.equal(
+                bandit.arms["Cadence"].state_dict()[k],
+                restored.arms["Cadence"].state_dict()[k],
+            )

@@ -312,6 +312,9 @@ class ComprehensiveUserProfile(Base):
     archetype_scores = Column(Text, nullable=True)
     archetype_description = Column(Text, nullable=True)
 
+    learning_preferences = Column(Text, nullable=True)
+    derived_teaching_style = Column(String(50), nullable=True)
+
     show_study_insights = Column(Boolean, default=True)
     notifications_enabled = Column(Boolean, default=True)
 

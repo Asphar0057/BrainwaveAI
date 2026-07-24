@@ -13,13 +13,26 @@ import torch.nn.functional as F
 logger = logging.getLogger(__name__)
 
 STYLES = [
-    "example_first",
-    "step_by_step",
-    "analogy",
-    "conceptual",
-    "socratic",
-    "problem_solving",
+    "Exemplar",
+    "Cadence",
+    "Bridge",
+    "Axiom",
+    "Catalyst",
+    "Forge",
 ]
+
+# Legacy generic names this bandit used before styles were given unique
+# names. Old StudentStyleModel.bandit_state rows persisted under these keys
+# are translated in StyleBandit.from_json so already-trained per-student
+# weights aren't silently discarded on this rename.
+_LEGACY_STYLE_ALIASES: dict[str, str] = {
+    "example_first":   "Exemplar",
+    "step_by_step":    "Cadence",
+    "analogy":         "Bridge",
+    "conceptual":      "Axiom",
+    "socratic":        "Catalyst",
+    "problem_solving": "Forge",
+}
 
 N_FEATURES = 12
 ALPHA      = 1.0
@@ -27,7 +40,7 @@ MC_SAMPLES = 30
 _HIDDEN    = 32
 
 STYLE_INSTRUCTIONS: dict[str, str] = {
-    "example_first": (
+    "Exemplar": (
         "TEACHING FORMAT — EXAMPLES FIRST:\n"
         "• Open with exactly 2 concrete, real-world examples before any theory.\n"
         "• Make examples specific and tangible — numbers, names, scenarios.\n"
@@ -35,7 +48,7 @@ STYLE_INSTRUCTIONS: dict[str, str] = {
         "• Show explicitly how each example maps to the theory.\n"
         "DO NOT open with a definition or abstract statement."
     ),
-    "step_by_step": (
+    "Cadence": (
         "TEACHING FORMAT — STEP BY STEP:\n"
         "• Structure your entire response as exactly 3–5 numbered steps.\n"
         "• Each step = one sentence maximum.\n"
@@ -43,7 +56,7 @@ STYLE_INSTRUCTIONS: dict[str, str] = {
         "• End with a single bold 'Key point:' line.\n"
         "DO NOT use prose paragraphs."
     ),
-    "analogy": (
+    "Bridge": (
         "TEACHING FORMAT — ANALOGY FIRST:\n"
         "• Open with one vivid, real-world analogy the student can immediately picture.\n"
         "• Explicitly map each component of the analogy to the technical concept.\n"
@@ -51,7 +64,7 @@ STYLE_INSTRUCTIONS: dict[str, str] = {
         "• Close by noting where the analogy breaks down (honesty builds trust).\n"
         "DO NOT skip the explicit analogy-to-concept mapping."
     ),
-    "conceptual": (
+    "Axiom": (
         "TEACHING FORMAT — CONCEPTUAL:\n"
         "• State the formal definition in one precise sentence.\n"
         "• Explain the intuition behind it in plain language.\n"
@@ -59,7 +72,7 @@ STYLE_INSTRUCTIONS: dict[str, str] = {
         "• Skip examples unless clarity absolutely requires one.\n"
         "DO NOT pad with examples or analogies."
     ),
-    "socratic": (
+    "Catalyst": (
         "TEACHING FORMAT — SOCRATIC:\n"
         "• Do NOT give the answer directly.\n"
         "• Ask 1–2 guiding questions that scaffold toward the answer.\n"
@@ -67,7 +80,7 @@ STYLE_INSTRUCTIONS: dict[str, str] = {
         "• When they respond, build on their answer rather than replacing it.\n"
         "DO NOT state the conclusion for them."
     ),
-    "problem_solving": (
+    "Forge": (
         "TEACHING FORMAT — PROBLEM SOLVING:\n"
         "• Present one concrete, worked problem directly related to the concept.\n"
         "• Walk through the solution step by step, narrating each decision.\n"
@@ -160,7 +173,8 @@ class StyleBandit:
     def from_json(cls, payload: str, alpha: float = ALPHA) -> "StyleBandit":
         bandit = cls(alpha=alpha)
         data   = json.loads(payload)
-        for style, arm_data in data.items():
+        for raw_style, arm_data in data.items():
+            style = _LEGACY_STYLE_ALIASES.get(raw_style, raw_style)
             if style not in bandit.arms:
                 continue
             if arm_data.get("type") != "neural":
@@ -224,6 +238,45 @@ def build_context(
         recent_trend,
         1.0,
     ], dtype=np.float64)
+
+# ProfileQuiz.js's Q1 ("which approach helps you understand fastest") and Q4
+# ("what feedback style helps you improve quickest") are the two questions
+# whose options map onto teaching format, not just subject/goal metadata.
+# Weights are heuristic (the quiz predates StyleBandit's 6 arms), so this is
+# a cold-start prior, not a claim of measured correlation.
+_QUIZ_STYLE_WEIGHTS: dict[str, dict[str, dict[str, float]]] = {
+    "q1": {
+        "A": {"Cadence": 2.0},                       # step-by-step logic/definitions
+        "B": {"Exemplar": 2.0, "Forge": 1.0},        # worked examples, infer the rule
+        "C": {"Axiom": 2.0},                         # diagrams/relationships
+        "D": {"Forge": 2.0, "Bridge": 1.0},          # real-world applications/case studies
+    },
+    "q4": {
+        "A": {"Cadence": 1.0},                       # exact step + corrected steps
+        "B": {"Catalyst": 2.0},                      # hints that guide without revealing
+        "C": {"Axiom": 1.0, "Catalyst": 1.0},         # "why this works" + follow-up
+        "D": {"Cadence": 1.0},                       # summary of mistake patterns + plan
+    },
+}
+
+def derive_style_from_quiz(learning_preferences: Optional[dict]) -> Optional[str]:
+    """Cold-start teaching-style prior from the onboarding ProfileQuiz, used
+    in place of an essentially-random early StyleBandit pick (fresh neural
+    arms are near-identical until they've seen real reward). Returns None
+    when there isn't enough signal to prefer one style, so the caller can
+    fall back to letting the bandit cold-start normally."""
+    if not learning_preferences:
+        return None
+    scores = {s: 0.0 for s in STYLES}
+    for qid, option_weights in _QUIZ_STYLE_WEIGHTS.items():
+        selected = learning_preferences.get(qid) or []
+        if isinstance(selected, str):
+            selected = [selected]
+        for option in selected:
+            for style, weight in option_weights.get(option, {}).items():
+                scores[style] += weight
+    best_style = max(scores, key=scores.__getitem__)
+    return best_style if scores[best_style] > 0 else None
 
 def load_bandit(user_id: int, db) -> StyleBandit:
     try:

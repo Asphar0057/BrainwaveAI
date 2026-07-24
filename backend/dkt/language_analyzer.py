@@ -147,7 +147,7 @@ _OVERRIDES: list[tuple[re.Pattern, str]] = [
 ]
 
 STYLE_PROTOTYPES: dict[str, list[str]] = {
-    "example_first": [
+    "Exemplar": [
         "Can you give me a concrete example of that",
         "Show me an example please",
         "Give me more examples",
@@ -157,7 +157,7 @@ STYLE_PROTOTYPES: dict[str, list[str]] = {
         "What does this look like in practice",
         "Give me a worked example",
     ],
-    "step_by_step": [
+    "Cadence": [
         "Can you break that down step by step",
         "Walk me through this one step at a time",
         "Explain this more slowly in smaller steps",
@@ -166,7 +166,7 @@ STYLE_PROTOTYPES: dict[str, list[str]] = {
         "I need this broken into smaller pieces",
         "Take it one step at a time",
     ],
-    "analogy": [
+    "Bridge": [
         "Can you give me an analogy for that",
         "What is this similar to in real life",
         "Is there a simpler way to think about this",
@@ -174,7 +174,7 @@ STYLE_PROTOTYPES: dict[str, list[str]] = {
         "What is this like in everyday terms",
         "Give me a real world comparison",
     ],
-    "conceptual": [
+    "Axiom": [
         "Just give me the definition",
         "Explain the theory behind this",
         "What is the formal definition",
@@ -182,14 +182,14 @@ STYLE_PROTOTYPES: dict[str, list[str]] = {
         "Give me the technical explanation",
         "Explain it precisely without simplifying",
     ],
-    "socratic": [
+    "Catalyst": [
         "Ask me questions so I can figure it out",
         "Guide me to the answer with questions",
         "Help me think through this myself",
         "Ask me questions instead of telling me",
         "I want to work through this on my own with hints",
     ],
-    "problem_solving": [
+    "Forge": [
         "Give me a problem to solve",
         "Let me try a practice problem",
         "Show me a worked problem",
