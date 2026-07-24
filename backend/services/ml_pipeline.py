@@ -3,11 +3,44 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+_KEYWORD_PATTERN_CACHE: Dict[str, "re.Pattern"] = {}
+
+def _keyword_hit(text: str, keyword: str) -> bool:
+    """Word-boundary keyword match.
+
+    Plain `kw in text` substring checks misfire constantly: the off_topic
+    keyword "hi" matches inside "this", "which", "white", "history"; the
+    frustration keyword "help" matches inside "helpful"/"helping". Those
+    false hits used to flip intent to off_topic (or inflate frustration) on
+    ordinary academic messages, which then fed a wrong BKT observation onto
+    whatever concept was last discussed.
+    """
+    pattern = _KEYWORD_PATTERN_CACHE.get(keyword)
+    if pattern is None:
+        pattern = re.compile(r"(?<!\w)" + re.escape(keyword) + r"(?!\w)")
+        _KEYWORD_PATTERN_CACHE[keyword] = pattern
+    return bool(pattern.search(text))
+
+_FILLER_WORDS = {
+    "hi", "hello", "hey", "yo", "sup",
+    "thanks", "thank", "ty", "thx",
+    "ok", "okay", "k", "sure", "yep", "yeah", "yup", "no", "nope", "nah",
+    "cool", "nice", "great", "awesome", "lol", "haha", "lmao",
+    "bye", "goodbye", "later", "brb", "np", "welcome",
+}
+
+def _is_filler_message(msg_lower: str) -> bool:
+    words = re.findall(r"[a-z']+", msg_lower)
+    if not words or len(words) > 5:
+        return False
+    return all(w in _FILLER_WORDS for w in words)
 
 FRUSTRATION_KEYWORDS = [
     "don't get", "confused", "lost", "ugh", "doesn't make sense",
@@ -18,6 +51,17 @@ FRUSTRATION_KEYWORDS = [
 ]
 
 INTENT_KEYWORDS = {
+    # Checked first: without this category, no intent ever mapped to a
+    # CONFIDENCE value above the obs > 0.5 threshold in _layer2_bkt_update,
+    # so the "correct answer" BKT branch was structurally unreachable and
+    # mastery could never rise from genuine understanding -- only settle
+    # toward a low floor no matter how well the conversation was going.
+    "confident": [
+        "got it", "that makes sense", "makes sense now", "i get it now",
+        "i solved", "solved it", "figured it out", "that clicked",
+        "understood now", "nailed it", "makes total sense", "i see now",
+        "makes sense", "understand now", "i understand", "got this",
+    ],
     "confusion": [
         "what is", "what are", "why", "don't get", "confused", "lost",
         "doesn't make sense", "not sure", "unclear", "explain",
@@ -42,10 +86,10 @@ STRATEGY_MAP = [
     ("off_topic", None, None, None, "REANCHOR"),
     ("stuck", None, 0.6, None, "REASSURANCE_FIRST"),
     ("emotional", None, 0.4, None, "REASSURANCE_FIRST"),
-    ("confused", None, None, "Kinetiq", "ANALOGICAL"),
-    ("confused", None, None, "Logicor", "DIRECT_EXPLANATION"),
-    ("confused", None, None, "Flowist", "WORKED_EXAMPLE"),
-    ("confused", None, None, None, "SCAFFOLDED"),
+    ("confusion", None, None, "Kinetiq", "ANALOGICAL"),
+    ("confusion", None, None, "Logicor", "DIRECT_EXPLANATION"),
+    ("confusion", None, None, "Flowist", "WORKED_EXAMPLE"),
+    ("confusion", None, None, None, "SCAFFOLDED"),
     ("exploration", None, None, None, "GUIDED_DISCOVERY"),
     ("question", 0.7, None, None, "CHALLENGE_PUSH"),
     ("question", None, None, None, "WORKED_EXAMPLE"),
@@ -143,6 +187,8 @@ class MLOutput:
     memories_used: List[str] = field(default_factory=list)
     kt_before: Dict[str, float] = field(default_factory=dict)
     kt_after: Dict[str, float] = field(default_factory=dict)
+    dkt_mastery: Optional[float] = None
+    mastery_source: str = "bkt"
     rl_state_hash: str = ""
     rl_selection_method: str = "rule"
     rl_episode_id: str = ""
@@ -211,22 +257,42 @@ class MessageMLPipeline:
     ) -> Tuple[str, List[str]]:
         msg_lower = message.lower()
 
+        # Pure filler/acknowledgments ("thanks!", "lol ok", "sure") carry no
+        # evidence about any concept and short-circuit straight to off_topic,
+        # bypassing the turn-count "stuck" seed and the keyword loop below.
+        # The off_topic entry in INTENT_KEYWORDS alone ("weather", "hi", ...)
+        # is too narrow to catch these -- widening it with bare short words
+        # like "ok"/"sure" would misfire on real questions that merely start
+        # with them ("ok so how does osmosis work?"), so this only fires when
+        # the ENTIRE message is short filler, not merely contains it.
+        if _is_filler_message(msg_lower):
+            logger.info("[ML L1] intent=off_topic     concepts=(none)  (pure filler message)")
+            return "off_topic", []
+
         intent = "question"
         if session.messages_on_concept >= 3:
             intent = "stuck"
 
         for kw in INTENT_KEYWORDS.get("emotional", []):
-            if kw in msg_lower:
+            if _keyword_hit(msg_lower, kw):
                 intent = "emotional"
                 break
 
-        if intent not in ("stuck", "emotional"):
+        # Only "emotional" is locked in above. A turn-count-seeded "stuck"
+        # default must still be able to yield to what the message actually
+        # says -- e.g. a breakthrough ("oh wait, that makes sense now!")
+        # after 3+ confused turns on the same concept, or a plain topic
+        # change -- otherwise a student who finally understands something
+        # can never get credit for it once the turn-count threshold trips.
+        if intent != "emotional":
+            matched = False
             for intent_name, keywords in INTENT_KEYWORDS.items():
                 for kw in keywords:
-                    if kw in msg_lower:
+                    if _keyword_hit(msg_lower, kw):
                         intent = intent_name
+                        matched = True
                         break
-                if intent != "question":
+                if matched:
                     break
 
         concepts: List[str] = []
@@ -241,8 +307,13 @@ class MessageMLPipeline:
             scored.sort(reverse=True)
             concepts = [cid for _, cid in scored[:3]]
 
-        if not concepts and session.current_concept_id:
-            concepts = [session.current_concept_id]
+        # No fallback to session.current_concept_id here: this return value
+        # feeds out.detected_concepts, which chat.py uses to bump
+        # session_state.messages_on_concept. Silently re-stamping the stale
+        # concept onto every turn (including off-topic chit-chat) inflated
+        # that counter and tripped the >=3 "stuck" override on turns that
+        # never actually engaged the concept. Callers that want a same-concept
+        # fallback for BKT scoring apply it themselves, gated on intent.
 
         logger.info(
             "[ML L1] intent=%-12s  concepts=%s  embed_model=%s",
@@ -252,12 +323,39 @@ class MessageMLPipeline:
         )
         return intent, concepts
 
+    @staticmethod
+    def _decayed_mastery(p_mastery: float, last_updated: Optional[datetime], interaction_count: int) -> float:
+        """Applies forgetting since `last_updated`, reusing dkt/temporal_decay.py's
+        retrievability curve so BKT and DKT share one decay model instead of BKT
+        silently assuming perfect retention forever. Stability grows with practice
+        count on this concept (more repetitions -> slower forgetting), same spirit
+        as temporal_decay._estimate_stability's count term, without needing that
+        function's full interaction-history query for a per-message BKT update."""
+        if not last_updated:
+            return p_mastery
+        from dkt.temporal_decay import compute_decay
+        now = datetime.now(timezone.utc)
+        last = last_updated if last_updated.tzinfo else last_updated.replace(tzinfo=timezone.utc)
+        days_elapsed = (now - last).total_seconds() / 86400
+        if days_elapsed <= 0:
+            return p_mastery
+        stability = min(60.0, 7.0 + interaction_count * 2.0)
+        return compute_decay(p_mastery, days_elapsed, stability)
+
     async def _layer2_bkt_update(
         self, db, user_id: int, concept_ids: List[str], intent: str
     ) -> Tuple[float, float, Dict, Dict]:
         import models
 
+        # obs is fed to `if obs > 0.5` below to pick the BKT "correct" vs
+        # "wrong" update branch. Every value here used to be <= 0.5, so the
+        # "correct" branch was dead code -- no matter how a conversation
+        # went, mastery could only ever be pulled toward the low equilibrium
+        # the "wrong" branch converges to. "confident" (a real breakthrough
+        # signal, see INTENT_KEYWORDS) is the only intent that should read
+        # as genuine positive evidence.
         CONFIDENCE = {
+            "confident": 0.85,
             "exploration": 0.5,
             "question": 0.4,
             "confusion": 0.1,
@@ -302,7 +400,7 @@ class MessageMLPipeline:
                 pl = state.p_learn
                 ps = state.p_slip
                 pg = state.p_guess
-                p = state.p_mastery
+                p = self._decayed_mastery(state.p_mastery, state.last_updated, state.interaction_count or 0)
 
                 kt_before[cid] = p
 
@@ -343,7 +441,7 @@ class MessageMLPipeline:
     ) -> Tuple[float, float, str]:
         msg_lower = message.lower()
 
-        lexical = sum(1 for kw in FRUSTRATION_KEYWORDS if kw in msg_lower)
+        lexical = sum(1 for kw in FRUSTRATION_KEYWORDS if _keyword_hit(msg_lower, kw))
         lexical_score = min(lexical / 3.0, 1.0)
 
         behavioral = 0.0
@@ -438,11 +536,16 @@ class MessageMLPipeline:
             # concept(s) layer1 just detected in THIS message, not the previous
             # turn's stale session.current_concept_id (they used to run
             # concurrently via asyncio.gather, so layer2 could never see layer1's
-            # own output). Fall back to the prior turn's concept only if layer1
-            # found nothing new to talk about.
+            # own output).
             intent, concepts = await self._layer1_intent_concept(message, db, user_id, session)
-            concept_ids_for_bkt = concepts or (
-                [session.current_concept_id] if session.current_concept_id else []
+            # Off-topic turns ("hi", "thanks", small talk) carry no evidence about
+            # any concept. Previously these still fell back to the stale
+            # session.current_concept_id inside layer1 and were fed into the BKT
+            # update as a low-confidence "wrong answer" observation (obs=0.5, not
+            # > 0.5), silently dragging down mastery of whatever concept was last
+            # discussed even though the student said nothing substantive about it.
+            concept_ids_for_bkt = [] if intent == "off_topic" else (
+                concepts or ([session.current_concept_id] if session.current_concept_id else [])
             )
 
             (p_mastery, delta, kt_before, kt_after), (frustration, engagement, cognitive) = (
@@ -461,6 +564,32 @@ class MessageMLPipeline:
             out.cognitive_state = cognitive
             out.kt_before = kt_before
             out.kt_after = kt_after
+
+            # Reconcile BKT's just-updated real-time estimate with DKT's
+            # holistic, decay-aware one (services/mastery_reconciliation.py)
+            # so the number shown to the LLM and used for strategy selection
+            # is the same evidence-weighted blend StyleBandit already uses
+            # DKT alone for, instead of two independently-computed figures
+            # that can silently disagree for the same concept.
+            if concept_ids_for_bkt:
+                try:
+                    from services.mastery_reconciliation import get_concept_mastery
+                    reconciled = get_concept_mastery(user_id, concept_ids_for_bkt[0], db)
+                    out.p_mastery = reconciled["mastery"]
+                    out.dkt_mastery = reconciled["dkt_mastery"]
+                    out.mastery_source = reconciled["source"]
+                    # StateFeatures/select_strategy below key off the local
+                    # `p_mastery` var, not `out.p_mastery` -- sync it so
+                    # strategy selection also sees the reconciled figure.
+                    p_mastery = reconciled["mastery"]
+                    if reconciled["source"] == "blend":
+                        logger.info(
+                            "[ML] mastery reconciled  concept=%s  bkt=%.3f  dkt=%.3f  blended=%.3f",
+                            concept_ids_for_bkt[0], reconciled["bkt_mastery"],
+                            reconciled["dkt_mastery"], reconciled["mastery"],
+                        )
+                except Exception as e:
+                    logger.debug(f"[ML] mastery reconciliation skipped: {e}")
 
             try:
                 from services.rl_strategy_agent import (
@@ -614,7 +743,7 @@ class MessageMLPipeline:
         lines.append(f"Archetype: {out.archetype}")
         lines.append(f"Cognitive state: {out.cognitive_state}")
         lines.append(f"Frustration: {out.frustration_score:.2f} | Engagement: {out.engagement_score:.2f}")
-        lines.append(f"Current mastery (BKT): {out.p_mastery:.0%}")
+        lines.append(f"Current mastery: {out.p_mastery:.0%}")
         lines.append(f"Detected intent: {out.intent}")
 
         if profile:
