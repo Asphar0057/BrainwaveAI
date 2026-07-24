@@ -4,7 +4,6 @@ import { Users, MessageSquare, Share2, TrendingUp, Search, UserPlus, Check, X, U
 import ShareModal from './SharedModal';
 import './Social.css';
 import SocialHubChrome from '../components/SocialHubChrome';
-import GeometricGrid from '../components/GeometricGrid';
 import { API_URL } from '../config';
 
 const Social = () => {
@@ -443,15 +442,6 @@ const Social = () => {
 
   return (
     <div className="hub-page with-social-chrome">
-      <div className="sh-bg-fx" aria-hidden>
-        <div className="cb-bg-wash" />
-        <div className="cb-bg-orb cb-bg-orb-1" />
-        <div className="cb-bg-orb cb-bg-orb-2" />
-        <GeometricGrid />
-        <div className="cb-bg-grain" />
-        <div className="cb-bg-vignette" />
-      </div>
-
       <SocialHubChrome
         tagline="social hub"
         noSidebar

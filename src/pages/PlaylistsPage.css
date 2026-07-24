@@ -86,11 +86,14 @@
   content: '';
   position: fixed;
   inset: 0;
-  background-image: radial-gradient(circle, color-mix(in srgb, var(--accent) 18%, transparent) 1px, transparent 1px);
-  background-size: 32px 32px;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--accent) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 7%, transparent) 1px, transparent 1px),
+    radial-gradient(circle, color-mix(in srgb, var(--accent) 18%, transparent) 1px, transparent 1px);
+  background-size: 80px 80px, 80px 80px, 32px 32px;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.3;
+  opacity: 0.24;
 }
 
 .playlists-container .hub-header {

@@ -301,6 +301,23 @@
     color-mix(in srgb, var(--accent) 85%, #000) 100%);
 }
 
+.qh-section-solo .view-heading {
+  border-bottom-color: rgba(10, 10, 9, 0.18);
+}
+
+.qh-section-solo .view-heading::before {
+  background: rgba(10, 10, 9, 0.72);
+}
+
+.qh-section-solo .view-kicker,
+.qh-section-solo .view-title {
+  color: #0a0a09;
+}
+
+.qh-section-solo .view-sub {
+  color: rgba(10, 10, 9, 0.68);
+}
+
 .qh-section-battle {
   background: linear-gradient(160deg,
     var(--bg-primary) 0%,

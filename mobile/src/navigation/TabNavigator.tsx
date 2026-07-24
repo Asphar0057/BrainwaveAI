@@ -76,7 +76,7 @@ function MainTabs({ user, onLogout, onUserUpdate, onNavigate, requestedTab, tabR
   const useSideRail = layout.sideRailTabs;
   const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
   useFonts({ Inter_700Bold });
-  const [index, setIndex] = useState(3);
+  const [index, setIndex] = useState(2);
   const pager = useRef<AppPagerHandle>(null);
   const kbHeight = useRef(new Animated.Value(0)).current;
 
@@ -158,7 +158,7 @@ function MainTabs({ user, onLogout, onUserUpdate, onNavigate, requestedTab, tabR
           <PagerView
             ref={pager}
             style={{ flex: 1 }}
-            initialPage={3}
+            initialPage={2}
             onPageSelected={e => setIndex(e.nativeEvent.position)}
             overdrag={false}
             scrollEnabled={true}

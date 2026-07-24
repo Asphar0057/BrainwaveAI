@@ -6,10 +6,27 @@ import {
   LayoutDashboard, TrendingUp, Clock, FileText, Layers, MessageCircle, BookOpen
 } from 'lucide-react';
 import './Weaknesses.css';
+import '../components/SocialHubChrome.css';
 import { API_URL } from '../config';
 import { queuedAIJsonFetch } from '../services/aiJobService';
 import WeaknessTracker from '../components/WeaknessTracker/WeaknessTracker';
 import RLInsights from '../components/RLInsights/RLInsights';
+import GeometricGrid from '../components/GeometricGrid';
+
+const WeakAreasBackdrop = () => (
+  <div className="shc-bg-fx" aria-hidden="true">
+    <div className="shc-bg-wash" />
+    <div className="shc-bg-orb shc-bg-orb--one" />
+    <div className="shc-bg-orb shc-bg-orb--two" />
+    <GeometricGrid
+      className="shc-bg-geo"
+      linesClassName="shc-bg-geo-lines"
+      numsClassName="shc-bg-geo-nums"
+    />
+    <div className="shc-bg-grain" />
+    <div className="shc-bg-vignette" />
+  </div>
+);
 
 const Weaknesses = () => {
   const navigate = useNavigate();
@@ -85,6 +102,7 @@ const Weaknesses = () => {
   if (loading) {
     return (
       <div className="wk-container">
+        <WeakAreasBackdrop />
         <div className="wk-loading">
           <div className="wk-loading-dots">
             <span /><span /><span />
@@ -99,38 +117,7 @@ const Weaknesses = () => {
 
   return (
     <div className="wk-container">
-      <svg className="geo-bg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
-        <circle cx="600" cy="400" r="360" fill="none" stroke="currentColor" strokeWidth="1"/>
-        <circle cx="600" cy="400" r="260" fill="none" stroke="currentColor" strokeWidth="0.8"/>
-        <circle cx="600" cy="400" r="168" fill="none" stroke="currentColor" strokeWidth="0.7"/>
-        <circle cx="600" cy="400" r="90" fill="none" stroke="currentColor" strokeWidth="0.6"/>
-        <line x1="600" y1="0" x2="600" y2="800" stroke="currentColor" strokeWidth="0.5"/>
-        <line x1="0" y1="400" x2="1200" y2="400" stroke="currentColor" strokeWidth="0.5"/>
-        <line x1="0" y1="800" x2="500" y2="0" stroke="currentColor" strokeWidth="0.4"/>
-        <line x1="1200" y1="0" x2="700" y2="800" stroke="currentColor" strokeWidth="0.4"/>
-        <circle cx="600" cy="40" r="5" fill="currentColor"/>
-        <circle cx="600" cy="760" r="5" fill="currentColor"/>
-        <circle cx="240" cy="400" r="5" fill="currentColor"/>
-        <circle cx="960" cy="400" r="5" fill="currentColor"/>
-        <circle cx="345" cy="146" r="3.5" fill="currentColor"/>
-        <circle cx="855" cy="654" r="3.5" fill="currentColor"/>
-        <circle cx="855" cy="146" r="3.5" fill="currentColor"/>
-        <circle cx="345" cy="654" r="3.5" fill="currentColor"/>
-        <rect x="24" y="24" width="72" height="72" fill="none" stroke="currentColor" strokeWidth="0.8"/>
-        <rect x="44" y="44" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="0.5"/>
-        <circle cx="60" cy="60" r="3" fill="currentColor"/>
-        <rect x="1104" y="704" width="72" height="72" fill="none" stroke="currentColor" strokeWidth="0.8"/>
-        <rect x="1124" y="724" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="0.5"/>
-        <circle cx="1140" cy="740" r="3" fill="currentColor"/>
-        <circle cx="120" cy="200" r="2" fill="currentColor"/>
-        <circle cx="160" cy="160" r="1.5" fill="currentColor"/>
-        <circle cx="200" cy="200" r="2" fill="currentColor"/>
-        <circle cx="160" cy="240" r="1.5" fill="currentColor"/>
-        <circle cx="1080" cy="600" r="2" fill="currentColor"/>
-        <circle cx="1040" cy="640" r="1.5" fill="currentColor"/>
-        <circle cx="1000" cy="600" r="2" fill="currentColor"/>
-        <circle cx="1040" cy="560" r="1.5" fill="currentColor"/>
-      </svg>
+      <WeakAreasBackdrop />
 
       <div className="wk-topbar">
         <div className="wk-topbar-tagline"><span>LEARNING,</span> UNIFIED</div>
@@ -158,9 +145,6 @@ const Weaknesses = () => {
             </button>
             <button className="wk-side-icon-btn" title="Activity" onClick={() => { setSidebarCollapsed(false); setActiveView('activity'); if (!activityFeed) loadActivityFeed(); }}>
               <Clock size={16} />
-            </button>
-            <button className="wk-side-icon-btn" title="Dashboard" onClick={() => navigate('/dashboard-cerbyl')}>
-              <LayoutDashboard size={16} />
             </button>
             <button className="wk-side-icon-btn wk-side-icon-btn--accent" title="Dashboard" onClick={() => navigate('/dashboard-cerbyl')}>
               <LayoutDashboard size={16} />
@@ -206,10 +190,6 @@ const Weaknesses = () => {
               >
                 <Clock size={16} />
                 <span>Activity</span>
-              </button>
-              <button className="wk-sidebar-item" onClick={() => navigate('/dashboard-cerbyl')}>
-                <LayoutDashboard size={16} />
-                <span>Dashboard</span>
               </button>
             </nav>
 

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import AbstractFx from '../components/AbstractFx';
 import './Games.css';
+import '../components/SocialHubChrome.css';
 import { API_URL } from '../config';
 
 const Games = () => {

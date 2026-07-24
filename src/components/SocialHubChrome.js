@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, LayoutGrid, Users } from 'lucide-react';
 import './SocialHubChrome.css';
+import GeometricGrid from './GeometricGrid';
 
 const StripBtn = ({ icon: Icon, label, onClick, active }) => (
   <button
@@ -32,6 +33,19 @@ const SocialHubChrome = ({
 
   return (
     <div className="shc-shell">
+        <div className="shc-bg-fx" aria-hidden="true">
+          <div className="shc-bg-wash" />
+          <div className="shc-bg-orb shc-bg-orb--one" />
+          <div className="shc-bg-orb shc-bg-orb--two" />
+          <GeometricGrid
+            className="shc-bg-geo"
+            linesClassName="shc-bg-geo-lines"
+            numsClassName="shc-bg-geo-nums"
+          />
+          <div className="shc-bg-grain" />
+          <div className="shc-bg-vignette" />
+        </div>
+
         <div className="shc-topbar">
           <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
           {topbarAction && (
