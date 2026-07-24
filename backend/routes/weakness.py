@@ -3,7 +3,7 @@ import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
@@ -24,6 +24,19 @@ router = APIRouter(
     tags=["weakness"],
     dependencies=[Depends(enforce_request_user_scope)],
 )
+
+def _resolve_user_id(db: Session, user_id: str) -> int | None:
+    """Accepts either a numeric id or a username/email, matching the
+    convention routes/analytics.py already uses for study_insights -- the
+    web frontend only ever has a username in localStorage (no numeric id
+    is ever stored there), so a strict `int` param would 404/500 on every
+    call from the web app."""
+    try:
+        return int(user_id)
+    except (TypeError, ValueError):
+        pass
+    user = get_user_by_username(db, user_id) or get_user_by_email(db, user_id)
+    return user.id if user else None
 
 def _get_topic_mastery(db: Session, user_id: int) -> list[dict]:
     records = db.query(models.TopicMastery).filter(
@@ -453,12 +466,16 @@ async def end_weakness_practice_session(
 
 @router.get("/weakness-practice/mastery-overview")
 async def get_mastery_overview(
-    user_id: int = Query(...),
+    user_id: str = Query(...),
     db: Session = Depends(get_db),
     token: str = Depends(verify_token),
 ):
     try:
-        topic_records = _get_topic_mastery(db, user_id)
+        uid = _resolve_user_id(db, user_id)
+        if uid is None:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        topic_records = _get_topic_mastery(db, uid)
 
         mastered = [t for t in topic_records if t["mastery_level"] >= 0.8]
         progressing = [t for t in topic_records if 0.5 <= t["mastery_level"] < 0.8]
@@ -471,13 +488,13 @@ async def get_mastery_overview(
         )
 
         total_sessions = db.query(models.PracticeSession).filter(
-            models.PracticeSession.user_id == user_id,
+            models.PracticeSession.user_id == uid,
             models.PracticeSession.status == "completed",
         ).count()
 
         return JSONResponse(content={
             "status": "success",
-            "user_id": user_id,
+            "user_id": uid,
             "overall_mastery": round(overall_mastery * 100, 2),
             "total_topics": len(topic_records),
             "mastered_topics": len(mastered),

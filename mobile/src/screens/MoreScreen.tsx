@@ -15,7 +15,7 @@ import { useAppTheme } from '../contexts/ThemeContext';
 import { rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
-type ExploreTarget = 'flashcards' | 'notes' | 'aimedia' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'weaknessPractice' | 'learningPaths' | 'leaderboard';
+type ExploreTarget = 'flashcards' | 'notes' | 'aimedia' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'weaknessPractice' | 'topicsHub' | 'learningPaths' | 'leaderboard';
 type Props = { user: AuthUser; onNavigate?: (screen: ExploreTarget) => void; onNavigateToAI?: () => void };
 
 function BentoMini({
@@ -158,8 +158,11 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
           <BentoMini index="12" title="weakness" styles={s} onPress={() => onNavigate?.('weaknessPractice')} />
         </View>
         <View style={s.bentoRow}>
-          <BentoMini index="13" title="calendar" styles={s} onPress={() => setSubScreen('calendar')} />
-          <BentoMini index="14" title="timeline" styles={s} onPress={() => setSubScreen('activity')} />
+          <BentoMini index="13" title="topics" styles={s} onPress={() => onNavigate?.('topicsHub')} />
+          <BentoMini index="14" title="calendar" styles={s} onPress={() => setSubScreen('calendar')} />
+        </View>
+        <View style={s.bentoRow}>
+          <BentoMini index="15" title="timeline" styles={s} onPress={() => setSubScreen('activity')} />
         </View>
         <TileGleam style={s.rankCard} onPress={() => onNavigate?.('leaderboard')} haptic="medium">
           <NeumorphicTexture
