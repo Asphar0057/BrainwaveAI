@@ -20,6 +20,19 @@ logger = logging.getLogger(__name__)
 def _clip(value: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, value))
 
+# Population-pooling owner id for BanditState rows shared across every student.
+# The exact-state Thompson sampling below was previously keyed by (student_id,
+# state_hash) alone -- a real student rarely revisits the same exact 6-feature
+# state more than a handful of times a week (confirmed by simulate_week.py), so
+# per-student arms almost never accumulate enough pulls to converge. Every
+# reward now also updates a shared row under this sentinel id, and
+# _thompson_sample blends it in as a capped prior (see GLOBAL_PRIOR_CAP) so a
+# state that's common across the whole userbase converges fast even for a
+# student who has personally never seen it, while a student's own evidence
+# still dominates once they have enough of it.
+GLOBAL_STUDENT_ID = "__global__"
+GLOBAL_PRIOR_CAP = 20.0
+
 STRATEGY_IDS: List[str] = [
     "GUIDED_DISCOVERY",
     "DIRECT_EXPLANATION",
@@ -43,19 +56,19 @@ class StateFeatures:
 
     @property
     def p_mastery_bucket(self) -> str:
+        # Coarsened 5 -> 3 buckets 2026-07-24 to shrink the state-hash space (see
+        # frustration_bucket for the matching change and the audit note on
+        # encode_state below for why this matters).
         p = self.p_mastery
-        if p < 0.30:  return "novice"
-        if p < 0.55:  return "learning"
-        if p < 0.75:  return "familiar"
-        if p < 0.88:  return "proficient"
-        return "mastered"
+        if p < 0.35:  return "novice"
+        if p < 0.70:  return "developing"
+        return "proficient"
 
     @property
     def frustration_bucket(self) -> str:
         f = self.frustration_score
-        if f < 0.25:  return "calm"
-        if f < 0.50:  return "mild"
-        if f < 0.75:  return "stressed"
+        if f < 0.35:  return "calm"
+        if f < 0.70:  return "elevated"
         return "crisis"
 
     def as_dict(self) -> dict:
@@ -78,6 +91,15 @@ class StrategySelection:
     episode_id: Optional[str] = None
 
 def encode_state(state: StateFeatures) -> str:
+    # State-space size directly limits how fast Thompson sampling can converge
+    # per state: the 2026-07-23 week-long simulation found even power users only
+    # accumulate ~3-7 pulls/state/week across the old 5x4-bucket mastery/frustration
+    # grid, far short of the ~400 pulls the statistical convergence test needs.
+    # Coarsening mastery 5->3 and frustration 4->3 buckets (2026-07-24) roughly
+    # halves the per-archetype state count; the larger lever is population-level
+    # pooling in StrategyBandit._thompson_sample below, which this hash format is
+    # unchanged by (pooling operates on rows keyed by this same state_hash, just
+    # across a shared GLOBAL_STUDENT_ID owner in addition to each real student).
     state_str = (
         f"{state.archetype}|{state.cognitive_state}|{state.intent}|"
         f"{state.p_mastery_bucket}|{state.frustration_bucket}|{state.session_depth}"
@@ -106,20 +128,24 @@ class StrategyBandit:
         state_hash = encode_state(state)
         exploration_flag = False
         thompson_samples: Dict[str, float] = {}
+        # Computed unconditionally (cheap, pure) so every episode records what
+        # the rule baseline would have picked -- lets get_strategy_efficacy_report
+        # later compare reward when the bandit matched vs diverged from it,
+        # without which there's no way to tell whether personalization helps.
+        baseline_strategy = self._rule_based_fallback(state)
 
         if interaction_count < 20:
-            strategy = self._rule_based_fallback(state)
+            strategy = baseline_strategy
             method = "rule"
 
         elif interaction_count < 100:
             blend_weight = (interaction_count - 20) / 80.0
             bandit_strategy, thompson_samples = self._thompson_sample(db, student_id, state_hash)
-            rule_strategy = self._rule_based_fallback(state)
             if random.random() < blend_weight:
                 strategy = bandit_strategy
                 method = "blend_bandit"
             else:
-                strategy = rule_strategy
+                strategy = baseline_strategy
                 method = "blend_rule"
 
         else:
@@ -134,6 +160,7 @@ class StrategyBandit:
         episode_id = self._log_episode(
             db, student_id, session_id, state_hash, state,
             strategy, method, exploration_flag, thompson_samples, p_mastery_before,
+            baseline_strategy,
         )
 
         logger.info(
@@ -159,19 +186,48 @@ class StrategyBandit:
 
         rows = (
             db.query(models.BanditState)
-            .filter_by(student_id=student_id, state_hash=state_hash)
+            .filter(
+                models.BanditState.state_hash == state_hash,
+                models.BanditState.student_id.in_([student_id, GLOBAL_STUDENT_ID]),
+            )
             .all()
         )
 
-        params: Dict[str, Dict[str, float]] = {
+        student_params: Dict[str, Dict[str, float]] = {
+            s: {"alpha": 1.0, "beta": 1.0} for s in STRATEGY_IDS
+        }
+        global_params: Dict[str, Dict[str, float]] = {
             s: {"alpha": 1.0, "beta": 1.0} for s in STRATEGY_IDS
         }
         for row in rows:
-            if row.strategy_id in params:
-                params[row.strategy_id] = {
+            target = global_params if row.student_id == GLOBAL_STUDENT_ID else student_params
+            if row.strategy_id in target:
+                target[row.strategy_id] = {
                     "alpha": max(row.alpha, 0.01),
                     "beta": max(row.beta_param, 0.01),
                 }
+
+        # Hierarchical blend: the population-level row becomes this student's
+        # prior for the arm, capped at GLOBAL_PRIOR_CAP pseudo-pulls of evidence
+        # so no amount of population data can make the prior unmovable -- the
+        # student's own alpha/beta (their evidence beyond the uninformative
+        # (1,1) prior) then adds on top and dominates once it exists.
+        params: Dict[str, Dict[str, float]] = {}
+        for sid in STRATEGY_IDS:
+            g = global_params[sid]
+            g_evidence = (g["alpha"] - 1.0) + (g["beta"] - 1.0)
+            if g_evidence > GLOBAL_PRIOR_CAP:
+                scale = GLOBAL_PRIOR_CAP / g_evidence
+                prior_alpha = 1.0 + (g["alpha"] - 1.0) * scale
+                prior_beta = 1.0 + (g["beta"] - 1.0) * scale
+            else:
+                prior_alpha, prior_beta = g["alpha"], g["beta"]
+
+            s = student_params[sid]
+            params[sid] = {
+                "alpha": prior_alpha + (s["alpha"] - 1.0),
+                "beta": prior_beta + (s["beta"] - 1.0),
+            }
 
         samples: Dict[str, float] = {}
         for sid, p in params.items():
@@ -187,9 +243,9 @@ class StrategyBandit:
     def _rule_based_fallback(self, state: StateFeatures) -> str:
         if state.intent == "off_topic":
             return "REANCHOR"
-        if state.cognitive_state == "stuck" and state.frustration_bucket in ("stressed", "crisis"):
+        if state.cognitive_state == "stuck" and state.frustration_bucket in ("elevated", "crisis"):
             return "REASSURANCE_FIRST"
-        if state.intent == "emotional" and state.frustration_bucket in ("stressed", "crisis"):
+        if state.intent == "emotional" and state.frustration_bucket in ("elevated", "crisis"):
             return "REASSURANCE_FIRST"
         if state.cognitive_state == "confused":
             mapping = {
@@ -198,9 +254,9 @@ class StrategyBandit:
                 "Flowist": "WORKED_EXAMPLE",
             }
             return mapping.get(state.archetype, "SCAFFOLDED")
-        if state.intent == "exploration" and state.p_mastery_bucket in ("novice", "learning"):
+        if state.intent == "exploration" and state.p_mastery_bucket in ("novice", "developing"):
             return "GUIDED_DISCOVERY"
-        if state.p_mastery_bucket in ("proficient", "mastered"):
+        if state.p_mastery_bucket == "proficient":
             return "CHALLENGE_PUSH"
         if state.p_mastery_bucket == "novice":
             return "WORKED_EXAMPLE"
@@ -218,6 +274,7 @@ class StrategyBandit:
         exploration_flag: bool,
         thompson_samples: Dict[str, float],
         p_mastery_before: float,
+        baseline_strategy: Optional[str] = None,
     ) -> str:
         import models
 
@@ -231,6 +288,7 @@ class StrategyBandit:
                 state_hash=state_hash,
                 state_features=state.as_dict(),
                 strategy_selected=strategy,
+                baseline_strategy_id=baseline_strategy,
                 selection_method=method,
                 thompson_samples={k: round(v, 4) for k, v in thompson_samples.items()},
                 exploration_flag=exploration_flag,
@@ -428,6 +486,21 @@ class StrategyBandit:
         strategy_id: str,
         reward: float,
     ) -> None:
+        # Every reward updates both the student's own arm AND the shared
+        # population-level arm (owner GLOBAL_STUDENT_ID) for the same
+        # state/strategy, so _thompson_sample's prior blend above has real
+        # cross-student evidence to draw on.
+        self._upsert_arm(db, student_id, state_hash, strategy_id, reward)
+        self._upsert_arm(db, GLOBAL_STUDENT_ID, state_hash, strategy_id, reward)
+
+    def _upsert_arm(
+        self,
+        db,
+        owner_id: str,
+        state_hash: str,
+        strategy_id: str,
+        reward: float,
+    ) -> None:
         import models
 
         normalized = (reward + 1.0) / 2.0
@@ -441,7 +514,7 @@ class StrategyBandit:
 
             table = models.BanditState.__table__
             stmt = sqlite_insert(table).values(
-                student_id=student_id,
+                student_id=owner_id,
                 state_hash=state_hash,
                 strategy_id=strategy_id,
                 pulls=1,
@@ -470,7 +543,7 @@ class StrategyBandit:
         existing = (
             db.query(models.BanditState)
             .filter_by(
-                student_id=student_id,
+                student_id=owner_id,
                 state_hash=state_hash,
                 strategy_id=strategy_id,
             )
@@ -485,7 +558,7 @@ class StrategyBandit:
             existing.last_updated = now
         else:
             new_row = models.BanditState(
-                student_id=student_id,
+                student_id=owner_id,
                 state_hash=state_hash,
                 strategy_id=strategy_id,
                 pulls=1,
@@ -496,6 +569,66 @@ class StrategyBandit:
                 last_updated=now,
             )
             db.add(new_row)
+
+def get_strategy_efficacy_report(db, min_episodes_for_signal: int = 20) -> dict:
+    """Compares reward outcomes when the bandit's pick matched vs diverged from
+    what the rule-based baseline would have chosen, across every resolved
+    episode where the bandit had a real chance to diverge (selection_method in
+    bandit/blend_bandit/explore -- "rule"/"blend_rule" episodes trivially equal
+    their own baseline and would just dilute the comparison).
+
+    This answers "does personalizing the strategy actually help," not just "is
+    it wired up and running" -- see the 2026-07 ML audit's market-readiness
+    verdict, which flagged this as unmeasured. Meant to be read back after real
+    traffic accumulates, not on a fresh/scratch DB.
+    """
+    import models
+
+    rows = (
+        db.query(models.BanditEpisodeLog)
+        .filter(
+            models.BanditEpisodeLog.reward_received.isnot(None),
+            models.BanditEpisodeLog.baseline_strategy_id.isnot(None),
+            models.BanditEpisodeLog.selection_method.in_(["bandit", "blend_bandit", "explore"]),
+        )
+        .all()
+    )
+
+    matched_rewards = [r.reward_received for r in rows if r.strategy_selected == r.baseline_strategy_id]
+    diverged_rewards = [r.reward_received for r in rows if r.strategy_selected != r.baseline_strategy_id]
+
+    def _summarize(rewards: List[float]) -> dict:
+        n = len(rewards)
+        return {"n": n, "avg_reward": round(sum(rewards) / n, 4) if n else None}
+
+    matched_summary = _summarize(matched_rewards)
+    diverged_summary = _summarize(diverged_rewards)
+
+    reward_diff = None
+    if matched_summary["avg_reward"] is not None and diverged_summary["avg_reward"] is not None:
+        reward_diff = round(diverged_summary["avg_reward"] - matched_summary["avg_reward"], 4)
+
+    total_n = matched_summary["n"] + diverged_summary["n"]
+    sufficient_data = total_n >= min_episodes_for_signal
+
+    if not sufficient_data:
+        interpretation = "insufficient data yet"
+    elif reward_diff is not None and reward_diff > 0.05:
+        interpretation = "diverging from the rule baseline correlates with HIGHER reward -- personalization looks additive"
+    elif reward_diff is not None and reward_diff < -0.05:
+        interpretation = "diverging from the rule baseline correlates with LOWER reward -- bandit may be picking worse than the baseline"
+    else:
+        interpretation = "no meaningful difference between matching and diverging from the baseline yet"
+
+    return {
+        "total_episodes": total_n,
+        "matched_baseline": matched_summary,
+        "diverged_from_baseline": diverged_summary,
+        "diverged_minus_matched_avg_reward": reward_diff,
+        "sufficient_data": sufficient_data,
+        "interpretation": interpretation,
+    }
+
 
 _bandit: Optional[StrategyBandit] = None
 

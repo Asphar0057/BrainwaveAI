@@ -634,6 +634,21 @@ async def get_rl_strategy_performance(
         "overall_stats": overall_stats,
     }
 
+@router.get("/rl/strategy-efficacy")
+async def get_rl_strategy_efficacy(
+    db: Session = Depends(get_db),
+    token: str = Depends(verify_token),
+):
+    """Platform-wide: does StrategyBandit picking something other than the
+    rule-based baseline actually correlate with better reward, or is the
+    personalization axis not (yet) paying off? Complements
+    /rl/strategy-performance's per-user rule-vs-bandit split (which conflates
+    "early in the relationship" with "rule-based" since cold start always uses
+    rule) with a same-state, per-episode matched-vs-diverged comparison."""
+    from services.rl_strategy_agent import get_strategy_efficacy_report
+
+    return get_strategy_efficacy_report(db)
+
 @router.get("/rl/platform-insights")
 async def get_rl_platform_insights(
     db: Session = Depends(get_db),

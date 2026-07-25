@@ -157,6 +157,7 @@ class BanditEpisodeLog(Base):
     state_hash = Column(String(32), nullable=False)
     state_features = Column(JSON, nullable=True)
     strategy_selected = Column(String(32), nullable=False)
+    baseline_strategy_id = Column(String(32), nullable=True)
     selection_method = Column(String(16), nullable=False)
     thompson_samples = Column(JSON, nullable=True)
     exploration_flag = Column(Boolean, default=False)

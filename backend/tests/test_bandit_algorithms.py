@@ -42,7 +42,7 @@ from services.content_bandit import (  # noqa: E402
     ContentDifficultyBandit, encode_content_state, COLD_START_INTERACTIONS,
 )
 from services.rl_strategy_agent import (  # noqa: E402
-    StrategyBandit, StateFeatures, encode_state,
+    StrategyBandit, StateFeatures, encode_state, STRATEGY_IDS,
 )
 from dkt.style_bandit import StyleBandit, build_context  # noqa: E402
 from services.difficulty_allocation import allocate_difficulty_counts  # noqa: E402
@@ -353,6 +353,181 @@ class TestStrategyBandit:
         sel = bandit.select_strategy(db, sid, state, interaction_count=0)
         assert sel.strategy_id == "REANCHOR"
         db.commit()
+
+    def test_mastery_and_frustration_buckets_coarsened_to_three(self):
+        """Coarsened 2026-07-24 from 5/4 buckets to 3/3 to shrink the state-hash
+        space (see encode_state's comment) -- lock the exact boundaries down."""
+        assert self._state(p_mastery=0.0).p_mastery_bucket == "novice"
+        assert self._state(p_mastery=0.34).p_mastery_bucket == "novice"
+        assert self._state(p_mastery=0.35).p_mastery_bucket == "developing"
+        assert self._state(p_mastery=0.69).p_mastery_bucket == "developing"
+        assert self._state(p_mastery=0.70).p_mastery_bucket == "proficient"
+        assert self._state(p_mastery=1.0).p_mastery_bucket == "proficient"
+
+        assert self._state(frustration_score=0.0).frustration_bucket == "calm"
+        assert self._state(frustration_score=0.34).frustration_bucket == "calm"
+        assert self._state(frustration_score=0.35).frustration_bucket == "elevated"
+        assert self._state(frustration_score=0.69).frustration_bucket == "elevated"
+        assert self._state(frustration_score=0.70).frustration_bucket == "crisis"
+        assert self._state(frustration_score=1.0).frustration_bucket == "crisis"
+
+    def test_global_pooling_lets_a_brand_new_student_benefit_from_others(self, db):
+        """Root sparsity fix (2026-07-24): a state that's common across the
+        population should converge for a brand-new student from their very
+        first bandit-eligible pull, not just their own (near-zero) history.
+        Feed 300 DIFFERENT students through the same state, always rewarding
+        CHALLENGE_PUSH highly and everything else near zero, then confirm one
+        final never-before-seen student's Thompson sample favors it."""
+        random.seed(101)
+        bandit = StrategyBandit()
+        state = self._state(cognitive_state="processing", p_mastery=0.9, frustration_score=0.0)
+        state_hash = encode_state(state)
+
+        for _ in range(300):
+            sid = f"{random.randint(10**8, 10**9)}"
+            for strategy in STRATEGY_IDS:
+                reward = 0.9 if strategy == "CHALLENGE_PUSH" else -0.5
+                bandit._update_bandit_params(db, sid, state_hash, strategy, reward)
+        db.commit()
+
+        new_student = f"{random.randint(10**8, 10**9)}"
+        wins = {s: 0 for s in STRATEGY_IDS}
+        for _ in range(200):
+            choice, _ = bandit._thompson_sample(db, new_student, state_hash)
+            wins[choice] += 1
+
+        assert wins["CHALLENGE_PUSH"] / 200 > 0.5, (
+            f"expected a brand-new student to inherit the population's preference "
+            f"for CHALLENGE_PUSH in this state, got distribution={wins}"
+        )
+
+    def test_students_own_evidence_eventually_overrides_the_population_prior(self, db):
+        """A student with enough of their OWN contradicting evidence in a state
+        must not stay stuck on the population's preference -- the capped prior
+        (GLOBAL_PRIOR_CAP) exists so personal data can outweigh it."""
+        random.seed(202)
+        bandit = StrategyBandit()
+        state = self._state(cognitive_state="processing", p_mastery=0.5, frustration_score=0.1)
+        state_hash = encode_state(state)
+
+        for _ in range(300):
+            sid = f"{random.randint(10**8, 10**9)}"
+            for strategy in STRATEGY_IDS:
+                reward = 0.9 if strategy == "WORKED_EXAMPLE" else -0.5
+                bandit._update_bandit_params(db, sid, state_hash, strategy, reward)
+        db.commit()
+
+        contrarian = f"{random.randint(10**8, 10**9)}"
+        for _ in range(80):
+            # ANALOGICAL is this student's real best arm, contradicting the population.
+            bandit._update_bandit_params(db, contrarian, state_hash, "ANALOGICAL", 0.9)
+            bandit._update_bandit_params(db, contrarian, state_hash, "WORKED_EXAMPLE", -0.5)
+        db.commit()
+
+        wins = {s: 0 for s in STRATEGY_IDS}
+        for _ in range(200):
+            choice, _ = bandit._thompson_sample(db, contrarian, state_hash)
+            wins[choice] += 1
+
+        assert wins["ANALOGICAL"] / 200 > 0.5, (
+            f"expected this student's 80 pulls of real contradicting evidence to "
+            f"overcome the capped population prior, got distribution={wins}"
+        )
+
+    def test_select_strategy_records_the_rule_baseline_alongside_the_actual_pick(self, db):
+        """Every episode should record what the rule fallback would have
+        chosen, even when the bandit ends up picking something else -- this is
+        what get_strategy_efficacy_report needs to exist at all."""
+        bandit = StrategyBandit()
+        sid = f"{random.randint(10**6, 10**7)}"
+        state = self._state(intent="off_topic")  # rule baseline is deterministic: REANCHOR
+        sel = bandit.select_strategy(db, sid, state, interaction_count=0)
+        db.commit()
+
+        episode = db.query(models.BanditEpisodeLog).filter_by(id=sel.episode_id).one()
+        assert episode.baseline_strategy_id == "REANCHOR"
+        assert episode.strategy_selected == "REANCHOR"  # method=rule, so they match
+
+    def test_efficacy_report_splits_matched_vs_diverged_reward(self, db):
+        """Runs on a fresh-per-file scratch DB before any other test in this
+        module writes a reward-bearing bandit/blend_bandit/explore episode
+        (confirmed: the other tests in this class either never call
+        measure_pending_rewards, or do so only for method="rule" episodes,
+        which this report excludes), so exact counts/averages are safe here."""
+        from services.rl_strategy_agent import get_strategy_efficacy_report
+
+        sid = f"{random.randint(10**6, 10**7)}"
+        for i in range(25):
+            db.add(models.BanditEpisodeLog(
+                id=f"matched-{sid}-{i}", student_id=sid, timestamp=datetime.now(timezone.utc),
+                state_hash="s1", strategy_selected="WORKED_EXAMPLE",
+                baseline_strategy_id="WORKED_EXAMPLE", selection_method="bandit",
+                reward_received=0.1,
+            ))
+        for i in range(25):
+            db.add(models.BanditEpisodeLog(
+                id=f"diverged-{sid}-{i}", student_id=sid, timestamp=datetime.now(timezone.utc),
+                state_hash="s1", strategy_selected="ANALOGICAL",
+                baseline_strategy_id="WORKED_EXAMPLE", selection_method="bandit",
+                reward_received=0.7,
+            ))
+        db.commit()
+
+        report = get_strategy_efficacy_report(db, min_episodes_for_signal=10)
+        assert report["matched_baseline"]["n"] == 25
+        assert report["diverged_from_baseline"]["n"] == 25
+        assert report["matched_baseline"]["avg_reward"] == pytest.approx(0.1)
+        assert report["diverged_from_baseline"]["avg_reward"] == pytest.approx(0.7)
+        assert report["diverged_minus_matched_avg_reward"] == pytest.approx(0.6)
+        assert report["sufficient_data"] is True
+        assert "HIGHER" in report["interpretation"]
+
+    def test_efficacy_report_ignores_rule_only_episodes(self, db):
+        """'rule'/'blend_rule' episodes trivially match their own baseline by
+        construction and would dilute the comparison, so they must be excluded.
+        The report is platform-wide (not scoped to one student), and other
+        tests in this module commit their own bandit/blend_bandit episodes, so
+        this asserts the rule-only rows added no NEW episodes to the total
+        rather than asserting an absolute total of 0."""
+        from services.rl_strategy_agent import get_strategy_efficacy_report
+
+        before_total = get_strategy_efficacy_report(db, min_episodes_for_signal=0)["total_episodes"]
+
+        sid = f"{random.randint(10**6, 10**7)}"
+        for i in range(30):
+            db.add(models.BanditEpisodeLog(
+                id=f"rule-only-{sid}-{i}", student_id=sid, timestamp=datetime.now(timezone.utc),
+                state_hash="s2", strategy_selected="SCAFFOLDED",
+                baseline_strategy_id="SCAFFOLDED", selection_method="rule",
+                reward_received=0.9,
+            ))
+        db.commit()
+
+        after_total = get_strategy_efficacy_report(db, min_episodes_for_signal=0)["total_episodes"]
+        assert after_total == before_total
+
+    def test_pooling_writes_a_shared_global_row_without_inflating_student_pulls(self, db):
+        """_update_bandit_params must write both the per-student row and the
+        GLOBAL_STUDENT_ID row on every reward, and the two must stay independent
+        counters (a student's own `pulls` should not double-count the global write)."""
+        from services.rl_strategy_agent import GLOBAL_STUDENT_ID
+
+        bandit = StrategyBandit()
+        sid = f"{random.randint(10**8, 10**9)}"
+        state_hash = "deadbeef" * 4
+
+        bandit._update_bandit_params(db, sid, state_hash, "SCAFFOLDED", 0.5)
+        bandit._update_bandit_params(db, sid, state_hash, "SCAFFOLDED", 0.5)
+        db.commit()
+
+        student_row = db.query(models.BanditState).filter_by(
+            student_id=sid, state_hash=state_hash, strategy_id="SCAFFOLDED",
+        ).one()
+        global_row = db.query(models.BanditState).filter_by(
+            student_id=GLOBAL_STUDENT_ID, state_hash=state_hash, strategy_id="SCAFFOLDED",
+        ).one()
+        assert student_row.pulls == 2
+        assert global_row.pulls == 2
 
     def test_measure_pending_rewards_resolves_queue_and_updates_bandit_state(self, db):
         """Exercises the REAL delayed-reward production path: queue a reward,
