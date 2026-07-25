@@ -2118,10 +2118,30 @@ async def save_complete_profile(
                 logger.warning(f"Failed to derive teaching style from quiz: {e}")
 
         if payload.get("quiz_completed"):
-            comprehensive_profile.primary_archetype = payload.get("primary_archetype", "")
-            comprehensive_profile.secondary_archetype = payload.get("secondary_archetype", "")
-            comprehensive_profile.archetype_scores = json.dumps(payload.get("archetype_scores", {}))
-            comprehensive_profile.archetype_description = payload.get("archetype_description", "")
+            if payload.get("primary_archetype"):
+                # Explicit archetype fields (e.g. from the dedicated
+                # /save_archetype_profile endpoint's contract) always win.
+                comprehensive_profile.primary_archetype = payload.get("primary_archetype", "")
+                comprehensive_profile.secondary_archetype = payload.get("secondary_archetype", "")
+                comprehensive_profile.archetype_scores = json.dumps(payload.get("archetype_scores", {}))
+                comprehensive_profile.archetype_description = payload.get("archetype_description", "")
+            else:
+                # ProfileQuiz.js's real onboarding flow never sends archetype
+                # fields at all, so primary_archetype was always blank for every
+                # real user -- silently disabling the Kinetiq/Logicor/Flowist
+                # branches in rl_strategy_agent.py's rule fallback and
+                # ml_pipeline.py's archetype_p_learn. Derive it from the same
+                # learning_preferences quiz answers instead.
+                try:
+                    from services.archetype import derive_archetype_from_quiz
+                    derived = derive_archetype_from_quiz(payload.get("learning_preferences"))
+                    if derived:
+                        comprehensive_profile.primary_archetype = derived["primary_archetype"]
+                        comprehensive_profile.secondary_archetype = derived["secondary_archetype"]
+                        comprehensive_profile.archetype_scores = json.dumps(derived["archetype_scores"])
+                        comprehensive_profile.archetype_description = derived["archetype_description"]
+                except Exception as e:
+                    logger.warning(f"Failed to derive archetype from quiz: {e}")
 
         comprehensive_profile.quiz_completed = payload.get("quiz_completed", False)
         comprehensive_profile.quiz_skipped = payload.get("quiz_skipped", False)
