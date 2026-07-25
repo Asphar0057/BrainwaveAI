@@ -99,6 +99,21 @@ MESSAGE_BANK = {
 }
 
 
+# Hidden ground truth for the archetype-correlated 70% of true_best_strategy
+# (see SyntheticStudent below). Deliberately DIFFERENT from what
+# rl_strategy_agent.py::_rule_based_fallback already assumes per archetype
+# (Kinetiq->ANALOGICAL, Logicor->DIRECT_EXPLANATION, Flowist->WORKED_EXAMPLE)
+# -- if ground truth matched the rule exactly there'd be nothing left for a
+# bandit to discover over the hand-written heuristic, which would make any
+# "does personalizing help" test meaningless by construction.
+_ARCHETYPE_TRUE_BEST = {
+    "Kinetiq": "WORKED_EXAMPLE",
+    "Logicor": "SCAFFOLDED",
+    "Flowist": "ANALOGICAL",
+    "default": "GUIDED_DISCOVERY",
+}
+
+
 class SyntheticStudent:
     def __init__(self, user_id: int, name: str, archetype: str, power_user: bool):
         self.user_id = user_id
@@ -109,7 +124,24 @@ class SyntheticStudent:
         # actually responds best to ONE particular strategy (higher continuation +
         # mastery gain when the bandit happens to pick it), mimicking a real
         # unobserved learning-style effect.
-        self.true_best_strategy = random.choice(STRATEGY_IDS)
+        #
+        # 2026-07-25: previously `random.choice(STRATEGY_IDS)` fully independent
+        # of every tracked state feature, including archetype -- which made this
+        # simulation structurally incapable of showing ANY benefit from
+        # population-level pooling (rl_strategy_agent.py's GLOBAL_STUDENT_ID prior),
+        # since pooling only concentrates signal for patterns that correlate with
+        # the shared state. Real students plausibly DO share some of their best-
+        # strategy signal with others of the same archetype (that's the whole
+        # premise behind archetype existing as a state feature at all) while still
+        # varying individually beyond it. Now: 70% archetype-driven (shared across
+        # every student of that archetype, a real population-level pattern a
+        # pooled bandit could in principle learn), 30% pure per-student noise
+        # unrelated to any state feature (a ceiling no state-based method, pooled
+        # or not, can ever converge past -- also realistic).
+        if random.random() < 0.70:
+            self.true_best_strategy = _ARCHETYPE_TRUE_BEST.get(archetype, random.choice(STRATEGY_IDS))
+        else:
+            self.true_best_strategy = random.choice(STRATEGY_IDS)
         # Hidden per-topic true accuracy-by-difficulty curve for content bandit.
         self.topic_true_accuracy = {}
         for topic in random.sample(TOPICS, k=3):
