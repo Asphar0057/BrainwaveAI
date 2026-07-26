@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Swords, ChevronRight, Zap, Trophy, Target, MessageSquare, LayoutDashboard, LogOut } from 'lucide-react';
+import { Brain, Swords, ChevronRight, Zap, Timer, Radio, ArrowUpRight } from 'lucide-react';
 import './QuizHub.css';
 import '../components/SocialHubChrome.css';
 import ImportExportModal from '../components/ImportExportModal';
 import ContextSelector from '../components/ContextSelector';
 import ContextPanel from '../components/ContextPanel';
+import QuizStudioBackground from '../components/QuizStudioBackground';
 import contextService from '../services/contextService';
 
 const QuizHub = () => {
@@ -42,21 +43,17 @@ const QuizHub = () => {
     const rect = card.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    const cx = x / rect.width - 0.5;
-    const cy = y / rect.height - 0.5;
     card.style.setProperty('--mx', `${x}px`);
     card.style.setProperty('--my', `${y}px`);
-    card.style.setProperty('--rx', `${(-cy * 7).toFixed(2)}deg`);
-    card.style.setProperty('--ry', `${(cx * 9).toFixed(2)}deg`);
   }, []);
   const handleTileLeave = useCallback((e) => {
-    const card = e.currentTarget;
-    card.style.setProperty('--rx', '0deg');
-    card.style.setProperty('--ry', '0deg');
+    e.currentTarget.style.removeProperty('--mx');
+    e.currentTarget.style.removeProperty('--my');
   }, []);
 
   return (
     <div className="qh">
+      <QuizStudioBackground />
       <div className="shc-topbar">
         <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
         <div className="shc-topbar-right">
@@ -103,98 +100,94 @@ const QuizHub = () => {
 
       <div className="qh-layout-body">
         <main className="qh-main">
-        <section 
-          className={`qh-section qh-section-solo ${hoveredSection === 'solo' ? 'qh-section-hovered' : ''}`}
-          onClick={() => navigate('/solo-quiz')}
-          onMouseEnter={() => setHoveredSection('solo')}
-          onMouseMove={handleTileMove}
-          onMouseLeave={(e) => { setHoveredSection(null); handleTileLeave(e); }}
-        >
-          <div className="cb-tile-texture" />
-          <div className="qh-section-glow"></div>
-          <div className="qh-section-inner">
-            <div className="qh-section-icon">
-              <User size={40} strokeWidth={1.5} />
+          <header className="qh-intro">
+            <div>
+              <span className="qh-intro-kicker">Quiz studio</span>
+              <h1>Choose how you want to be tested.</h1>
+              <p>Practice privately or bring a friend into the same question set.</p>
             </div>
-            
-            <div className="qh-section-content">
-              <div className="view-heading">
-                <span className="view-kicker">Study Mode</span>
-                <h2 className="view-title">Solo Practice</h2>
-                <p className="view-sub">Practice at your own pace with adaptive questions</p>
+            <div className="qh-intro-status" aria-live="polite">
+              <span>{hoveredSection === 'battle' ? 'Live challenge' : 'Independent practice'}</span>
+              <strong>{hoveredSection === 'battle' ? 'Same questions. Two players.' : 'Your topic. Your pace.'}</strong>
+            </div>
+          </header>
+
+          <div className="qh-mode-stage" data-active={hoveredSection || 'solo'}>
+            <button
+              type="button"
+              className="qh-mode-card qh-mode-card--solo"
+              onClick={() => navigate('/solo-quiz')}
+              onFocus={() => setHoveredSection('solo')}
+              onBlur={() => setHoveredSection(null)}
+              onMouseEnter={() => setHoveredSection('solo')}
+              onMouseMove={handleTileMove}
+              onMouseLeave={(event) => { setHoveredSection(null); handleTileLeave(event); }}
+            >
+              <div className="qh-mode-topline">
+                <span>Solo quiz</span>
+                <Brain size={18} />
               </div>
-              
-              <div className="qh-features">
-                <div className="qh-feature">
-                  <ChevronRight size={14} />
-                  <span>Smart Questions</span>
-                </div>
-                <div className="qh-feature">
-                  <ChevronRight size={14} />
-                  <span>Personal Progress Tracking</span>
-                </div>
-                <div className="qh-feature">
-                  <ChevronRight size={14} />
-                  <span>Learn from Mistakes</span>
-                </div>
+              <div className="qh-mode-copy">
+                <h2>Build a quiz around what you need to learn.</h2>
+                <p>Choose the topic, pressure level and feedback style before you begin.</p>
               </div>
+              <div className="qh-mode-specs">
+                <span><Timer size={13} /> Flexible timing</span>
+                <span><Zap size={13} /> Adaptive option</span>
+              </div>
+              <div className="qh-mode-action">
+                <span>Set up solo quiz</span>
+                <ArrowUpRight size={17} />
+              </div>
+            </button>
+
+            <div className="qh-choice-rail" aria-hidden="true">
+              <span />
+              <strong>or</strong>
+              <span />
             </div>
 
-            <button className="qh-section-cta">
-              <span>Start Solo Quiz</span>
+            <button
+              type="button"
+              className="qh-mode-card qh-mode-card--battle"
+              onClick={() => navigate('/quiz-battles')}
+              onFocus={() => setHoveredSection('battle')}
+              onBlur={() => setHoveredSection(null)}
+              onMouseEnter={() => setHoveredSection('battle')}
+              onMouseMove={handleTileMove}
+              onMouseLeave={(event) => { setHoveredSection(null); handleTileLeave(event); }}
+            >
+              <div className="qh-mode-topline">
+                <span>1v1 battle</span>
+                <Swords size={18} />
+              </div>
+              <div className="qh-battle-score" aria-hidden="true">
+                <div><small>You</small><strong>?</strong></div>
+                <span>vs</span>
+                <div><small>Friend</small><strong>?</strong></div>
+              </div>
+              <div className="qh-mode-copy">
+                <h2>Put the same knowledge under live pressure.</h2>
+                <p>Challenge a friend, choose the rules and settle it question by question.</p>
+              </div>
+              <div className="qh-mode-specs">
+                <span><Radio size={13} /> Live status</span>
+                <span><Zap size={13} /> Four battle modes</span>
+              </div>
+              <div className="qh-mode-action">
+                <span>Enter battle arena</span>
+                <ArrowUpRight size={17} />
+              </div>
             </button>
           </div>
-          <div className="qh-section-line"></div>
-        </section>
 
-        <div className="qh-divider">
-          <span className="qh-divider-text">or</span>
-        </div>
-
-        <section 
-          className={`qh-section qh-section-battle ${hoveredSection === 'battle' ? 'qh-section-hovered' : ''}`}
-          onClick={() => navigate('/quiz-battles')}
-          onMouseEnter={() => setHoveredSection('battle')}
-          onMouseMove={handleTileMove}
-          onMouseLeave={(e) => { setHoveredSection(null); handleTileLeave(e); }}
-        >
-          <div className="cb-tile-texture" />
-          <div className="qh-section-glow"></div>
-          <div className="qh-section-inner">
-            <div className="qh-section-icon">
-              <Swords size={40} strokeWidth={1.5} />
-            </div>
-            
-            <div className="qh-section-content">
-              <div className="view-heading">
-                <span className="view-kicker">Challenge Mode</span>
-                <h2 className="view-title">1v1 Battles</h2>
-                <p className="view-sub">Go head-to-head against friends in real time</p>
-              </div>
-              
-              <div className="qh-features">
-                <div className="qh-feature">
-                  <ChevronRight size={14} />
-                  <span>Compete with Friends</span>
-                </div>
-                <div className="qh-feature">
-                  <ChevronRight size={14} />
-                  <span>Real-time Battles</span>
-                </div>
-                <div className="qh-feature">
-                  <ChevronRight size={14} />
-                  <span>Live Notifications</span>
-                </div>
-              </div>
-            </div>
-
-            <button className="qh-section-cta">
-              <span>Start Battle</span>
+          <div className="qh-footnote">
+            <span>Both modes use your selected learning context.</span>
+            <button type="button" onClick={() => setContextPanelOpen(true)}>
+              Review context <ChevronRight size={13} />
             </button>
           </div>
-          <div className="qh-section-line"></div>
-        </section>
-      </main>
+        </main>
       </div>
 
       <ImportExportModal
@@ -231,7 +224,7 @@ const QuizHub = () => {
         onDocUploaded={() => setUserDocCount(p => p + 1)}
       />
 
-      <div style={{position:'fixed',top:'10px',right:'12px',zIndex:8000,display:'flex',alignItems:'center',gap:'8px'}}>
+      <div className="qh-utility-bar">
         <ContextSelector hsMode={hsMode} docCount={userDocCount} onOpen={() => setContextPanelOpen(true)} />
         <button
           onClick={(e) => { e.stopPropagation(); setShowImportExport(true); }}

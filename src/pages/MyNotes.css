@@ -2912,3 +2912,91 @@
     padding: 20px 20px 32px;
   }
 }
+
+/* Notes library line texture and interaction hardening */
+.my-notes-page-full .mn-qb-topbar,
+.my-notes-page-full .mn-qb-body {
+  position: relative;
+  z-index: 1;
+}
+
+.my-notes-page-full .mn-qb-main .nt-content {
+  position: relative;
+  isolation: isolate;
+  background: color-mix(in srgb, #0b0b0b 84%, transparent);
+}
+
+.my-notes-page-full .mn-qb-main .nt-content::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(115deg, transparent 0 38px, color-mix(in srgb, var(--accent) 4.8%, transparent) 38px 39px),
+    repeating-linear-gradient(25deg, transparent 0 46px, color-mix(in srgb, var(--accent) 3.5%, transparent) 46px 47px);
+}
+
+.my-notes-page-full .mn-qb-main .nt-content > * {
+  position: relative;
+  z-index: 1;
+}
+
+.my-notes-page-full .nt-note-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.my-notes-page-full .nt-note-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 88% 94%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 48%),
+    repeating-linear-gradient(115deg, transparent 0 22px, color-mix(in srgb, var(--accent) 5.8%, transparent) 22px 23px),
+    repeating-linear-gradient(25deg, transparent 0 27px, color-mix(in srgb, var(--accent) 3.8%, transparent) 27px 28px);
+  opacity: 1;
+}
+
+.my-notes-page-full .nt-note-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.my-notes-page-full .nt-note-title-button {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.my-notes-page-full .nt-note-title-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 3px;
+}
+
+.my-notes-page-full button:active {
+  transform: scale(0.97);
+}
+
+.my-notes-page-full button:focus-visible,
+.my-notes-page-full input:focus-visible,
+.my-notes-page-full textarea:focus-visible,
+.my-notes-page-full select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+[data-theme-mode="light"] .my-notes-page-full .mn-qb-main .nt-content {
+  background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
+}

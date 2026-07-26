@@ -6497,3 +6497,56 @@ h1.note-title ::-moz-selection,
     padding: 16px !important;
   }
 }
+
+/* Editor line field: visible in the workspace, quiet on the writing paper */
+.notes-redesign .nr-qb-topbar,
+.notes-redesign .nr-body {
+  position: relative;
+  z-index: 1;
+}
+
+.notes-redesign .nr-qb-main {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid color-mix(in srgb, var(--accent) 14%, transparent);
+  border-radius: 18px;
+  overflow: hidden;
+  background: color-mix(in srgb, #090909 84%, transparent);
+}
+
+.notes-redesign .nr-qb-main::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(115deg, transparent 0 40px, color-mix(in srgb, var(--accent) 4.2%, transparent) 40px 41px),
+    repeating-linear-gradient(25deg, transparent 0 48px, color-mix(in srgb, var(--accent) 3.2%, transparent) 48px 49px);
+}
+
+.notes-redesign .nr-qb-main > * {
+  position: relative;
+  z-index: 1;
+}
+
+.notes-redesign .nr-qb-sidebar {
+  isolation: isolate;
+}
+
+.notes-redesign button:active {
+  transform: scale(0.97);
+}
+
+.notes-redesign button:focus-visible,
+.notes-redesign input:focus-visible,
+.notes-redesign textarea:focus-visible,
+.notes-redesign select:focus-visible,
+.notes-redesign [contenteditable="true"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+[data-theme-mode="light"] .notes-redesign .nr-qb-main {
+  background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
+}

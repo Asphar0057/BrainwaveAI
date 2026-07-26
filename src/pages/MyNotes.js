@@ -17,6 +17,7 @@ import ImportExportModal from '../components/ImportExportModal';
 import ContextSelector from '../components/ContextSelector';
 import ContextPanel from '../components/ContextPanel';
 import contextService from '../services/contextService';
+import NotesLineField from '../components/NotesLineField';
 
 const asText = (value) => (value === null || value === undefined ? '' : String(value));
 const noteFolderIds = (note) => {
@@ -47,6 +48,7 @@ const MyNotes = () => {
   const [showFavorites, setShowFavorites] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
   
   
   const [showFolderModal, setShowFolderModal] = useState(false);
@@ -125,6 +127,7 @@ const MyNotes = () => {
 
   const loadNotes = async () => {
     setLoading(true);
+    setLoadError('');
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/get_notes?user_id=${userName}`, {
@@ -138,6 +141,7 @@ const MyNotes = () => {
       }
     } catch (error) {
       console.error('Error loading notes:', error);
+      setLoadError(error.message || 'Could not load your notes.');
   } finally {
       setLoading(false);
     }
@@ -651,24 +655,7 @@ const MyNotes = () => {
 
   return (
     <div className="my-notes-page-full">
-      <svg className="geo-bg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-        <circle cx="600" cy="400" r="360" fill="none" stroke="currentColor" strokeWidth="1"/>
-        <circle cx="600" cy="400" r="260" fill="none" stroke="currentColor" strokeWidth="0.8"/>
-        <circle cx="600" cy="400" r="168" fill="none" stroke="currentColor" strokeWidth="0.7"/>
-        <circle cx="600" cy="400" r="90" fill="none" stroke="currentColor" strokeWidth="0.6"/>
-        <line x1="600" y1="0" x2="600" y2="800" stroke="currentColor" strokeWidth="0.5"/>
-        <line x1="0" y1="400" x2="1200" y2="400" stroke="currentColor" strokeWidth="0.5"/>
-        <line x1="0" y1="800" x2="500" y2="0" stroke="currentColor" strokeWidth="0.4"/>
-        <line x1="1200" y1="0" x2="700" y2="800" stroke="currentColor" strokeWidth="0.4"/>
-        <circle cx="600" cy="40" r="5" fill="currentColor"/>
-        <circle cx="600" cy="760" r="5" fill="currentColor"/>
-        <circle cx="240" cy="400" r="5" fill="currentColor"/>
-        <circle cx="960" cy="400" r="5" fill="currentColor"/>
-        <circle cx="345" cy="146" r="3.5" fill="currentColor"/>
-        <circle cx="855" cy="654" r="3.5" fill="currentColor"/>
-        <circle cx="855" cy="146" r="3.5" fill="currentColor"/>
-        <circle cx="345" cy="654" r="3.5" fill="currentColor"/>
-      </svg>
+      <NotesLineField />
       <div className="mn-qb-topbar">
         <div className="mn-qb-tagline">Learning Unified</div>
         <div className="mn-qb-topbar-right">
@@ -889,6 +876,7 @@ const MyNotes = () => {
                 <input
                   type="text"
                   placeholder="Search notes..."
+                  aria-label="Search notes"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -897,12 +885,20 @@ const MyNotes = () => {
                 <button
                   className={`nt-view-btn ${viewMode === 'grid' ? 'active' : ''}`}
                   onClick={() => setViewMode('grid')}
+                  type="button"
+                  title="Grid view"
+                  aria-label="Grid view"
+                  aria-pressed={viewMode === 'grid'}
                 >
                   <Grid size={16} />
                 </button>
                 <button
                   className={`nt-view-btn ${viewMode === 'list' ? 'active' : ''}`}
                   onClick={() => setViewMode('list')}
+                  type="button"
+                  title="List view"
+                  aria-label="List view"
+                  aria-pressed={viewMode === 'list'}
                 >
                   <ListIcon size={16} />
                 </button>
@@ -914,11 +910,21 @@ const MyNotes = () => {
                 <div className="nt-spinner"></div>
                 <p>Loading notes...</p>
               </div>
+            ) : loadError ? (
+              <div className="nt-empty-state" role="alert">
+                <div className="nt-empty-icon"><FileText size={40} /></div>
+                <h2>NOTES COULDN’T LOAD</h2>
+                <p>{loadError}</p>
+                <button className="nt-modal-btn primary" type="button" onClick={loadNotes}>TRY AGAIN</button>
+              </div>
             ) : filteredNotes.length === 0 ? (
               <div className="nt-empty-state">
-                <div className="nt-empty-icon"><Folder size={40} /></div>
-                <h2>NO NOTES HERE</h2>
-                <p>CREATE YOUR FIRST NOTE TO GET STARTED</p>
+                <div className="nt-empty-icon">{searchTerm ? <Search size={40} /> : <Folder size={40} />}</div>
+                <h2>{searchTerm ? 'NO MATCHING NOTES' : 'NO NOTES HERE'}</h2>
+                <p>{searchTerm ? `NOTHING MATCHES “${searchTerm}”` : 'CREATE YOUR FIRST NOTE TO GET STARTED'}</p>
+                {searchTerm && (
+                  <button className="nt-modal-btn primary" type="button" onClick={() => setSearchTerm('')}>CLEAR SEARCH</button>
+                )}
               </div>
             ) : (
               <div className={viewMode === 'grid' ? 'nt-notes-grid' : 'nt-notes-list'}>
@@ -938,7 +944,22 @@ const MyNotes = () => {
                     </div>
                     <div className="nt-note-card-content">
                       <div className="nt-note-card-header">
-                        <h3 className="nt-note-title">{note.title || 'Untitled'}</h3>
+                        {showTrash ? (
+                          <h3 className="nt-note-title">{note.title || 'Untitled'}</h3>
+                        ) : (
+                          <h3 className="nt-note-title">
+                            <button
+                              className="nt-note-title-button"
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                navigate(`/notes/editor/${note.id}`);
+                              }}
+                            >
+                              {note.title || 'Untitled'}
+                            </button>
+                          </h3>
+                        )}
                         <div className="nt-note-actions">
                           {showTrash ? (
                             <>
@@ -1008,14 +1029,15 @@ const MyNotes = () => {
 
       {showFolderModal && (
         <div className="nt-modal-overlay" onClick={() => setShowFolderModal(false)}>
-          <div className="nt-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Create New Folder</h3>
+          <div className="nt-modal" role="dialog" aria-modal="true" aria-labelledby="create-folder-title" onClick={(e) => e.stopPropagation()}>
+            <h3 id="create-folder-title">Create New Folder</h3>
             <input
               type="text"
               placeholder="Folder name..."
+              aria-label="Folder name"
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && createFolder()}
+              onKeyDown={(e) => e.key === 'Enter' && createFolder()}
               autoFocus
             />
             <div className="nt-modal-actions">

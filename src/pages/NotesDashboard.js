@@ -9,6 +9,7 @@ import AdvancedSearch from '../components/AdvancedSearch';
 import Templates from '../components/Templates';
 import { API_URL } from '../config';
 import { signOutAppSession } from '../utils/authSession';
+import NotesLineField from '../components/NotesLineField';
 
 const FONTS = [
   { value: 'Inter', label: 'Inter' },
@@ -32,6 +33,9 @@ const NotesDashboard = () => {
   const [showTemplates, setShowTemplates] = useState(false);
   const [selectedFont, setSelectedFont] = useState('Inter');
   const [userName, setUserName] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [creatingNote, setCreatingNote] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => (
     typeof window !== 'undefined' ? window.innerWidth <= 768 : false
   ));
@@ -55,16 +59,24 @@ const NotesDashboard = () => {
   }, [navigate]);
 
   const loadNotes = async (username) => {
+    setLoading(true);
+    setLoadError('');
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/get_notes?user_id=${username}`, {
+      const res = await fetch(`${API_URL}/get_notes?user_id=${encodeURIComponent(username || '')}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const data = await res.json();
-        setNotes(data.filter(n => !n.is_deleted));
+        setNotes((Array.isArray(data) ? data : []).filter(n => !n.is_deleted));
+      } else {
+        throw new Error(`Failed to load notes (${res.status})`);
       }
-    } catch (error) { /* silenced */ }
+    } catch (error) {
+      setLoadError(error.message || 'Could not load your notes.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loadFolders = async (username) => {
@@ -85,6 +97,8 @@ const NotesDashboard = () => {
   };
 
   const handleCreateNote = async () => {
+    if (creatingNote) return;
+    setCreatingNote(true);
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/create_note`, {
@@ -103,8 +117,14 @@ const NotesDashboard = () => {
       if (res.ok) {
         const newNote = await res.json();
         navigate(`/notes/editor/${newNote.id}`);
+      } else {
+        throw new Error(`Failed to create note (${res.status})`);
       }
-    } catch (error) { /* silenced */ }
+    } catch (error) {
+      setLoadError(error.message || 'Could not create a new note.');
+    } finally {
+      setCreatingNote(false);
+    }
   };
 
   const handleTemplateSelect = async (template) => {
@@ -199,8 +219,8 @@ const NotesDashboard = () => {
   };
 
   const filteredNotes = notes.filter(note =>
-    note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    note.content.toLowerCase().includes(searchTerm.toLowerCase())
+    String(note?.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    String(note?.content || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const thisWeekCount = notes.filter(n => {
@@ -211,6 +231,7 @@ const NotesDashboard = () => {
 
   return (
     <div className="notes-dashboard" style={{ fontFamily: selectedFont }}>
+      <NotesLineField />
       <div className="shc-topbar">
         <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
         <div className="shc-topbar-right">
@@ -241,7 +262,7 @@ const NotesDashboard = () => {
                 <button className="ndb-qb-strip-btn ndb-qb-strip-logo" data-tip="Open sidebar" onClick={() => setSidebarCollapsed(false)} type="button">
                   cb
                 </button>
-                <button className="ndb-qb-strip-btn" data-tip="New Note" onClick={handleCreateNote} type="button">
+                <button className="ndb-qb-strip-btn" data-tip="New Note" onClick={handleCreateNote} disabled={creatingNote} type="button">
                   <Plus size={18} />
                 </button>
                 <button className="ndb-qb-strip-btn" data-tip="Templates" onClick={() => { setSidebarCollapsed(false); setShowTemplates(true); }} type="button">
@@ -292,9 +313,9 @@ const NotesDashboard = () => {
               <div className="ndb-qb-side-block">
                 <div className="ndb-qb-side-label">Quick Actions</div>
                 <nav className="ndb-qb-view-nav" aria-label="Notes quick actions">
-                  <button className="ndb-qb-view-link ndb-qb-view-link--accent" onClick={handleCreateNote} type="button">
+                  <button className="ndb-qb-view-link ndb-qb-view-link--accent" onClick={handleCreateNote} disabled={creatingNote} type="button">
                     <Plus size={16} />
-                    <span>New Note</span>
+                    <span>{creatingNote ? 'Creating…' : 'New Note'}</span>
                   </button>
                   <button className="ndb-qb-view-link" onClick={() => setShowTemplates(true)} type="button">
                     <Layout size={16} />
@@ -311,6 +332,7 @@ const NotesDashboard = () => {
                     <input
                       type="text"
                       placeholder="Search notes..."
+                      aria-label="Search notes"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
@@ -394,7 +416,20 @@ const NotesDashboard = () => {
 
           <main className="ndb-qb-main">
       <div className="dashboard-content">
-        {filteredNotes.length > 0 ? (
+        {loading ? (
+          <div className="empty-dashboard" aria-live="polite">
+            <FileText size={48} />
+            <h2>Loading your notes…</h2>
+            <p>Gathering your library and folders.</p>
+          </div>
+        ) : loadError ? (
+          <div className="empty-dashboard" role="alert">
+            <FileText size={48} />
+            <h2>Notes couldn’t load</h2>
+            <p>{loadError}</p>
+            <button className="dashboard-btn primary" type="button" onClick={() => loadNotes(userName)}>Try Again</button>
+          </div>
+        ) : filteredNotes.length > 0 ? (
           <DatabaseViews
             notes={filteredNotes}
             folders={folders}
@@ -403,11 +438,11 @@ const NotesDashboard = () => {
         ) : (
           <div className="empty-dashboard">
             <FileText size={64} />
-            <h2>No Notes Yet</h2>
-            <p>Create your first note or use a template to get started</p>
-            <button className="dashboard-btn primary" onClick={handleCreateNote}>
+            <h2>{searchTerm ? 'No matching notes' : 'No notes yet'}</h2>
+            <p>{searchTerm ? `Nothing matches “${searchTerm}”. Try a different phrase.` : 'Create your first note or use a template to get started.'}</p>
+            <button className="dashboard-btn primary" type="button" onClick={searchTerm ? () => setSearchTerm('') : handleCreateNote}>
               <Plus size={18} />
-              Create First Note
+              {searchTerm ? 'Clear Search' : 'Create First Note'}
             </button>
           </div>
         )}

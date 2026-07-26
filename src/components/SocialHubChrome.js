@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, LayoutGrid, Users } from 'lucide-react';
 import './SocialHubChrome.css';
@@ -20,19 +20,81 @@ const FOOTER_ITEMS = [
   { icon: LayoutGrid, label: 'Dashboard',  path: '/dashboard-cerbyl' },
 ];
 
+const REACTIVE_SURFACE_SELECTOR = [
+  '.fd-friend-card',
+  '.fd-user-row',
+  '.af-activity-card',
+  '.sp-item-card',
+  '.leaderboard-entry',
+  '.challenge-card',
+  '.games-page .stat-card-main',
+  '.games-page .dc-mission-card',
+  '.games-page .section-card',
+  '.games-page .bingo-cell',
+  '.qb-create-generator',
+  '.qb-gm-btn',
+  '.qb-battle-card',
+  '.plx-card',
+  '.playlist-detail-page .pdx-row',
+  '.playlist-detail-page .detail-header',
+  '.playlist-detail-page .playlist-item',
+].join(',');
+
 const SocialHubChrome = ({
   sideSections = [],
   brandKicker = 'Social',
   footerItems = FOOTER_ITEMS,
   topbarAction = { label: 'Dashboard', path: '/dashboard-cerbyl' },
+  sidebarLead = null,
+  sidebarTail = null,
   noSidebar = false,
   children,
 }) => {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
+  const activeSurfaceRef = useRef(null);
+
+  const clearReactiveSurface = useCallback(() => {
+    const surface = activeSurfaceRef.current;
+    if (!surface) return;
+    surface.style.removeProperty('--shc-mx');
+    surface.style.removeProperty('--shc-my');
+    surface.style.removeProperty('--shc-rx');
+    surface.style.removeProperty('--shc-ry');
+    activeSurfaceRef.current = null;
+  }, []);
+
+  const handleSurfacePointerMove = useCallback((event) => {
+    if (event.pointerType === 'touch') return;
+    const surface = event.target.closest?.(REACTIVE_SURFACE_SELECTOR);
+    if (!surface) {
+      clearReactiveSurface();
+      return;
+    }
+
+    if (activeSurfaceRef.current !== surface) {
+      clearReactiveSurface();
+      activeSurfaceRef.current = surface;
+    }
+
+    const rect = surface.getBoundingClientRect();
+    const x = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
+    const y = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
+    const rotateX = ((y / rect.height) - 0.5) * -1.2;
+    const rotateY = ((x / rect.width) - 0.5) * 1.2;
+
+    surface.style.setProperty('--shc-mx', `${x}px`);
+    surface.style.setProperty('--shc-my', `${y}px`);
+    surface.style.setProperty('--shc-rx', `${rotateX.toFixed(2)}deg`);
+    surface.style.setProperty('--shc-ry', `${rotateY.toFixed(2)}deg`);
+  }, [clearReactiveSurface]);
 
   return (
-    <div className="shc-shell">
+    <div
+      className="shc-shell"
+      onPointerMove={handleSurfacePointerMove}
+      onPointerLeave={clearReactiveSurface}
+    >
         <div className="shc-bg-fx" aria-hidden="true">
           <div className="shc-bg-wash" />
           <div className="shc-bg-orb shc-bg-orb--one" />
@@ -69,6 +131,8 @@ const SocialHubChrome = ({
                   type="button"
                   onClick={() => setCollapsed(false)}
                   data-tip="Expand"
+                  aria-label="Expand Social Hub sidebar"
+                  aria-expanded="false"
                 >
                   <ChevronRight size={15} />
                 </button>
@@ -102,10 +166,18 @@ const SocialHubChrome = ({
                     type="button"
                     onClick={() => setCollapsed(true)}
                     title="Collapse"
+                    aria-label="Collapse Social Hub sidebar"
+                    aria-expanded="true"
                   >
                     <ChevronLeft size={12} />
                   </button>
                 </div>
+
+                {sidebarLead && (
+                  <div className="shc-sidebar-lead">
+                    {sidebarLead}
+                  </div>
+                )}
 
                 <div className="shc-side-sections">
                   {sideSections.map(section => (
@@ -133,6 +205,12 @@ const SocialHubChrome = ({
                     </div>
                   ))}
                 </div>
+
+                {sidebarTail && (
+                  <div className="shc-sidebar-tail">
+                    {sidebarTail}
+                  </div>
+                )}
 
                 <div className="shc-side-footer-nav">
                   {footerItems.map(fi => {

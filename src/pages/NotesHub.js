@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import './NotesHub.css';
 import '../components/SocialHubChrome.css';
+import NotesLineField from '../components/NotesLineField';
 
 const NotesHub = () => {
   const navigate = useNavigate();
@@ -28,38 +29,7 @@ const NotesHub = () => {
           <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
         </div>
       </div>
-      <svg className="geo-bg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-        <circle cx="600" cy="400" r="360" fill="none" stroke="currentColor" strokeWidth="1"/>
-        <circle cx="600" cy="400" r="260" fill="none" stroke="currentColor" strokeWidth="0.8"/>
-        <circle cx="600" cy="400" r="168" fill="none" stroke="currentColor" strokeWidth="0.7"/>
-        <circle cx="600" cy="400" r="90" fill="none" stroke="currentColor" strokeWidth="0.6"/>
-        <line x1="600" y1="0" x2="600" y2="800" stroke="currentColor" strokeWidth="0.5"/>
-        <line x1="0" y1="400" x2="1200" y2="400" stroke="currentColor" strokeWidth="0.5"/>
-        <line x1="0" y1="800" x2="500" y2="0" stroke="currentColor" strokeWidth="0.4"/>
-        <line x1="1200" y1="0" x2="700" y2="800" stroke="currentColor" strokeWidth="0.4"/>
-        <circle cx="600" cy="40" r="5" fill="currentColor"/>
-        <circle cx="600" cy="760" r="5" fill="currentColor"/>
-        <circle cx="240" cy="400" r="5" fill="currentColor"/>
-        <circle cx="960" cy="400" r="5" fill="currentColor"/>
-        <circle cx="345" cy="146" r="3.5" fill="currentColor"/>
-        <circle cx="855" cy="654" r="3.5" fill="currentColor"/>
-        <circle cx="855" cy="146" r="3.5" fill="currentColor"/>
-        <circle cx="345" cy="654" r="3.5" fill="currentColor"/>
-        <rect x="24" y="24" width="72" height="72" fill="none" stroke="currentColor" strokeWidth="0.8"/>
-        <rect x="44" y="44" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="0.5"/>
-        <circle cx="60" cy="60" r="3" fill="currentColor"/>
-        <rect x="1104" y="704" width="72" height="72" fill="none" stroke="currentColor" strokeWidth="0.8"/>
-        <rect x="1124" y="724" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="0.5"/>
-        <circle cx="1140" cy="740" r="3" fill="currentColor"/>
-        <circle cx="120" cy="200" r="2" fill="currentColor"/>
-        <circle cx="160" cy="160" r="1.5" fill="currentColor"/>
-        <circle cx="200" cy="200" r="2" fill="currentColor"/>
-        <circle cx="160" cy="240" r="1.5" fill="currentColor"/>
-        <circle cx="1080" cy="600" r="2" fill="currentColor"/>
-        <circle cx="1040" cy="640" r="1.5" fill="currentColor"/>
-        <circle cx="1000" cy="600" r="2" fill="currentColor"/>
-        <circle cx="1040" cy="560" r="1.5" fill="currentColor"/>
-      </svg>
+      <NotesLineField />
       <div className="nh-ambient">
         <div className="nh-ambient-orb nh-ambient-orb-1"></div>
         <div className="nh-ambient-orb nh-ambient-orb-2"></div>
@@ -74,6 +44,14 @@ const NotesHub = () => {
             onClick={() => navigate('/notes/ai-media')}
             onMouseEnter={() => setHoveredSection('ai')}
             onMouseLeave={() => setHoveredSection(null)}
+            role="link"
+            tabIndex={0}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                navigate('/notes/ai-media');
+              }
+            }}
           >
             <div className="nh-section-glow"></div>
             <div className="nh-section-inner">
@@ -104,9 +82,9 @@ const NotesHub = () => {
                 </div>
               </div>
 
-              <button className="nh-section-cta">
+              <span className="nh-section-cta" aria-hidden="true">
                 <span>Start Generating</span>
-              </button>
+              </span>
             </div>
             <div className="nh-section-line"></div>
           </section>
@@ -120,6 +98,14 @@ const NotesHub = () => {
             onClick={() => navigate('/notes/my-notes')}
             onMouseEnter={() => setHoveredSection('manual')}
             onMouseLeave={() => setHoveredSection(null)}
+            role="link"
+            tabIndex={0}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                navigate('/notes/my-notes');
+              }
+            }}
           >
             <div className="nh-section-glow"></div>
             <div className="nh-section-inner">
@@ -150,9 +136,9 @@ const NotesHub = () => {
                 </div>
               </div>
 
-              <button className="nh-section-cta">
+              <span className="nh-section-cta" aria-hidden="true">
                 <span>View My Notes</span>
-              </button>
+              </span>
             </div>
             <div className="nh-section-line"></div>
           </section>

@@ -7,6 +7,7 @@ import "./NotesRedesignSmartFolders.css";
 import "./NotesRedesignChatImport.css";
 import "./NotesRedesignConvert.css";
 import CustomPopup from "./CustomPopup";
+import NotesLineField from "../components/NotesLineField";
 import { useTheme } from '../contexts/ThemeContext';
 import { signOutAppSession } from '../utils/authSession';
 import { 
@@ -2986,30 +2987,7 @@ const NotesRedesign = ({ sharedMode = false }) => {
 
   return (
     <div className={`notes-redesign ${selectedNote ? "nr-note-selected" : ""} ${viewMode === "preview" ? "preview-mode" : ""} ${isFullscreen ? "fullscreen-mode" : ""}`}>
-      <svg className="geo-bg" viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <circle cx="600" cy="400" r="360" fill="none" stroke="currentColor" strokeWidth="1"/>
-        <circle cx="600" cy="400" r="260" fill="none" stroke="currentColor" strokeWidth="0.5"/>
-        <circle cx="600" cy="400" r="168" fill="none" stroke="currentColor" strokeWidth="0.5"/>
-        <circle cx="600" cy="400" r="90" fill="none" stroke="currentColor" strokeWidth="1"/>
-        <line x1="600" y1="40" x2="600" y2="760" stroke="currentColor" strokeWidth="0.5"/>
-        <line x1="240" y1="400" x2="960" y2="400" stroke="currentColor" strokeWidth="0.5"/>
-        <line x1="346" y1="146" x2="854" y2="654" stroke="currentColor" strokeWidth="0.3"/>
-        <line x1="854" y1="146" x2="346" y2="654" stroke="currentColor" strokeWidth="0.3"/>
-        <circle cx="600" cy="40" r="4" fill="currentColor"/>
-        <circle cx="960" cy="400" r="4" fill="currentColor"/>
-        <circle cx="600" cy="760" r="4" fill="currentColor"/>
-        <circle cx="240" cy="400" r="4" fill="currentColor"/>
-        <rect x="580" y="20" width="40" height="40" fill="none" stroke="currentColor" strokeWidth="0.5"/>
-        <rect x="940" y="380" width="40" height="40" fill="none" stroke="currentColor" strokeWidth="0.5"/>
-        <circle cx="854" cy="146" r="3" fill="currentColor" opacity="0.5"/>
-        <circle cx="346" cy="146" r="3" fill="currentColor" opacity="0.5"/>
-        <circle cx="854" cy="654" r="3" fill="currentColor" opacity="0.5"/>
-        <circle cx="346" cy="654" r="3" fill="currentColor" opacity="0.5"/>
-        <circle cx="120" cy="160" r="2" fill="currentColor" opacity="0.4"/>
-        <circle cx="1050" cy="200" r="2" fill="currentColor" opacity="0.4"/>
-        <circle cx="80" cy="600" r="2" fill="currentColor" opacity="0.4"/>
-        <circle cx="1100" cy="580" r="2" fill="currentColor" opacity="0.4"/>
-      </svg>
+      <NotesLineField quiet={viewMode === "edit"} />
       {QuickSwitcherComponent}
       
       {/* Slash Menu */}
@@ -3596,7 +3574,7 @@ const NotesRedesign = ({ sharedMode = false }) => {
             <h2>No Note Selected</h2>
             <p>Select a note from the sidebar or create a new one to get started</p>
             {!isSharedContent && (
-              <button className="btn-create-empty" onClick={createNewNote}>
+              <button className="btn-create-empty" type="button" onClick={createNewNote}>
                 Create New Note
               </button>
             )}

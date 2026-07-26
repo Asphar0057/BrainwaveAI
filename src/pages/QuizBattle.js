@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import {
   Swords, Users, Clock, X, Check, Zap, Trophy, Shield,
   Flame, Crown, Sparkles, ChevronRight, ChevronLeft, BookOpen, Database,
-  Gauge, ArrowRight, AlertCircle
+  Gauge, ArrowRight, AlertCircle, LoaderCircle, ArrowLeft
 } from 'lucide-react';
 import './QuizBattle.css';
 import '../components/SocialHubChrome.css';
 import { API_URL } from '../config';
 import useSharedWebSocket from '../hooks/useSharedWebSocket';
 import BattleNotification from './BattleNotification.js';
+import QuizStudioBackground from '../components/QuizStudioBackground';
 
 const QuizBattle = () => {
   const navigate = useNavigate();
@@ -30,6 +31,7 @@ const QuizBattle = () => {
   const [classicTimeLimit, setClassicTimeLimit] = useState(300);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [error, setError] = useState(null);
+  const [creating, setCreating] = useState(false);
 
   const { isConnected } = useSharedWebSocket(token, (message) => {
     if (message.type === 'battle_answer_submitted' || message.type === 'battle_opponent_completed') {
@@ -128,6 +130,7 @@ const QuizBattle = () => {
     }
 
     setError(null);
+    setCreating(true);
 
     try {
       const response = await fetch(`${API_URL}/create_quiz_battle`, {
@@ -168,6 +171,8 @@ const QuizBattle = () => {
     } catch (error) {
       console.error('Error creating battle:', error);
       setError('Unable to create battle. Please try again.');
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -265,6 +270,7 @@ const QuizBattle = () => {
 
   return (
     <div className="qb-page">
+      <QuizStudioBackground />
       <div className="shc-topbar">
         <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
         <div className="shc-topbar-right">
@@ -275,23 +281,26 @@ const QuizBattle = () => {
         <aside className={`qb-sidebar ${sidebarCollapsed ? 'qb-sidebar--collapsed' : ''}`}>
           {sidebarCollapsed ? (
             <div className="qb-sb-strip">
-              <button className="qb-sb-strip-btn" data-tip="Expand" onClick={() => setSidebarCollapsed(false)} type="button">
+              <button className="qb-sb-strip-btn" data-tip="Expand" aria-label="Expand quiz battles sidebar" onClick={() => setSidebarCollapsed(false)} type="button">
                 <ChevronRight size={18} />
               </button>
-              <button className={`qb-sb-strip-btn ${activeView === 'create' ? 'active' : ''}`} data-tip="Create Battle" onClick={() => { setSidebarCollapsed(false); setActiveView('create'); }} type="button">
+              <button className={`qb-sb-strip-btn ${activeView === 'create' ? 'active' : ''}`} data-tip="Create Battle" aria-label="Create Battle" onClick={() => { setSidebarCollapsed(false); setActiveView('create'); }} type="button">
                 <Swords size={18} />
               </button>
-              <button className={`qb-sb-strip-btn ${activeView === 'battles' && statusFilter === 'pending' ? 'active' : ''}`} data-tip="Pending" onClick={() => { setActiveView('battles'); setStatusFilter('pending'); }} type="button">
+              <button className={`qb-sb-strip-btn ${activeView === 'battles' && statusFilter === 'pending' ? 'active' : ''}`} data-tip="Pending" aria-label="Pending battles" onClick={() => { setActiveView('battles'); setStatusFilter('pending'); }} type="button">
                 <Clock size={18} />
               </button>
-              <button className={`qb-sb-strip-btn ${activeView === 'battles' && statusFilter === 'active' ? 'active' : ''}`} data-tip="Active" onClick={() => { setActiveView('battles'); setStatusFilter('active'); }} type="button">
+              <button className={`qb-sb-strip-btn ${activeView === 'battles' && statusFilter === 'active' ? 'active' : ''}`} data-tip="Active" aria-label="Active battles" onClick={() => { setActiveView('battles'); setStatusFilter('active'); }} type="button">
                 <Flame size={18} />
               </button>
-              <button className={`qb-sb-strip-btn ${activeView === 'battles' && statusFilter === 'completed' ? 'active' : ''}`} data-tip="Completed" onClick={() => { setActiveView('battles'); setStatusFilter('completed'); }} type="button">
+              <button className={`qb-sb-strip-btn ${activeView === 'battles' && statusFilter === 'completed' ? 'active' : ''}`} data-tip="Completed" aria-label="Completed battles" onClick={() => { setActiveView('battles'); setStatusFilter('completed'); }} type="button">
                 <Trophy size={18} />
               </button>
-              <button className={`qb-sb-strip-btn ${activeView === 'battles' && statusFilter === 'all' ? 'active' : ''}`} data-tip="All" onClick={() => { setActiveView('battles'); setStatusFilter('all'); }} type="button">
+              <button className={`qb-sb-strip-btn ${activeView === 'battles' && statusFilter === 'all' ? 'active' : ''}`} data-tip="All" aria-label="All battles" onClick={() => { setActiveView('battles'); setStatusFilter('all'); }} type="button">
                 <Database size={18} />
+              </button>
+              <button className="qb-sb-strip-btn" data-tip="Quiz modes" aria-label="Back to quiz modes" onClick={() => navigate('/quiz-hub')} type="button">
+                <ArrowLeft size={18} />
               </button>
             </div>
           ) : (
@@ -301,7 +310,7 @@ const QuizBattle = () => {
                   <div className="qb-sidebar-logo">cerbyl</div>
                   <div className="qb-sidebar-kicker">Quiz Battles</div>
                 </div>
-                <button className="qb-sb-collapse-btn" onClick={() => setSidebarCollapsed(true)} type="button">
+                <button className="qb-sb-collapse-btn" onClick={() => setSidebarCollapsed(true)} type="button" aria-label="Collapse quiz battles sidebar">
                   <ChevronLeft size={14} />
                 </button>
               </div>
@@ -335,6 +344,11 @@ const QuizBattle = () => {
                   ))}
                 </div>
               </div>
+
+              <button className="qb-sidebar-return" type="button" onClick={() => navigate('/quiz-hub')}>
+                <ArrowLeft size={15} />
+                <span>Quiz modes</span>
+              </button>
             </>
           )}
         </aside>
@@ -344,9 +358,36 @@ const QuizBattle = () => {
             {activeView === 'create' ? (
               <div className="qb-create-generator">
                 <div className="qb-create-header">
-                  <Swords size={48} className="qb-create-icon" />
-                  <h2 className="qb-create-title">CREATE BATTLE</h2>
-                  <p className="qb-create-subtitle">Challenge a friend to an epic quiz duel</p>
+                  <div className="qb-create-heading">
+                    <div className="qb-create-heading-top">
+                      <span className="qb-create-kicker">1v1 battle brief</span>
+                      <button type="button" onClick={() => setActiveView('battles')}>
+                        <ArrowLeft size={13} /> Battles
+                      </button>
+                    </div>
+                    <Swords size={30} className="qb-create-icon" />
+                    <h1 className="qb-create-title">Set the terms of the challenge.</h1>
+                    <p className="qb-create-subtitle">Choose the opponent, topic and pressure. Both players get the same test.</p>
+                  </div>
+                  <div className="qb-live-brief" aria-live="polite">
+                    <div className="qb-live-match">
+                      <div><span>You</span><strong>Ready</strong></div>
+                      <em>vs</em>
+                      <div>
+                        <span>Opponent</span>
+                        <strong>{friends.find(friend => String(friend.id) === String(selectedFriend))?.username || 'Choose a friend'}</strong>
+                      </div>
+                    </div>
+                    <div className="qb-live-topic">
+                      <span>Battle topic</span>
+                      <strong>{subject.trim() || 'Waiting for a subject'}</strong>
+                    </div>
+                    <div className="qb-live-specs">
+                      <span><strong>{questionCount}</strong> questions</span>
+                      <span><strong>{difficulty}</strong> level</span>
+                      <span><strong>{gameMode.replace('_', ' ')}</strong> mode</span>
+                    </div>
+                  </div>
                 </div>
 
                 <form onSubmit={handleCreateBattle} className="qb-create-form">
@@ -432,6 +473,7 @@ const QuizBattle = () => {
                       <button
                         type="button"
                         className={`qb-gm-btn ${gameMode === 'classic' ? 'active' : ''}`}
+                        aria-pressed={gameMode === 'classic'}
                         onClick={() => setGameMode('classic')}
                       >
                         <Trophy size={20} className="qb-gm-icon" />
@@ -442,6 +484,7 @@ const QuizBattle = () => {
                       <button
                         type="button"
                         className={`qb-gm-btn ${gameMode === 'speed' ? 'active' : ''}`}
+                        aria-pressed={gameMode === 'speed'}
                         onClick={() => setGameMode('speed')}
                       >
                         <Zap size={20} className="qb-gm-icon" />
@@ -452,6 +495,7 @@ const QuizBattle = () => {
                       <button
                         type="button"
                         className={`qb-gm-btn ${gameMode === 'blitz' ? 'active' : ''}`}
+                        aria-pressed={gameMode === 'blitz'}
                         onClick={() => setGameMode('blitz')}
                       >
                         <Flame size={20} className="qb-gm-icon" />
@@ -462,6 +506,7 @@ const QuizBattle = () => {
                       <button
                         type="button"
                         className={`qb-gm-btn ${gameMode === 'sudden_death' ? 'active' : ''}`}
+                        aria-pressed={gameMode === 'sudden_death'}
                         onClick={() => setGameMode('sudden_death')}
                       >
                         <Shield size={20} className="qb-gm-icon" />
@@ -488,6 +533,7 @@ const QuizBattle = () => {
                             key={val}
                             type="button"
                             className={`qb-time-opt-btn ${classicTimeLimit === val ? 'active' : ''}`}
+                            aria-pressed={classicTimeLimit === val}
                             onClick={() => setClassicTimeLimit(val)}
                           >
                             <span className="qb-time-opt-val">{label}</span>
@@ -505,9 +551,9 @@ const QuizBattle = () => {
                     </div>
                   )}
 
-                  <button type="submit" className="qb-cform-submit">
-                    <Swords size={18} />
-                    <span>Send Challenge</span>
+                  <button type="submit" className="qb-cform-submit" disabled={creating}>
+                    {creating ? <LoaderCircle size={18} className="qb-inline-spinner" /> : <Swords size={18} />}
+                    <span>{creating ? 'Sending challenge…' : 'Send challenge'}</span>
                   </button>
                 </form>
               </div>
@@ -516,11 +562,26 @@ const QuizBattle = () => {
                 <section className="qb-welcome-section">
                   <div className="qb-welcome-left">
                     <div className="qb-view-kicker">Live Arena</div>
-                    <h1 className="qb-view-title">Quiz Battles</h1>
+                    <h1 className="qb-view-title">Your 1v1 arena.</h1>
                     <p className="qb-welcome-desc">
-                      CHALLENGE YOUR FRIENDS TO EPIC 1V1 KNOWLEDGE DUELS. TEST YOUR SKILLS,
-                      CLIMB THE LEADERBOARD, AND PROVE YOUR MASTERY ACROSS ANY SUBJECT.
+                      Challenge a friend, agree on the rules and answer the same questions under pressure.
                     </p>
+                    <div className={`qb-connection-status ${isConnected ? 'is-live' : ''}`}>
+                      <span aria-hidden="true" />
+                      {isConnected ? 'Live updates connected' : 'Refreshing every 10 seconds'}
+                    </div>
+                    <div className="qb-mobile-filters" aria-label="Filter battles">
+                      {filters.map(filter => (
+                        <button
+                          key={filter}
+                          type="button"
+                          className={statusFilter === filter ? 'active' : ''}
+                          onClick={() => setStatusFilter(filter)}
+                        >
+                          {filter}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <button className="qb-create-btn" onClick={() => setActiveView('create')}>
                     CREATE BATTLE
@@ -548,6 +609,9 @@ const QuizBattle = () => {
                     <p className="qb-empty-desc">
                       Challenge a friend to start your first battle and show off your knowledge!
                     </p>
+                    <button className="qb-empty-action" type="button" onClick={() => setActiveView('create')}>
+                      Create a battle <ArrowRight size={15} />
+                    </button>
                   </div>
                 ) : (
                   <div className="qb-battle-grid">
@@ -556,7 +620,7 @@ const QuizBattle = () => {
                       const statusColor = getBattleStatusColor(battle.status);
 
                       return (
-                        <div key={battle.id} className="qb-battle-card">
+                        <article key={battle.id} className="qb-battle-card">
                           <div className="qb-battle-header">
                             <div className="qb-battle-status" style={{ color: statusColor }}>
                               {battle.status.toUpperCase()}
@@ -640,7 +704,7 @@ const QuizBattle = () => {
                           {battle.status === 'completed' && (
                             <button
                               className="qb-action-btn"
-                              onClick={() => navigate(`/quiz-battle/${battle.id}/results`)}
+                              onClick={() => navigate(`/quiz-battle/${battle.id}`)}
                               style={{
                                 background: winner === 'win'
                                   ? 'var(--qb-gradient-victory)'
@@ -654,7 +718,7 @@ const QuizBattle = () => {
                               <ChevronRight size={16} />
                             </button>
                           )}
-                        </div>
+                        </article>
                       );
                     })}
                   </div>

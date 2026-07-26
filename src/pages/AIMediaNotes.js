@@ -3,7 +3,8 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   Upload, Youtube, FileText, Save, Copy, Mic, Loader,
   Settings, Brain, Zap, Clock, Globe, ChevronLeft, ChevronRight,
-  BookOpen, CheckCircle, AlertCircle, Play, Trash2, Home
+  BookOpen, CheckCircle, AlertCircle, Play, Trash2, Home,
+  Search, PanelRight, X
 } from 'lucide-react';
 import './AIMediaNotes.css';
 import './AIMediaNotesConvert.css';
@@ -12,6 +13,7 @@ import { queueLegacyAIEndpoint, queueLegacyAIFileEndpoint, USE_AI_JOB_QUEUE } fr
 import { sanitizeHtml } from '../utils/sanitize';
 import ImportExportModal from '../components/ImportExportModal';
 import PodcastStudio from '../components/media/PodcastStudio';
+import GeometricGrid from '../components/GeometricGrid';
 
 const asText = (value) => (value === null || value === undefined ? '' : String(value));
 const MEDIA_FILE_ACCEPT = 'audio/*,video/*,application/pdf,.pdf,.m4a,audio/mp4,audio/x-m4a';
@@ -42,6 +44,23 @@ const formatDate = (value) => {
   return value && !Number.isNaN(date.getTime()) ? date.toLocaleDateString() : '';
 };
 
+const toTranscriptPassages = (value) => {
+  const text = asText(value).trim();
+  if (!text) return [];
+
+  const explicitParagraphs = text.split(/\n{2,}|\n/).map((paragraph) => paragraph.trim()).filter(Boolean);
+  if (explicitParagraphs.length > 1) return explicitParagraphs;
+
+  const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map((sentence) => sentence.trim()).filter(Boolean) || [];
+  if (sentences.length < 4) return [text];
+
+  return sentences.reduce((passages, sentence, index) => {
+    if (index % 3 === 0) passages.push(sentence);
+    else passages[passages.length - 1] += ` ${sentence}`;
+    return passages;
+  }, []);
+};
+
 const AIMediaNotes = () => {
   const navigate = useNavigate();
   const { noteId } = useParams();
@@ -68,7 +87,7 @@ const AIMediaNotes = () => {
   const [customInstructions, setCustomInstructions] = useState('');
   const [generateFlashcards, setGenerateFlashcards] = useState(true);
   const [generateQuiz, setGenerateQuiz] = useState(true);
-  const [showSettings, setShowSettings] = useState(false);
+  const [showSettings, setShowSettings] = useState(true);
   const [showImportExport, setShowImportExport] = useState(false);
 
   
@@ -80,6 +99,8 @@ const AIMediaNotes = () => {
     typeof window === 'undefined' ? true : window.innerWidth > 768
   ));
   const [activeNoteId, setActiveNoteId] = useState(null);
+  const [showTranscriptRail, setShowTranscriptRail] = useState(true);
+  const [transcriptQuery, setTranscriptQuery] = useState('');
 
   useEffect(() => {
     if (activeTab !== 'podcast') {
@@ -514,33 +535,41 @@ const AIMediaNotes = () => {
     setYoutubeUrl('');
     setActiveNoteId(null);
     setActiveTab('notes');
+    setTranscriptQuery('');
+    if (location.pathname !== '/notes/ai-media') {
+      navigate('/notes/ai-media');
+    }
   };
 
   const currentMediaTitle = isLibraryView ? 'My Media Notes' : (results?.filename || (activeNoteId ? history.find(item => item.id === activeNoteId)?.title : null) || 'AI Media Notes');
   const flashcardCount = Array.isArray(results?.flashcards) ? results.flashcards.length : 0;
   const quizCount = Array.isArray(results?.quiz_questions) ? results.quiz_questions.length : 0;
   const momentCount = Array.isArray(results?.key_moments) ? results.key_moments.length : 0;
+  const transcriptText = asText(results?.transcript).trim();
+  const transcriptParagraphs = toTranscriptPassages(transcriptText);
+  const normalizedTranscriptQuery = transcriptQuery.trim().toLowerCase();
+  const visibleTranscriptParagraphs = normalizedTranscriptQuery
+    ? transcriptParagraphs.filter((paragraph) => paragraph.toLowerCase().includes(normalizedTranscriptQuery))
+    : transcriptParagraphs;
+  const sourceLabel = results?.source_type === 'youtube'
+    ? 'YouTube'
+    : results?.source_type === 'pdf'
+      ? 'PDF'
+      : results?.source_type === 'history'
+        ? 'Saved note'
+        : 'Media upload';
+  const selectedSourceName = uploadedFile?.name || (youtubeUrl ? 'YouTube link ready' : 'No source selected');
 
   return (
     <div className="ai-media-notes-page">
-      <svg className="geo-bg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-        <circle cx="600" cy="400" r="360" fill="none" stroke="currentColor" strokeWidth="1"/>
-        <circle cx="600" cy="400" r="260" fill="none" stroke="currentColor" strokeWidth="0.8"/>
-        <circle cx="600" cy="400" r="168" fill="none" stroke="currentColor" strokeWidth="0.7"/>
-        <circle cx="600" cy="400" r="90" fill="none" stroke="currentColor" strokeWidth="0.6"/>
-        <line x1="600" y1="0" x2="600" y2="800" stroke="currentColor" strokeWidth="0.5"/>
-        <line x1="0" y1="400" x2="1200" y2="400" stroke="currentColor" strokeWidth="0.5"/>
-        <line x1="0" y1="800" x2="500" y2="0" stroke="currentColor" strokeWidth="0.4"/>
-        <line x1="1200" y1="0" x2="700" y2="800" stroke="currentColor" strokeWidth="0.4"/>
-        <circle cx="600" cy="40" r="5" fill="currentColor"/>
-        <circle cx="600" cy="760" r="5" fill="currentColor"/>
-        <circle cx="240" cy="400" r="5" fill="currentColor"/>
-        <circle cx="960" cy="400" r="5" fill="currentColor"/>
-        <circle cx="345" cy="146" r="3.5" fill="currentColor"/>
-        <circle cx="855" cy="654" r="3.5" fill="currentColor"/>
-        <circle cx="855" cy="146" r="3.5" fill="currentColor"/>
-        <circle cx="345" cy="654" r="3.5" fill="currentColor"/>
-      </svg>
+      <div className="amn-line-field" aria-hidden="true">
+        <GeometricGrid
+          className="amn-line-grid"
+          linesClassName="amn-line-grid-lines"
+          numsClassName="amn-line-grid-nums"
+        />
+        <div className="amn-line-wash" />
+      </div>
       <div className="amn-qb-topbar">
         <div className="amn-qb-tagline">Learning Unified</div>
       </div>
@@ -567,6 +596,15 @@ const AIMediaNotes = () => {
                   type="button"
                 >
                   <BookOpen size={18} />
+                </button>
+                <button
+                  className={`amn-qb-strip-btn ${!isLibraryView && activeTab === 'transcript' ? 'active' : ''}`}
+                  data-tip="Transcript"
+                  onClick={() => setActiveTab('transcript')}
+                  disabled={!results || !transcriptText}
+                  type="button"
+                >
+                  <FileText size={18} />
                 </button>
                 <button
                   className={`amn-qb-strip-btn ${!isLibraryView && activeTab === 'podcast' ? 'active' : ''}`}
@@ -638,6 +676,10 @@ const AIMediaNotes = () => {
                   <button className={`amn-qb-view-link ${!isLibraryView && activeTab === 'notes' ? 'amn-qb-view-link--active' : ''}`} onClick={() => setActiveTab('notes')} disabled={!results} type="button">
                     <BookOpen size={16} />
                     <span>Notes</span>
+                  </button>
+                  <button className={`amn-qb-view-link ${!isLibraryView && activeTab === 'transcript' ? 'amn-qb-view-link--active' : ''}`} onClick={() => setActiveTab('transcript')} disabled={!results || !transcriptText} type="button">
+                    <FileText size={16} />
+                    <span>Transcript</span>
                   </button>
                   <button className={`amn-qb-view-link ${!isLibraryView && activeTab === 'podcast' ? 'amn-qb-view-link--active' : ''}`} onClick={() => setActiveTab('podcast')} disabled={!results} type="button">
                     <Mic size={16} />
@@ -769,64 +811,89 @@ const AIMediaNotes = () => {
                 )}
               </div>
             ) : !results ? (
-              <div className="mn-upload-section">
-                <div className="view-heading mn-view-heading">
-                  <span className="view-kicker">AI-Powered</span>
-                  <h2 className="view-title">AI Media Notes</h2>
-                  <p className="view-sub">Transform audio, video, PDF &amp; YouTube into smart study notes</p>
-                </div>
-
-                <div
-                  className={`mn-upload-area ${isDragging ? 'dragging' : ''}`}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept={MEDIA_FILE_ACCEPT}
-                    onChange={handleFileUpload}
-                    style={{ display: 'none' }}
-                  />
-                  <Upload size={48} />
-                  <p>Drag & drop or click to upload</p>
-                  <span>Audio, Video &amp; PDF files supported (Max 10MB)</span>
-                </div>
-
-                {uploadedFile && (
-                  <div className="mn-uploaded-file">
-                    <FileText size={20} />
-                    <span>{uploadedFile.name}</span>
-                    <button onClick={() => setUploadedFile(null)}>×</button>
+              <div className="mn-upload-section mn-intake">
+                <div className="mn-intake-heading">
+                  <div className="view-heading mn-view-heading">
+                    <span className="view-kicker">Media → understanding</span>
+                    <h2 className="view-title">Build a study edition.</h2>
+                    <p className="view-sub">Bring the source. Tell Cerbyl how you need to learn it. Get notes that keep the original context close.</p>
                   </div>
-                )}
-
-                <div className="mn-divider">
-                  <span>or</span>
-                </div>
-
-                <div className="mn-youtube-input">
-                  <Youtube size={20} />
-                  <input
-                    type="text"
-                    placeholder="Paste YouTube URL..."
-                    value={youtubeUrl}
-                    onChange={(e) => {
-                      setYoutubeUrl(e.target.value);
-                      setUploadedFile(null);
-                    }}
-                  />
-                </div>
-
-                <div className="mn-settings-panel">
-                  <div className="mn-settings-header" onClick={() => setShowSettings(!showSettings)}>
-                    <h3><Settings size={16} /> AI Settings</h3>
-                    <span className="mn-settings-toggle">{showSettings ? '−' : '+'}</span>
+                  <div className="mn-intake-status" aria-label="Current setup">
+                    <span>Source</span>
+                    <strong>{selectedSourceName}</strong>
                   </div>
+                </div>
 
-                  {showSettings && (
+                <div className="mn-intake-grid">
+                  <section className="mn-intake-card mn-source-card">
+                    <div className="mn-intake-card-head">
+                      <span className="mn-step-index">01</span>
+                      <div>
+                        <span className="mn-card-kicker">Choose source</span>
+                        <h3>What are you studying?</h3>
+                      </div>
+                    </div>
+
+                    <div
+                      className={`mn-upload-area ${isDragging ? 'dragging' : ''} ${uploadedFile ? 'has-source' : ''}`}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept={MEDIA_FILE_ACCEPT}
+                        onChange={handleFileUpload}
+                        style={{ display: 'none' }}
+                      />
+                      <div className="mn-source-icon"><Upload size={24} /></div>
+                      <div>
+                        <p>{uploadedFile ? 'Replace source file' : 'Drop a recording, video, or PDF'}</p>
+                        <span>Up to {MAX_MEDIA_FILE_SIZE_MB} MB · MP3, MP4, M4A, PDF and more</span>
+                      </div>
+                    </div>
+
+                    {uploadedFile && (
+                      <div className="mn-uploaded-file">
+                        <FileText size={20} />
+                        <span>
+                          <strong>{uploadedFile.name}</strong>
+                          <small>{(uploadedFile.size / (1024 * 1024)).toFixed(1)} MB · ready to process</small>
+                        </span>
+                        <button type="button" aria-label="Remove selected file" onClick={() => setUploadedFile(null)}><X size={15} /></button>
+                      </div>
+                    )}
+
+                    <div className="mn-source-divider"><span>or use a public video</span></div>
+
+                    <label className={`mn-youtube-input ${youtubeUrl ? 'has-source' : ''}`}>
+                      <Youtube size={20} />
+                      <span className="mn-input-label">YouTube URL</span>
+                      <input
+                        type="text"
+                        placeholder="youtube.com/watch?v=..."
+                        value={youtubeUrl}
+                        onChange={(e) => {
+                          setYoutubeUrl(e.target.value);
+                          setUploadedFile(null);
+                        }}
+                      />
+                    </label>
+                  </section>
+
+                  <section className="mn-intake-card mn-brief-card">
+                    <button className="mn-intake-card-head mn-brief-toggle" type="button" onClick={() => setShowSettings(!showSettings)} aria-expanded={showSettings}>
+                      <span className="mn-step-index">02</span>
+                      <span>
+                        <span className="mn-card-kicker">Shape the output</span>
+                        <strong>Study brief</strong>
+                      </span>
+                      <Settings size={17} />
+                    </button>
+
+                    {showSettings && (
                     <div className="mn-settings-content">
                       <div className="mn-settings-grid">
                         <div className="mn-form-group">
@@ -891,66 +958,74 @@ const AIMediaNotes = () => {
                         </label>
                       </div>
                     </div>
-                  )}
-                </div>
+                    )}
 
-                <button
-                  onClick={processMedia}
-                  disabled={isProcessing || (!uploadedFile && !youtubeUrl)}
-                  className="mn-process-btn"
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader size={18} className="mn-spinner" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <Brain size={18} />
-                      Generate AI Notes
-                    </>
-                  )}
-                </button>
-
-                {isProcessing && (
-                  <div className="mn-progress">
-                    <div className="mn-progress-bar">
-                      <div className="mn-progress-fill" style={{ width: `${progress}%` }} />
+                    <div className="mn-brief-summary">
+                      <div>
+                        <span>Deliverable</span>
+                        <strong>{noteStyle.replace('_', ' ')} notes</strong>
+                      </div>
+                      <div>
+                        <span>Level</span>
+                        <strong>{difficulty}</strong>
+                      </div>
+                      <div>
+                        <span>Study tools</span>
+                        <strong>{[generateFlashcards && 'cards', generateQuiz && 'quiz'].filter(Boolean).join(' + ') || 'notes only'}</strong>
+                      </div>
                     </div>
-                    <p className="mn-progress-text">{processingStage}</p>
-                  </div>
-                )}
+
+                    <button
+                      onClick={processMedia}
+                      disabled={isProcessing || (!uploadedFile && !youtubeUrl)}
+                      className="mn-process-btn"
+                    >
+                      {isProcessing ? (
+                        <>
+                          <Loader size={18} className="mn-spinner" />
+                          Building your study edition
+                        </>
+                      ) : (
+                        <>
+                          <Brain size={18} />
+                          Generate study edition
+                        </>
+                      )}
+                    </button>
+
+                    {isProcessing && (
+                      <div className="mn-progress" aria-live="polite">
+                        <div className="mn-progress-copy">
+                          <span>{processingStage}</span>
+                          <strong>{progress}%</strong>
+                        </div>
+                        <div className="mn-progress-bar">
+                          <div className="mn-progress-fill" style={{ width: `${progress}%` }} />
+                        </div>
+                      </div>
+                    )}
+                  </section>
+                </div>
               </div>
             ) : (
               <div className="mn-results">
                 <div className="mn-results-header">
-                  <h2 className="mn-results-title">{results.filename}</h2>
-                  <div className="mn-results-meta">
-                    {results.language_name && (
-                      <span className="mn-meta-badge">
-                        <Globe size={13} />
-                        {results.language_name}
-                      </span>
-                    )}
-                    {results.duration > 0 && (
-                      <span className="mn-meta-badge">
-                        <Clock size={13} />
-                        {formatTime(results.duration)}
-                      </span>
-                    )}
-                    {results.pdf_info?.page_count > 0 && (
-                      <span className="mn-meta-badge">
-                        <FileText size={13} />
-                        {results.pdf_info.page_count} {results.pdf_info.page_count === 1 ? 'page' : 'pages'}
-                      </span>
-                    )}
-                    {results.analysis?.difficulty_level && (
-                      <span className="mn-meta-badge">
-                        <Zap size={13} />
-                        {results.analysis.difficulty_level}
-                      </span>
-                    )}
+                  <div className="mn-results-identity">
+                    <div className="mn-result-source-mark">
+                      {results.source_type === 'youtube' ? <Youtube size={24} /> : results.source_type === 'pdf' ? <FileText size={24} /> : <Mic size={24} />}
+                    </div>
+                    <div>
+                      <span className="mn-result-eyebrow">{sourceLabel} · study edition</span>
+                      <h2 className="mn-results-title">{results.filename}</h2>
+                      <div className="mn-results-meta">
+                        {results.language_name && <span><Globe size={13} />{results.language_name}</span>}
+                        {results.duration > 0 && <span><Clock size={13} />{formatTime(results.duration)}</span>}
+                        {results.pdf_info?.page_count > 0 && <span><FileText size={13} />{results.pdf_info.page_count} {results.pdf_info.page_count === 1 ? 'page' : 'pages'}</span>}
+                        {results.analysis?.difficulty_level && <span><Zap size={13} />{results.analysis.difficulty_level}</span>}
+                      </div>
+                    </div>
                   </div>
+                  <button className="mn-new-source-btn" type="button" onClick={startNewUpload}><Upload size={15} /> New source</button>
                 </div>
 
                 <div className="mn-tabs-bar">
@@ -960,18 +1035,36 @@ const AIMediaNotes = () => {
                       onClick={() => setActiveTab('notes')}
                     >
                       <BookOpen size={15} />
-                      <span>NOTES</span>
+                      <span>Notes</span>
+                    </button>
+                    <button
+                      className={`mn-tab ${activeTab === 'transcript' ? 'active' : ''}`}
+                      onClick={() => setActiveTab('transcript')}
+                      disabled={!transcriptText}
+                    >
+                      <FileText size={15} />
+                      <span>Transcript</span>
                     </button>
                     <button
                       className={`mn-tab ${activeTab === 'podcast' ? 'active' : ''}`}
                       onClick={() => setActiveTab('podcast')}
                     >
                       <Mic size={15} />
-                      <span>PODCAST</span>
+                      <span>Podcast</span>
                     </button>
                   </div>
                   {activeTab === 'notes' && results.notes && (
                     <div className="mn-tabs-actions">
+                      {transcriptText && (
+                        <button
+                          onClick={() => setShowTranscriptRail((visible) => !visible)}
+                          className={`mn-tab-action-btn ${showTranscriptRail ? 'is-active' : ''}`}
+                          aria-pressed={showTranscriptRail}
+                        >
+                          <PanelRight size={14} />
+                          <span>{showTranscriptRail ? 'Hide source' : 'Show source'}</span>
+                        </button>
+                      )}
                       <button onClick={() => copyToClipboard(results.notes.content)} className="mn-tab-action-btn">
                         <Copy size={14} />
                         <span>Copy</span>
@@ -990,12 +1083,65 @@ const AIMediaNotes = () => {
 
                 <div className="mn-tab-content">
                   {activeTab === 'notes' && results.notes && (
-                    <div>
+                    <div className={`mn-study-workspace ${showTranscriptRail && transcriptText ? 'has-transcript' : ''}`}>
                       <div className="mn-notes-panel">
+                        <div className="mn-document-label">
+                          <span>Generated notes</span>
+                          <span>{noteStyle.replace('_', ' ')}</span>
+                        </div>
                         <div
                           className="mn-notes-output"
                           dangerouslySetInnerHTML={{ __html: sanitizeHtml(results.notes.content || '') }}
                         />
+                      </div>
+                      {showTranscriptRail && transcriptText && (
+                        <aside className="mn-transcript-rail" aria-label="Source transcript">
+                          <div className="mn-transcript-rail-head">
+                            <div>
+                              <span>Source context</span>
+                              <strong>Transcript</strong>
+                            </div>
+                            <button type="button" aria-label="Close transcript panel" onClick={() => setShowTranscriptRail(false)}><X size={15} /></button>
+                          </div>
+                          <label className="mn-transcript-search">
+                            <Search size={15} />
+                            <input value={transcriptQuery} onChange={(event) => setTranscriptQuery(event.target.value)} placeholder="Find in transcript" />
+                            {transcriptQuery && <button type="button" aria-label="Clear transcript search" onClick={() => setTranscriptQuery('')}><X size={13} /></button>}
+                          </label>
+                          <div className="mn-transcript-count">
+                            {normalizedTranscriptQuery ? `${visibleTranscriptParagraphs.length} matching passages` : `${transcriptText.split(/\s+/).length.toLocaleString()} words`}
+                          </div>
+                          <div className="mn-transcript-copy">
+                            {visibleTranscriptParagraphs.length > 0 ? visibleTranscriptParagraphs.map((paragraph, index) => <p key={`${paragraph.slice(0, 24)}-${index}`}>{paragraph}</p>) : <div className="mn-transcript-empty">No passage contains “{transcriptQuery}”.</div>}
+                          </div>
+                          <button className="mn-copy-transcript" type="button" onClick={() => copyToClipboard(transcriptText)}><Copy size={14} /> Copy transcript</button>
+                        </aside>
+                      )}
+                    </div>
+                  )}
+
+                  {activeTab === 'transcript' && (
+                    <div className="mn-transcript-view">
+                      <div className="mn-transcript-view-head">
+                        <div>
+                          <span className="mn-card-kicker">Original source</span>
+                          <h3>Transcript</h3>
+                          <p>Search the source language behind your generated notes.</p>
+                        </div>
+                        <button className="mn-tab-action-btn" type="button" onClick={() => copyToClipboard(transcriptText)}><Copy size={14} /> Copy all</button>
+                      </div>
+                      <label className="mn-transcript-search mn-transcript-search--large">
+                        <Search size={17} />
+                        <input value={transcriptQuery} onChange={(event) => setTranscriptQuery(event.target.value)} placeholder="Search words or phrases in this transcript" autoFocus />
+                        {transcriptQuery && <button type="button" aria-label="Clear transcript search" onClick={() => setTranscriptQuery('')}><X size={14} /></button>}
+                      </label>
+                      <div className="mn-transcript-full-copy">
+                        {visibleTranscriptParagraphs.length > 0 ? visibleTranscriptParagraphs.map((paragraph, index) => (
+                          <div className="mn-transcript-passage" key={`${paragraph.slice(0, 24)}-${index}`}>
+                            <span>{String(index + 1).padStart(2, '0')}</span>
+                            <p>{paragraph}</p>
+                          </div>
+                        )) : <div className="mn-empty-state"><Search size={36} /><p>No matching passages</p><p className="mn-empty-hint">Try a broader phrase.</p></div>}
                       </div>
                     </div>
                   )}

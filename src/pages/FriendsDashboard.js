@@ -1,6 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Users, Search, UserPlus, Check, X, UserMinus } from 'lucide-react';
+import {
+  Users, Search, UserPlus, Check, X,
+  Flame, Trophy, Clock3, Inbox, Compass, MoreHorizontal,
+  Copy, ArrowUpDown, CheckCircle2, AlertCircle, LoaderCircle
+} from 'lucide-react';
 import './FriendsDashboard.css';
 import SocialHubChrome from '../components/SocialHubChrome';
 import { API_URL } from '../config';
@@ -24,10 +28,14 @@ const FriendsDashboard = () => {
   const [allUsers, setAllUsers] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [selfStats, setSelfStats] = useState(null);
+  const [friendQuery, setFriendQuery] = useState('');
+  const [friendSort, setFriendSort] = useState('momentum');
+  const [confirmRemoveId, setConfirmRemoveId] = useState(null);
+  const [pendingActions, setPendingActions] = useState({});
+  const [notice, setNotice] = useState(null);
+  const discoverySearchRef = useRef(null);
 
   useEffect(() => {
-    fetchSelfStats();
     fetchFriends();
     fetchFriendRequests();
     if (activeView === 'find-friends') fetchAllUsers();
@@ -38,18 +46,34 @@ const FriendsDashboard = () => {
     setActiveView(prev => (prev === routeView ? prev : routeView));
   }, [location.search, location.state]);
 
-  const fetchSelfStats = async () => {
-    const username = localStorage.getItem('username');
-    if (!username) return;
-    try {
-      const res = await fetch(`${API_URL}/get_gamification_stats?user_id=${encodeURIComponent(username)}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) setSelfStats(await res.json());
-    } catch {
-      
+  useEffect(() => {
+    if (activeView !== 'find-friends' || searchQuery.length < 2) {
+      if (searchQuery.length < 2) setSearchResults([]);
+      return undefined;
     }
-  };
+    const timer = setTimeout(() => searchUsers(searchQuery), 280);
+    return () => clearTimeout(timer);
+  }, [searchQuery, activeView]);
+
+  useEffect(() => {
+    const handleShortcut = (event) => {
+      const target = event.target;
+      const isTyping = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || target?.isContentEditable;
+      if (event.key === '/' && !isTyping) {
+        event.preventDefault();
+        setActiveView('find-friends');
+        window.requestAnimationFrame(() => discoverySearchRef.current?.focus());
+      }
+    };
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, []);
+
+  useEffect(() => {
+    if (!notice) return undefined;
+    const timer = window.setTimeout(() => setNotice(null), 3200);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
 
   const fetchLeaderboardStats = async () => {
     try {
@@ -141,6 +165,8 @@ const FriendsDashboard = () => {
   };
 
   const sendFriendRequest = async (receiverId) => {
+    const actionKey = `send-${receiverId}`;
+    setPendingActions(prev => ({ ...prev, [actionKey]: true }));
     try {
       const res = await fetch(`${API_URL}/send_friend_request`, {
         method: 'POST',
@@ -151,49 +177,103 @@ const FriendsDashboard = () => {
         setSearchResults(prev => prev.map(u => u.id === receiverId ? { ...u, request_sent: true } : u));
         setAllUsers(prev => prev.map(u => u.id === receiverId ? { ...u, request_sent: true } : u));
         fetchFriendRequests();
+        setNotice({ type: 'success', message: 'Invitation sent. It will appear in Requests.' });
+      } else {
+        setNotice({ type: 'error', message: 'Could not send that invitation. Try again.' });
       }
     } catch {
-      
+      setNotice({ type: 'error', message: 'Could not send that invitation. Check your connection.' });
+    } finally {
+      setPendingActions(prev => ({ ...prev, [actionKey]: false }));
     }
   };
 
   const respondToFriendRequest = async (requestId, action) => {
+    const actionKey = `request-${requestId}`;
+    setPendingActions(prev => ({ ...prev, [actionKey]: true }));
     try {
       const res = await fetch(`${API_URL}/respond_friend_request`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ request_id: requestId, action }),
       });
-      if (res.ok) { fetchFriendRequests(); fetchFriends(); }
+      if (res.ok) {
+        setFriendRequests(prev => ({
+          ...prev,
+          received: prev.received.filter(request => request.request_id !== requestId),
+        }));
+        if (action === 'accept') fetchFriends();
+        setNotice({
+          type: 'success',
+          message: action === 'accept' ? 'Connection added to your network.' : 'Invitation declined.',
+        });
+      } else {
+        setNotice({ type: 'error', message: 'Could not update that invitation. Try again.' });
+      }
     } catch {
-      
+      setNotice({ type: 'error', message: 'Could not update that invitation. Check your connection.' });
+    } finally {
+      setPendingActions(prev => ({ ...prev, [actionKey]: false }));
     }
   };
 
   const removeFriend = async (friendId) => {
-    if (!window.confirm('Remove this friend?')) return;
+    const actionKey = `remove-${friendId}`;
+    setPendingActions(prev => ({ ...prev, [actionKey]: true }));
     try {
       const res = await fetch(`${API_URL}/remove_friend`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ friend_id: friendId }),
       });
-      if (res.ok) fetchFriends();
+      if (res.ok) {
+        setFriends(prev => prev.filter(friend => friend.id !== friendId));
+        setConfirmRemoveId(null);
+        setNotice({ type: 'success', message: 'Connection removed from your network.' });
+      } else {
+        setNotice({ type: 'error', message: 'Could not remove that connection. Try again.' });
+      }
     } catch {
-      
+      setNotice({ type: 'error', message: 'Could not remove that connection. Check your connection.' });
+    } finally {
+      setPendingActions(prev => ({ ...prev, [actionKey]: false }));
     }
   };
 
   const cancelFriendRequest = async (requestId) => {
+    const actionKey = `request-${requestId}`;
+    setPendingActions(prev => ({ ...prev, [actionKey]: true }));
     try {
       const res = await fetch(`${API_URL}/respond_friend_request`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ request_id: requestId, action: 'reject' }),
       });
-      if (res.ok) fetchFriendRequests();
+      if (res.ok) {
+        setFriendRequests(prev => ({
+          ...prev,
+          sent: prev.sent.filter(request => request.request_id !== requestId),
+        }));
+        setNotice({ type: 'success', message: 'Sent invitation cancelled.' });
+      } else {
+        setNotice({ type: 'error', message: 'Could not cancel that invitation. Try again.' });
+      }
     } catch {
-      
+      setNotice({ type: 'error', message: 'Could not cancel that invitation. Check your connection.' });
+    } finally {
+      setPendingActions(prev => ({ ...prev, [actionKey]: false }));
+    }
+  };
+
+  const copyFriendHandle = async (friend, event) => {
+    const handle = friend.username || friend.email;
+    const menu = event.currentTarget.closest('details');
+    try {
+      await navigator.clipboard.writeText(handle);
+      menu?.removeAttribute('open');
+      setNotice({ type: 'success', message: `${handle} copied to your clipboard.` });
+    } catch {
+      setNotice({ type: 'error', message: 'Could not copy that username.' });
     }
   };
 
@@ -218,43 +298,85 @@ const FriendsDashboard = () => {
     return 'Master';
   };
 
-  const renderFriendCard = (friend) => (
-    <div key={friend.id} className="fd-friend-card">
+  const renderFriendCard = (friend, index) => {
+    const progress = Math.min(100, ((friend.experience % 1000) / 1000) * 100);
+    return (
+    <article key={friend.id} className="fd-friend-card" style={{ '--fd-index': `"${String(index + 1).padStart(2, '0')}"` }}>
+      <div className="fd-card-spine" aria-hidden="true">
+        <span>{String(index + 1).padStart(2, '0')}</span>
+        <i />
+      </div>
       <div className="fd-friend-card-top">
         {renderAvatar(friend, 'lg')}
         <div className="fd-friend-identity">
-          <div className="fd-friend-level-badge">LVL {friend.level || 1}</div>
+          <div className="fd-friend-level-badge">{getLevelLabel(friend.level)} · LVL {friend.level || 1}</div>
           <h3 className="fd-friend-name">{friend.username || friend.email}</h3>
-          <p className="fd-friend-role">{getLevelLabel(friend.level)}</p>
+          <p className="fd-friend-role">
+            {(friend.current_streak || 0) > 0 ? `${friend.current_streak} day learning rhythm` : 'Ready for a fresh learning rhythm'}
+          </p>
         </div>
-        <button className="fd-remove-btn" onClick={() => removeFriend(friend.id)} title="Remove Friend">
-          <X size={14} />
-        </button>
+        <details className="fd-card-menu" onToggle={event => {
+          if (!event.currentTarget.open && confirmRemoveId === friend.id) setConfirmRemoveId(null);
+        }}>
+          <summary aria-label={`Actions for ${friend.username || friend.email}`}>
+            <MoreHorizontal size={16} />
+          </summary>
+          <div className="fd-card-menu-popover">
+            <button type="button" onClick={event => copyFriendHandle(friend, event)}>
+              <Copy size={13} />
+              Copy username
+            </button>
+            {confirmRemoveId === friend.id ? (
+              <div className="fd-remove-confirm">
+                <span>Remove connection?</span>
+                <div>
+                  <button type="button" onClick={() => setConfirmRemoveId(null)}>Keep</button>
+                  <button
+                    type="button"
+                    className="danger"
+                    disabled={pendingActions[`remove-${friend.id}`]}
+                    onClick={() => removeFriend(friend.id)}
+                  >
+                    {pendingActions[`remove-${friend.id}`] ? <LoaderCircle size={12} className="fd-spin" /> : null}
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" className="danger" onClick={() => setConfirmRemoveId(friend.id)}>
+                <X size={13} />
+                Remove connection
+              </button>
+            )}
+          </div>
+        </details>
       </div>
 
       <div className="fd-friend-stats">
         <div className="fd-stat fd-stat--xp">
+          <Trophy size={13} />
           <span className="fd-stat-val">{(friend.experience || 0).toLocaleString()}</span>
           <span className="fd-stat-lbl">XP</span>
         </div>
         <div className="fd-stat fd-stat--streak">
+          <Flame size={13} />
           <span className="fd-stat-val">{friend.current_streak || 0}</span>
-          <span className="fd-stat-lbl">Day Streak</span>
+          <span className="fd-stat-lbl">Streak</span>
         </div>
         <div className="fd-stat fd-stat--hours">
+          <Clock3 size={13} />
           <span className="fd-stat-val">{friend.level || 1}</span>
           <span className="fd-stat-lbl">Level</span>
         </div>
       </div>
 
-      <div className="fd-xp-bar">
-        <div
-          className="fd-xp-fill"
-          style={{ width: `${Math.min(100, ((friend.experience % 1000) / 1000) * 100)}%` }}
-        />
+      <div className="fd-card-progress">
+        <div><span>Next level</span><strong>{Math.round(progress)}%</strong></div>
+        <div className="fd-xp-bar"><div className="fd-xp-fill" style={{ width: `${progress}%` }} /></div>
       </div>
-    </div>
-  );
+    </article>
+    );
+  };
 
   const renderUserCard = (user) => {
     const isRequestSent = user.request_sent || friendRequests.sent.some(r => r.id === user.id);
@@ -279,13 +401,18 @@ const FriendsDashboard = () => {
           {isFriend
             ? <span className="fd-badge-pill fd-badge-pill--friend">Friends</span>
             : isRequestSent
-            ? <span className="fd-badge-pill fd-badge-pill--pending">Sent</span>
+            ? <button className="fd-badge-pill fd-badge-pill--pending fd-status-link" type="button" onClick={() => setActiveView('requests')}>Sent · View</button>
             : isRequestReceived
-            ? <span className="fd-badge-pill fd-badge-pill--pending">Pending</span>
+            ? <button className="fd-badge-pill fd-badge-pill--pending fd-status-link" type="button" onClick={() => setActiveView('requests')}>Respond</button>
             : (
-              <button className="fd-add-btn" onClick={() => sendFriendRequest(user.id)}>
-                <UserPlus size={15} />
-                <span>Add</span>
+              <button
+                className="fd-add-btn"
+                type="button"
+                disabled={pendingActions[`send-${user.id}`]}
+                onClick={() => sendFriendRequest(user.id)}
+              >
+                {pendingActions[`send-${user.id}`] ? <LoaderCircle size={14} className="fd-spin" /> : <UserPlus size={15} />}
+                <span>{pendingActions[`send-${user.id}`] ? 'Sending' : 'Connect'}</span>
               </button>
             )}
         </div>
@@ -294,6 +421,281 @@ const FriendsDashboard = () => {
   };
 
   const totalRequests = friendRequests.received.length + friendRequests.sent.length;
+  const receivedCount = friendRequests.received.length;
+  const viewCopy = {
+    'my-friends': {
+      kicker: 'Your circle',
+      title: 'People who make learning less solitary.',
+      description: 'See the learners in your network and the momentum they are building.',
+    },
+    'find-friends': {
+      kicker: 'Discover learners',
+      title: 'Find your next study connection.',
+      description: 'Search the Cerbyl community by username or email.',
+    },
+    requests: {
+      kicker: 'Connection inbox',
+      title: 'Turn introductions into a network.',
+      description: 'Review incoming invitations and keep track of requests you have sent.',
+    },
+  }[activeView];
+  const displayedUsers = searchQuery.length >= 2 ? searchResults : allUsers;
+  const visibleFriends = useMemo(() => {
+    const query = friendQuery.trim().toLowerCase();
+    const filtered = query
+      ? friends.filter(friend => `${friend.username || ''} ${friend.email || ''}`.toLowerCase().includes(query))
+      : [...friends];
+
+    return filtered.sort((a, b) => {
+      if (friendSort === 'name') {
+        return (a.username || a.email || '').localeCompare(b.username || b.email || '');
+      }
+      if (friendSort === 'level') {
+        return (b.level || 1) - (a.level || 1) || (b.experience || 0) - (a.experience || 0);
+      }
+      return (b.current_streak || 0) - (a.current_streak || 0) || (b.experience || 0) - (a.experience || 0);
+    });
+  }, [friends, friendQuery, friendSort]);
+  const sidebarLead = (
+    <button className="fd-side-discover" type="button" onClick={() => setActiveView('find-friends')}>
+      <UserPlus size={15} />
+      <span>Find people</span>
+    </button>
+  );
+
+  return (
+    <div className="fd-container with-social-chrome">
+      <SocialHubChrome
+        brandKicker="Friends"
+        sidebarLead={sidebarLead}
+        sideSections={[
+          {
+            label: 'Network',
+            items: [
+              { icon: Users, label: 'My Friends', onClick: () => setActiveView('my-friends'), active: activeView === 'my-friends', count: friends.length },
+              { icon: Inbox, label: 'Requests', onClick: () => setActiveView('requests'), active: activeView === 'requests', count: totalRequests },
+              { icon: Compass, label: 'Discover', onClick: () => setActiveView('find-friends'), active: activeView === 'find-friends' },
+            ],
+          },
+        ]}
+      >
+        <main className="fd-main fd-main--redesigned">
+          <header className="fd-hero">
+            <div className="fd-hero-copy">
+              <span className="fd-hero-kicker">{viewCopy.kicker}</span>
+              <h1>{viewCopy.title}</h1>
+              <p>{viewCopy.description}</p>
+            </div>
+          </header>
+
+          {activeView === 'my-friends' && (
+            <section className="fd-view">
+              <div className="fd-view-bar">
+                <div>
+                  <span>Network roster</span>
+                  <strong>{visibleFriends.length} of {friends.length} {friends.length === 1 ? 'person' : 'people'}</strong>
+                </div>
+                <button type="button" onClick={() => setActiveView('find-friends')}>
+                  <UserPlus size={14} />
+                  Add connection
+                </button>
+              </div>
+
+              {friends.length > 0 && (
+                <div className="fd-roster-tools">
+                  <label className="fd-roster-search">
+                    <span className="sr-only">Search your friends</span>
+                    <Search size={15} />
+                    <input
+                      type="search"
+                      value={friendQuery}
+                      placeholder="Search your connections"
+                      onChange={event => setFriendQuery(event.target.value)}
+                    />
+                    {friendQuery && (
+                      <button type="button" onClick={() => setFriendQuery('')} aria-label="Clear friend search">
+                        <X size={12} />
+                      </button>
+                    )}
+                  </label>
+                  <label className="fd-sort-control">
+                    <ArrowUpDown size={14} />
+                    <span>Sort</span>
+                    <select value={friendSort} onChange={event => setFriendSort(event.target.value)}>
+                      <option value="momentum">Momentum</option>
+                      <option value="level">Level</option>
+                      <option value="name">Name</option>
+                    </select>
+                  </label>
+                </div>
+              )}
+
+              {loading ? (
+                <div className="fd-loading"><div className="fd-pulse-loader"><div className="fd-pulse-block fd-pulse-1" /><div className="fd-pulse-block fd-pulse-2" /><div className="fd-pulse-block fd-pulse-3" /></div></div>
+              ) : visibleFriends.length > 0 ? (
+                <div className="fd-friends-grid">{visibleFriends.map(renderFriendCard)}</div>
+              ) : friends.length > 0 ? (
+                <div className="fd-empty-state fd-empty-state--compact">
+                  <div className="fd-empty-icon"><Search size={22} /></div>
+                  <span>No match in your network</span>
+                  <h2>Try a different name.</h2>
+                  <p>No connection matched “{friendQuery}”.</p>
+                  <button type="button" onClick={() => setFriendQuery('')}>Clear search</button>
+                </div>
+              ) : (
+                <div className="fd-empty-state">
+                  <div className="fd-empty-icon"><Users size={23} /></div>
+                  <span>Your network is open</span>
+                  <h2>Learning is better with company.</h2>
+                  <p>Find someone studying a similar topic and build momentum together.</p>
+                  <button type="button" onClick={() => setActiveView('find-friends')}><UserPlus size={14} /> Find people</button>
+                </div>
+              )}
+            </section>
+          )}
+
+          {activeView === 'find-friends' && (
+            <section className="fd-view">
+              <div className="fd-discovery-deck">
+                <div className="fd-discovery-field">
+                  <div className="fd-field-label">
+                    <span>Search learners</span>
+                    <span className="fd-key-hint"><kbd>/</kbd> focus</span>
+                  </div>
+                  <label className="fd-search-box">
+                    <Search size={16} className="fd-search-icon" />
+                    <input
+                      ref={discoverySearchRef}
+                      type="search"
+                      className="fd-search-input"
+                      aria-label="Search learners by username or email"
+                      placeholder="Username or email"
+                      value={searchQuery}
+                      onChange={event => setSearchQuery(event.target.value)}
+                    />
+                    {isSearching && <LoaderCircle size={14} className="fd-spin fd-searching-icon" aria-label="Searching" />}
+                    {searchQuery && !isSearching && (
+                      <button type="button" onClick={() => setSearchQuery('')} aria-label="Clear search"><X size={13} /></button>
+                    )}
+                  </label>
+                </div>
+                <div className="fd-result-count">
+                  <strong>{displayedUsers.length}</strong>
+                  <span>{searchQuery.length >= 2 ? 'matches' : 'learners nearby'}</span>
+                </div>
+              </div>
+
+              {(loading && !allUsers.length) || (isSearching && !searchResults.length) ? (
+                <div className="fd-loading"><div className="fd-pulse-loader"><div className="fd-pulse-block fd-pulse-1" /><div className="fd-pulse-block fd-pulse-2" /><div className="fd-pulse-block fd-pulse-3" /></div></div>
+              ) : displayedUsers.length > 0 ? (
+                <div className="fd-users-list fd-users-list--directory" aria-busy={isSearching}>{displayedUsers.map(renderUserCard)}</div>
+              ) : (
+                <div className="fd-empty-state fd-empty-state--compact">
+                  <div className="fd-empty-icon"><Search size={22} /></div>
+                  <span>No matches</span>
+                  <h2>Try another name.</h2>
+                  <p>No learners matched “{searchQuery}”.</p>
+                </div>
+              )}
+            </section>
+          )}
+
+          {activeView === 'requests' && (
+            <section className="fd-view">
+              {totalRequests > 0 ? (
+                <div className="fd-request-columns">
+                  <section className="fd-request-board fd-request-board--received">
+                    <div className="fd-request-board-head">
+                      <div><span>Incoming</span><h2>Waiting for you</h2></div>
+                      <strong>{receivedCount}</strong>
+                    </div>
+                    <div className="fd-users-list">
+                      {friendRequests.received.map(req => (
+                        <article key={req.request_id} className="fd-user-row fd-request-row">
+                          {renderAvatar(req, 'md')}
+                          <div className="fd-user-row-info">
+                            <h3 className="fd-user-row-name">{req.username || req.email}</h3>
+                            <p className="fd-user-row-email">{req.email}</p>
+                          </div>
+                          <div className="fd-user-row-action fd-request-btns">
+                            <button
+                              className="fd-req-btn fd-req-btn--accept"
+                              type="button"
+                              disabled={pendingActions[`request-${req.request_id}`]}
+                              onClick={() => respondToFriendRequest(req.request_id, 'accept')}
+                            >
+                              {pendingActions[`request-${req.request_id}`] ? <LoaderCircle size={14} className="fd-spin" /> : <Check size={14} />}
+                              <span>Accept</span>
+                            </button>
+                            <button
+                              className="fd-req-btn fd-req-btn--reject"
+                              type="button"
+                              disabled={pendingActions[`request-${req.request_id}`]}
+                              onClick={() => respondToFriendRequest(req.request_id, 'reject')}
+                            >
+                              <X size={14} />
+                              <span>Decline</span>
+                            </button>
+                          </div>
+                        </article>
+                      ))}
+                      {!receivedCount && <p className="fd-board-empty">No incoming requests.</p>}
+                    </div>
+                  </section>
+
+                  <section className="fd-request-board">
+                    <div className="fd-request-board-head">
+                      <div><span>Outgoing</span><h2>Sent by you</h2></div>
+                      <strong>{friendRequests.sent.length}</strong>
+                    </div>
+                    <div className="fd-users-list">
+                      {friendRequests.sent.map(req => (
+                        <article key={req.request_id} className="fd-user-row fd-request-row">
+                          {renderAvatar(req, 'md')}
+                          <div className="fd-user-row-info">
+                            <h3 className="fd-user-row-name">{req.username || req.email}</h3>
+                            <p className="fd-user-row-email">{req.email}</p>
+                          </div>
+                          <div className="fd-user-row-action">
+                            <button
+                              className="fd-cancel-request"
+                              type="button"
+                              disabled={pendingActions[`request-${req.request_id}`]}
+                              onClick={() => cancelFriendRequest(req.request_id)}
+                            >
+                              {pendingActions[`request-${req.request_id}`] ? <LoaderCircle size={13} className="fd-spin" /> : null}
+                              Cancel
+                            </button>
+                          </div>
+                        </article>
+                      ))}
+                      {!friendRequests.sent.length && <p className="fd-board-empty">No sent requests.</p>}
+                    </div>
+                  </section>
+                </div>
+              ) : (
+                <div className="fd-empty-state">
+                  <div className="fd-empty-icon"><Inbox size={23} /></div>
+                  <span>Inbox clear</span>
+                  <h2>No introductions waiting.</h2>
+                  <p>New requests and invitations you send will appear here.</p>
+                  <button type="button" onClick={() => setActiveView('find-friends')}><Compass size={14} /> Discover learners</button>
+                </div>
+              )}
+            </section>
+          )}
+
+          {notice && (
+            <div className={`fd-action-notice fd-action-notice--${notice.type}`} role="status" aria-live="polite">
+              {notice.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+              <span>{notice.message}</span>
+              <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss message"><X size={13} /></button>
+            </div>
+          )}
+        </main>
+      </SocialHubChrome>
+    </div>
+  );
 
   return (
     <div className="fd-container with-social-chrome">

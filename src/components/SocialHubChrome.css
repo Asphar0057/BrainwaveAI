@@ -342,6 +342,21 @@
   scrollbar-color: color-mix(in srgb, var(--accent) 24%, transparent) transparent;
 }
 
+.shc-sidebar-lead,
+.shc-sidebar-tail {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+.shc-sidebar-lead {
+  display: grid;
+}
+
+.shc-sidebar-tail {
+  margin-top: auto;
+}
+
 .shc-side-sections::-webkit-scrollbar { width: 4px; }
 .shc-side-sections::-webkit-scrollbar-track { background: transparent; }
 .shc-side-sections::-webkit-scrollbar-thumb {
@@ -795,4 +810,141 @@
   .shc-main > .fd-main,
   .shc-main > .leaderboard-container,
   .shc-main > .challenges-container { padding: 16px; }
+}
+
+/* ═══════════════════════════════════════════
+   SHARED INTERACTION CONTRACT
+   Matches Dashboard + Flashcards: quiet at rest, precise on intent.
+   ═══════════════════════════════════════════ */
+:is(
+  .fd-friend-card,
+  .fd-user-row,
+  .af-activity-card,
+  .sp-item-card,
+  .leaderboard-entry,
+  .challenge-card,
+  .games-page .stat-card-main,
+  .games-page .dc-mission-card,
+  .games-page .section-card,
+  .games-page .bingo-cell,
+  .qb-create-generator,
+  .qb-gm-btn,
+  .qb-battle-card,
+  .playlist-detail-page .detail-header,
+  .playlist-detail-page .playlist-item
+) {
+  --shc-rx: 0deg;
+  --shc-ry: 0deg;
+  transform: perspective(900px) rotateX(var(--shc-rx)) rotateY(var(--shc-ry));
+  transform-origin: center;
+  transform-style: preserve-3d;
+  transition:
+    transform 360ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 220ms ease,
+    box-shadow 360ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    background-color 220ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  :is(
+    .fd-friend-card,
+    .fd-user-row,
+    .af-activity-card,
+    .sp-item-card,
+    .leaderboard-entry,
+    .challenge-card,
+    .games-page .stat-card-main,
+    .games-page .dc-mission-card,
+    .games-page .section-card,
+    .games-page .bingo-cell,
+    .qb-create-generator,
+    .qb-gm-btn,
+    .qb-battle-card,
+    .playlist-detail-page .detail-header,
+    .playlist-detail-page .playlist-item
+  ):hover {
+    transform:
+      perspective(900px)
+      translateY(-4px)
+      rotateX(var(--shc-rx))
+      rotateY(var(--shc-ry));
+    border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+  }
+}
+
+.shc-shell :is(
+  button,
+  [role="button"],
+  input,
+  select,
+  textarea,
+  a[href]
+):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 86%, white);
+  outline-offset: 3px;
+}
+
+.shc-shell :is(
+  button:not(.shc-collapse-btn):not(.shc-strip-btn),
+  [role="button"]
+):active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+  transition-duration: 80ms;
+}
+
+.shc-collapse-btn:active:not(:disabled) {
+  transform: translateY(-60%) scale(0.94);
+}
+
+.shc-strip-btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.shc-shell :is(
+  .fd-search-box,
+  .sp-search-bar,
+  .af-filter-bar,
+  .qb-search,
+  .leaderboard-tabs
+):focus-within {
+  border-color: color-mix(in srgb, var(--accent) 52%, transparent);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.shc-strip-btn:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(
+    .fd-friend-card,
+    .fd-user-row,
+    .af-activity-card,
+    .sp-item-card,
+    .leaderboard-entry,
+    .challenge-card,
+    .games-page .stat-card-main,
+    .games-page .dc-mission-card,
+    .games-page .section-card,
+    .games-page .bingo-cell,
+    .qb-create-generator,
+    .qb-gm-btn,
+    .qb-battle-card,
+    .playlist-detail-page .detail-header,
+    .playlist-detail-page .playlist-item
+  ) {
+    transform: none !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .shc-shell *,
+  .shc-shell *::before,
+  .shc-shell *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

@@ -4,7 +4,7 @@ import {
   Plus, Trash2, Check, Users, Clock, BookOpen, X,
   FileText, MessageSquare, ExternalLink, Youtube, FileUp, Link as LinkIcon,
   ChevronDown, ChevronUp, ChevronRight, Share2, Heart, Lock, Globe, GraduationCap,
-  CheckCircle, Sparkles, Zap, GitFork
+  CheckCircle, Sparkles, Zap, GitFork, Search, ArrowLeft, ArrowUpRight, ListChecks, Circle, Layers3
 } from 'lucide-react';
 import { marked } from 'marked';
 import './PlaylistDetailPage.css';
@@ -13,6 +13,7 @@ import { API_URL } from '../config';
 import { sanitizeHtml } from '../utils/sanitize';
 import MathRenderer from '../components/MathRenderer';
 import PlaylistShareModal from '../components/PlaylistShareModal';
+import SocialHubChrome from '../components/SocialHubChrome';
 
 const renderPlaylistMarkdown = (value = '') => {
   if (!value) return '';
@@ -73,7 +74,7 @@ const PlaylistDetailPage = () => {
   const { playlistId } = useParams();
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
-  
+
   const [playlist, setPlaylist] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAddItemModal, setShowAddItemModal] = useState(false);
@@ -87,6 +88,8 @@ const PlaylistDetailPage = () => {
   const [aiLoading, setAiLoading] = useState({ notes: false, flashcards: false });
   const [aiResult, setAiResult] = useState(null);
   const [itemFilter, setItemFilter] = useState('all');
+  const [itemSearch, setItemSearch] = useState('');
+  const [itemStatus, setItemStatus] = useState('all');
   const [showOnlyRequired, setShowOnlyRequired] = useState(false);
   const [updatingItem, setUpdatingItem] = useState(null);
   const [forkLoading, setForkLoading] = useState(false);
@@ -98,10 +101,26 @@ const PlaylistDetailPage = () => {
 
   useEffect(() => {
     setItemFilter('all');
+    setItemSearch('');
+    setItemStatus('all');
     setShowOnlyRequired(false);
     setAiResult(null);
     setShowShareModal(false);
   }, [playlistId]);
+
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key !== 'Escape') return;
+      setShowViewModal(false);
+      setViewingItem(null);
+      setItemContent(null);
+      setShowAddItemModal(false);
+      setShowShareModal(false);
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, []);
 
   const fetchPlaylistDetails = async () => {
     setLoading(true);
@@ -133,7 +152,7 @@ const PlaylistDetailPage = () => {
         setIsFollowing(!isFollowing);
         setPlaylist(prev => ({
           ...prev,
-          follower_count: isFollowing 
+          follower_count: isFollowing
             ? Math.max(0, (prev.follower_count || 0) - 1)
             : (prev.follower_count || 0) + 1
         }));
@@ -242,7 +261,7 @@ Estimated time: ${playlist.estimated_hours || totalHours || 0} hours
 Items:
 ${itemList}
 
-Help me summarize the key concepts, recommend an order, and suggest a study plan.`; 
+Help me summarize the key concepts, recommend an order, and suggest a study plan.`;
 
     navigate('/ai-chat', { state: { initialMessage: message } });
   };
@@ -294,7 +313,7 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
 
   const handleDeleteItem = async (itemId) => {
     if (!window.confirm('Delete this item?')) return;
-    
+
     try {
       const response = await fetch(`${API_URL}/playlists/${playlistId}/items/${itemId}`, {
         method: 'DELETE',
@@ -349,7 +368,7 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
             `${API_URL}/playlists/${playlistId}/items/${item.id}/view`,
             { headers: { 'Authorization': `Bearer ${token}` } }
           );
-          
+
           if (response.ok) {
             const data = await response.json();
             setItemContent(data);
@@ -419,19 +438,320 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
 
   const completedItems = playlist.user_progress?.completed_items || [];
   const allItems = playlist.items || [];
-  const progressPercentage = allItems.length > 0 
-    ? (completedItems.length / allItems.length) * 100 
+  const progressPercentage = allItems.length > 0
+    ? (completedItems.length / allItems.length) * 100
     : 0;
   const itemTypes = Array.from(new Set(allItems.map(item => item.item_type))).filter(Boolean);
   const filteredItems = allItems.filter(item => {
     const typeMatch = itemFilter === 'all' || item.item_type === itemFilter;
     const requiredMatch = !showOnlyRequired || item.is_required;
-    return typeMatch && requiredMatch;
+    const searchMatch = !itemSearch || `${item.title || ''} ${item.description || ''} ${item.notes || ''}`
+      .toLowerCase()
+      .includes(itemSearch.toLowerCase());
+    const isCompleted = completedItems.includes(item.id);
+    const statusMatch = itemStatus === 'all'
+      || (itemStatus === 'complete' && isCompleted)
+      || (itemStatus === 'todo' && !isCompleted);
+    return typeMatch && requiredMatch && searchMatch && statusMatch;
   });
   const requiredCount = allItems.filter(item => item.is_required).length;
   const optionalCount = allItems.length - requiredCount;
   const totalMinutes = allItems.reduce((sum, item) => sum + (item.duration_minutes || 0), 0);
   const totalHours = totalMinutes ? Math.round((totalMinutes / 60) * 10) / 10 : playlist.estimated_hours || 0;
+  const coverMark = playlist.title
+    ?.split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(word => word[0])
+    .join('')
+    .toUpperCase() || 'PL';
+
+  const scrollToSection = (sectionId) => {
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  const detailSections = [{
+    label: 'Playlist',
+    items: [
+      { icon: Layers3, label: 'Overview', active: true, onClick: () => scrollToSection('playlist-overview') },
+      { icon: ListChecks, label: 'Items', count: allItems.length, onClick: () => scrollToSection('playlist-items') },
+      { icon: CheckCircle, label: 'Completed', count: completedItems.length, onClick: () => { setItemStatus('complete'); scrollToSection('playlist-items'); } },
+    ],
+  }];
+  const sidebarLead = (
+    <button className="pdx-back-side" type="button" onClick={() => navigate('/playlists')}>
+      <ArrowLeft size={15} />
+      <span>Back to library</span>
+    </button>
+  );
+  const sidebarTail = (
+    <div className="pdx-side-summary">
+      <div className="pdx-side-numbers">
+        <div><strong>{allItems.length}</strong><span>items</span></div>
+        <div><strong>{requiredCount}</strong><span>required</span></div>
+        <div><strong>{totalHours}</strong><span>hours</span></div>
+      </div>
+      {playlist.is_owner && (
+        <button className="pdx-side-add" type="button" onClick={() => setShowAddItemModal(true)}>
+          <Plus size={14} /> Add an item
+        </button>
+      )}
+    </div>
+  );
+  const creatorName = playlist.creator?.first_name || playlist.creator?.username || 'Cerbyl learner';
+  const filtersActive = itemFilter !== 'all' || itemStatus !== 'all' || showOnlyRequired || itemSearch;
+  const nextItem = allItems.find(item => !completedItems.includes(item.id)) || allItems[0];
+  const clearItemFilters = () => {
+    setItemFilter('all');
+    setItemStatus('all');
+    setShowOnlyRequired(false);
+    setItemSearch('');
+  };
+
+  return (
+    <div className="playlist-detail-container playlist-detail-page with-social-chrome">
+      <SocialHubChrome
+        brandKicker="Playlists"
+        sideSections={detailSections}
+        sidebarLead={sidebarLead}
+        sidebarTail={sidebarTail}
+        topbarAction={{ label: 'Library', path: '/playlists' }}
+      >
+        <div className="pdx-workspace">
+          <section id="playlist-overview" className="pdx-overview">
+            <div className="pdx-identity">
+              <div
+                className="pdx-mark"
+                style={{ '--pdx-accent': playlist.cover_color || '#D7B38C' }}
+                aria-hidden="true"
+              >
+                <span>{coverMark}</span>
+                <i /><i /><i />
+              </div>
+              <div className="pdx-heading">
+                <div className="pdx-badges">
+                  <span>{playlist.is_public ? <Globe size={10} /> : <Lock size={10} />}{playlist.is_public ? 'Public' : 'Private'}</span>
+                  {playlist.category && <span>{playlist.category}</span>}
+                  {playlist.difficulty_level && <span>{playlist.difficulty_level}</span>}
+                </div>
+                <h1>{playlist.title}</h1>
+                <p>{playlist.description || 'A focused sequence of resources, practice, and notes.'}</p>
+                <div className="pdx-byline">
+                  {playlist.creator?.picture_url ? <img src={playlist.creator.picture_url} alt="" /> : <span>{creatorName[0]?.toUpperCase()}</span>}
+                  <strong>{creatorName}</strong>
+                  <i />
+                  <span><BookOpen size={12} /> {allItems.length} items</span>
+                  <span><Users size={12} /> {playlist.follower_count || 0}</span>
+                  {totalHours > 0 && <span><Clock size={12} /> {totalHours}h</span>}
+                </div>
+              </div>
+
+            </div>
+
+            <div className="pdx-action-bar" aria-label="Playlist actions">
+              <div className="pdx-primary-actions">
+                {playlist.is_owner ? (
+                  <button className="pdx-action pdx-action--primary" type="button" onClick={() => setShowAddItemModal(true)}>
+                    <Plus size={14} /> Add item
+                  </button>
+                ) : (
+                  <button
+                    className={`pdx-action ${isFollowing ? 'pdx-action--active' : 'pdx-action--primary'}`}
+                    type="button"
+                    onClick={handleFollowToggle}
+                    disabled={followLoading}
+                  >
+                    {isFollowing ? <Check size={14} /> : <Heart size={14} />}
+                    {followLoading ? 'Updating' : isFollowing ? 'Following' : 'Follow path'}
+                  </button>
+                )}
+                <button className="pdx-action" type="button" onClick={() => setShowShareModal(true)}><Share2 size={14} /> Share</button>
+                {!playlist.is_owner && <button className="pdx-action" type="button" onClick={handleForkPlaylist} disabled={forkLoading}><GitFork size={14} /> {forkLoading ? 'Forking' : 'Fork'}</button>}
+              </div>
+              <div className="pdx-ai-actions">
+                <span>Transform</span>
+                <button type="button" onClick={handleGenerateNotes} disabled={aiLoading.notes || !allItems.length} title="Generate notes">
+                  {aiLoading.notes ? <span className="detail-btn-spinner" /> : <FileText size={14} />} Notes
+                </button>
+                <button type="button" onClick={handleGenerateFlashcards} disabled={aiLoading.flashcards || !allItems.length} title="Generate flashcards">
+                  {aiLoading.flashcards ? <span className="detail-btn-spinner" /> : <Zap size={14} />} Cards
+                </button>
+                <button type="button" onClick={handleAskAI} title="Ask AI about this playlist"><Sparkles size={14} /> Ask AI</button>
+              </div>
+              {playlist.is_owner && (
+                <button className="pdx-icon-danger" type="button" onClick={handleDeletePlaylist} disabled={deleteLoading} aria-label={`Delete ${playlist.title}`} title="Delete playlist">
+                  <Trash2 size={15} />
+                </button>
+              )}
+            </div>
+
+            <div className="pdx-progress-ribbon">
+              <div>
+                <span>{completedItems.length} of {allItems.length} complete</span>
+                <strong>{Math.round(progressPercentage)}%</strong>
+              </div>
+              <div className="pdx-progress-track"><span style={{ width: `${progressPercentage}%` }} /></div>
+              <p>{progressPercentage === 100 ? 'Path complete. Nice work.' : progressPercentage > 0 ? 'Continue where you left off.' : 'Mark items complete as you move through the path.'}</p>
+            </div>
+
+            {allItems.length > 0 && (
+              <div className="pdx-route-map" aria-label="Playlist route map">
+                <div className="pdx-route-intro">
+                  <span>Route map</span>
+                  <strong>{progressPercentage === 100 ? 'Path complete' : 'Your next move is ready'}</strong>
+                </div>
+                <div className="pdx-route-track">
+                  <div className="pdx-route-line" aria-hidden="true">
+                    <span style={{ width: `${progressPercentage}%` }} />
+                  </div>
+                  {allItems.slice(0, 10).map((item, index) => {
+                    const isComplete = completedItems.includes(item.id);
+                    const isCurrent = nextItem?.id === item.id && progressPercentage < 100;
+                    return (
+                      <button
+                        key={item.id}
+                        className={`pdx-route-node ${isComplete ? 'complete' : ''} ${isCurrent ? 'current' : ''}`}
+                        type="button"
+                        onClick={() => handleOpenItem(item)}
+                        aria-label={`${isComplete ? 'Completed' : isCurrent ? 'Continue with' : 'Open'} ${item.title}`}
+                        title={item.title}
+                      >
+                        {isComplete ? <Check size={12} /> : <span>{String(index + 1).padStart(2, '0')}</span>}
+                      </button>
+                    );
+                  })}
+                  {allItems.length > 10 && <span className="pdx-route-more">+{allItems.length - 10}</span>}
+                </div>
+                {nextItem && progressPercentage < 100 && (
+                  <button className="pdx-resume" type="button" onClick={() => handleOpenItem(nextItem)}>
+                    <span><small>Continue</small><strong>{nextItem.title}</strong></span>
+                    <ArrowUpRight size={15} />
+                  </button>
+                )}
+              </div>
+            )}
+          </section>
+
+          {aiResult && (
+            <div className={`pdp-ai-toast ${aiResult.status}`}>
+              <Sparkles size={15} />
+              <span>{aiResult.status === 'success' ? `AI ${aiResult.type === 'notes' ? 'notes' : 'flashcards'} are ready.` : aiResult.message}</span>
+              {aiResult.status === 'success' && aiResult.type === 'notes' && aiResult.noteId && <button className="pdp-toast-link" onClick={() => navigate(`/notes/editor/${aiResult.noteId}`)}>Open notes</button>}
+              {aiResult.status === 'success' && aiResult.type === 'flashcards' && <button className="pdp-toast-link" onClick={() => navigate('/flashcards')}>Open flashcards</button>}
+              <button className="pdp-toast-close" type="button" aria-label="Dismiss conversion result" onClick={() => setAiResult(null)}><X size={13} /></button>
+            </div>
+          )}
+
+          <section id="playlist-items" className="pdx-items">
+            <div className="pdx-section-heading">
+              <div>
+                <span>Learning sequence</span>
+                <h2>Playlist items</h2>
+              </div>
+              <p><strong>{filteredItems.length}</strong> of {allItems.length} shown</p>
+            </div>
+
+            {allItems.length > 0 && (
+              <div className="pdx-toolbox">
+                <label className="pdx-item-search">
+                  <Search size={15} />
+                  <input type="search" value={itemSearch} onChange={(event) => setItemSearch(event.target.value)} placeholder="Find an item" />
+                  {itemSearch && <button type="button" onClick={() => setItemSearch('')} aria-label="Clear item search"><X size={13} /></button>}
+                </label>
+                <div className="pdx-segment" role="group" aria-label="Completion status">
+                  {[
+                    ['all', 'All'],
+                    ['todo', 'To do'],
+                    ['complete', 'Done'],
+                  ].map(([value, label]) => (
+                    <button key={value} type="button" className={itemStatus === value ? 'active' : ''} onClick={() => setItemStatus(value)} aria-pressed={itemStatus === value}>{label}</button>
+                  ))}
+                </div>
+                <label className="pdx-type-select">
+                  <span className="sr-only">Item type</span>
+                  <select value={itemFilter} onChange={(event) => setItemFilter(event.target.value)}>
+                    <option value="all">All types</option>
+                    {itemTypes.map(type => <option key={type} value={type}>{type.replace('_', ' ')}</option>)}
+                  </select>
+                </label>
+                <button className={`pdx-required ${showOnlyRequired ? 'active' : ''}`} type="button" onClick={() => setShowOnlyRequired(value => !value)} aria-pressed={showOnlyRequired}>
+                  <Circle size={12} fill={showOnlyRequired ? 'currentColor' : 'none'} /> Required
+                </button>
+                {filtersActive && <button className="pdx-clear" type="button" onClick={clearItemFilters} aria-label="Clear item filters"><X size={14} /></button>}
+              </div>
+            )}
+
+            {filteredItems.length > 0 ? (
+              <div className="pdx-list">
+                {filteredItems.map((item, index) => {
+                  const ItemIcon = getItemIcon(item.item_type);
+                  const isCompleted = completedItems.includes(item.id);
+                  const isExpanded = expandedItems[item.id];
+                  return (
+                    <article key={item.id} className={`pdx-row playlist-item ${isCompleted ? 'completed' : ''}`}>
+                      <div className="pdx-row-number">{String(index + 1).padStart(2, '0')}</div>
+                      <button className="pdx-row-open" type="button" onClick={() => handleOpenItem(item)} aria-label={`Open ${item.title}`}>
+                        <span className="pdx-row-icon"><ItemIcon size={17} /></span>
+                        <span className="pdx-row-copy">
+                          <strong>{item.title}</strong>
+                          <span>
+                            {item.item_type?.replace('_', ' ') || 'resource'}
+                            {item.platform ? ` · ${item.platform}` : ''}
+                            {item.duration_minutes ? ` · ${item.duration_minutes} min` : ''}
+                          </span>
+                        </span>
+                      </button>
+                      <div className="pdx-row-labels">
+                        {item.is_required && <span>Required</span>}
+                        {isCompleted && <span className="complete">Complete</span>}
+                      </div>
+                      <div className="pdx-row-actions">
+                        {isFollowing && (
+                          <button className={isCompleted ? 'active' : ''} type="button" onClick={() => handleToggleCompletion(item.id, !isCompleted)} disabled={updatingItem === item.id} aria-label={isCompleted ? `Mark ${item.title} incomplete` : `Mark ${item.title} complete`} title={isCompleted ? 'Mark incomplete' : 'Mark complete'}>
+                            <CheckCircle size={16} />
+                          </button>
+                        )}
+                        {(item.description || item.notes) && (
+                          <button type="button" onClick={() => toggleItem(item.id)} aria-expanded={isExpanded} aria-label={isExpanded ? `Collapse ${item.title}` : `Expand ${item.title}`} title="Details">
+                            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                          </button>
+                        )}
+                        {playlist.is_owner && <button className="danger" type="button" onClick={() => handleDeleteItem(item.id)} aria-label={`Remove ${item.title}`} title="Remove item"><Trash2 size={16} /></button>}
+                      </div>
+                      {isExpanded && (item.description || item.notes) && (
+                        <div className="pdx-row-details">
+                          {item.description && <div><strong>Description</strong><p>{item.description}</p></div>}
+                          {item.notes && <div><strong>Notes</strong><p>{item.notes}</p></div>}
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="pdx-empty">
+                <BookOpen size={25} />
+                <span>{allItems.length ? 'No matching items' : 'This path is empty'}</span>
+                <h3>{allItems.length ? 'Try a broader filter.' : 'Add the first step.'}</h3>
+                <p>{allItems.length ? 'Clear or change a control to see more of this playlist.' : 'Bring in a note, link, video, quiz, or flashcard set.'}</p>
+                {(allItems.length || playlist.is_owner) && (
+                  <button className="pdx-action pdx-action--primary" type="button" onClick={allItems.length ? clearItemFilters : () => setShowAddItemModal(true)}>
+                    {allItems.length ? <X size={14} /> : <Plus size={14} />}
+                    {allItems.length ? 'Clear filters' : 'Add item'}
+                  </button>
+                )}
+              </div>
+            )}
+          </section>
+        </div>
+      </SocialHubChrome>
+
+      {showViewModal && itemContent && (
+        <ViewItemModal item={viewingItem} content={itemContent} onClose={() => { setShowViewModal(false); setViewingItem(null); setItemContent(null); }} />
+      )}
+      {showAddItemModal && <AddItemModal onClose={() => setShowAddItemModal(false)} onAdd={handleAddItem} />}
+      {showShareModal && <PlaylistShareModal isOpen playlist={playlist} onClose={() => setShowShareModal(false)} />}
+    </div>
+  );
 
   return (
     <div className="playlist-detail-container playlist-detail-page">
@@ -459,6 +779,30 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
       <div className="detail-main">
 
       <div className="detail-header">
+        <div
+          className="pdp-cover-art"
+          style={{
+            '--playlist-cover': playlist.cover_color || '#D7B38C',
+            background: `linear-gradient(145deg, color-mix(in srgb, ${playlist.cover_color || '#D7B38C'} 84%, white), ${playlist.cover_color || '#D7B38C'} 56%, color-mix(in srgb, ${playlist.cover_color || '#D7B38C'} 76%, black))`
+          }}
+          aria-hidden="true"
+        >
+          <div className="pdp-cover-topline">
+            <span>Cerbyl</span>
+            <span>{allItems.length} {allItems.length === 1 ? 'item' : 'items'}</span>
+          </div>
+          <div className="pdp-cover-mark">{coverMark}</div>
+          <div className="pdp-cover-orbit">
+            <span />
+            <span />
+            <span />
+          </div>
+          <div className="pdp-cover-footer">
+            <span>{playlist.category || 'Study collection'}</span>
+            <BookOpen size={18} strokeWidth={1.35} />
+          </div>
+        </div>
+
         <div className="header-content">
           <div className="header-meta">
             <span className="meta-badge meta-badge--kicker">Learning Playlist</span>
@@ -468,6 +812,9 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
             </span>
             {playlist.category && (
               <span className="meta-badge category">{playlist.category}</span>
+            )}
+            {playlist.difficulty_level && (
+              <span className="meta-badge difficulty">{playlist.difficulty_level}</span>
             )}
           </div>
 
@@ -483,10 +830,10 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
               <Users size={14} />
               <span>{playlist.follower_count || 0} followers</span>
             </div>
-            {playlist.estimated_hours > 0 && (
+            {totalHours > 0 && (
               <div className="stat-item">
                 <Clock size={14} />
-                <span>{playlist.estimated_hours}h</span>
+                <span>{totalHours}h</span>
               </div>
             )}
             <div className="stat-item stat-creator">
@@ -513,7 +860,7 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
             </div>
           )}
 
-          <div className="header-actions">
+          <div className="header-actions" aria-label="Playlist actions">
             {playlist.is_owner ? (
               <>
                 <button className="ha-btn ha-btn--primary" type="button" onClick={() => setShowAddItemModal(true)}>
@@ -562,7 +909,7 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
           <Sparkles size={15} />
           {aiResult.status === 'success' ? (
             <>
-              <span>AI {aiResult.type === 'notes' ? 'notes' : 'flashcards'} ready —</span>
+              <span>AI {aiResult.type === 'notes' ? 'notes' : 'flashcards'} ready:</span>
               {aiResult.type === 'notes' && aiResult.noteId && (
                 <button className="pdp-toast-link" onClick={() => navigate(`/notes/editor/${aiResult.noteId}`)}>Open Notes</button>
               )}
@@ -573,7 +920,7 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
           ) : (
             <span>{aiResult.message}</span>
           )}
-          <button className="pdp-toast-close" onClick={() => setAiResult(null)}><X size={13} /></button>
+          <button className="pdp-toast-close" type="button" aria-label="Dismiss conversion result" onClick={() => setAiResult(null)}><X size={13} /></button>
         </div>
       )}
 
@@ -592,6 +939,8 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
               <button
                 className={`filter-pill ${itemFilter === 'all' ? 'active' : ''}`}
                 onClick={() => setItemFilter('all')}
+                type="button"
+                aria-pressed={itemFilter === 'all'}
               >
                 All
               </button>
@@ -600,6 +949,8 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
                   key={type}
                   className={`filter-pill ${itemFilter === type ? 'active' : ''}`}
                   onClick={() => setItemFilter(type)}
+                  type="button"
+                  aria-pressed={itemFilter === type}
                 >
                   {type.replace('_', ' ')}
                 </button>
@@ -608,6 +959,8 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
             <button
               className={`required-toggle ${showOnlyRequired ? 'active' : ''}`}
               onClick={() => setShowOnlyRequired(prev => !prev)}
+              type="button"
+              aria-pressed={showOnlyRequired}
             >
               {showOnlyRequired ? 'Showing Required' : 'Required Only'}
             </button>
@@ -622,13 +975,25 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
               const isExpanded = expandedItems[item.id];
 
               return (
-                <div 
-                  key={item.id} 
+                <div
+                  key={item.id}
                   className={`playlist-item ${isCompleted ? 'completed' : ''}`}
                 >
-                  <div className="item-header" onClick={() => handleOpenItem(item)}>
+                  <div
+                    className="item-header"
+                    onClick={() => handleOpenItem(item)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        handleOpenItem(item);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Open ${item.title}`}
+                  >
                     <div className="item-number">{index + 1}</div>
-                    
+
                     <div className="item-icon-wrapper">
                       <ItemIcon size={20} />
                     </div>
@@ -649,6 +1014,7 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
                             <span>{item.duration_minutes} min</span>
                           </>
                         )}
+                        <span className="item-requirement">{item.is_required ? 'Required' : 'Optional'}</span>
                       </div>
                     </div>
 
@@ -662,6 +1028,8 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
                           }}
                           disabled={updatingItem === item.id}
                           title={isCompleted ? 'Mark incomplete' : 'Mark complete'}
+                          aria-label={isCompleted ? `Mark ${item.title} incomplete` : `Mark ${item.title} complete`}
+                          type="button"
                         >
                           <CheckCircle size={18} />
                         </button>
@@ -673,6 +1041,9 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
                             e.stopPropagation();
                             toggleItem(item.id);
                           }}
+                          aria-label={isExpanded ? `Collapse details for ${item.title}` : `Expand details for ${item.title}`}
+                          aria-expanded={isExpanded}
+                          type="button"
                         >
                           {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                         </button>
@@ -684,6 +1055,8 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
                             e.stopPropagation();
                             handleDeleteItem(item.id);
                           }}
+                          aria-label={`Remove ${item.title} from playlist`}
+                          type="button"
                         >
                           <Trash2 size={18} />
                         </button>
@@ -728,11 +1101,11 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
               {allItems.length > 0
                 ? 'Try adjusting your filters to find what you\'re looking for'
                 : playlist.is_owner
-                  ? 'Start building your playlist — add notes, videos, quizzes and more'
+                  ? 'Start building your playlist. Add notes, videos, quizzes and more.'
                   : 'This playlist hasn\'t been populated yet'}
             </p>
             {allItems.length > 0 && (
-              <button className="empty-action-btn" onClick={() => {
+              <button className="empty-action-btn" type="button" onClick={() => {
                 setItemFilter('all');
                 setShowOnlyRequired(false);
               }}>
@@ -777,27 +1150,64 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
 export default PlaylistDetailPage;
 
 const ViewItemModal = ({ item, content, onClose }) => {
+  const resourceType = item?.item_type || content.type || 'resource';
+  const ResourceIcon = resourceType === 'chat' ? MessageSquare : FileText;
+  const hasMessages = Array.isArray(content.messages) && content.messages.length > 0;
+
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-box view-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>{content.title}</h2>
-          <button className="close-btn" onClick={onClose}>×</button>
+    <div className="modal-backdrop pdx-view-backdrop" onClick={onClose}>
+      <div
+        className={`modal-box view-modal pdx-view-modal pdx-view-modal--${resourceType}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="playlist-item-modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="pdx-view-atmosphere" aria-hidden="true">
+          <span /><span /><span /><span />
         </div>
 
-        <div className="modal-content">
+        <header className="pdx-view-header">
+          <div className="pdx-view-resource">
+            <span className="pdx-view-resource-icon"><ResourceIcon size={16} /></span>
+            <div>
+              <span>Learning artifact</span>
+              <strong>{resourceType.replace('_', ' ')}</strong>
+            </div>
+          </div>
+          <div className="pdx-view-heading">
+            <span>Playlist resource</span>
+            <h2 id="playlist-item-modal-title">{content.title || item?.title}</h2>
+            <div className="pdx-view-meta">
+              {item?.platform && <span>{item.platform}</span>}
+              {item?.duration_minutes && <span>{item.duration_minutes} min</span>}
+              {item?.is_required && <span>Required</span>}
+            </div>
+          </div>
+          <button className="pdx-view-close" type="button" aria-label="Close item viewer" onClick={onClose}>
+            <X size={17} />
+            <span>Esc</span>
+          </button>
+        </header>
+
+        <div className="pdx-view-rule" aria-hidden="true">
+          <span>01</span><i /><span>{resourceType === 'chat' ? (hasMessages ? `${content.messages.length} exchanges` : 'No messages') : 'Reading view'}</span>
+        </div>
+
+        <div className="modal-content pdx-view-content">
           {content.type === 'note' && (
-            <div 
-              className="note-viewer" 
+            <div
+              className="note-viewer pdx-note-sheet"
               dangerouslySetInnerHTML={{ __html: sanitizeHtml(content.content || '<p>No content</p>') }}
             />
           )}
 
           {content.type === 'chat' && (
-            <div className="chat-viewer">
-              {content.messages && content.messages.length > 0 ? (
+            <div className={`chat-viewer pdx-chat-thread ${hasMessages ? '' : 'is-empty'}`}>
+              {hasMessages ? (
                 content.messages.map((msg, index) => (
-                  <div key={index} className="chat-pair">
+                  <div key={index} className="chat-pair pdx-chat-pair">
+                    <div className="pdx-exchange-index">{String(index + 1).padStart(2, '0')}</div>
                     <div className="chat-msg user-msg">
                       <div className="msg-label">You</div>
                       <MathRenderer
@@ -815,11 +1225,26 @@ const ViewItemModal = ({ item, content, onClose }) => {
                   </div>
                 ))
               ) : (
-                <p>No messages</p>
+                <div className="pdx-view-empty">
+                  <div className="pdx-empty-signal" aria-hidden="true">
+                    <MessageSquare size={24} />
+                  </div>
+                  <div>
+                    <span>Empty conversation</span>
+                    <h3>No messages in this saved chat.</h3>
+                    <p>This chat was added to the playlist, but it does not contain any conversation history.</p>
+                  </div>
+                </div>
               )}
             </div>
           )}
         </div>
+
+        <footer className="pdx-view-footer">
+          <span>Playlist item</span>
+          <i />
+          <span>{item?.title || content.title}</span>
+        </footer>
       </div>
     </div>
   );
@@ -902,8 +1327,8 @@ const AddItemModal = ({ onClose, onAdd }) => {
       tempId: Date.now()
     };
     setAddedItems(prev => [...prev, newItem]);
-    
-    
+
+
     setFormData({
       title: '',
       url: '',
@@ -921,7 +1346,7 @@ const AddItemModal = ({ onClose, onAdd }) => {
       item_type: itemType,
       ...formData
     };
-    
+
     setIsSubmitting(true);
     try {
       await onAdd(newItem);
@@ -937,7 +1362,7 @@ const AddItemModal = ({ onClose, onAdd }) => {
 
   const handleSubmitAll = async () => {
     if (addedItems.length === 0) return;
-    
+
     setIsSubmitting(true);
     try {
       for (const item of addedItems) {
@@ -980,7 +1405,7 @@ const AddItemModal = ({ onClose, onAdd }) => {
           <span className="ai-kicker">Playlist</span>
           <h1 className="ai-title">Add Items</h1>
         </div>
-        <button className="ai-close" type="button" onClick={onClose}>
+        <button className="ai-close" type="button" aria-label="Close add items" onClick={onClose}>
           <X size={18} />
         </button>
       </div>
@@ -992,7 +1417,7 @@ const AddItemModal = ({ onClose, onAdd }) => {
               <span className="ai-section-kicker">Step 1</span>
               <h2 className="ai-section-title">Choose & Configure</h2>
             </div>
-            
+
             <form onSubmit={handleAddToQueue} className="add-item-form">
               <div className="form-field">
                 <label className="ai-field-label">Item Type</label>
@@ -1058,13 +1483,13 @@ const AddItemModal = ({ onClose, onAdd }) => {
                         </div>
                       ))}
                       {itemType === 'flashcard' && userFlashcards.map(flashcard => {
-                        
+
                         let cleanTitle = (flashcard.title || flashcard.name || '')
                           .replace(/^(Flashcards?:\s*|Cerbyl\s*|AI Generated\s*|ai generated\s*)/gi, '')
                           .replace(/^\s*:\s*/, '')
                           .trim();
                         cleanTitle = cleanTitle.charAt(0).toUpperCase() + cleanTitle.slice(1);
-                        
+
                         return (
                           <div
                             key={flashcard.id}
@@ -1078,7 +1503,7 @@ const AddItemModal = ({ onClose, onAdd }) => {
                         );
                       })}
 
-                      {((itemType === 'note' && userNotes.length === 0) || 
+                      {((itemType === 'note' && userNotes.length === 0) ||
                         (itemType === 'chat' && userChats.length === 0) ||
                         (itemType === 'quiz' && userQuizzes.length === 0) ||
                         (itemType === 'flashcard' && userFlashcards.length === 0)) && (
@@ -1104,7 +1529,7 @@ const AddItemModal = ({ onClose, onAdd }) => {
                 </div>
               )}
 
-              {(itemType === 'external_link' || itemType === 'youtube' || itemType === 'pdf' || 
+              {(itemType === 'external_link' || itemType === 'youtube' || itemType === 'pdf' ||
                 itemType === 'article' || itemType === 'course') && (
                 <div className="form-field">
                   <label>URL</label>
@@ -1207,8 +1632,8 @@ const AddItemModal = ({ onClose, onAdd }) => {
             )}
 
             {addedItems.length > 0 && (
-              <button 
-                className="submit-all-btn" 
+              <button
+                className="submit-all-btn"
                 onClick={handleSubmitAll}
                 disabled={isSubmitting}
               >

@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Search, BookOpen, Users, Clock,
   Globe, Lock, Heart, Library, Filter, X, Zap,
   FileText, Share2, Check, Sparkles, Trash2,
-  ChevronLeft, ChevronRight, Home
+  LayoutGrid, List, ArrowUpRight, ChevronLeft, ChevronRight, Home
 } from 'lucide-react';
 import './PlaylistsPage.css';
 import './PlaylistsConvert.css';
@@ -12,6 +12,7 @@ import '../components/SocialHubChrome.css';
 import { API_URL } from '../config';
 import ImportExportModal from '../components/ImportExportModal';
 import PlaylistShareModal from '../components/PlaylistShareModal';
+import SocialHubChrome from '../components/SocialHubChrome';
 
 const PlaylistsPage = () => {
   const navigate = useNavigate();
@@ -31,7 +32,9 @@ const PlaylistsPage = () => {
   const [aiResult, setAiResult] = useState(null);
   const [sortBy, setSortBy] = useState('recent');
   const [deletingPlaylistId, setDeletingPlaylistId] = useState(null);
+  const [layoutMode, setLayoutMode] = useState('grid');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const searchRef = useRef(null);
 
   const categories = [
     'Mathematics', 'Physics', 'Chemistry', 'Biology', 'Computer Science',
@@ -61,17 +64,41 @@ const PlaylistsPage = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showCategoryDropdown, showDifficultyDropdown]);
 
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key !== 'Escape') return;
+      setShowCategoryDropdown(false);
+      setShowDifficultyDropdown(false);
+      if (showCreateModal) setShowCreateModal(false);
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [showCreateModal]);
+
+  useEffect(() => {
+    const handleSearchShortcut = (event) => {
+      const tagName = event.target?.tagName?.toLowerCase();
+      if (event.key === '/' && tagName !== 'input' && tagName !== 'textarea' && tagName !== 'select') {
+        event.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', handleSearchShortcut);
+    return () => document.removeEventListener('keydown', handleSearchShortcut);
+  }, []);
+
   const fetchPlaylists = async () => {
     setLoading(true);
     try {
       let url = `${API_URL}/playlists?`;
-      
+
       if (view === 'my-playlists') {
         url += 'my_playlists=true&';
       } else if (view === 'following') {
         url += 'following=true&';
       }
-      
+
       if (filterCategory) url += `category=${filterCategory}&`;
       if (filterDifficulty) url += `difficulty=${filterDifficulty}&`;
       if (searchQuery) url += `search=${encodeURIComponent(searchQuery)}&`;
@@ -234,6 +261,289 @@ const PlaylistsPage = () => {
     }
   }, [playlists, sortBy]);
 
+  const libraryStats = useMemo(() => ({
+    items: playlists.reduce((sum, playlist) => sum + (playlist.item_count || playlist.items?.length || 0), 0),
+    following: playlists.filter(playlist => playlist.is_following).length,
+  }), [playlists]);
+
+  const playlistSections = [{
+    label: 'Library',
+    items: [
+      { icon: Globe, label: 'Discover', active: view === 'discover', onClick: () => setView('discover') },
+      { icon: Heart, label: 'Following', active: view === 'following', count: libraryStats.following, onClick: () => setView('following') },
+      { icon: Library, label: 'My Playlists', active: view === 'my-playlists', onClick: () => setView('my-playlists') },
+    ],
+  }];
+
+  const playlistSidebarLead = (
+    <button className="plx-create-side" type="button" onClick={() => setShowCreateModal(true)}>
+      <Plus size={15} />
+      <span>New playlist</span>
+    </button>
+  );
+
+  const playlistSidebarTail = (
+    <div className="plx-side-tools">
+      <div className="plx-side-tool-heading">
+        <span>Refine</span>
+        {hasActiveFilters && (
+          <button type="button" onClick={clearFilters} aria-label="Clear all playlist filters">
+            Clear
+          </button>
+        )}
+      </div>
+      <label className="plx-side-select">
+        <span>Category</span>
+        <select value={filterCategory} onChange={(event) => setFilterCategory(event.target.value)}>
+          <option value="">All categories</option>
+          {categories.map(category => <option key={category} value={category}>{category}</option>)}
+        </select>
+      </label>
+      <label className="plx-side-select">
+        <span>Level</span>
+        <select value={filterDifficulty} onChange={(event) => setFilterDifficulty(event.target.value)}>
+          <option value="">All levels</option>
+          {difficulties.map(level => <option key={level} value={level}>{level}</option>)}
+        </select>
+      </label>
+    </div>
+  );
+
+  return (
+    <div className="playlists-container playlists-page with-social-chrome">
+      <SocialHubChrome
+        brandKicker="Playlists"
+        sideSections={playlistSections}
+        sidebarLead={playlistSidebarLead}
+        sidebarTail={playlistSidebarTail}
+      >
+        <div className="plx-workspace">
+          <header className="plx-header">
+            <div>
+              <span className="plx-eyebrow">Learning library</span>
+              <h1>Build a path through what matters.</h1>
+              <p>Collect resources, order the work, and turn a scattered topic into something you can finish.</p>
+            </div>
+            <div className="plx-header-actions">
+              <button className="plx-secondary-btn" type="button" onClick={() => setShowImportExport(true)}>
+                <Sparkles size={15} />
+                <span>Convert with AI</span>
+              </button>
+              <button className="plx-primary-btn" type="button" onClick={() => setShowCreateModal(true)}>
+                <Plus size={15} />
+                <span>New playlist</span>
+              </button>
+            </div>
+
+          </header>
+
+          {sortedPlaylists.length > 0 && (
+            <section className="plx-topology" aria-label="Library topology">
+              <div className="plx-topology-copy">
+                <span>Library topology</span>
+                <strong>{libraryStats.items} ideas across {sortedPlaylists.length} paths</strong>
+                <p>Jump directly into a collection or let Cerbyl pick your next direction.</p>
+              </div>
+              <div className="plx-topology-map">
+                <div className="plx-topology-line" aria-hidden="true" />
+                {sortedPlaylists.slice(0, 6).map((playlist, index) => {
+                  const itemCount = playlist.item_count || playlist.items?.length || 0;
+                  const initials = playlist.title
+                    ?.split(/\s+/)
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map(word => word[0])
+                    .join('')
+                    .toUpperCase() || 'PL';
+                  return (
+                    <button
+                      key={playlist.id}
+                      className="plx-topology-node"
+                      style={{
+                        '--node-accent': playlist.cover_color || '#D7B38C',
+                        '--node-size': `${Math.min(42, 27 + itemCount)}px`,
+                        '--node-delay': `${index * 36}ms`,
+                      }}
+                      type="button"
+                      onClick={() => handlePlaylistClick(playlist.uid, playlist.id)}
+                      aria-label={`Open ${playlist.title}`}
+                    >
+                      <span>{initials}</span>
+                      <i>{playlist.title}</i>
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                className="plx-random-path"
+                type="button"
+                onClick={() => {
+                  const playlist = sortedPlaylists[Math.floor(Math.random() * sortedPlaylists.length)];
+                  handlePlaylistClick(playlist.uid, playlist.id);
+                }}
+              >
+                <Sparkles size={14} />
+                <span>Pick a path</span>
+                <ArrowUpRight size={13} />
+              </button>
+            </section>
+          )}
+
+          <section className="plx-control-deck" aria-label="Playlist controls">
+            <label className="plx-search">
+              <Search size={16} />
+              <input
+                ref={searchRef}
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search titles, topics, or creators"
+              />
+              {searchQuery ? (
+                <button type="button" onClick={() => setSearchQuery('')} aria-label="Clear playlist search">
+                  <X size={14} />
+                </button>
+              ) : (
+                <kbd>/</kbd>
+              )}
+            </label>
+
+            <label className="plx-sort">
+              <Filter size={14} />
+              <span className="sr-only">Sort playlists</span>
+              <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+                <option value="recent">Newest</option>
+                <option value="popular">Most followed</option>
+                <option value="items">Most items</option>
+                <option value="hours">Most hours</option>
+              </select>
+            </label>
+
+            <div className="plx-layout-switch" role="group" aria-label="Playlist layout">
+              <button
+                type="button"
+                className={layoutMode === 'grid' ? 'active' : ''}
+                onClick={() => setLayoutMode('grid')}
+                aria-label="Grid view"
+                aria-pressed={layoutMode === 'grid'}
+              >
+                <LayoutGrid size={15} />
+              </button>
+              <button
+                type="button"
+                className={layoutMode === 'list' ? 'active' : ''}
+                onClick={() => setLayoutMode('list')}
+                aria-label="List view"
+                aria-pressed={layoutMode === 'list'}
+              >
+                <List size={16} />
+              </button>
+            </div>
+          </section>
+
+          <div className="plx-result-line">
+            <div>
+              <strong>{sortedPlaylists.length}</strong>
+              <span>{sortedPlaylists.length === 1 ? 'playlist' : 'playlists'} in view</span>
+            </div>
+            {hasActiveFilters && (
+              <div className="plx-active-filters">
+                {filterCategory && <button type="button" onClick={() => setFilterCategory('')}>{filterCategory}<X size={11} /></button>}
+                {filterDifficulty && <button type="button" onClick={() => setFilterDifficulty('')}>{filterDifficulty}<X size={11} /></button>}
+                {searchQuery && <button type="button" onClick={() => setSearchQuery('')}>“{searchQuery}”<X size={11} /></button>}
+              </div>
+            )}
+          </div>
+
+          {aiResult && (
+            <div className={`playlists-ai-result-toast ${aiResult.status}`}>
+              <div className="playlists-ai-result-text">
+                <Sparkles size={14} />
+                <span>{aiResult.message || `AI ${aiResult.type === 'notes' ? 'notes' : 'flashcards'} ready for ${aiResult.playlistTitle}`}</span>
+              </div>
+              {aiResult.status === 'success' && aiResult.type === 'notes' && aiResult.noteId && (
+                <button className="playlists-ai-result-action" onClick={() => navigate(`/notes/editor/${aiResult.noteId}`)} type="button">Open notes</button>
+              )}
+              {aiResult.status === 'success' && aiResult.type === 'flashcards' && (
+                <button className="playlists-ai-result-action" onClick={() => navigate('/flashcards')} type="button">Open flashcards</button>
+              )}
+              <button className="playlists-ai-result-close" onClick={() => setAiResult(null)} type="button" aria-label="Dismiss conversion result"><X size={14} /></button>
+            </div>
+          )}
+
+          <div className="plx-library">
+            {loading ? (
+              <div className="plx-state">
+                <div className="fc-spinner"><span /><span /><span /></div>
+                <p>Loading your library</p>
+              </div>
+            ) : sortedPlaylists.length === 0 ? (
+              <div className="plx-state plx-state--empty">
+                <div className="plx-empty-mark"><BookOpen size={24} /></div>
+                <span>{hasActiveFilters ? 'Nothing matches yet' : 'Your first path starts here'}</span>
+                <h2>{hasActiveFilters ? 'Try a wider search.' : 'Create a playlist worth finishing.'}</h2>
+                <p>{hasActiveFilters ? 'Clear one or more filters to bring more collections into view.' : 'Bundle notes, links, videos, and quizzes into one focused sequence.'}</p>
+                <button className="plx-primary-btn" type="button" onClick={hasActiveFilters ? clearFilters : () => setShowCreateModal(true)}>
+                  {hasActiveFilters ? <X size={15} /> : <Plus size={15} />}
+                  <span>{hasActiveFilters ? 'Clear filters' : 'Create playlist'}</span>
+                </button>
+              </div>
+            ) : (
+              <div className={`plx-grid plx-grid--${layoutMode}`}>
+                {sortedPlaylists.map((playlist, index) => (
+                  <PlaylistCard
+                    key={playlist.id}
+                    index={index}
+                    playlist={playlist}
+                    onClick={() => handlePlaylistClick(playlist.uid, playlist.id)}
+                    onShare={() => setSharePlaylist(playlist)}
+                    onGenerateNotes={() => handleAiConvert(playlist, 'notes')}
+                    onGenerateFlashcards={() => handleAiConvert(playlist, 'flashcards')}
+                    onToggleFollow={() => handleFollowToggle(playlist.id, playlist.is_following)}
+                    onDelete={() => handleDeletePlaylist(playlist)}
+                    aiLoading={aiLoading}
+                    deleting={deletingPlaylistId === playlist.id}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </SocialHubChrome>
+
+      {showCreateModal && (
+        <CreatePlaylistModal
+          onClose={() => setShowCreateModal(false)}
+          onCreate={handleCreatePlaylist}
+          categories={categories}
+          difficulties={difficulties}
+          coverColors={coverColors}
+        />
+      )}
+      <ImportExportModal
+        isOpen={showImportExport}
+        onClose={() => setShowImportExport(false)}
+        mode="import"
+        sourceType="playlist"
+        onSuccess={(result) => {
+          if (result?.shouldNavigate) {
+            const items = result.items || [];
+            if (result.destinationType === 'notes') {
+              navigate(result.note_id ? `/notes/editor/${result.note_id}` : items.length === 1 && items[0]?.note_id ? `/notes/editor/${items[0].note_id}` : '/notes');
+            } else if (result.destinationType === 'flashcards') {
+              navigate(result.set_id ? `/flashcards?set_id=${result.set_id}&mode=preview` : items.length === 1 && items[0]?.set_id ? `/flashcards?set_id=${items[0].set_id}&mode=preview` : '/flashcards');
+            }
+          } else {
+            setAiResult({ status: 'success', message: 'AI conversion completed. Check your notes or flashcards.' });
+          }
+        }}
+      />
+      {sharePlaylist && (
+        <PlaylistShareModal isOpen playlist={sharePlaylist} onClose={() => setSharePlaylist(null)} />
+      )}
+    </div>
+  );
+
   return (
     <div className="playlists-container playlists-page">
       <div className="shc-topbar">
@@ -278,10 +588,10 @@ const PlaylistsPage = () => {
         <aside className={`playlists-sidebar ${sidebarOpen ? '' : 'pl-sidebar--collapsed'}`}>
           {!sidebarOpen ? (
             <div className="pl-collapsed-strip">
-              <button className="pl-strip-btn" data-tip="Open sidebar" onClick={() => setSidebarOpen(true)} type="button">
+              <button className="pl-strip-btn" data-tip="Open sidebar" aria-label="Open playlists sidebar" onClick={() => setSidebarOpen(true)} type="button">
                 <ChevronRight size={18} />
               </button>
-              <button className="pl-strip-btn" data-tip="New Playlist" onClick={() => setShowCreateModal(true)} type="button">
+              <button className="pl-strip-btn" data-tip="New Playlist" aria-label="New Playlist" onClick={() => setShowCreateModal(true)} type="button">
                 <Plus size={18} />
               </button>
 
@@ -290,6 +600,8 @@ const PlaylistsPage = () => {
               <button
                 className={`pl-strip-btn ${view === 'discover' ? 'active' : ''}`}
                 data-tip="Discover"
+                aria-label="Discover playlists"
+                aria-pressed={view === 'discover'}
                 onClick={() => setView('discover')}
                 type="button"
               >
@@ -298,6 +610,8 @@ const PlaylistsPage = () => {
               <button
                 className={`pl-strip-btn ${view === 'following' ? 'active' : ''}`}
                 data-tip="Following"
+                aria-label="Following playlists"
+                aria-pressed={view === 'following'}
                 onClick={() => setView('following')}
                 type="button"
               >
@@ -306,6 +620,8 @@ const PlaylistsPage = () => {
               <button
                 className={`pl-strip-btn ${view === 'my-playlists' ? 'active' : ''}`}
                 data-tip="My Playlists"
+                aria-label="My Playlists"
+                aria-pressed={view === 'my-playlists'}
                 onClick={() => setView('my-playlists')}
                 type="button"
               >
@@ -314,7 +630,7 @@ const PlaylistsPage = () => {
 
               <div className="pl-strip-spacer"></div>
 
-              <button className="pl-strip-btn" data-tip="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} type="button">
+              <button className="pl-strip-btn" data-tip="Dashboard" aria-label="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} type="button">
                 <Home size={18} />
               </button>
             </div>
@@ -337,6 +653,7 @@ const PlaylistsPage = () => {
           <button
             className="pl-new-playlist-btn"
             onClick={() => setShowCreateModal(true)}
+            type="button"
           >
             <Plus size={16} />
             <span>New Playlist</span>
@@ -347,17 +664,21 @@ const PlaylistsPage = () => {
           <div className="sidebar-section">
             <h3 className="sidebar-heading">Browse</h3>
             <nav className="sidebar-menu">
-              <button
-                className={`menu-item ${view === 'discover' ? 'active' : ''}`}
-                onClick={() => setView('discover')}
-              >
+                <button
+                  className={`menu-item ${view === 'discover' ? 'active' : ''}`}
+                  onClick={() => setView('discover')}
+                  type="button"
+                  aria-pressed={view === 'discover'}
+                >
                 <Globe size={18} />
                 <span>Discover</span>
               </button>
 
               <button
                 className={`menu-item ${view === 'following' ? 'active' : ''}`}
-                onClick={() => setView('following')}
+                  onClick={() => setView('following')}
+                  type="button"
+                  aria-pressed={view === 'following'}
               >
                 <Heart size={18} />
                 <span>Following</span>
@@ -365,7 +686,9 @@ const PlaylistsPage = () => {
 
               <button
                 className={`menu-item ${view === 'my-playlists' ? 'active' : ''}`}
-                onClick={() => setView('my-playlists')}
+                  onClick={() => setView('my-playlists')}
+                  type="button"
+                  aria-pressed={view === 'my-playlists'}
               >
                 <Library size={18} />
                 <span>My Playlists</span>
@@ -380,7 +703,7 @@ const PlaylistsPage = () => {
               <div className="filter-header">
                 <label>Category</label>
                 {hasActiveFilters && (
-                  <button className="clear-btn-inline" onClick={clearFilters}>
+                  <button className="clear-btn-inline" onClick={clearFilters} type="button" aria-label="Clear playlist filters">
                     <X size={12} />
                   </button>
                 )}
@@ -392,6 +715,9 @@ const PlaylistsPage = () => {
                     setShowDifficultyDropdown(false);
                     setShowCategoryDropdown(!showCategoryDropdown);
                   }}
+                  type="button"
+                  aria-haspopup="listbox"
+                  aria-expanded={showCategoryDropdown}
                 >
                   <span>{filterCategory || 'All Categories'}</span>
                   <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
@@ -399,8 +725,11 @@ const PlaylistsPage = () => {
                   </svg>
                 </button>
                 {showCategoryDropdown && (
-                  <div className="dropdown-menu" style={{ display: 'block', position: 'absolute' }}>
-                    <div
+                  <div className="dropdown-menu" role="listbox" aria-label="Playlist category" style={{ display: 'block', position: 'absolute' }}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={!filterCategory}
                       className={`dropdown-item ${!filterCategory ? 'active' : ''}`}
                       onClick={() => {
                         setFilterCategory('');
@@ -408,9 +737,12 @@ const PlaylistsPage = () => {
                       }}
                     >
                       All Categories
-                    </div>
+                    </button>
                     {categories.map(cat => (
-                      <div
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={filterCategory === cat}
                         key={cat}
                         className={`dropdown-item ${filterCategory === cat ? 'active' : ''}`}
                         onClick={() => {
@@ -419,7 +751,7 @@ const PlaylistsPage = () => {
                         }}
                       >
                         {cat}
-                      </div>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -437,6 +769,9 @@ const PlaylistsPage = () => {
                     setShowCategoryDropdown(false);
                     setShowDifficultyDropdown(!showDifficultyDropdown);
                   }}
+                  type="button"
+                  aria-haspopup="listbox"
+                  aria-expanded={showDifficultyDropdown}
                 >
                   <span>{filterDifficulty || 'All Levels'}</span>
                   <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
@@ -444,8 +779,11 @@ const PlaylistsPage = () => {
                   </svg>
                 </button>
                 {showDifficultyDropdown && (
-                  <div className="dropdown-menu" style={{ display: 'block', position: 'absolute' }}>
-                    <div
+                  <div className="dropdown-menu" role="listbox" aria-label="Playlist difficulty" style={{ display: 'block', position: 'absolute' }}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={!filterDifficulty}
                       className={`dropdown-item ${!filterDifficulty ? 'active' : ''}`}
                       onClick={() => {
                         setFilterDifficulty('');
@@ -453,9 +791,12 @@ const PlaylistsPage = () => {
                       }}
                     >
                       All Levels
-                    </div>
+                    </button>
                     {difficulties.map(level => (
-                      <div
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={filterDifficulty === level}
                         key={level}
                         className={`dropdown-item ${filterDifficulty === level ? 'active' : ''}`}
                         onClick={() => {
@@ -464,7 +805,7 @@ const PlaylistsPage = () => {
                         }}
                       >
                         {level}
-                      </div>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -480,7 +821,7 @@ const PlaylistsPage = () => {
           </div>
 
           <div className="pl-sidebar-actions">
-            <button className="pl-sidebar-action" onClick={() => navigate('/dashboard-cerbyl')}>
+            <button className="pl-sidebar-action" onClick={() => navigate('/dashboard-cerbyl')} type="button">
               <Home size={16} />
               <span>Dashboard</span>
             </button>
@@ -507,7 +848,7 @@ const PlaylistsPage = () => {
                     placeholder="Search playlists, topics, creators..."
                   />
                   {searchQuery && (
-                    <button className="playlists-clear-search-btn" onClick={() => setSearchQuery('')}>
+                    <button className="playlists-clear-search-btn" onClick={() => setSearchQuery('')} type="button" aria-label="Clear playlist search">
                       <X size={14} />
                     </button>
                   )}
@@ -527,7 +868,7 @@ const PlaylistsPage = () => {
                     <option value="hours">Most Hours</option>
                   </select>
                 </div>
-                <button className="playlists-ai-hub-btn" onClick={() => setShowImportExport(true)}>
+                <button className="playlists-ai-hub-btn" onClick={() => setShowImportExport(true)} type="button">
                   <Sparkles size={14} />
                   <span>AI Convert</span>
                 </button>
@@ -551,16 +892,16 @@ const PlaylistsPage = () => {
                   )}
                 </div>
                 {aiResult.status === 'success' && aiResult.type === 'notes' && aiResult.noteId && (
-                  <button className="playlists-ai-result-action" onClick={() => navigate(`/notes/editor/${aiResult.noteId}`)}>
+                  <button className="playlists-ai-result-action" onClick={() => navigate(`/notes/editor/${aiResult.noteId}`)} type="button">
                     Open Notes
                   </button>
                 )}
                 {aiResult.status === 'success' && aiResult.type === 'flashcards' && (
-                  <button className="playlists-ai-result-action" onClick={() => navigate('/flashcards')}>
+                  <button className="playlists-ai-result-action" onClick={() => navigate('/flashcards')} type="button">
                     Open Flashcards
                   </button>
                 )}
-                <button className="playlists-ai-result-close" onClick={() => setAiResult(null)}>
+                <button className="playlists-ai-result-close" onClick={() => setAiResult(null)} type="button" aria-label="Dismiss conversion result">
                   <X size={14} />
                 </button>
               </div>
@@ -580,16 +921,17 @@ const PlaylistsPage = () => {
                 <BookOpen size={56} />
                 <h3>NO PLAYLISTS FOUND</h3>
                 <p>
-                  {view === 'my-playlists' 
+                  {view === 'my-playlists'
                     ? 'CREATE YOUR FIRST PLAYLIST TO GET STARTED'
                     : 'TRY ADJUSTING YOUR FILTERS OR SEARCH'}
                 </p>
               </div>
             ) : (
               <div className="playlists-grid">
-                {sortedPlaylists.map(playlist => (
+                {sortedPlaylists.map((playlist, index) => (
                   <PlaylistCard
                     key={playlist.id}
+                    index={index}
                     playlist={playlist}
                     onClick={() => handlePlaylistClick(playlist.uid, playlist.id)}
                     onShare={() => setSharePlaylist(playlist)}
@@ -616,7 +958,7 @@ const PlaylistsPage = () => {
           coverColors={coverColors}
         />
       )}
-      
+
       <ImportExportModal
         isOpen={showImportExport}
         onClose={() => setShowImportExport(false)}
@@ -665,6 +1007,7 @@ const PlaylistsPage = () => {
 export default PlaylistsPage;
 
 const PlaylistCard = ({
+  index,
   playlist,
   onClick,
   onShare,
@@ -679,17 +1022,188 @@ const PlaylistCard = ({
   const hasItems = itemCount > 0;
   const notesLoading = aiLoading?.[`${playlist.id}-notes`];
   const flashcardsLoading = aiLoading?.[`${playlist.id}-flashcards`];
+  const cardIndex = String(index + 1).padStart(2, '0');
+  const coverMark = playlist.title
+    ?.split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(word => word[0])
+    .join('')
+    .toUpperCase() || 'PL';
+
+  const handlePointerMove = (event) => {
+    if (event.pointerType === 'touch') return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
+    const y = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
+    event.currentTarget.style.setProperty('--pl-mx', `${x}px`);
+    event.currentTarget.style.setProperty('--pl-my', `${y}px`);
+    event.currentTarget.style.setProperty('--pl-rx', `${(((y / rect.height) - 0.5) * -1.4).toFixed(2)}deg`);
+    event.currentTarget.style.setProperty('--pl-ry', `${(((x / rect.width) - 0.5) * 1.4).toFixed(2)}deg`);
+  };
+
+  const handlePointerLeave = (event) => {
+    event.currentTarget.style.removeProperty('--pl-mx');
+    event.currentTarget.style.removeProperty('--pl-my');
+    event.currentTarget.style.removeProperty('--pl-rx');
+    event.currentTarget.style.removeProperty('--pl-ry');
+  };
+
+  const handleCardKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onClick();
+    }
+  };
+
+  const progress = Math.round(playlist.user_progress?.progress_percentage || 0);
+  const stackSize = Math.max(1, Math.min(itemCount, 5));
+  const creatorName = playlist.creator?.first_name || playlist.creator?.username || 'Cerbyl learner';
 
   return (
-    <div className="playlist-card" onClick={onClick}>
-      <div 
-        className="card-cover" 
-        style={{ 
-          background: `linear-gradient(135deg, ${playlist.cover_color}22 0%, ${playlist.cover_color}55 100%)`
+    <article
+      className="plx-card"
+      style={{ '--plx-card-accent': playlist.cover_color || '#D7B38C' }}
+      onClick={onClick}
+      onKeyDown={handleCardKeyDown}
+      role="button"
+      tabIndex={0}
+      aria-label={`Open playlist ${playlist.title}`}
+    >
+      <div className="plx-card-index" aria-hidden="true">{cardIndex}</div>
+      <div className="plx-card-top">
+        <div className="plx-stack-visual" aria-hidden="true">
+          {Array.from({ length: stackSize }).map((_, stackIndex) => (
+            <span key={stackIndex} style={{ '--stack-index': stackIndex }} />
+          ))}
+          <strong>{coverMark}</strong>
+        </div>
+
+        <div className="plx-card-main">
+          <div className="plx-card-badges">
+            <span>{playlist.category || 'General'}</span>
+            {playlist.difficulty_level && <span>{playlist.difficulty_level}</span>}
+            {!playlist.is_public && <span><Lock size={10} /> Private</span>}
+          </div>
+          <h2>{playlist.title}</h2>
+          <p>{playlist.description || 'A focused learning path ready for notes, links, videos, and practice.'}</p>
+        </div>
+
+        <ArrowUpRight className="plx-open-cue" size={17} aria-hidden="true" />
+      </div>
+
+      <div className="plx-card-data">
+        <div><BookOpen size={13} /><strong>{itemCount}</strong><span>items</span></div>
+        <div><Users size={13} /><strong>{playlist.follower_count || 0}</strong><span>following</span></div>
+        <div><Clock size={13} /><strong>{playlist.estimated_hours || 0}</strong><span>hours</span></div>
+      </div>
+
+      {playlist.user_progress && (
+        <div className="plx-progress">
+          <div><span>Progress</span><strong>{progress}%</strong></div>
+          <div className="plx-progress-track"><span style={{ width: `${progress}%` }} /></div>
+        </div>
+      )}
+
+      <footer className="plx-card-footer">
+        <div className="plx-creator">
+          {playlist.creator?.picture_url ? (
+            <img src={playlist.creator.picture_url} alt="" />
+          ) : (
+            <span>{creatorName[0]?.toUpperCase()}</span>
+          )}
+          <div><small>Curated by</small><strong>{creatorName}</strong></div>
+        </div>
+
+        <div className="plx-card-controls" aria-label={`Actions for ${playlist.title}`}>
+          {hasItems && (
+            <>
+              <button
+                type="button"
+                title="Generate notes"
+                aria-label={`Generate notes from ${playlist.title}`}
+                disabled={notesLoading}
+                onClick={(event) => { event.stopPropagation(); onGenerateNotes(); }}
+              >
+                {notesLoading ? <span className="lp-btn-spinner" /> : <FileText size={14} />}
+              </button>
+              <button
+                type="button"
+                title="Generate flashcards"
+                aria-label={`Generate flashcards from ${playlist.title}`}
+                disabled={flashcardsLoading}
+                onClick={(event) => { event.stopPropagation(); onGenerateFlashcards(); }}
+              >
+                {flashcardsLoading ? <span className="lp-btn-spinner" /> : <Zap size={14} />}
+              </button>
+            </>
+          )}
+          {!playlist.is_owner && (
+            <button
+              type="button"
+              className={playlist.is_following ? 'active' : ''}
+              title={playlist.is_following ? 'Unfollow' : 'Follow'}
+              aria-label={playlist.is_following ? `Unfollow ${playlist.title}` : `Follow ${playlist.title}`}
+              onClick={(event) => { event.stopPropagation(); onToggleFollow(); }}
+            >
+              {playlist.is_following ? <Check size={14} /> : <Heart size={14} />}
+            </button>
+          )}
+          <button
+            type="button"
+            title="Share"
+            aria-label={`Share ${playlist.title}`}
+            onClick={(event) => { event.stopPropagation(); onShare(); }}
+          >
+            <Share2 size={14} />
+          </button>
+          {playlist.is_owner && (
+            <button
+              type="button"
+              className="danger"
+              title="Delete"
+              aria-label={`Delete ${playlist.title}`}
+              disabled={deleting}
+              onClick={(event) => { event.stopPropagation(); onDelete(); }}
+            >
+              {deleting ? <span className="lp-btn-spinner danger" /> : <Trash2 size={14} />}
+            </button>
+          )}
+        </div>
+      </footer>
+    </article>
+  );
+
+  return (
+    <div
+      className="playlist-card"
+      onClick={onClick}
+      onKeyDown={handleCardKeyDown}
+      onPointerMove={handlePointerMove}
+      onPointerLeave={handlePointerLeave}
+      role="button"
+      tabIndex={0}
+      aria-label={`Open playlist ${playlist.title}`}
+    >
+      <div className="cb-tile-texture" aria-hidden="true" />
+      <div
+        className="card-cover"
+        style={{
+          '--playlist-cover': playlist.cover_color || '#D7B38C',
+          background: `linear-gradient(135deg, color-mix(in srgb, ${playlist.cover_color || '#D7B38C'} 88%, white) 0%, ${playlist.cover_color || '#D7B38C'} 58%, color-mix(in srgb, ${playlist.cover_color || '#D7B38C'} 72%, black) 100%)`
         }}
       >
+        <div className="playlist-cover-meta" aria-hidden="true">
+          <span>Cerbyl playlist</span>
+          <span>{cardIndex}</span>
+        </div>
         <div className="cover-overlay">
-          <BookOpen size={32} strokeWidth={1.5} />
+          <span className="playlist-cover-mark">{coverMark}</span>
+        </div>
+        <div className="playlist-cover-rule" aria-hidden="true" />
+        <div className="playlist-cover-count" aria-hidden="true">
+          <strong>{itemCount}</strong>
+          <span>{itemCount === 1 ? 'item' : 'items'}</span>
         </div>
         {!playlist.is_public && (
           <div className="privacy-badge">
@@ -701,7 +1215,7 @@ const PlaylistCard = ({
       <div className="card-content">
         <h3 className="card-title">{playlist.title}</h3>
         <p className="card-description">{playlist.description}</p>
-        
+
         {(playlist.category || playlist.difficulty_level) && (
           <div className="card-tags">
             {playlist.category && (
@@ -737,8 +1251,8 @@ const PlaylistCard = ({
               <strong>{Math.round(playlist.user_progress.progress_percentage || 0)}%</strong>
             </div>
             <div className="playlists-card-progress-track">
-              <div 
-                className="playlists-card-progress-fill" 
+              <div
+                className="playlists-card-progress-fill"
                 style={{ width: `${playlist.user_progress.progress_percentage || 0}%` }}
               />
             </div>
@@ -769,6 +1283,8 @@ const PlaylistCard = ({
                   onToggleFollow();
                 }}
                 title={playlist.is_following ? 'Unfollow' : 'Follow'}
+                aria-label={playlist.is_following ? `Unfollow ${playlist.title}` : `Follow ${playlist.title}`}
+                type="button"
               >
                 {playlist.is_following ? <Check size={14} /> : <Heart size={14} />}
               </button>
@@ -780,6 +1296,8 @@ const PlaylistCard = ({
                 onShare();
               }}
               title="Share playlist"
+              aria-label={`Share ${playlist.title}`}
+              type="button"
             >
               <Share2 size={14} />
             </button>
@@ -792,6 +1310,8 @@ const PlaylistCard = ({
                 }}
                 disabled={deleting}
                 title={deleting ? 'Deleting playlist' : 'Delete playlist'}
+                aria-label={deleting ? `Deleting ${playlist.title}` : `Delete ${playlist.title}`}
+                type="button"
               >
                 {deleting ? <span className="lp-btn-spinner danger" /> : <Trash2 size={14} />}
               </button>
@@ -845,7 +1365,7 @@ const CreatePlaylistModal = ({ onClose, onCreate, categories, difficulties, cove
     }));
   };
 
-  
+
   const hslToHex = (h, s, l) => {
     l /= 100;
     const a = s * Math.min(l, 1 - l) / 100;
@@ -857,7 +1377,7 @@ const CreatePlaylistModal = ({ onClose, onCreate, categories, difficulties, cove
     return `#${f(0)}${f(8)}${f(4)}`;
   };
 
-  
+
   const updateColor = (newHue, newSat, newBright) => {
     const hexColor = hslToHex(newHue, newSat, newBright);
     setFormData(prev => ({ ...prev, cover_color: hexColor }));
@@ -883,10 +1403,16 @@ const CreatePlaylistModal = ({ onClose, onCreate, categories, difficulties, cove
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal-container"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-playlist-title"
+      >
         <div className="modal-header">
-          <h2>Create Playlist</h2>
-          <button className="close-btn" onClick={onClose}>×</button>
+          <h2 id="create-playlist-title">Create Playlist</h2>
+          <button className="close-btn" onClick={onClose} type="button" aria-label="Close create playlist dialog">×</button>
         </div>
 
         <form onSubmit={handleSubmit} className="modal-form">
@@ -927,13 +1453,16 @@ const CreatePlaylistModal = ({ onClose, onCreate, categories, difficulties, cove
           <div className="form-field">
             <label>Cover Color</label>
             <div className="color-picker-container">
-              <div 
-                className="color-preview" 
+              <button
+                type="button"
+                className="color-preview"
                 style={{ backgroundColor: formData.cover_color }}
                 onClick={() => setIsPickingColor(!isPickingColor)}
+                aria-expanded={isPickingColor}
+                aria-label={`Choose cover color, current color ${formData.cover_color}`}
               >
                 <span className="color-hex">{formData.cover_color}</span>
-              </div>
+              </button>
               {isPickingColor && (
                 <div className="gradient-picker-sliders">
                   <div className="slider-group">
@@ -961,11 +1490,11 @@ const CreatePlaylistModal = ({ onClose, onCreate, categories, difficulties, cove
                         onChange={handleSaturationChange}
                         className="color-slider"
                       />
-                      <div 
+                      <div
                         className="slider-track sat-track"
-                        style={{ 
-                          background: `linear-gradient(to right, 
-                            hsl(${hue}, 0%, ${brightness}%), 
+                        style={{
+                          background: `linear-gradient(to right,
+                            hsl(${hue}, 0%, ${brightness}%),
                             hsl(${hue}, 100%, ${brightness}%))`
                         }}
                       ></div>
@@ -982,12 +1511,12 @@ const CreatePlaylistModal = ({ onClose, onCreate, categories, difficulties, cove
                         onChange={handleBrightnessChange}
                         className="color-slider"
                       />
-                      <div 
+                      <div
                         className="slider-track bright-track"
-                        style={{ 
-                          background: `linear-gradient(to right, 
-                            hsl(${hue}, ${saturation}%, 0%), 
-                            hsl(${hue}, ${saturation}%, 50%), 
+                        style={{
+                          background: `linear-gradient(to right,
+                            hsl(${hue}, ${saturation}%, 0%),
+                            hsl(${hue}, ${saturation}%, 50%),
                             hsl(${hue}, ${saturation}%, 100%))`
                         }}
                       ></div>

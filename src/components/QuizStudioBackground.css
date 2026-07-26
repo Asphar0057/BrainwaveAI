@@ -1,0 +1,62 @@
+.quiz-studio-atmosphere {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.quiz-studio-wash {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 48% 30%, color-mix(in srgb, var(--accent) 11%, transparent), transparent 64%);
+}
+
+.quiz-studio-grid {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: .105;
+  mask-image: radial-gradient(ellipse at 50% 43%, #000 0%, rgba(0, 0, 0, .58) 54%, transparent 88%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 43%, #000 0%, rgba(0, 0, 0, .58) 54%, transparent 88%);
+}
+
+.quiz-studio-grid-lines line {
+  stroke: color-mix(in srgb, var(--accent) 54%, var(--text-primary));
+  stroke-width: .5;
+}
+
+.quiz-studio-grid-numbers text {
+  fill: color-mix(in srgb, var(--accent) 72%, var(--text-primary));
+  font-family: inherit;
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: .06em;
+}
+
+.quiz-studio-vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, .24), transparent 24%, transparent 76%, rgba(0, 0, 0, .48)),
+    radial-gradient(ellipse at 50% 50%, transparent 36%, rgba(0, 0, 0, .18) 100%);
+}
+
+.qh-layout-body,
+.sq-body,
+.qb-shell {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 700px) {
+  .quiz-studio-grid {
+    opacity: .075;
+  }
+
+  .quiz-studio-grid-numbers {
+    display: none;
+  }
+}

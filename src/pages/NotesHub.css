@@ -228,11 +228,22 @@
   content: '';
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(circle, color-mix(in srgb, var(--accent) 18%, transparent) 1px, transparent 1px);
-  background-size: 24px 24px;
+  background-image:
+    radial-gradient(circle at 88% 94%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 52%),
+    repeating-linear-gradient(115deg, transparent 0 22px, color-mix(in srgb, var(--accent) 6%, transparent) 22px 23px),
+    repeating-linear-gradient(25deg, transparent 0 27px, color-mix(in srgb, var(--accent) 4%, transparent) 27px 28px);
   pointer-events: none;
-  opacity: 0.4;
+  opacity: 0.86;
   z-index: 0;
+}
+
+.nh-section:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 82%, white);
+  outline-offset: -4px;
+}
+
+.nh-section:active .nh-section-inner {
+  transform: scale(0.992);
 }
 
 .nh-section-glow {
