@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Float, JSON, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Float, JSON, UniqueConstraint, LargeBinary
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from database import Base
@@ -164,3 +164,15 @@ class BanditEpisodeLog(Base):
     reward_received = Column(Float, nullable=True)
     p_mastery_before = Column(Float, nullable=True)
     p_mastery_after = Column(Float, nullable=True)
+
+
+class DKTArtifact(Base):
+    """Trained DKT model/vocab/state blobs, mirrored to the DB so a fresh or
+    horizontally-scaled container replica (whose local disk never had the
+    file written by whichever replica actually ran the training job) can
+    restore them instead of silently falling back to an untrained model."""
+    __tablename__ = "dkt_artifacts"
+
+    name = Column(String(64), primary_key=True)
+    data = Column(LargeBinary, nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

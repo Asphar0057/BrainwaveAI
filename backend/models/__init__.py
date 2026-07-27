@@ -148,6 +148,7 @@ from models.ml import (
     BanditState,
     BanditRewardQueue,
     BanditEpisodeLog,
+    DKTArtifact,
 )
 
 from models.imports import (

@@ -60,7 +60,7 @@ if os.getenv("ENVIRONMENT", "development") == "production" and "sqlite" in DATAB
     raise RuntimeError("DATABASE_URL must be set to PostgreSQL in production. SQLite is not supported for production use.")
 
 _RL_SCHEDULER_LOCK_ID = int(os.getenv("RL_SCHEDULER_ADVISORY_LOCK_ID", "941731"))
-_KT_SCHEDULER_LOCK_ID = int(os.getenv("KT_SCHEDULER_ADVISORY_LOCK_ID", "941732"))
+_KT_SCHEDULER_LOCK_ID = int(os.getenv("KT_SCHEDULER_ADVISORY_LOCK_ID", "941733"))
 
 
 def _acquire_scheduler_lock(lock_id: int, name: str, enable_env_var: str):
@@ -408,6 +408,21 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"ContextAgent init failed: {e}")
 
+    try:
+        # Every replica's local disk is independent and wiped on redeploy, but
+        # only one replica (the advisory-lock winner, below) ever runs DKT
+        # training. Without this, every replica other than that one -- and
+        # that one too, after its next redeploy -- would silently serve
+        # "model not trained" forever. This restores whatever was last
+        # trained, from the DB, before this replica takes traffic.
+        from dkt.trainer import sync_artifacts_from_db
+
+        if sync_artifacts_from_db(SessionLocal):
+            from dkt.inference import invalidate_cache
+            invalidate_cache()
+    except Exception as e:
+        logger.warning(f"DKT artifact sync from DB failed: {e}")
+
     _scheduler = None
     _rl_scheduler_lock = None
     _kt_scheduler_lock = None
@@ -492,6 +507,32 @@ async def lifespan(app: FastAPI):
                 logger.info("DKT retraining scheduler job added (checks every %ss)", kt_check_interval_seconds)
         except Exception as e:
             logger.warning(f"KT scheduler job init failed: {e}")
+
+        try:
+            # Deliberately NOT gated by the KT advisory lock: only the lock
+            # winner ever trains, so every other replica needs its own
+            # periodic pull to notice a retrain happened elsewhere without
+            # waiting for its next redeploy.
+            from dkt.trainer import sync_artifacts_from_db
+            from dkt.inference import invalidate_cache
+
+            def _run_artifact_sync():
+                if sync_artifacts_from_db(SessionLocal):
+                    invalidate_cache()
+
+            sync_interval_seconds = int(os.getenv("DKT_ARTIFACT_SYNC_INTERVAL_SECONDS", "900"))
+            _scheduler.add_job(
+                _run_artifact_sync,
+                "interval",
+                seconds=sync_interval_seconds,
+                id="dkt_artifact_sync",
+                max_instances=1,
+                coalesce=True,
+            )
+            _any_job_added = True
+            logger.info("DKT artifact sync scheduler job added (every %ss)", sync_interval_seconds)
+        except Exception as e:
+            logger.warning(f"DKT artifact sync scheduler job init failed: {e}")
 
         if _any_job_added:
             _scheduler.start()

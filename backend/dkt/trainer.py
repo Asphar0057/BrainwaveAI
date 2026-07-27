@@ -15,6 +15,7 @@ from torch.utils.data import DataLoader, random_split
 from dkt.model   import AKT
 from dkt.dataset import (
     AKTDataset,
+    VOCAB_PATH,
     build_vocab,
     collate_fn,
     get_user_sequences,
@@ -25,6 +26,20 @@ logger = logging.getLogger(__name__)
 
 MODEL_PATH           = os.path.join(os.path.dirname(__file__), "dkt_model.pt")
 TRAINING_STATE_PATH  = os.path.join(os.path.dirname(__file__), "training_state.json")
+
+# Names under which the same three files are mirrored into dkt_artifacts (DB).
+# Container replicas have independent local disks -- whichever replica wins
+# the retrain scheduler's advisory lock (main.py) writes these files only to
+# its own filesystem, and everything is wiped on redeploy. Mirroring to the
+# DB lets every replica (via sync_artifacts_from_db) restore the last trained
+# model instead of silently serving "model not trained" forever.
+_ARTIFACT_FILES = {
+    "dkt_model.pt":         MODEL_PATH,
+    "concept_vocab.json":   VOCAB_PATH,
+    "training_state.json":  TRAINING_STATE_PATH,
+}
+
+_last_synced_at: dict[str, object] = {}
 
 DEFAULTS = dict(
     d_model    = 64,
@@ -116,6 +131,8 @@ def train(db_session_factory, **kwargs) -> dict:
             "last_trained_at": datetime.now(timezone.utc).isoformat(),
             "n_interactions":  n_interactions_total,
         }, f)
+
+    _push_artifacts_to_db(db_session_factory)
 
     logger.info(f"[AKT] Model saved (best_val_loss={best_val_loss:.4f})")
     return {
@@ -213,3 +230,52 @@ def load_model(device: Optional[torch.device] = None) -> Optional[tuple[AKT, dic
         model.to(device)
     model.eval()
     return model, vocab
+
+def _push_artifacts_to_db(db_session_factory) -> None:
+    """Mirrors the just-trained local files into dkt_artifacts so other
+    replicas (and this one, after a redeploy) can restore them. Best-effort:
+    the local files remain the source of truth for this process either way."""
+    from dkt.artifact_store import save_artifact
+
+    for name, path in _ARTIFACT_FILES.items():
+        try:
+            with open(path, "rb") as f:
+                data = f.read()
+        except OSError:
+            continue
+        try:
+            save_artifact(db_session_factory, name, data)
+        except Exception as e:
+            logger.warning(f"[AKT] Failed to persist {name} to DB: {e}")
+
+def sync_artifacts_from_db(db_session_factory) -> bool:
+    """Restores dkt_model.pt / concept_vocab.json / training_state.json from
+    the DB onto local disk when the DB copy is newer than what this process
+    has already synced -- covers a freshly booted/redeployed replica that
+    never trained locally, and one that's fallen behind another replica's
+    scheduled retrain. Returns True if anything changed on disk (callers
+    should invalidate any in-process model cache when that happens)."""
+    from dkt.artifact_store import load_artifact
+
+    changed = False
+    for name, path in _ARTIFACT_FILES.items():
+        try:
+            result = load_artifact(db_session_factory, name)
+        except Exception as e:
+            logger.warning(f"[AKT] Artifact sync check failed for {name}: {e}")
+            continue
+        if result is None:
+            continue
+        data, updated_at = result
+        if _last_synced_at.get(name) == updated_at:
+            continue
+        try:
+            with open(path, "wb") as f:
+                f.write(data)
+        except OSError as e:
+            logger.warning(f"[AKT] Failed to write synced artifact {name}: {e}")
+            continue
+        _last_synced_at[name] = updated_at
+        changed = True
+        logger.info(f"[AKT] Synced {name} from database (updated_at={updated_at})")
+    return changed
