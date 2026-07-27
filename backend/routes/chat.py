@@ -931,6 +931,108 @@ def _context_only_fallback_answer(user_id: str, question: str, context_doc_ids: 
             "Please try again in a moment."
         )
 
+async def _run_chat_ml_pipeline(
+    db: Session,
+    user: models.User,
+    question: str,
+    chat_id_int: Optional[int],
+    session_msg_count: int,
+    tutor_mode: bool,
+):
+    """Runs MessageMLPipeline (BKT mastery update, StrategyBandit selection +
+    reward-queueing, frustration/engagement tracking) and returns
+    (ml_output, ml_addendum) for the caller to feed into tutor.invoke().
+
+    Shared by /ask/ and /ask_simple/ so both actually exercise the bandit/BKT
+    system -- /ask_simple/ (what the web frontend calls) used to skip this
+    entirely and call the tutor graph directly, so StrategyBandit selection,
+    real-time chat mastery updates, and frustration/engagement trend tracking
+    never happened for web users even though the underlying pipeline itself
+    was fully wired and tested (just never reached via that endpoint).
+    """
+    ml_output = None
+    ml_addendum = ""
+    try:
+        from services.ml_pipeline import MessageMLPipeline, SessionContext
+        from services.memory_service import get_memory_service
+
+        session_state = None
+        if chat_id_int:
+            session_state = db.query(models.CerbylSessionState).filter_by(
+                session_id=chat_id_int
+            ).first()
+            if not session_state:
+                session_state = models.CerbylSessionState(
+                    session_id=chat_id_int,
+                    user_id=user.id,
+                    started_at=datetime.now(timezone.utc),
+                    message_count=0,
+                )
+                db.add(session_state)
+                db.commit()
+                db.refresh(session_state)
+
+        ctx = SessionContext(
+            session_id=chat_id_int,
+            message_count=session_state.message_count if session_state else session_msg_count,
+            current_concept_id=session_state.current_concept_id if session_state else None,
+            messages_on_concept=(
+                (session_state.messages_on_concept or {}).get(
+                    session_state.current_concept_id or "", 0
+                ) if session_state else 0
+            ),
+            frustration_trend=session_state.frustration_trend or [] if session_state else [],
+            engagement_trend=session_state.engagement_trend or [] if session_state else [],
+        )
+
+        pipeline = MessageMLPipeline(None, get_memory_service())
+        ml_output = await pipeline.process(question, str(user.id), ctx, db)
+        weak_profile = pipeline.build_weak_concept_profile(db, user.id)
+        ml_addendum = pipeline.build_system_prompt_addendum(
+            ml_output,
+            profile=weak_profile,
+            require_follow_up=bool(tutor_mode),
+        )
+
+        if session_state and ml_output:
+            session_state.message_count += 1
+            session_state.last_message_at = datetime.now(timezone.utc)
+            trend = session_state.frustration_trend or []
+            trend.append(round(ml_output.frustration_score, 3))
+            session_state.frustration_trend = trend[-10:]
+            if ml_output.detected_concepts:
+                session_state.current_concept_id = ml_output.detected_concepts[0]
+                mon = session_state.messages_on_concept or {}
+                cid = ml_output.detected_concepts[0]
+                mon[cid] = mon.get(cid, 0) + 1
+                session_state.messages_on_concept = mon
+            db.commit()
+
+    except Exception as _ml_err:
+        logger.warning(f"[CHAT] ML pipeline skipped: {_ml_err}", exc_info=True)
+
+    try:
+        from services.context_agent import get_context_agent, LearningEvent
+
+        _agent = get_context_agent()
+        if _agent and ml_output:
+            _event = LearningEvent(
+                student_id=str(user.id),
+                source="chat",
+                event_type="message",
+                concept_id=(ml_output.detected_concepts[0] if ml_output.detected_concepts else ""),
+                concept_name="",
+                session_id=chat_id_int,
+                frustration=ml_output.frustration_score,
+                intent=ml_output.intent,
+                message=question[:300],
+            )
+            _agent.record_event(db, _event)
+    except Exception as _ag_err:
+        logger.debug(f"[CHAT] context agent skipped: {_ag_err}")
+
+    return ml_output, ml_addendum
+
 class ChatSessionCreate(BaseModel):
     user_id: str
     title: str = "New Chat"
@@ -1026,87 +1128,9 @@ async def ask_ai(
             ]
         tutor_session_state = _get_tutor_session_state(db, chat_id_int, user.id) if tutor_mode else None
 
-        ml_output = None
-        ml_addendum = ""
-        try:
-            from services.ml_pipeline import MessageMLPipeline, SessionContext, ModelRegistry
-            from services.memory_service import get_memory_service
-
-            session_state = None
-            session_msg_count = len(chat_history_for_tutor)
-            if chat_id_int:
-                session_state = db.query(models.CerbylSessionState).filter_by(
-                    session_id=chat_id_int
-                ).first()
-                if not session_state:
-                    session_state = models.CerbylSessionState(
-                        session_id=chat_id_int,
-                        user_id=user.id,
-                        started_at=datetime.now(timezone.utc),
-                        message_count=0,
-                    )
-                    db.add(session_state)
-                    db.commit()
-                    db.refresh(session_state)
-
-            ctx = SessionContext(
-                session_id=chat_id_int,
-                message_count=session_state.message_count if session_state else session_msg_count,
-                current_concept_id=session_state.current_concept_id if session_state else None,
-                messages_on_concept=(
-                    (session_state.messages_on_concept or {}).get(
-                        session_state.current_concept_id or "", 0
-                    ) if session_state else 0
-                ),
-                frustration_trend=session_state.frustration_trend or [] if session_state else [],
-                engagement_trend=session_state.engagement_trend or [] if session_state else [],
-            )
-
-            pipeline = MessageMLPipeline(None, get_memory_service())
-            ml_output = await pipeline.process(question, str(user.id), ctx, db)
-            weak_profile = pipeline.build_weak_concept_profile(db, user.id)
-            ml_addendum = pipeline.build_system_prompt_addendum(
-                ml_output,
-                profile=weak_profile,
-                require_follow_up=bool(tutor_mode),
-            )
-
-            if session_state and ml_output:
-                session_state.message_count += 1
-                session_state.last_message_at = datetime.now(timezone.utc)
-                trend = session_state.frustration_trend or []
-                trend.append(round(ml_output.frustration_score, 3))
-                session_state.frustration_trend = trend[-10:]
-                if ml_output.detected_concepts:
-                    session_state.current_concept_id = ml_output.detected_concepts[0]
-                    mon = session_state.messages_on_concept or {}
-                    cid = ml_output.detected_concepts[0]
-                    mon[cid] = mon.get(cid, 0) + 1
-                    session_state.messages_on_concept = mon
-                db.commit()
-
-        except Exception as _ml_err:
-            logger.warning(f"[CHAT] ML pipeline skipped: {_ml_err}", exc_info=True)
-
-        try:
-            from services.context_agent import get_context_agent, LearningEvent
-
-            _agent = get_context_agent()
-            if _agent and ml_output:
-                _event = LearningEvent(
-                    student_id=str(user.id),
-                    source="chat",
-                    event_type="message",
-                    concept_id=(ml_output.detected_concepts[0] if ml_output.detected_concepts else ""),
-                    concept_name="",
-                    session_id=chat_id_int,
-                    frustration=ml_output.frustration_score,
-                    intent=ml_output.intent,
-                    message=question[:300],
-                )
-                _agent.record_event(db, _event)
-        except Exception as _ag_err:
-            logger.debug(f"[CHAT] context agent skipped: {_ag_err}")
+        ml_output, ml_addendum = await _run_chat_ml_pipeline(
+            db, user, question, chat_id_int, len(chat_history_for_tutor), tutor_mode,
+        )
 
         from tutor.graph import get_tutor
 
@@ -1330,6 +1354,10 @@ async def ask_simple(
             ]
         tutor_session_state = _get_tutor_session_state(db, chat_id_int, user.id) if tutor_mode else None
 
+        ml_output, ml_addendum = await _run_chat_ml_pipeline(
+            db, user, user_question or model_question, chat_id_int, len(chat_history), tutor_mode,
+        )
+
         from tutor.graph import get_tutor
 
         tutor = get_tutor()
@@ -1342,6 +1370,7 @@ async def ask_simple(
                 use_hs_context=bool(use_hs_context),
                 context_doc_ids=selected_doc_ids,
                 context_only=bool(selected_doc_ids),
+                ml_addendum=ml_addendum,
                 tutor_mode=bool(tutor_mode),
                 tutor_reply_style=tutor_reply_style,
                 tutor_choice=tutor_choice,
@@ -1437,7 +1466,9 @@ async def ask_simple(
             "intent_class":  _intent_result.label if _intent_result else "LEARN_CONCEPT",
             "active_rules":  [{"domain": r.domain, "negated": r.negated}
                               for r in (_intent_result.active_rules if _intent_result else [])],
-            "topics_discussed": [],
+            "topics_discussed":  ml_output.detected_concepts if ml_output else [],
+            "frustration_score": ml_output.frustration_score if ml_output else 0.0,
+            "response_strategy": ml_output.response_strategy if ml_output else "",
             "query_type":    "conversational_learning",
             "tutor_mode": bool(tutor_mode),
             "tutor_reply_style": tutor_reply_style,
