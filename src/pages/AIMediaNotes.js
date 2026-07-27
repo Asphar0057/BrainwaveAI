@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
-  Upload, Youtube, FileText, Save, Copy, Mic, Loader,
+  Upload, FileText, Save, Copy, Mic, Loader,
   Settings, Brain, Zap, Clock, Globe, ChevronLeft, ChevronRight,
   BookOpen, CheckCircle, AlertCircle, Play, Trash2, Home,
   Search, PanelRight, X
 } from 'lucide-react';
 import './AIMediaNotes.css';
 import './AIMediaNotesConvert.css';
+import '../components/NotesSidebarSystem.css';
 import { API_URL } from '../config';
 import { queueLegacyAIEndpoint, queueLegacyAIFileEndpoint, USE_AI_JOB_QUEUE } from '../services/aiJobService';
 import { sanitizeHtml } from '../utils/sanitize';
@@ -16,13 +17,10 @@ import PodcastStudio from '../components/media/PodcastStudio';
 import GeometricGrid from '../components/GeometricGrid';
 
 const asText = (value) => (value === null || value === undefined ? '' : String(value));
-const MEDIA_FILE_ACCEPT = 'audio/*,video/*,application/pdf,.pdf,.m4a,audio/mp4,audio/x-m4a';
+const MEDIA_FILE_ACCEPT = '.pdf,.mp3,.mp4,application/pdf,audio/mpeg,video/mp4';
 const MAX_MEDIA_FILE_SIZE_MB = 100;
 const MAX_MEDIA_FILE_SIZE = MAX_MEDIA_FILE_SIZE_MB * 1024 * 1024;
-const MEDIA_FILE_EXTENSIONS = new Set([
-  'mp3', 'wav', 'm4a', 'webm', 'ogg', 'opus', 'mp4', 'mpeg', 'mpga',
-  'mov', 'avi', 'mkv', 'pdf'
-]);
+const MEDIA_FILE_EXTENSIONS = new Set(['mp3', 'mp4', 'pdf']);
 
 const getFileExtension = (file) => file?.name?.toLowerCase().split('.').pop() || '';
 
@@ -31,12 +29,7 @@ const isPdfFile = (file) => (
 );
 
 const isSupportedMediaFile = (file) => (
-  Boolean(file) && (
-    file.type?.startsWith('audio/')
-    || file.type?.startsWith('video/')
-    || isPdfFile(file)
-    || MEDIA_FILE_EXTENSIONS.has(getFileExtension(file))
-  )
+  Boolean(file) && MEDIA_FILE_EXTENSIONS.has(getFileExtension(file))
 );
 
 const formatDate = (value) => {
@@ -72,7 +65,6 @@ const AIMediaNotes = () => {
 
   
   const [uploadedFile, setUploadedFile] = useState(null);
-  const [youtubeUrl, setYoutubeUrl] = useState('');
   const [isDragging, setIsDragging] = useState(false);
 
   
@@ -111,7 +103,7 @@ const AIMediaNotes = () => {
   const selectUploadFile = (file) => {
     if (!file) return;
     if (!isSupportedMediaFile(file)) {
-      alert('Unsupported file type. Please upload an audio, video, or PDF file.');
+      alert('Unsupported file type. Please upload a PDF, MP3, or MP4 file.');
       return;
     }
     if (file.size > MAX_MEDIA_FILE_SIZE) {
@@ -119,7 +111,6 @@ const AIMediaNotes = () => {
       return;
     }
     setUploadedFile(file);
-    setYoutubeUrl('');
   };
 
   const handleFileUpload = (e) => {
@@ -145,8 +136,8 @@ const AIMediaNotes = () => {
   };
 
   const processMedia = async () => {
-    if (!uploadedFile && !youtubeUrl) {
-      alert('Please upload a file or provide a YouTube URL');
+    if (!uploadedFile) {
+      alert('Please upload a PDF, MP3, or MP4 file');
       return;
     }
 
@@ -166,15 +157,9 @@ const AIMediaNotes = () => {
       formData.append('generate_flashcards', generateFlashcards);
       formData.append('generate_quiz', generateQuiz);
 
-      if (uploadedFile) {
-        formData.append('file', uploadedFile);
-        setProcessingStage('Uploading file...');
-        setProgress(10);
-      } else if (youtubeUrl) {
-        formData.append('youtube_url', youtubeUrl);
-        setProcessingStage('Fetching YouTube transcript...');
-        setProgress(10);
-      }
+      formData.append('file', uploadedFile);
+      setProcessingStage('Uploading file...');
+      setProgress(10);
 
       progressInterval = setInterval(() => {
         setProgress(prev => prev < 90 ? prev + 5 : prev);
@@ -352,13 +337,7 @@ const AIMediaNotes = () => {
         body: JSON.stringify({
           user_id: userName,
           title: smartTitle,
-          description: `Flashcards from ${
-            results.source_type === 'youtube'
-              ? 'YouTube video'
-              : results.source_type === 'pdf'
-                ? 'uploaded PDF'
-                : 'uploaded media'
-          }`
+          description: `Flashcards from ${results.source_type === 'pdf' ? 'uploaded PDF' : 'uploaded media'}`
         })
       });
 
@@ -532,7 +511,6 @@ const AIMediaNotes = () => {
   const startNewUpload = () => {
     setResults(null);
     setUploadedFile(null);
-    setYoutubeUrl('');
     setActiveNoteId(null);
     setActiveTab('notes');
     setTranscriptQuery('');
@@ -541,7 +519,6 @@ const AIMediaNotes = () => {
     }
   };
 
-  const currentMediaTitle = isLibraryView ? 'My Media Notes' : (results?.filename || (activeNoteId ? history.find(item => item.id === activeNoteId)?.title : null) || 'AI Media Notes');
   const flashcardCount = Array.isArray(results?.flashcards) ? results.flashcards.length : 0;
   const quizCount = Array.isArray(results?.quiz_questions) ? results.quiz_questions.length : 0;
   const momentCount = Array.isArray(results?.key_moments) ? results.key_moments.length : 0;
@@ -551,14 +528,12 @@ const AIMediaNotes = () => {
   const visibleTranscriptParagraphs = normalizedTranscriptQuery
     ? transcriptParagraphs.filter((paragraph) => paragraph.toLowerCase().includes(normalizedTranscriptQuery))
     : transcriptParagraphs;
-  const sourceLabel = results?.source_type === 'youtube'
-    ? 'YouTube'
-    : results?.source_type === 'pdf'
+  const sourceLabel = results?.source_type === 'pdf'
       ? 'PDF'
       : results?.source_type === 'history'
         ? 'Saved note'
         : 'Media upload';
-  const selectedSourceName = uploadedFile?.name || (youtubeUrl ? 'YouTube link ready' : 'No source selected');
+  const selectedSourceName = uploadedFile?.name || 'No source selected';
 
   return (
     <div className="ai-media-notes-page">
@@ -576,7 +551,8 @@ const AIMediaNotes = () => {
 
       <div className="mn-layout amn-qb-body">
         <div className={`amn-qb-shell ${sidebarOpen ? '' : 'amn-qb-shell--collapsed'}`}>
-          <aside className={`amn-qb-sidebar ${sidebarOpen ? '' : 'amn-qb-sidebar--collapsed'}`} aria-label="Media notes navigation">
+          <aside className={`amn-qb-sidebar notes-sidebar-system ${sidebarOpen ? '' : 'amn-qb-sidebar--collapsed'}`} aria-label="Media notes navigation">
+            <div className="notes-sidebar-texture" aria-hidden="true" />
             {!sidebarOpen ? (
               <div className="amn-qb-collapsed-strip">
                 <button className="amn-qb-strip-btn" data-tip="Open sidebar" onClick={() => setSidebarOpen(true)} type="button">
@@ -652,7 +628,6 @@ const AIMediaNotes = () => {
                 <div className="amn-qb-brand-wrap">
                   <div className="amn-qb-brand">cerbyl</div>
                   <div className="amn-qb-brand-kicker">Media</div>
-                  <div className="amn-qb-current-title">{currentMediaTitle}</div>
                 </div>
                 <button
                   className="amn-qb-side-close-btn"
@@ -670,6 +645,7 @@ const AIMediaNotes = () => {
                 <span>New Upload</span>
               </button>
 
+              <div className="notes-standard-scroll">
               <div className="amn-qb-side-block">
                 <div className="amn-qb-side-label">Generated Output</div>
                 <nav className="amn-qb-view-nav" aria-label="Generated output tabs">
@@ -751,6 +727,7 @@ const AIMediaNotes = () => {
                   )}
                 </div>
               </div>
+              </div>
 
               <div className="amn-qb-side-actions">
                 <button className="amn-qb-action-btn" onClick={() => navigate('/dashboard-cerbyl')} type="button">
@@ -766,10 +743,13 @@ const AIMediaNotes = () => {
           <div className="mn-content" ref={contentRef}>
             {isLibraryView ? (
               <div className="mn-upload-section">
-                <div className="view-heading mn-view-heading">
-                  <span className="view-kicker">Your Library</span>
-                  <h2 className="view-title">My Media Notes</h2>
-                  <p className="view-sub">Every note generated from your audio, video, PDF &amp; YouTube uploads</p>
+                <div className="amn-library-heading">
+                  <div className="view-heading mn-view-heading">
+                    <span className="view-kicker">Source Archive / {history.length} editions</span>
+                    <h2 className="view-title">Media library</h2>
+                    <p className="view-sub">Return to the source, transcript and every study output without breaking context.</p>
+                  </div>
+                  <button type="button" className="amn-library-new" onClick={startNewUpload}><Upload size={15} />Add source</button>
                 </div>
 
                 {history.length > 0 ? (
@@ -785,11 +765,18 @@ const AIMediaNotes = () => {
                           if (e.key === 'Enter' || e.key === ' ') navigate(`/notes/ai-media/${item.id}`);
                         }}
                       >
-                        <div className="amn-library-card-icon"><FileText size={18} /></div>
-                        <h3 className="amn-library-card-title">{item.title}</h3>
-                        {item.preview && <p className="amn-library-card-preview">{item.preview}</p>}
+                        <div className="amn-library-card-top">
+                          <span className="amn-library-index">{String(idx + 1).padStart(2, '0')}</span>
+                          <div className="amn-library-card-icon"><FileText size={18} /></div>
+                        </div>
+                        <div>
+                          <span className="amn-library-kind">Study edition</span>
+                          <h3 className="amn-library-card-title">{item.title}</h3>
+                          {item.preview && <p className="amn-library-card-preview">{item.preview}</p>}
+                        </div>
                         <div className="amn-library-card-footer">
                           <span className="amn-library-card-date">{formatDate(item.created_at)}</span>
+                          <span className="amn-library-open">Open desk <ChevronRight size={13} /></span>
                           <button
                             type="button"
                             className="amn-library-card-delete"
@@ -806,7 +793,7 @@ const AIMediaNotes = () => {
                   <div className="mn-empty-state">
                     <AlertCircle size={48} />
                     <p>No media notes yet</p>
-                    <p className="mn-empty-hint">Generate notes from audio, video, PDF, or YouTube to see them here</p>
+                    <p className="mn-empty-hint">Upload a PDF, MP3, or MP4 to generate your first media note</p>
                   </div>
                 )}
               </div>
@@ -814,14 +801,22 @@ const AIMediaNotes = () => {
               <div className="mn-upload-section mn-intake">
                 <div className="mn-intake-heading">
                   <div className="view-heading mn-view-heading">
-                    <span className="view-kicker">Media → understanding</span>
-                    <h2 className="view-title">Build a study edition.</h2>
-                    <p className="view-sub">Bring the source. Tell Cerbyl how you need to learn it. Get notes that keep the original context close.</p>
+                    <span className="view-kicker">Media Desk / New study edition</span>
+                    <h2 className="view-title">Keep the source.<br />Lose the noise.</h2>
+                    <p className="view-sub">A source-aware workspace for turning recordings, video and documents into notes you can trace, review and reuse.</p>
                   </div>
                   <div className="mn-intake-status" aria-label="Current setup">
                     <span>Source</span>
                     <strong>{selectedSourceName}</strong>
                   </div>
+                </div>
+
+                <div className="mn-workflow-strip" aria-label="Media Notes workflow">
+                  <span className={uploadedFile ? 'is-complete' : 'is-current'}><b>01</b> Source</span>
+                  <i />
+                  <span className={uploadedFile ? 'is-current' : ''}><b>02</b> Study brief</span>
+                  <i />
+                  <span><b>03</b> Study desk</span>
                 </div>
 
                 <div className="mn-intake-grid">
@@ -850,8 +845,8 @@ const AIMediaNotes = () => {
                       />
                       <div className="mn-source-icon"><Upload size={24} /></div>
                       <div>
-                        <p>{uploadedFile ? 'Replace source file' : 'Drop a recording, video, or PDF'}</p>
-                        <span>Up to {MAX_MEDIA_FILE_SIZE_MB} MB · MP3, MP4, M4A, PDF and more</span>
+                        <p>{uploadedFile ? 'Replace source file' : 'Drop a PDF, MP3, or MP4'}</p>
+                        <span>Local upload · up to {MAX_MEDIA_FILE_SIZE_MB} MB · PDF, MP3, MP4</span>
                       </div>
                     </div>
 
@@ -866,21 +861,10 @@ const AIMediaNotes = () => {
                       </div>
                     )}
 
-                    <div className="mn-source-divider"><span>or use a public video</span></div>
-
-                    <label className={`mn-youtube-input ${youtubeUrl ? 'has-source' : ''}`}>
-                      <Youtube size={20} />
-                      <span className="mn-input-label">YouTube URL</span>
-                      <input
-                        type="text"
-                        placeholder="youtube.com/watch?v=..."
-                        value={youtubeUrl}
-                        onChange={(e) => {
-                          setYoutubeUrl(e.target.value);
-                          setUploadedFile(null);
-                        }}
-                      />
-                    </label>
+                    <div className="mn-local-source-note">
+                      <span>Cloud-safe intake</span>
+                      <p>Files are uploaded directly for processing. No external video host or public link is required.</p>
+                    </div>
                   </section>
 
                   <section className="mn-intake-card mn-brief-card">
@@ -895,6 +879,33 @@ const AIMediaNotes = () => {
 
                     {showSettings && (
                     <div className="mn-settings-content">
+                      <div className="mn-recipe-picker">
+                        <span className="mn-recipe-label">Quick recipes</span>
+                        <div>
+                          <button
+                            className={noteStyle === 'detailed' && difficulty === 'intermediate' ? 'is-selected' : ''}
+                            type="button"
+                            onClick={() => { setNoteStyle('detailed'); setDifficulty('intermediate'); setGenerateFlashcards(true); setGenerateQuiz(true); }}
+                          >
+                            <strong>Lecture</strong><small>Detailed + recall tools</small>
+                          </button>
+                          <button
+                            className={noteStyle === 'bullet_points' && difficulty === 'beginner' ? 'is-selected' : ''}
+                            type="button"
+                            onClick={() => { setNoteStyle('bullet_points'); setDifficulty('beginner'); setGenerateFlashcards(true); setGenerateQuiz(false); }}
+                          >
+                            <strong>Quick review</strong><small>Key points + cards</small>
+                          </button>
+                          <button
+                            className={noteStyle === 'cornell' && difficulty === 'advanced' ? 'is-selected' : ''}
+                            type="button"
+                            onClick={() => { setNoteStyle('cornell'); setDifficulty('advanced'); setGenerateFlashcards(false); setGenerateQuiz(true); }}
+                          >
+                            <strong>Deep study</strong><small>Cornell + challenge</small>
+                          </button>
+                        </div>
+                      </div>
+
                       <div className="mn-settings-grid">
                         <div className="mn-form-group">
                           <label>Note Style</label>
@@ -977,7 +988,7 @@ const AIMediaNotes = () => {
 
                     <button
                       onClick={processMedia}
-                      disabled={isProcessing || (!uploadedFile && !youtubeUrl)}
+                      disabled={isProcessing || !uploadedFile}
                       className="mn-process-btn"
                     >
                       {isProcessing ? (
@@ -1012,7 +1023,7 @@ const AIMediaNotes = () => {
                 <div className="mn-results-header">
                   <div className="mn-results-identity">
                     <div className="mn-result-source-mark">
-                      {results.source_type === 'youtube' ? <Youtube size={24} /> : results.source_type === 'pdf' ? <FileText size={24} /> : <Mic size={24} />}
+                      {results.source_type === 'pdf' ? <FileText size={24} /> : <Mic size={24} />}
                     </div>
                     <div>
                       <span className="mn-result-eyebrow">{sourceLabel} · study edition</span>

@@ -1547,62 +1547,114 @@ const PodcastStudio = ({ results, userName, onExit, onSettingsDrawerChange }) =>
 
           
           <div className="podcast-prelaunch">
-            {isStarting ? (
-              <div className="podcast-prelaunch-starting">
-                <Loader2 size={40} className="spin" />
-                <p>Starting your session…</p>
+            <aside className="podcast-prelaunch-sidebar notes-sidebar-system" aria-label="Podcast studio navigation">
+              <div className="notes-sidebar-texture" aria-hidden="true" />
+              <div className="podcast-rail-texture" aria-hidden />
+              <div className="podcast-studio-brand">
+                <strong>cerbyl</strong>
+                <span>Podcast Studio</span>
               </div>
-            ) : (
-              <div className="podcast-prelaunch-inner">
-                <div className="podcast-prelaunch-orb">
-                  <Headphones size={48} />
-                </div>
-                <div className="podcast-prelaunch-stats">
-                  <span className="podcast-stat">{transcript.split(' ').filter(Boolean).length.toLocaleString()} words</span>
-                  <span className="podcast-stat">{keyConcepts.length} key concepts</span>
-                </div>
 
-                <p className="podcast-prelaunch-label">Select Voice Mode</p>
-                <div className="podcast-prelaunch-modes">
-                  {voiceModes.map((mode) => (
-                    <button
-                      key={mode.id}
-                      type="button"
-                      className={`podcast-prelaunch-mode ${selectedVoiceMode === mode.id ? 'active' : ''}`}
-                      aria-pressed={selectedVoiceMode === mode.id}
-                      onClick={() => setSelectedVoiceMode(mode.id)}
-                    >
-                      <strong>{mode.label}</strong>
-                      <span>{mode.description}</span>
+              <div className="podcast-studio-side-block">
+                <span className="podcast-studio-side-label">Source</span>
+                <strong className="podcast-studio-source-title">{getPodcastDisplayTitle(results?.filename)}</strong>
+                <div className="podcast-studio-source-meta">
+                  <span>{transcript.split(' ').filter(Boolean).length.toLocaleString()} words</span>
+                  <span>{keyConcepts.length} concepts</span>
+                </div>
+              </div>
+
+              <div className="podcast-studio-side-block podcast-studio-side-block--grow">
+                <span className="podcast-studio-side-label">Recent sessions</span>
+                <div className="podcast-studio-recents">
+                  {savedSessions.length > 0 ? savedSessions.slice(0, 5).map((item) => (
+                    <button key={`prelaunch-${item.session_id}`} type="button" onClick={() => resumeSession(item.session_id)}>
+                      <strong>{item.title || 'Podcast Session'}</strong>
+                      <span>{item.voice_mode} · chapter {Math.max((item.current_index || 0) + 1, 1)}</span>
                     </button>
-                  ))}
+                  )) : <p>No saved sessions yet.</p>}
                 </div>
-
-                <button
-                  type="button"
-                  className="podcast-prelaunch-cta"
-                  onClick={startSession}
-                  disabled={isStarting || !transcript || transcript.length < 100}
-                >
-                  <Play size={22} />
-                  <span>Start Session</span>
-                </button>
-
-                {error && (
-                  <div className="podcast-error podcast-prelaunch-error">
-                    <Mic size={13} />
-                    <span>{error}</span>
-                  </div>
-                )}
               </div>
-            )}
+
+              <button className="podcast-studio-back" type="button" onClick={closeFullscreenMode}>
+                <X size={14} /><span>Back to media notes</span>
+              </button>
+            </aside>
+
+            <section className="podcast-prelaunch-main">
+              {isStarting ? (
+                <div className="podcast-prelaunch-starting">
+                  <Loader2 size={40} className="spin" />
+                  <p>Starting your session…</p>
+                </div>
+              ) : (
+                <div className="podcast-prelaunch-inner">
+                  <div className="podcast-prelaunch-intro">
+                    <div className="podcast-prelaunch-orb">
+                      <Headphones size={34} />
+                    </div>
+                    <div>
+                      <span className="podcast-fullscreen-kicker">Build your listening session</span>
+                      <h4>Choose how Cerbyl should teach this source.</h4>
+                      <p>Voice mode changes the pacing, explanation style, and how often the session checks your understanding.</p>
+                    </div>
+                  </div>
+
+                  <p className="podcast-prelaunch-label">Voice mode</p>
+                  <div className="podcast-prelaunch-modes">
+                    {voiceModes.map((mode, index) => (
+                      <button
+                        key={mode.id}
+                        type="button"
+                        className={`podcast-prelaunch-mode ${selectedVoiceMode === mode.id ? 'active' : ''}`}
+                        aria-pressed={selectedVoiceMode === mode.id}
+                        onClick={() => setSelectedVoiceMode(mode.id)}
+                      >
+                        <span className="podcast-mode-index">{String(index + 1).padStart(2, '0')}</span>
+                        <strong>{mode.label}</strong>
+                        <span>{mode.description}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="podcast-prelaunch-launchbar">
+                    <div>
+                      <span>Ready to produce</span>
+                      <strong>{voiceModes.find((mode) => mode.id === selectedVoiceMode)?.label || selectedVoiceMode}</strong>
+                    </div>
+                    <button
+                      type="button"
+                      className="podcast-prelaunch-cta"
+                      onClick={startSession}
+                      disabled={isStarting || !transcript || transcript.length < 100}
+                    >
+                      <Play size={18} />
+                      <span>Start Session</span>
+                    </button>
+                  </div>
+
+                  {error && (
+                    <div className="podcast-error podcast-prelaunch-error">
+                      <Mic size={13} />
+                      <span>{error}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
           </div>
 
         ) : (
 
           
           <div className={`podcast-fullscreen-body ${subtitlesExpanded ? 'podcast-fullscreen-body--subtitles-expanded' : ''}`}>
-            <aside className="podcast-fullscreen-rail">
+            <aside className="podcast-fullscreen-rail notes-sidebar-system">
+              <div className="notes-sidebar-texture" aria-hidden="true" />
+              <div className="podcast-rail-texture" aria-hidden />
+              <div className="podcast-studio-brand podcast-studio-brand--rail">
+                <strong>cerbyl</strong>
+                <span>Podcast</span>
+              </div>
               <div className="podcast-fullscreen-panel">
                 <div className="podcast-fullscreen-panel-head">
                   <List size={15} />

@@ -24,6 +24,7 @@ export function SidebarShell({ collapsed, onToggleCollapse, brandKicker, brandLo
         />
       )}
       <aside className={`sb-sidebar ${collapsed ? 'sb-sidebar--collapsed' : ''}`} aria-label={ariaLabel}>
+        <div className="sb-sidebar-texture" aria-hidden="true" />
         {collapsed ? (
           <div className="sb-collapsed-strip">
             {onToggleCollapse && (

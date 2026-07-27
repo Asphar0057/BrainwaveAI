@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { X, Check, Pencil, Award, BarChart3, Crown, Rocket, ShieldCheck, LogOut, Trash2, MessageSquare, LayoutDashboard, User, CreditCard, Target, Settings, BookOpen, Sparkles, Plus, Gauge } from 'lucide-react';
-import { SidebarShell, SidebarSection, SidebarMenuItem, SidebarStats, SidebarStatBox, SidebarActions, SidebarAction, SidebarStripButton, SidebarStripDivider, SidebarStripSpacer } from '../components/Sidebar';
+import { X, Check, Pencil, Award, BarChart3, Crown, Rocket, ShieldCheck, LogOut, Trash2, LayoutDashboard, User, CreditCard, Target, Settings, BookOpen, Sparkles, Plus, Gauge, ArrowUpRight, Bell, Eye, Fingerprint } from 'lucide-react';
+import { SidebarShell, SidebarSection, SidebarMenuItem, SidebarPrimaryButton, SidebarActions, SidebarAction, SidebarStripButton, SidebarStripDivider, SidebarStripSpacer } from '../components/Sidebar';
 import WeaknessTracker from '../components/WeaknessTracker/WeaknessTracker';
 import { API_URL } from '../config';
 import { signOutAppSession } from '../utils/authSession';
 import './ProfileNew.css';
+import './ProfileWorkspace.css';
 import '../components/SocialHubChrome.css';
 
 const PRESET_PFPS = [
@@ -365,6 +366,10 @@ const ProfileNew = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const pfpUploadInputRef = useRef(null);
+  const pfpTriggerRef = useRef(null);
+  const pfpModalRef = useRef(null);
+  const pfpCloseButtonRef = useRef(null);
+  const pfpPreviousFocusRef = useRef(null);
   const token = localStorage.getItem('token');
   const [userName, setUserName] = useState(() => localStorage.getItem('username') || '');
 
@@ -408,8 +413,7 @@ const ProfileNew = () => {
   });
 
   const [rateLimits, setRateLimits] = useState(null);
-  const [typedName, setTypedName] = useState('');
-  const [nameDone, setNameDone] = useState(false);
+  const [activeSection, setActiveSection] = useState('pn-section-overview');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => (
     typeof window !== 'undefined' ? window.innerWidth <= 768 : false
   ));
@@ -420,10 +424,50 @@ const ProfileNew = () => {
     const scroller = mainScrollRef.current;
     if (!el) return;
     if (scroller) {
-      scroller.scrollTo({ top: Math.max(el.offsetTop - 16, 0), behavior: 'smooth' });
+      const targetTop = scroller.scrollTop
+        + el.getBoundingClientRect().top
+        - scroller.getBoundingClientRect().top;
+      scroller.scrollTo({ top: Math.max(targetTop - 16, 0), behavior: 'smooth' });
       return;
     }
     el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
+  useEffect(() => {
+    const scroller = mainScrollRef.current;
+    if (!scroller) return undefined;
+    const sectionIds = [
+      'pn-section-overview',
+      'pn-section-personal',
+      'pn-section-subjects',
+      'pn-section-subscription',
+      'pn-section-mastery',
+      'pn-section-settings'
+    ];
+    let frame = null;
+    const updateActiveSection = () => {
+      frame = null;
+      const scrollerTop = scroller.getBoundingClientRect().top;
+      const current = sectionIds
+        .map((id) => {
+          const element = document.getElementById(id);
+          return element ? { id, distance: Math.abs(element.getBoundingClientRect().top - scrollerTop - 24) } : null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.distance - b.distance)[0];
+      if (current) setActiveSection(current.id);
+    };
+    const onScroll = () => {
+      if (frame == null) frame = window.requestAnimationFrame(updateActiveSection);
+    };
+    updateActiveSection();
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      scroller.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      if (frame != null) window.cancelAnimationFrame(frame);
+    };
   }, []);
 
   useEffect(() => {
@@ -472,19 +516,6 @@ const ProfileNew = () => {
   const profileXp = gamificationStats?.total_points || gamificationStats?.experience || 0;
   const nextLevelXp = gamificationStats?.next_level_xp || 100;
   const levelProgress = Math.min(100, Math.max(0, nextLevelXp ? (profileXp / nextLevelXp) * 100 : 0));
-
-  useEffect(() => {
-    const full = String(displayName || '').trim();
-    if (!full) { setTypedName(''); setNameDone(true); return; }
-    setTypedName(''); setNameDone(false);
-    let i = 0;
-    const t = setInterval(() => {
-      i += 1;
-      setTypedName(full.slice(0, i));
-      if (i >= full.length) { clearInterval(t); setNameDone(true); }
-    }, 80);
-    return () => clearInterval(t);
-  }, [displayName]);
 
   const loadSubscriptionOverview = useCallback(async ({ silent = false, includeUsage = false } = {}) => {
     if (!userName) return;
@@ -832,9 +863,34 @@ const ProfileNew = () => {
 
   useEffect(() => {
     if (!pfpModalOpen) return;
-    const fn = (e) => { if (e.key === 'Escape') setPfpModalOpen(false); };
-    window.addEventListener('keydown', fn);
-    return () => window.removeEventListener('keydown', fn);
+    pfpPreviousFocusRef.current = document.activeElement;
+    const focusFrame = window.requestAnimationFrame(() => pfpCloseButtonRef.current?.focus());
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setPfpModalOpen(false);
+        return;
+      }
+      if (event.key !== 'Tab' || !pfpModalRef.current) return;
+      const focusable = Array.from(pfpModalRef.current.querySelectorAll(
+        'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+      )).filter((element) => element.offsetParent !== null);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      window.removeEventListener('keydown', onKeyDown);
+      pfpPreviousFocusRef.current?.focus?.();
+    };
   }, [pfpModalOpen]);
 
   const arch = profileData.primaryArchetype ? ARCHETYPE_INFO[profileData.primaryArchetype] : null;
@@ -860,26 +916,18 @@ const ProfileNew = () => {
   };
 
   return (
-    <div className="pn-root">
-      <GeoBackground />
+    <div className="pn-root pn-profile-workspace">
+      <div className="pnw-line-field" aria-hidden="true" />
 
-      <div className="pn-topbar">
-        <div className="pn-topbar-center"><span className="shc-tagline"><span>LEARNING,</span> UNIFIED</span></div>
+      <header className="pn-topbar">
+        <span className="pnw-top-brand"><b>LEARNING,</b> UNIFIED</span>
         <div className="pn-topbar-actions">
-          <button className="pn-top-action" onClick={() => navigate('/dashboard-cerbyl')} type="button">
-            <span>Dashboard</span>
-          </button>
-          <div className="pn-save-status">
-            {autoSaving ? (
-              <span className="pn-saving">saving<span className="pn-saving-dots"><i/><i/><i/></span></span>
-            ) : profileSaveError ? (
-              <span className="pn-save-error">{profileSaveError}</span>
-            ) : lastSaved ? (
-              <span className="pn-saved">· saved {lastSaved}</span>
-            ) : null}
+          <div className={`pn-save-status ${profileSaveError ? 'is-error' : ''}`} role="status">
+            {autoSaving ? 'Saving changes' : profileSaveError || (lastSaved ? `Saved ${lastSaved}` : 'Profile ready')}
           </div>
+          <button className="pn-top-action" onClick={() => navigate('/dashboard-cerbyl')} type="button">Dashboard</button>
         </div>
-      </div>
+      </header>
 
       <div className="pf-qb-body">
         <div className={`pf-qb-shell ${sidebarCollapsed ? 'pf-qb-shell--collapsed' : ''}`}>
@@ -891,556 +939,417 @@ const ProfileNew = () => {
             collapsedContent={(
               <>
                 <SidebarStripButton icon={<User size={18} />} tip="Overview" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-overview'); }} />
-                <SidebarStripButton icon={<CreditCard size={18} />} tip="Subscription" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-subscription'); }} />
-                <SidebarStripButton icon={<Gauge size={18} />} tip="Usage" onClick={() => navigate('/profile/usage')} />
-                <SidebarStripButton icon={<BookOpen size={18} />} tip="Personal Info" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-personal'); }} />
-                <SidebarStripButton icon={<Target size={18} />} tip="Learning Goals" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-goals'); }} />
-                <SidebarStripButton icon={<Sparkles size={18} />} tip="Subjects" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-subjects'); }} />
+                <SidebarStripButton icon={<BookOpen size={18} />} tip="Identity" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-personal'); }} />
+                <SidebarStripButton icon={<Sparkles size={18} />} tip="Learning profile" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-subjects'); }} />
+                <SidebarStripButton icon={<CreditCard size={18} />} tip="Plan" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-subscription'); }} />
                 <SidebarStripButton icon={<BarChart3 size={18} />} tip="Mastery" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-mastery'); }} />
                 <SidebarStripDivider />
-                <SidebarStripButton icon={<Settings size={18} />} tip="Settings" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-settings'); }} />
-                <SidebarStripButton icon={<Trash2 size={18} />} tip="Account" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-account'); }} />
-                <SidebarStripButton icon={<Award size={18} />} tip="Retake Assessment" onClick={() => navigate('/profile-quiz')} />
+                <SidebarStripButton icon={<Settings size={18} />} tip="Preferences" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-settings'); }} />
+                <SidebarStripButton icon={<Gauge size={18} />} tip="Usage" onClick={() => navigate('/profile/usage')} />
                 <SidebarStripSpacer />
-                <SidebarStripButton icon={<MessageSquare size={18} />} tip="AI Chat" onClick={() => navigate('/ai-chat')} />
                 <SidebarStripButton icon={<LayoutDashboard size={18} />} tip="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} />
-                <SidebarStripButton icon={<LogOut size={18} />} tip="Logout" onClick={clearSessionAndGoLogin} />
               </>
             )}
           >
-            <SidebarSection heading="Sections">
-              <SidebarMenuItem icon={<User size={16} />} label="Overview" onClick={() => scrollToSection('pn-section-overview')} />
-              <SidebarMenuItem icon={<CreditCard size={16} />} label="Subscription" onClick={() => scrollToSection('pn-section-subscription')} />
-              <SidebarMenuItem icon={<Gauge size={16} />} label="Usage" onClick={() => navigate('/profile/usage')} />
-              <SidebarMenuItem icon={<BookOpen size={16} />} label="Personal Info" onClick={() => scrollToSection('pn-section-personal')} />
-              <SidebarMenuItem icon={<Target size={16} />} label="Learning Goals" onClick={() => scrollToSection('pn-section-goals')} />
-              <SidebarMenuItem icon={<Sparkles size={16} />} label="Subjects" onClick={() => scrollToSection('pn-section-subjects')} />
-              <SidebarMenuItem icon={<BarChart3 size={16} />} label="Mastery" onClick={() => scrollToSection('pn-section-mastery')} />
+            <SidebarPrimaryButton icon={<Pencil size={15} />} label="Edit profile" onClick={() => scrollToSection('pn-section-personal')} />
+            <SidebarSection heading="Profile">
+              <SidebarMenuItem icon={<User size={16} />} label="Overview" active={activeSection === 'pn-section-overview'} onClick={() => scrollToSection('pn-section-overview')} />
+              <SidebarMenuItem icon={<BookOpen size={16} />} label="Identity" active={activeSection === 'pn-section-personal'} onClick={() => scrollToSection('pn-section-personal')} />
+              <SidebarMenuItem icon={<Sparkles size={16} />} label="Learning profile" active={activeSection === 'pn-section-subjects'} onClick={() => scrollToSection('pn-section-subjects')} />
+              <SidebarMenuItem icon={<CreditCard size={16} />} label="Plan and usage" active={activeSection === 'pn-section-subscription'} onClick={() => scrollToSection('pn-section-subscription')} />
             </SidebarSection>
-
             <SidebarSection heading="Account">
-              <SidebarMenuItem icon={<LayoutDashboard size={16} />} label="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} />
-              <SidebarMenuItem icon={<Settings size={16} />} label="Settings" onClick={() => scrollToSection('pn-section-settings')} />
-              <SidebarMenuItem icon={<Trash2 size={16} />} label="Delete Account" onClick={() => scrollToSection('pn-section-account')} />
-              <SidebarMenuItem icon={<Award size={16} />} label="Retake Assessment" onClick={() => navigate('/profile-quiz')} />
+              <SidebarMenuItem icon={<BarChart3 size={16} />} label="Mastery" active={activeSection === 'pn-section-mastery'} onClick={() => scrollToSection('pn-section-mastery')} />
+              <SidebarMenuItem icon={<Settings size={16} />} label="Preferences" active={activeSection === 'pn-section-settings'} onClick={() => scrollToSection('pn-section-settings')} />
+              <SidebarMenuItem icon={<Award size={16} />} label="Assessment" onClick={() => navigate('/profile-quiz')} />
             </SidebarSection>
-
-            <SidebarStats>
-              <SidebarStatBox value={profileLevel} label="Level" />
-              <SidebarStatBox value={profileXp.toLocaleString()} label="XP" />
-              <SidebarStatBox value={`${Math.round(levelProgress)}%`} label="Progress" />
-            </SidebarStats>
-
             <SidebarActions>
-              <SidebarAction icon={<LayoutDashboard size={14} />} label="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} />
-              <SidebarAction icon={<MessageSquare size={14} />} label="AI Chat" onClick={() => navigate('/ai-chat')} />
-              <SidebarAction icon={<LogOut size={14} />} label="Logout" onClick={clearSessionAndGoLogin} />
+              <SidebarAction icon={<LayoutDashboard size={15} />} label="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} />
+              <SidebarAction icon={<LogOut size={15} />} label="Sign out" onClick={clearSessionAndGoLogin} />
             </SidebarActions>
           </SidebarShell>
 
           <main className="pf-qb-main" ref={mainScrollRef}>
-      <div className="pn-wrap">
-
-        {}
-        <section className="pn-hero" id="pn-section-overview">
-          <div className="pn-hero-text">
-            <div className="pn-eyebrow">YOUR PROFILE</div>
-            <h1 className="pn-name">
-              {nameDone ? displayName : typedName}
-              {!nameDone && <span className="pn-cursor" aria-hidden />}
-              {nameDone && <span className="pn-period">.</span>}
-            </h1>
-            {arch && (
-              <div className="pn-hero-badges">
-                <span className="pn-badge">{profileData.primaryArchetype}</span>
-                {profileData.secondaryArchetype && <span className="pn-badge pn-badge--ghost">{profileData.secondaryArchetype}</span>}
-              </div>
-            )}
-            <div className="pn-level-card">
-              <div className="pn-level-icon"><Award size={18} /></div>
-              <div className="pn-level-meta">
-                <span className="pn-level-kicker">Current Level</span>
-                <strong>Level {profileLevel}</strong>
-                <div className="pn-level-track">
-                  <span style={{ width: `${levelProgress}%` }} />
-                </div>
-              </div>
-              <div className="pn-level-xp">{profileXp.toLocaleString()} XP</div>
-            </div>
-          </div>
-          <div className="pn-pfp-wrap">
-            <div className="pn-pfp-ring">
-              {profilePhoto ? (
-                <img src={profilePhoto} alt={displayName} className="pn-pfp-img" referrerPolicy="no-referrer" />
-              ) : (
-                <div className="pn-pfp-fallback">{initial}</div>
-              )}
-              <button className="pn-pfp-edit-btn" onClick={() => setPfpModalOpen(true)} aria-label="Edit profile picture">
-                <Pencil size={13} /> Edit PFP
-              </button>
-            </div>
-          </div>
-        </section>
-
-        {}
-        {profileData.primaryArchetype ? (
-          <section className="pn-section">
-            <div className="pn-section-label">LEARNING ARCHETYPE</div>
-            <div className="pn-archetype-grid">
-              <div className="pn-archetype-main">
-                <div className="pn-arch-tag">PRIMARY</div>
-                <div className="pn-arch-name">{profileData.primaryArchetype}</div>
-                <div className="pn-arch-tagline">{arch?.tagline}</div>
-                <p className="pn-arch-desc">{arch?.desc}</p>
-                {profileData.secondaryArchetype && (
-                  <div className="pn-arch-secondary">
-                    <span className="pn-arch-secondary-tag">SECONDARY</span>
-                    <span className="pn-arch-secondary-name">{profileData.secondaryArchetype}</span>
-                    <span className="pn-arch-secondary-sub">{archSecondary?.tagline}</span>
-                  </div>
-                )}
-                <button className="pn-retake-btn" onClick={() => navigate('/profile-quiz')}>
-                  Retake Assessment
-                </button>
-              </div>
-              {Object.keys(profileData.archetypeScores).length > 0 && (
-                <div className="pn-archetype-bars">
-                  <div className="pn-bars-label">BREAKDOWN</div>
-                  {Object.entries(profileData.archetypeScores)
-                    .sort(([, a], [, b]) => b - a)
-                    .slice(0, 6)
-                    .map(([name, score]) => (
-                      <div key={name} className="pn-bar-row">
-                        <span className="pn-bar-name">{name}</span>
-                        <div className="pn-bar-track">
-                          <div className="pn-bar-fill" style={{ width: `${score}%` }} />
-                        </div>
-                        <span className="pn-bar-pct">{Math.round(score)}%</span>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
-          </section>
-        ) : (
-          <section className="pn-section">
-            <div className="pn-section-label">LEARNING ARCHETYPE</div>
-            <button className="pn-discover-btn" onClick={() => navigate('/profile-quiz')}>
-              <span className="pn-discover-title">Discover Your Learning Archetype</span>
-              <span className="pn-discover-sub">Take our assessment to unlock personalized AI tutoring tailored to your style</span>
-            </button>
-          </section>
-        )}
-
-        <section className="pn-section" id="pn-section-subscription">
-          <div className="pn-section-label">SUBSCRIPTION</div>
-          <div className="pn-subscription-header">
-            <div className="pn-subscription-current">
-              <span className="pn-subscription-current-icon" aria-hidden>
-                <BarChart3 size={16} />
-              </span>
-              <span className="pn-subscription-current-copy">
-                <span className="pn-subscription-current-label">Current Plan</span>
-                <span className="pn-subscription-current-value">
-                  {currentPlan
-                    ? `${currentPlan.name} · ${formatUsd(currentPlanPrice)}${billingLabel}`
-                    : `Starter · ${formatUsd(0)}/mo`}
-                </span>
-              </span>
-            </div>
-            <div className="pn-billing-toggle" role="group" aria-label="Billing cycle">
-              <span
-                className={`pn-billing-glider ${activeBillingCycle === 'yearly' ? 'pn-billing-glider--yearly' : ''}`}
-                aria-hidden
-              />
-              <button
-                className={`pn-billing-btn ${activeBillingCycle === 'monthly' ? 'pn-billing-btn--active' : ''}`}
-                onClick={() => handleBillingCycleChange('monthly')}
-                disabled={subscriptionData.saving}
-              >
-                Monthly
-              </button>
-              <button
-                className={`pn-billing-btn ${activeBillingCycle === 'yearly' ? 'pn-billing-btn--active' : ''}`}
-                onClick={() => handleBillingCycleChange('yearly')}
-                disabled={subscriptionData.saving}
-              >
-                Yearly
-              </button>
-            </div>
-            <p
-              className={`pn-subscription-note ${
-                activeBillingCycle === 'yearly'
-                  ? 'pn-subscription-note--yearly'
-                  : (currentPlanYearlySavingsPct > 0 ? 'pn-subscription-note--savings' : '')
-              }`}
-            >
-              {activeBillingCycle === 'yearly'
-                ? (
-                  currentPlan
-                    ? (
-                      <>
-                        <span className="pn-subscription-note-strong">Yearly billing active.</span>{' '}
-                        {formatUsd(currentPlanPrice)}{billingLabel}
-                        {currentPlanYearlyEquivalentMonthly > 0 && (
-                          <>
-                            {' '}· <span className="pn-subscription-note-strong">~{formatUsd(currentPlanYearlyEquivalentMonthly)}/mo effective</span>
-                          </>
-                        )}
-                        {currentPlanYearlySavingsPct > 0 && (
-                          <>
-                            {' '}· <span className="pn-subscription-note-strong">Save {currentPlanYearlySavingsPct}%</span>
-                          </>
-                        )}
-                      </>
-                    )
-                    : 'Yearly billing enabled. You can switch anytime.'
-                )
-                : (
-                  currentPlanYearlySavingsPct > 0
-                    ? (
-                      <>
-                        <span className="pn-subscription-note-strong">
-                          Switch to yearly and save {currentPlanYearlySavingsPct}%.
-                        </span>{' '}
-                        That’s {formatUsd(currentPlanYearlySavingsUsd)}/year.
-                      </>
-                    )
-                    : 'Choose the plan that fits your study flow. You can switch anytime.'
-                )}
-            </p>
-          </div>
-
-          {subscriptionData.loading ? (
-            <div className="pn-subscription-loading">Loading subscription plans...</div>
-          ) : (
-            <>
-              <div className="pn-plan-grid">
-                {subscriptionData.plans.map((plan) => {
-                  const meta = PLAN_META[plan.id] || PLAN_META.starter;
-                  const Icon = meta.icon;
-                  const isCurrent = subscriptionData.currentPlanId === plan.id;
-                  const planYearlySavingsPct = getYearlySavingsPct(plan);
-                  const planYearlyEquivalentMonthly = getYearlyEquivalentMonthly(plan);
-                  const planPrice = getPlanPrice(plan, activeBillingCycle);
-                  return (
-                    <article key={plan.id} className={`pn-plan-card pn-plan-card--${meta.theme} ${isCurrent ? 'pn-plan-card--active' : ''}`}>
-                      <div className="pn-plan-top">
-                        <span className="pn-plan-icon"><Icon size={14} /></span>
-                        <span className="pn-plan-name">{plan.name}</span>
-                      </div>
-                      <div className="pn-plan-price-row">
-                        <div className="pn-plan-price">
-                          <PriceTicker amount={planPrice} />
-                          <small>{billingLabel}</small>
-                        </div>
-                        {planYearlySavingsPct > 0 && activeBillingCycle === 'yearly' && (
-                          <span className="pn-plan-save-badge">Save {planYearlySavingsPct}%</span>
-                        )}
-                      </div>
-                      <div className="pn-plan-meta">Includes {formatTokens(plan.included_tokens_monthly)} monthly AI credits</div>
-                      {activeBillingCycle === 'yearly' && planYearlyEquivalentMonthly > 0 && (
-                        <div className="pn-plan-billing-note">~{formatUsd(planYearlyEquivalentMonthly)}/mo effective</div>
-                      )}
-                      {plan.summary && <div className="pn-plan-summary">{plan.summary}</div>}
-                      <ul className="pn-plan-features">
-                        {(plan.features || []).map((feature) => (
-                          <li key={feature}><Check size={11} />{feature}</li>
-                        ))}
-                      </ul>
-                      <button
-                        className={`pn-plan-cta ${isCurrent ? 'pn-plan-cta--current' : ''}`}
-                        onClick={() => handleSelectPlan(plan.id)}
-                        disabled={isCurrent || subscriptionData.saving}
-                      >
-                        {isCurrent ? 'Current Plan' : (subscriptionData.saveAction === 'plan' ? 'Switching...' : 'Switch Plan')}
-                      </button>
-                    </article>
-                  );
-                })}
-              </div>
-            </>
-          )}
-          {subscriptionData.error && <div className="pn-subscription-error">{subscriptionData.error}</div>}
-
-          {rateLimits && (
-            <div className="pn-usage-card">
-              <div className="pn-usage-header">
-                <span className="pn-usage-title">Session Usage</span>
-                <span className="pn-usage-subtitle">4-hour rolling window · resets automatically</span>
-              </div>
-              {['ai_heavy', 'ai_light', 'file_upload'].map(tier => {
-                const t = rateLimits.tiers?.[tier];
-                if (!t || t.limit === 'unlimited') return null;
-                const pct = Math.min(100, Math.round((t.used / t.limit) * 100));
-                const resetStr = t.reset_at > 0 ? formatReset(t.reset_at) : '—';
-                return (
-                  <div key={tier} className="pn-usage-row">
-                    <div className="pn-usage-meta">
-                      <span className="pn-usage-label">{USAGE_TIER_LABELS[tier]}</span>
-                      <span className="pn-usage-count">{t.used} / {t.limit}</span>
-                    </div>
-                    <div className="pn-usage-track">
-                      <div
-                        className={`pn-usage-fill${pct >= 90 ? ' pn-usage-fill--danger' : pct >= 70 ? ' pn-usage-fill--warn' : ''}`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    <div className="pn-usage-footer">
-                      <span className="pn-usage-pct">{pct}%</span>
-                      <span className="pn-usage-reset">Resets in {resetStr}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        <div className="pn-divider" />
-
-        {}
-        <div className="pn-two-col">
-          <section className="pn-section" id="pn-section-personal">
-            <div className="pn-section-label">PERSONAL INFO</div>
-            <div className="pn-field-row">
-              <div className="pn-field">
-                <label className="pn-field-label">First Name</label>
-                <input className="pn-input" value={profileData.firstName} onChange={e => setField('firstName', e.target.value)} placeholder="First name" />
-              </div>
-              <div className="pn-field">
-                <label className="pn-field-label">Last Name</label>
-                <input className="pn-input" value={profileData.lastName} onChange={e => setField('lastName', e.target.value)} placeholder="Last name" />
-              </div>
-            </div>
-            <div className="pn-field pn-field--full">
-              <label className="pn-field-label">Username</label>
-              <input
-                className="pn-input"
-                value={profileData.username}
-                onChange={e => setField('username', e.target.value)}
-                placeholder="Your username"
-                autoCapitalize="none"
-                autoCorrect="off"
-              />
-            </div>
-            <div className="pn-field pn-field--full">
-              <label className="pn-field-label">Email Address</label>
-              <input className="pn-input" type="email" value={profileData.email} onChange={e => setField('email', e.target.value)} placeholder="your@email.com" />
-            </div>
-          </section>
-
-          <section className="pn-section" id="pn-section-goals">
-            <div className="pn-section-label">LEARNING GOALS</div>
-            {profileData.quizSkipped && !profileData.quizCompleted && !profileData.fieldOfStudy && profileData.preferredSubjects.length === 0 && (
-              <button className="pn-discover-btn" onClick={() => navigate('/profile-quiz')}>
-                <span className="pn-discover-title">Complete Your Profile</span>
-                <span className="pn-discover-sub">You skipped onboarding — set your subject and goals so the AI tutor can personalize your experience, or fill them in below</span>
-              </button>
-            )}
-            <div className="pn-field pn-field--full">
-              <label className="pn-field-label">Main Subject</label>
-              <select className="pn-select" value={profileData.fieldOfStudy} onChange={e => setField('fieldOfStudy', e.target.value)}>
-                <option value="">Select your main subject</option>
-                {ALL_SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-            <div className="pn-field pn-field--full">
-              <label className="pn-field-label">Primary Goal</label>
-              <select className="pn-select" value={profileData.brainwaveGoal} onChange={e => setField('brainwaveGoal', e.target.value)}>
-                <option value="">Select your goal</option>
-                {Object.entries(BRAINWAVE_GOALS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
-            </div>
-          </section>
-        </div>
-
-        <div className="pn-divider" />
-
-        {}
-        <section className="pn-section" id="pn-section-subjects">
-          <div className="pn-section-label">INTERESTED SUBJECTS</div>
-          <div className="pn-subjects-grid">
-            {ALL_SUBJECTS.map(s => (
-              <button
-                key={s}
-                className={`pn-chip ${profileData.preferredSubjects.includes(s) ? 'pn-chip--on' : ''}`}
-                onClick={() => toggleSubject(s)}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <div className="pn-divider" />
-
-        <section className="pn-section" id="pn-section-mastery">
-          <div className="pn-section-label">MASTERY &amp; WEAK AREAS</div>
-          <WeaknessTracker userId={userName} token={token} onNavigate={navigate} />
-        </section>
-
-        <div className="pn-divider" />
-
-        {}
-        <section className="pn-section" id="pn-section-settings">
-          <div className="pn-section-label">SETTINGS</div>
-          <div className="pn-settings-grid">
-            <div className="pn-setting-row">
-              <div className="pn-setting-info">
-                <span className="pn-setting-label">Study Insights on Login</span>
-                <span className="pn-setting-desc">Display study insights page when you first log in each day</span>
-              </div>
-              <button
-                className={`pn-toggle ${profileData.showStudyInsights ? 'pn-toggle--on' : ''}`}
-                onClick={() => setField('showStudyInsights', !profileData.showStudyInsights)}
-                role="switch" aria-checked={profileData.showStudyInsights}
-              >
-                <span className="pn-toggle-thumb" />
-              </button>
-            </div>
-            <div className="pn-setting-row">
-              <div className="pn-setting-info">
-                <span className="pn-setting-label">Enable Notifications</span>
-                <span className="pn-setting-desc">Show notification popups and unread badges across the app</span>
-              </div>
-              <button
-                className={`pn-toggle ${profileData.notificationsEnabled ? 'pn-toggle--on' : ''}`}
-                onClick={() => setField('notificationsEnabled', !profileData.notificationsEnabled)}
-                role="switch" aria-checked={profileData.notificationsEnabled}
-              >
-                <span className="pn-toggle-thumb" />
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <div className="pn-divider" />
-
-        <section className="pn-section pn-danger-section" id="pn-section-account">
-          <div className="pn-section-label">ACCOUNT</div>
-          <div className="pn-account-actions">
-            <div className="pn-account-action-copy">
-              <span className="pn-account-title"><Trash2 size={15} /> Delete Account</span>
-              <p>
-                {isGoogleAccount
-                  ? 'We will email an OTP before permanently deleting this Google-linked account.'
-                  : 'Enter your password first. We will email an OTP before permanently deleting the account.'}
-              </p>
-            </div>
-            {deleteStep === 'password' ? (
-              <form className="pn-delete-form" onSubmit={requestAccountDeletion}>
-                {!isGoogleAccount && (
-                  <input
-                    className="pn-input"
-                    type="password"
-                    value={deleteForm.password}
-                    onChange={e => setDeleteForm(prev => ({ ...prev, password: e.target.value }))}
-                    placeholder="Account password"
-                    disabled={deleteLoading}
+            <div className="pnw-canvas">
+              <section className={`pnw-identity ${profilePhoto ? '' : 'pnw-identity--no-photo'}`} id="pn-section-overview">
+                {profilePhoto && (
+                  <img
+                    className="pnw-identity-backdrop"
+                    src={profilePhoto}
+                    alt=""
+                    aria-hidden="true"
+                    referrerPolicy="no-referrer"
                   />
                 )}
-                <button className="pn-danger-btn" type="submit" disabled={deleteLoading}>
-                  {deleteLoading ? 'Sending OTP...' : 'Send Delete OTP'}
-                </button>
-              </form>
-            ) : (
-              <form className="pn-delete-form" onSubmit={confirmAccountDeletion}>
-                <input
-                  className="pn-input"
-                  type="text"
-                  value={deleteForm.otp}
-                  onChange={e => setDeleteForm(prev => ({ ...prev, otp: e.target.value }))}
-                  placeholder="6-digit deletion OTP"
-                  inputMode="numeric"
-                  maxLength={6}
-                  disabled={deleteLoading}
-                />
-                <button className="pn-danger-btn" type="submit" disabled={deleteLoading}>
-                  {deleteLoading ? 'Deleting...' : 'Delete Permanently'}
-                </button>
-              </form>
-            )}
-            {deleteStatus && <div className="pn-delete-status">{deleteStatus}</div>}
-          </div>
-        </section>
-
-        {}
-        {Object.keys(quizAnswers).length > 0 && (
-          <>
-            <div className="pn-divider" />
-            <section className="pn-section">
-              <div className="pn-section-label">ASSESSMENT RESPONSES</div>
-              <div className="pn-quiz-grid">
-                {Object.entries(quizAnswers).map(([q, a]) => (
-                  <div key={q} className="pn-quiz-item">
-                    <span className="pn-quiz-q">{QUIZ_LABELS[q] || q}</span>
-                    <span className="pn-quiz-a">{ANSWER_LABELS[a] || a}</span>
+                {!profilePhoto && <div className="pnw-identity-initial" aria-hidden="true">{initial}</div>}
+                <div className="pnw-identity-nameplate" aria-hidden="true">{displayName}</div>
+                <div className="pnw-identity-copy">
+                  <p className="pnw-kicker">Your learner identity</p>
+                  <h1>{displayName}<span>.</span></h1>
+                  <p className="pnw-identity-summary">
+                    {arch
+                      ? `${arch.tagline}. ${arch.desc}`
+                      : 'Set your learning profile so Cerbyl can adapt study support to you.'}
+                  </p>
+                  <div className="pnw-identity-actions">
+                    <button type="button" className="pnw-primary-action" onClick={() => scrollToSection('pn-section-personal')}>
+                      Edit identity <ArrowUpRight size={15} />
+                    </button>
+                    <button type="button" className="pnw-secondary-action" onClick={() => navigate('/profile-quiz')}>
+                      {arch ? 'Retake assessment' : 'Find my learning style'}
+                    </button>
                   </div>
-                ))}
-              </div>
-            </section>
-          </>
-        )}
+                </div>
 
-        <div className="pn-bottom-gap" />
-      </div>
+                <div className="pnw-portrait">
+                  <div className="pnw-portrait-index" aria-hidden>{String(profileLevel).padStart(2, '0')}</div>
+                  <button ref={pfpTriggerRef} type="button" className="pnw-photo-button" onClick={() => setPfpModalOpen(true)} aria-label="Change profile picture">
+                    {profilePhoto
+                      ? <img src={profilePhoto} alt={displayName} referrerPolicy="no-referrer" />
+                      : <span>{initial}</span>}
+                    <i><Pencil size={14} /> Change photo</i>
+                  </button>
+                  <div className="pnw-portrait-caption">
+                    <span>{profileData.primaryArchetype || 'Learning profile pending'}</span>
+                    <strong>Level {profileLevel}</strong>
+                  </div>
+                </div>
+              </section>
+
+              <section className="pnw-status-band" aria-label="Profile status">
+                <div data-value={String(profileLevel).padStart(2, '0')}><span>Level</span><strong>{String(profileLevel).padStart(2, '0')}</strong></div>
+                <div data-value={profileXp.toLocaleString()}><span>Experience</span><strong>{profileXp.toLocaleString()} XP</strong></div>
+                <div data-value={`${Math.round(levelProgress)}%`}><span>Next level</span><strong>{Math.round(levelProgress)}%</strong></div>
+                <div data-value={(currentPlan?.name || 'Starter').slice(0, 8)}><span>Current plan</span><strong>{currentPlan?.name || 'Starter'}</strong></div>
+              </section>
+
+              <div className="pnw-work-grid">
+                <section className="pnw-panel pnw-identity-form" id="pn-section-personal">
+                  <div className="pnw-section-heading">
+                    <div>
+                      <span><Fingerprint size={15} /> Identity</span>
+                      <h2>The details Cerbyl uses.</h2>
+                    </div>
+                    <small>Autosaves after changes</small>
+                  </div>
+                  <div className="pnw-form-grid">
+                    <label>
+                      <span>First name</span>
+                      <input value={profileData.firstName} onChange={(e) => setField('firstName', e.target.value)} autoComplete="given-name" />
+                    </label>
+                    <label>
+                      <span>Last name</span>
+                      <input value={profileData.lastName} onChange={(e) => setField('lastName', e.target.value)} autoComplete="family-name" />
+                    </label>
+                    <label>
+                      <span>Username</span>
+                      <input value={profileData.username} onChange={(e) => setField('username', e.target.value)} autoCapitalize="none" autoCorrect="off" />
+                    </label>
+                    <label>
+                      <span>Email address</span>
+                      <input type="email" value={profileData.email} onChange={(e) => setField('email', e.target.value)} autoComplete="email" />
+                    </label>
+                  </div>
+                </section>
+
+                <section className="pnw-panel pnw-goal-form" id="pn-section-goals">
+                  <div className="pnw-section-heading">
+                    <div>
+                      <span><Target size={15} /> Learning direction</span>
+                      <h2>What are you working toward?</h2>
+                    </div>
+                  </div>
+                  {profileData.quizSkipped && !profileData.quizCompleted && !profileData.fieldOfStudy && profileData.preferredSubjects.length === 0 && (
+                    <button type="button" className="pnw-inline-prompt" onClick={() => navigate('/profile-quiz')}>
+                      Complete your learning profile <ArrowUpRight size={14} />
+                    </button>
+                  )}
+                  <label className="pnw-select-field">
+                    <span>Main subject</span>
+                    <select value={profileData.fieldOfStudy} onChange={(e) => setField('fieldOfStudy', e.target.value)}>
+                      <option value="">Select your main subject</option>
+                      {ALL_SUBJECTS.map((subject) => <option key={subject} value={subject}>{subject}</option>)}
+                    </select>
+                  </label>
+                  <label className="pnw-select-field">
+                    <span>Primary goal</span>
+                    <select value={profileData.brainwaveGoal} onChange={(e) => setField('brainwaveGoal', e.target.value)}>
+                      <option value="">Select your goal</option>
+                      {Object.entries(BRAINWAVE_GOALS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    </select>
+                  </label>
+                </section>
+              </div>
+
+              <section className="pnw-signature" id="pn-section-subjects">
+                <div className="pnw-signature-copy">
+                  <div className="pnw-section-heading">
+                    <div>
+                      <span><Sparkles size={15} /> Learning profile</span>
+                      <h2>{profileData.primaryArchetype || 'Build your learning signature.'}</h2>
+                    </div>
+                  </div>
+                  {arch ? (
+                    <>
+                      <p>{arch.desc}</p>
+                      {profileData.secondaryArchetype && (
+                        <div className="pnw-secondary-type">
+                          <span>Secondary pattern</span>
+                          <strong>{profileData.secondaryArchetype}</strong>
+                          <small>{archSecondary?.tagline}</small>
+                        </div>
+                      )}
+                      <button type="button" className="pnw-text-action" onClick={() => navigate('/profile-quiz')}>
+                        Retake assessment <ArrowUpRight size={14} />
+                      </button>
+                    </>
+                  ) : (
+                    <button type="button" className="pnw-assessment-callout" onClick={() => navigate('/profile-quiz')}>
+                      <Award size={22} />
+                      <span><strong>Discover your learning archetype</strong><small>Complete the assessment to personalize tutoring.</small></span>
+                      <ArrowUpRight size={16} />
+                    </button>
+                  )}
+                  {profileData.preferredSubjects.length > 0 && (
+                    <div className="pnw-interest-echo" aria-hidden="true">
+                      {profileData.preferredSubjects.slice(0, 5).map((subject) => (
+                        <span key={subject}>{subject}</span>
+                      ))}
+                    </div>
+                  )}
+                  {Object.keys(profileData.archetypeScores).length > 0 && (
+                    <div className="pnw-score-list" aria-label="Learning archetype scores">
+                      {Object.entries(profileData.archetypeScores)
+                        .sort(([, a], [, b]) => b - a)
+                        .slice(0, 5)
+                        .map(([name, score]) => (
+                          <div key={name}>
+                            <span>{name}</span>
+                            <i style={{ width: `${Math.max(4, Number(score) || 0)}%` }} />
+                            <strong>{Math.round(score)}%</strong>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="pnw-subject-desk">
+                  <div className="pnw-subject-head">
+                    <div><span>Study interests</span><strong>{profileData.preferredSubjects.length} selected</strong></div>
+                    <small>Select every subject Cerbyl should prioritize.</small>
+                  </div>
+                  <div className="pnw-subjects">
+                    {ALL_SUBJECTS.map((subject) => {
+                      const selected = profileData.preferredSubjects.includes(subject);
+                      return (
+                        <button
+                          key={subject}
+                          type="button"
+                          className={selected ? 'is-selected' : ''}
+                          aria-pressed={selected}
+                          onClick={() => toggleSubject(subject)}
+                        >
+                          <span>{subject}</span>{selected && <Check size={13} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </section>
+
+              <section className="pnw-plan-section" id="pn-section-subscription">
+                <div className="pnw-plan-heading">
+                  <div className="pnw-section-heading">
+                    <div>
+                      <span><CreditCard size={15} /> Plan and usage</span>
+                      <h2>Choose the capacity you need.</h2>
+                    </div>
+                  </div>
+                  <div className="pnw-plan-controls">
+                    <div>
+                      <span>Current plan</span>
+                      <strong>{currentPlan?.name || 'Starter'} at {formatUsd(currentPlanPrice)}{billingLabel}</strong>
+                    </div>
+                    <div className="pnw-billing-switch" role="group" aria-label="Billing cycle">
+                      <button type="button" className={activeBillingCycle === 'monthly' ? 'is-active' : ''} onClick={() => handleBillingCycleChange('monthly')} disabled={subscriptionData.saving}>Monthly</button>
+                      <button type="button" className={activeBillingCycle === 'yearly' ? 'is-active' : ''} onClick={() => handleBillingCycleChange('yearly')} disabled={subscriptionData.saving}>Yearly</button>
+                    </div>
+                  </div>
+                </div>
+
+                {currentPlanYearlySavingsPct > 0 && activeBillingCycle === 'monthly' && (
+                  <p className="pnw-plan-note">Yearly billing saves {currentPlanYearlySavingsPct}% ({formatUsd(currentPlanYearlySavingsUsd)} per year).</p>
+                )}
+                {activeBillingCycle === 'yearly' && currentPlanYearlyEquivalentMonthly > 0 && (
+                  <p className="pnw-plan-note">Yearly billing is approximately {formatUsd(currentPlanYearlyEquivalentMonthly)} per month.</p>
+                )}
+
+                {subscriptionData.loading ? (
+                  <div className="pnw-plan-loading" role="status">Loading available plans</div>
+                ) : (
+                  <div className="pnw-plan-ledger">
+                    {subscriptionData.plans.map((plan) => {
+                      const meta = PLAN_META[plan.id] || PLAN_META.starter;
+                      const Icon = meta.icon;
+                      const isCurrent = currentPlanId === String(plan.id || '').toLowerCase();
+                      const planPrice = getPlanPrice(plan, activeBillingCycle);
+                      return (
+                        <article key={plan.id} className={isCurrent ? 'is-current' : ''}>
+                          <div className="pnw-plan-name"><Icon size={16} /><strong>{plan.name}</strong>{isCurrent && <span>Current</span>}</div>
+                          <div className="pnw-plan-price"><PriceTicker amount={planPrice} /><small>{billingLabel}</small></div>
+                          <div className="pnw-plan-credit"><strong>{formatTokens(plan.included_tokens_monthly)}</strong><span>monthly AI credits</span></div>
+                          <div className="pnw-plan-summary">{plan.summary || (plan.features || []).slice(0, 1).join('')}</div>
+                          <button type="button" onClick={() => handleSelectPlan(plan.id)} disabled={isCurrent || subscriptionData.saving}>
+                            {isCurrent ? 'Selected' : subscriptionData.saveAction === 'plan' ? 'Switching' : 'Choose plan'}
+                          </button>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+                {subscriptionData.error && <div className="pnw-inline-error" role="alert">{subscriptionData.error}</div>}
+
+                <div className="pnw-usage-rack">
+                  <button type="button" onClick={() => navigate('/profile/usage')}>
+                    <Gauge size={17} /><span><strong>Open usage details</strong><small>Limits, reset windows and account capacity</small></span><ArrowUpRight size={15} />
+                  </button>
+                  {rateLimits && ['ai_heavy', 'ai_light', 'file_upload'].map((tier) => {
+                    const item = rateLimits.tiers?.[tier];
+                    if (!item || item.limit === 'unlimited') return null;
+                    const pct = Math.min(100, Math.round((item.used / item.limit) * 100));
+                    return (
+                      <div key={tier}>
+                        <span>{USAGE_TIER_LABELS[tier]}</span>
+                        <strong>{item.used} / {item.limit}</strong>
+                        <small>{pct}% used, resets in {item.reset_at > 0 ? formatReset(item.reset_at) : 'soon'}</small>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="pnw-mastery" id="pn-section-mastery">
+                <div className="pnw-section-heading">
+                  <div>
+                    <span><BarChart3 size={15} /> Mastery</span>
+                    <h2>Your learning evidence.</h2>
+                  </div>
+                  <button type="button" className="pnw-text-action" onClick={() => navigate('/weaknesses')}>
+                    Open Weak Areas <ArrowUpRight size={14} />
+                  </button>
+                </div>
+                <WeaknessTracker
+                  userId={userName}
+                  token={token}
+                  onNavigate={navigate}
+                  emptyFallback={(
+                    <div className="pnw-mastery-empty">
+                      <Target size={18} />
+                      <span>
+                        <strong>No mastery signal yet</strong>
+                        <small>Complete a quiz or practice session to start building your learning evidence.</small>
+                      </span>
+                    </div>
+                  )}
+                />
+              </section>
+
+              <div className="pnw-account-grid">
+                <section className="pnw-panel" id="pn-section-settings">
+                  <div className="pnw-section-heading">
+                    <div>
+                      <span><Settings size={15} /> Preferences</span>
+                      <h2>How the app meets you.</h2>
+                    </div>
+                  </div>
+                  <div className="pnw-setting-list">
+                    <div>
+                      <span className="pnw-setting-icon"><Eye size={16} /></span>
+                      <span><strong>Study insights on login</strong><small>Show a learning summary when you begin the day.</small></span>
+                      <button type="button" className={`pnw-switch ${profileData.showStudyInsights ? 'is-on' : ''}`} onClick={() => setField('showStudyInsights', !profileData.showStudyInsights)} role="switch" aria-checked={profileData.showStudyInsights} aria-label="Study insights on login"><i /></button>
+                    </div>
+                    <div>
+                      <span className="pnw-setting-icon"><Bell size={16} /></span>
+                      <span><strong>Notifications</strong><small>Allow updates and unread indicators across Cerbyl.</small></span>
+                      <button type="button" className={`pnw-switch ${profileData.notificationsEnabled ? 'is-on' : ''}`} onClick={() => setField('notificationsEnabled', !profileData.notificationsEnabled)} role="switch" aria-checked={profileData.notificationsEnabled} aria-label="Notifications"><i /></button>
+                    </div>
+                  </div>
+
+                  {Object.keys(quizAnswers).length > 0 && (
+                    <div className="pnw-assessment-record">
+                      <div><strong>Assessment record</strong><button type="button" onClick={() => navigate('/profile-quiz')}>Retake</button></div>
+                      <dl>
+                        {Object.entries(quizAnswers).map(([question, answer]) => (
+                          <div key={question}><dt>{QUIZ_LABELS[question] || question}</dt><dd>{ANSWER_LABELS[answer] || answer}</dd></div>
+                        ))}
+                      </dl>
+                    </div>
+                  )}
+                </section>
+
+                <section className="pnw-panel pnw-danger" id="pn-section-account">
+                  <div className="pnw-section-heading">
+                    <div>
+                      <span><Trash2 size={15} /> Account control</span>
+                      <h2>Delete this account.</h2>
+                    </div>
+                  </div>
+                  <p>
+                    {isGoogleAccount
+                      ? 'Cerbyl will email an OTP before deleting this Google-linked account.'
+                      : 'Confirm your password, then verify the deletion OTP sent by email.'}
+                  </p>
+                  {deleteStep === 'password' ? (
+                    <form onSubmit={requestAccountDeletion}>
+                      {!isGoogleAccount && (
+                        <label><span>Account password</span><input type="password" value={deleteForm.password} onChange={(e) => setDeleteForm((prev) => ({ ...prev, password: e.target.value }))} disabled={deleteLoading} autoComplete="current-password" /></label>
+                      )}
+                      <button type="submit" disabled={deleteLoading}>{deleteLoading ? 'Sending OTP' : 'Send deletion OTP'}</button>
+                    </form>
+                  ) : (
+                    <form onSubmit={confirmAccountDeletion}>
+                      <label><span>Deletion OTP</span><input type="text" value={deleteForm.otp} onChange={(e) => setDeleteForm((prev) => ({ ...prev, otp: e.target.value }))} inputMode="numeric" maxLength={6} disabled={deleteLoading} /></label>
+                      <button type="submit" disabled={deleteLoading}>{deleteLoading ? 'Deleting account' : 'Delete permanently'}</button>
+                    </form>
+                  )}
+                  {deleteStatus && <div className="pnw-delete-status" role="status">{deleteStatus}</div>}
+                </section>
+              </div>
+            </div>
           </main>
         </div>
       </div>
 
-      {}
       {pfpModalOpen && (
         <div className="pn-modal-overlay" onClick={() => setPfpModalOpen(false)}>
-          <div className="pn-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+          <div ref={pfpModalRef} className="pn-modal" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="pn-avatar-title">
             <div className="pn-modal-head">
-              <div>
-                <div className="pn-modal-kicker">PROFILE PERSONALIZATION</div>
-                <h3 className="pn-modal-title">Select Your PFP</h3>
-              </div>
-              <button className="pn-modal-close" onClick={() => setPfpModalOpen(false)}><X size={15} /></button>
+              <div><span className="pn-modal-kicker">Profile picture</span><h3 className="pn-modal-title" id="pn-avatar-title">Choose how you appear.</h3></div>
+              <button ref={pfpCloseButtonRef} className="pn-modal-close" onClick={() => setPfpModalOpen(false)} aria-label="Close profile picture chooser"><X size={15} /></button>
             </div>
-            <input
-              ref={pfpUploadInputRef}
-              className="pn-pfp-upload-input"
-              type="file"
-              accept=".jpg,.jpeg,image/jpeg"
-              onChange={handlePfpUpload}
-            />
+            <input ref={pfpUploadInputRef} className="pn-pfp-upload-input" type="file" accept=".jpg,.jpeg,image/jpeg" onChange={handlePfpUpload} />
             <div className="pn-pfp-grid">
               <button className={`pn-pfp-card ${!activeCustomPfp ? 'pn-pfp-card--active' : ''}`} onClick={selectDefault} type="button">
                 <div className="pn-pfp-card-media">
-                  {defaultUserPfp
-                    ? <img src={defaultUserPfp} alt="Default" className="pn-pfp-card-img" referrerPolicy="no-referrer" />
-                    : <div className="pn-pfp-card-fallback">{initial}</div>}
+                  {defaultUserPfp ? <img src={defaultUserPfp} alt="Default profile" className="pn-pfp-card-img" referrerPolicy="no-referrer" /> : <div className="pn-pfp-card-fallback">{initial}</div>}
                 </div>
                 <div className="pn-pfp-card-label">Default</div>
                 {!activeCustomPfp && <span className="pn-pfp-card-check"><Check size={11} /></span>}
               </button>
-              {PRESET_PFPS.map(p => (
-                <button key={p.id} className={`pn-pfp-card ${activeCustomPfp === p.src ? 'pn-pfp-card--active' : ''}`} onClick={() => selectPreset(p.src)} type="button">
-                  <div className="pn-pfp-card-media">
-                    <img src={p.src} alt={p.label} className="pn-pfp-card-img" />
-                  </div>
-                  <div className="pn-pfp-card-label">{p.label}</div>
-                  {activeCustomPfp === p.src && <span className="pn-pfp-card-check"><Check size={11} /></span>}
+              {PRESET_PFPS.map((preset) => (
+                <button key={preset.id} className={`pn-pfp-card ${activeCustomPfp === preset.src ? 'pn-pfp-card--active' : ''}`} onClick={() => selectPreset(preset.src)} type="button">
+                  <div className="pn-pfp-card-media"><img src={preset.src} alt={preset.label} className="pn-pfp-card-img" /></div>
+                  <div className="pn-pfp-card-label">{preset.label}</div>
+                  {activeCustomPfp === preset.src && <span className="pn-pfp-card-check"><Check size={11} /></span>}
                 </button>
               ))}
-              <button
-                className={`pn-pfp-card pn-pfp-card--upload ${isUploadedPfp(activeCustomPfp) ? 'pn-pfp-card--active' : ''}`}
-                onClick={() => pfpUploadInputRef.current?.click()}
-                type="button"
-              >
+              <button className={`pn-pfp-card pn-pfp-card--upload ${isUploadedPfp(activeCustomPfp) ? 'pn-pfp-card--active' : ''}`} onClick={() => pfpUploadInputRef.current?.click()} type="button">
                 <div className="pn-pfp-card-media">
-                  {isUploadedPfp(activeCustomPfp) ? (
-                    <img src={activeCustomPfp} alt="Custom uploaded profile" className="pn-pfp-card-img" />
-                  ) : (
-                    <div className="pn-pfp-upload-placeholder">
-                      <Plus size={24} />
-                    </div>
-                  )}
+                  {isUploadedPfp(activeCustomPfp)
+                    ? <img src={activeCustomPfp} alt="Uploaded profile" className="pn-pfp-card-img" />
+                    : <div className="pn-pfp-upload-placeholder"><Plus size={24} /></div>}
                 </div>
-                <div className="pn-pfp-card-label">Custom</div>
+                <div className="pn-pfp-card-label">Upload JPG</div>
                 {isUploadedPfp(activeCustomPfp) && <span className="pn-pfp-card-check"><Check size={11} /></span>}
               </button>
             </div>

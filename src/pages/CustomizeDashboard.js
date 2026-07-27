@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signOutAppSession } from '../utils/authSession';
 import {
   Save,
   RotateCcw,
@@ -22,10 +21,7 @@ import {
   ChevronLeft,
   Lock,
   BarChart2,
-  ArrowLeft,
-  MessageSquare,
-  LayoutDashboard,
-  LogOut
+  MessageSquare
 } from 'lucide-react';
 import './CustomizeDashboard.css';
 import '../components/SocialHubChrome.css';
@@ -181,7 +177,6 @@ const CustomizeDashboard = () => {
   const [newLayoutName, setNewLayoutName] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [shakeWidget, setShakeWidget] = useState(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   
   const isLayoutLocked = currentLayoutName === 'Default';
@@ -656,11 +651,6 @@ const CustomizeDashboard = () => {
     });
   };
 
-  const handleLogout = () => {
-    void signOutAppSession();
-    navigate('/');
-  };
-
   const goBack = () => {
     if (hasUnsavedChanges) {
       setConfirmModal({
@@ -841,6 +831,20 @@ const CustomizeDashboard = () => {
         </div>
 
         <div className="cd-header-right">
+          <button className="cd-nav-btn cd-nav-btn-ghost" onClick={goBack}>
+            <ChevronLeft size={16} />
+            Back
+          </button>
+          {currentLayoutName !== 'Default' && (
+            <button className="cd-nav-btn cd-nav-btn-ghost" onClick={resetToDefault}>
+              <RotateCcw size={16} />
+              Reset
+            </button>
+          )}
+          <button className="cd-nav-btn cd-nav-btn-ghost" onClick={() => setShowCreateModal(true)}>
+            <Plus size={16} />
+            New layout
+          </button>
           {currentLayoutName !== 'Default' && (
             <button className="cd-nav-btn cd-nav-btn-primary" onClick={() => saveLayout()}>
               <Save size={16} />
@@ -850,123 +854,6 @@ const CustomizeDashboard = () => {
         </div>
       </header>
 
-      <div className="cd-qb-body">
-        <div className={`cd-qb-shell ${sidebarCollapsed ? 'cd-qb-shell--collapsed' : ''}`}>
-          <aside className={`cd-qb-sidebar ${sidebarCollapsed ? 'cd-qb-sidebar--collapsed' : ''}`} aria-label="Customize Dashboard navigation">
-            {sidebarCollapsed ? (
-              <div className="cd-qb-collapsed-strip">
-                <button className="cd-qb-strip-btn cd-qb-strip-logo" data-tip="Open sidebar" onClick={() => setSidebarCollapsed(false)} type="button">
-                  cb
-                </button>
-                <button className="cd-qb-strip-btn" data-tip="Reset Layout" onClick={resetToDefault} type="button">
-                  <RotateCcw size={18} />
-                </button>
-                {currentLayoutName !== 'Default' && (
-                  <button className="cd-qb-strip-btn" data-tip="Save Layout" onClick={() => saveLayout()} type="button">
-                    <Save size={18} />
-                  </button>
-                )}
-                <button className="cd-qb-strip-btn" data-tip="New Layout" onClick={() => setShowCreateModal(true)} type="button">
-                  <Plus size={18} />
-                </button>
-                <div className="cd-qb-strip-spacer" />
-                <button className="cd-qb-strip-btn" data-tip="AI Chat" onClick={() => navigate('/ai-chat')} type="button">
-                  <MessageSquare size={18} />
-                </button>
-                <button className="cd-qb-strip-btn" data-tip="Dashboard" onClick={goBack} type="button">
-                  <LayoutDashboard size={18} />
-                </button>
-                <button className="cd-qb-strip-btn" data-tip="Logout" onClick={handleLogout} type="button">
-                  <LogOut size={18} />
-                </button>
-              </div>
-            ) : (
-            <>
-              <div className="cd-qb-side-brand">
-                <div className="cd-qb-brand-wrap">
-                  <div className="cd-qb-brand">cerbyl</div>
-                  <div className="cd-qb-current-title">Customize Dashboard</div>
-                </div>
-                <button
-                  className="cd-qb-side-close-btn"
-                  onClick={() => setSidebarCollapsed(true)}
-                  title="Close sidebar"
-                  aria-label="Close customize dashboard sidebar"
-                  type="button"
-                >
-                  <ArrowLeft size={16} />
-                </button>
-              </div>
-
-              <div className="cd-qb-side-block">
-                <div className="cd-qb-side-label">Layout</div>
-                <nav className="cd-qb-view-nav" aria-label="Layout actions">
-                  <button className="cd-qb-view-link" onClick={resetToDefault} type="button">
-                    <RotateCcw size={16} />
-                    <span>Reset Layout</span>
-                  </button>
-                  {currentLayoutName !== 'Default' && (
-                    <button className="cd-qb-view-link cd-qb-view-link--accent" onClick={() => saveLayout()} type="button">
-                      <Save size={16} />
-                      <span>Save Layout</span>
-                    </button>
-                  )}
-                  <button className="cd-qb-view-link" onClick={() => setShowCreateModal(true)} type="button">
-                    <Plus size={16} />
-                    <span>New Layout</span>
-                  </button>
-                </nav>
-              </div>
-
-              <div className="cd-qb-side-block">
-                <div className="cd-qb-side-label">Overview</div>
-                <div className="cd-qb-stat-grid">
-                  <div className="cd-qb-stat-card">
-                    <span>{placedWidgets.length}</span>
-                    <small>Placed</small>
-                  </div>
-                  <div className="cd-qb-stat-card">
-                    <span>{availableWidgets.length}</span>
-                    <small>Available</small>
-                  </div>
-                  <div className="cd-qb-stat-card">
-                    <span>{savedLayouts.length}</span>
-                    <small>Layouts</small>
-                  </div>
-                </div>
-              </div>
-
-              <div className="cd-qb-side-actions">
-                <button
-                  className="cd-qb-action-btn cd-qb-action-btn--ghost"
-                  onClick={goBack}
-                  type="button"
-                >
-                  <LayoutDashboard size={14} />
-                  <span>Dashboard</span>
-                </button>
-                <button
-                  className="cd-qb-action-btn cd-qb-action-btn--ghost"
-                  onClick={() => navigate('/ai-chat')}
-                  type="button"
-                >
-                  <MessageSquare size={14} />
-                  <span>AI Chat</span>
-                </button>
-                <button
-                  className="cd-qb-action-btn cd-qb-action-btn--ghost"
-                  onClick={handleLogout}
-                  type="button"
-                >
-                  <LogOut size={14} />
-                  <span>Logout</span>
-                </button>
-              </div>
-            </>
-            )}
-          </aside>
-
-          <main className="cd-qb-main">
       <div className="cd-main">
         <aside className="cd-sidebar">
           <div className="cd-sidebar-section">
@@ -1242,9 +1129,6 @@ const CustomizeDashboard = () => {
           </div>
         </div>
       )}
-          </main>
-        </div>
-      </div>
     </div>
   );
 };

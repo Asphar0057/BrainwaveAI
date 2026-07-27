@@ -1,32 +1,54 @@
-import { useState, useEffect } from 'react';
+/*
+THESIS: Weaknesses are a ranked route forward, not a gallery of failure cards.
+OWN-WORLD: A dark diagnostic ledger with warm drafting lines, severity ink, and paper-like rows.
+STORY: See the highest-leverage gap, understand its evidence, then enter targeted practice.
+FIRST VIEWPORT: Familiar Cerbyl sidebar beside a priority diagnosis, filter rail, and ranked queue.
+FORM: Operate-mode triage desk inside the established Cerbyl visual system.
+*/
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ChevronLeft, ChevronRight, Target, Brain, MessageSquare,
-  CheckCircle, Activity, Zap, RefreshCw, Cpu,
-  LayoutDashboard, TrendingUp, Clock, FileText, Layers, MessageCircle, BookOpen
+  Activity,
+  AlertTriangle,
+  ArrowUpRight,
+  BookOpen,
+  Brain,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  CircleGauge,
+  Clock3,
+  Cpu,
+  FileText,
+  Layers3,
+  LayoutDashboard,
+  MessageCircle,
+  Play,
+  RefreshCw,
+  Target,
+  TrendingUp,
+  X,
+  Zap,
 } from 'lucide-react';
 import './Weaknesses.css';
-import '../components/SocialHubChrome.css';
 import { API_URL } from '../config';
 import { queuedAIJsonFetch } from '../services/aiJobService';
 import WeaknessTracker from '../components/WeaknessTracker/WeaknessTracker';
 import RLInsights from '../components/RLInsights/RLInsights';
-import GeometricGrid from '../components/GeometricGrid';
 
-const WeakAreasBackdrop = () => (
-  <div className="shc-bg-fx" aria-hidden="true">
-    <div className="shc-bg-wash" />
-    <div className="shc-bg-orb shc-bg-orb--one" />
-    <div className="shc-bg-orb shc-bg-orb--two" />
-    <GeometricGrid
-      className="shc-bg-geo"
-      linesClassName="shc-bg-geo-lines"
-      numsClassName="shc-bg-geo-nums"
-    />
-    <div className="shc-bg-grain" />
-    <div className="shc-bg-vignette" />
-  </div>
-);
+const VIEWS = [
+  { id: 'weak-areas', label: 'Priority diagnosis', icon: Target },
+  { id: 'topics-hub', label: 'Topic mastery', icon: BookOpen },
+  { id: 'intelligence', label: 'Intelligence', icon: Cpu },
+  { id: 'how-i-learn', label: 'How I learn', icon: Brain },
+  { id: 'activity', label: 'Activity', icon: Clock3 },
+];
+
+const CATEGORY = {
+  critical: { label: 'Critical', tone: 'red' },
+  needs_practice: { label: 'Needs practice', tone: 'amber' },
+  improving: { label: 'Improving', tone: 'green' },
+};
 
 const Weaknesses = () => {
   const navigate = useNavigate();
@@ -35,6 +57,7 @@ const Weaknesses = () => {
 
   const [activeView, setActiveView] = useState('weak-areas');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [weakAreasData, setWeakAreasData] = useState(null);
   const [filterCategory, setFilterCategory] = useState('all');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -44,26 +67,51 @@ const Weaknesses = () => {
   const [topicsHubLoading, setTopicsHubLoading] = useState(false);
   const [topicsHubFilter, setTopicsHubFilter] = useState('all');
 
+  const loadWeakAreas = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await queuedAIJsonFetch(`/study_insights/strengths_weaknesses?user_id=${userName}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Your diagnosis could not be refreshed.');
+      setWeakAreasData(await response.json());
+    } catch (requestError) {
+      console.error('Error loading weak areas:', requestError);
+      setError(requestError.message || 'Your diagnosis could not be refreshed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const loadTopicsHub = async () => {
     setTopicsHubLoading(true);
+    setError('');
     try {
-      const res = await fetch(`${API_URL}/weakness-practice/mastery-overview?user_id=${encodeURIComponent(userName)}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await fetch(`${API_URL}/weakness-practice/mastery-overview?user_id=${encodeURIComponent(userName)}`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) setTopicsHub(await res.json());
-    } catch (e) { /* silenced */ } finally {
+      if (!response.ok) throw new Error('Topic mastery is unavailable right now.');
+      setTopicsHub(await response.json());
+    } catch (requestError) {
+      setError(requestError.message || 'Topic mastery is unavailable right now.');
+    } finally {
       setTopicsHubLoading(false);
     }
   };
 
   const loadActivityFeed = async () => {
     setActivityLoading(true);
+    setError('');
     try {
-      const res = await fetch(`${API_URL}/study_insights/activity_feed?user_id=${userName}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await fetch(`${API_URL}/study_insights/activity_feed?user_id=${encodeURIComponent(userName)}`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) setActivityFeed(await res.json());
-    } catch (e) { /* silenced */ } finally {
+      if (!response.ok) throw new Error('Recent learning activity is unavailable right now.');
+      setActivityFeed(await response.json());
+    } catch (requestError) {
+      setError(requestError.message || 'Recent learning activity is unavailable right now.');
+    } finally {
       setActivityLoading(false);
     }
   };
@@ -74,599 +122,484 @@ const Weaknesses = () => {
       return;
     }
     loadWeakAreas();
+    // The diagnosis intentionally loads once when this workspace opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadWeakAreas = async () => {
-    setLoading(true);
-    try {
-      const response = await queuedAIJsonFetch(`/study_insights/strengths_weaknesses?user_id=${userName}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setWeakAreasData(data);
-      }
-    } catch (error) {
-      console.error('Error loading weak areas:', error);
-    } finally {
-      setLoading(false);
-    }
+  const switchView = (view) => {
+    setActiveView(view);
+    setError('');
+    if (view === 'topics-hub' && !topicsHub) loadTopicsHub();
+    if (view === 'activity' && !activityFeed) loadActivityFeed();
   };
 
-  const handleTopicClick = (topic) => {
-    navigate(`/weakness-tips/${encodeURIComponent(topic)}`);
-  };
-
-  const getFilteredAreas = () => {
-    if (!weakAreasData?.weak_areas) return [];
-    if (filterCategory === 'all') {
-      return [
-        ...(weakAreasData.weak_areas.critical || []),
-        ...(weakAreasData.weak_areas.needs_practice || []),
-        ...(weakAreasData.weak_areas.improving || [])
-      ];
-    }
-    return weakAreasData.weak_areas[filterCategory] || [];
-  };
-
-  const criticalCount = weakAreasData?.summary?.critical_count || 0;
-  const needsPracticeCount = weakAreasData?.summary?.needs_practice_count || 0;
-  const improvingCount = weakAreasData?.summary?.improving_count || 0;
+  const weakGroups = weakAreasData?.weak_areas || {};
+  const hasWeakGroups = weakAreasData?.weak_areas && typeof weakAreasData.weak_areas === 'object';
+  const criticalCount = hasWeakGroups && Array.isArray(weakGroups.critical) ? weakGroups.critical.length : (weakAreasData?.summary?.critical_count || 0);
+  const needsPracticeCount = hasWeakGroups && Array.isArray(weakGroups.needs_practice) ? weakGroups.needs_practice.length : (weakAreasData?.summary?.needs_practice_count || 0);
+  const improvingCount = hasWeakGroups && Array.isArray(weakGroups.improving) ? weakGroups.improving.length : (weakAreasData?.summary?.improving_count || 0);
   const totalCount = criticalCount + needsPracticeCount + improvingCount;
+  const allAreas = [
+    ...(weakGroups.critical || []),
+    ...(weakGroups.needs_practice || []),
+    ...(weakGroups.improving || []),
+  ];
+  const priorityFocus = allAreas.find((area) => {
+    const topic = String(area?.topic || '').trim().toLowerCase();
+    return topic && topic !== 'none' && topic !== 'null';
+  }) || allAreas[0];
+  const filteredAreas = filterCategory === 'all' ? allAreas : (weakGroups[filterCategory] || []);
+  const activeNav = VIEWS.find((item) => item.id === activeView);
 
-  if (loading) {
+  const pageTitle = {
+    'weak-areas': 'Turn mistakes into a route forward.',
+    'topics-hub': 'See mastery as a moving system.',
+    intelligence: 'Read the signals behind the score.',
+    'how-i-learn': 'Tune the way Cerbyl teaches you.',
+    activity: 'Trace what changed your learning.',
+  }[activeView];
+
+  const renderSidebar = () => {
+    if (sidebarCollapsed) {
+      return (
+        <aside className="wa-rail" aria-label="Collapsed Weak Areas navigation">
+          <div className="wa-side-texture" aria-hidden="true" />
+          <button type="button" onClick={() => setSidebarCollapsed(false)} aria-label="Expand Weak Areas sidebar"><ChevronRight size={16} /></button>
+          {VIEWS.map(({ id, label, icon: Icon }) => (
+            <button key={id} type="button" className={activeView === id ? 'active' : ''} onClick={() => { setSidebarCollapsed(false); switchView(id); }} aria-label={label} aria-current={activeView === id ? 'page' : undefined}>
+              <Icon size={17} />
+            </button>
+          ))}
+          <button type="button" onClick={() => navigate('/dashboard-cerbyl')} aria-label="Dashboard"><LayoutDashboard size={17} /></button>
+        </aside>
+      );
+    }
+
     return (
-      <div className="wk-container">
-        <WeakAreasBackdrop />
-        <div className="wk-loading">
-          <div className="wk-loading-dots">
-            <span /><span /><span />
-          </div>
-          <p>ANALYZING YOUR PERFORMANCE</p>
-        </div>
-      </div>
-    );
-  }
+      <aside className="wa-sidebar">
+        <div className="wa-side-texture" aria-hidden="true" />
+        <header className="wa-brand">
+          <div><strong>cerbyl</strong><span>WEAK AREAS</span></div>
+          <button type="button" onClick={() => setSidebarCollapsed(true)} aria-label="Collapse Weak Areas sidebar"><ChevronLeft size={16} /></button>
+        </header>
 
-  const filteredAreas = getFilteredAreas();
+        <button type="button" className="wa-practice-now" onClick={() => navigate('/weakness-practice')}>
+          <Play size={16} fill="currentColor" /> Practice now
+        </button>
+
+        <section className="wa-side-block">
+          <p className="wa-side-label">Learning focus</p>
+          <nav aria-label="Weak Areas sections">
+            {VIEWS.map(({ id, label, icon: Icon }) => (
+              <button key={id} type="button" className={activeView === id ? 'active' : ''} onClick={() => switchView(id)} aria-current={activeView === id ? 'page' : undefined}>
+                <Icon size={17} /><span>{label}</span>
+                {id === 'weak-areas' && totalCount > 0 ? <small>{totalCount}</small> : null}
+                {id === 'topics-hub' && topicsHub?.total_topics > 0 ? <small>{topicsHub.total_topics}</small> : null}
+              </button>
+            ))}
+          </nav>
+        </section>
+
+        <section className="wa-side-block wa-sidebar-signal" aria-label="Current diagnosis">
+          <div><p className="wa-side-label">Current diagnosis</p><strong>{totalCount}</strong></div>
+          <div className="wa-signal-track" aria-hidden>
+            <i className="critical" style={{ flex: criticalCount || 0.001 }} />
+            <i className="practice" style={{ flex: needsPracticeCount || 0.001 }} />
+            <i className="improving" style={{ flex: improvingCount || 0.001 }} />
+          </div>
+          <dl>
+            <div><dt>Critical</dt><dd>{criticalCount}</dd></div>
+            <div><dt>Practice</dt><dd>{needsPracticeCount}</dd></div>
+            <div><dt>Improving</dt><dd>{improvingCount}</dd></div>
+          </dl>
+        </section>
+
+        <footer>
+          <button type="button" onClick={() => navigate('/dashboard-cerbyl')}><LayoutDashboard size={16} />Dashboard</button>
+        </footer>
+      </aside>
+    );
+  };
 
   return (
-    <div className="wk-container">
-      <WeakAreasBackdrop />
+    <div className="wa-root" data-view={activeView}>
+      <div className="wa-line-field" aria-hidden />
+      <header className="wa-topbar">
+        <span><b>LEARNING,</b> UNIFIED</span>
+        <button type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
+      </header>
 
-      <div className="wk-topbar">
-        <div className="wk-topbar-tagline"><span>LEARNING,</span> UNIFIED</div>
-      </div>
+      <div className={`wa-layout ${sidebarCollapsed ? 'is-collapsed' : ''}`}>
+        {renderSidebar()}
 
-      <div className={`wk-layout ${sidebarCollapsed ? 'wk-layout-collapsed' : ''}`}>
-        {sidebarCollapsed ? (
-          <aside className="wk-sidebar-collapsed">
-            <button
-              className="wk-side-expand-btn"
-              type="button"
-              title="Expand sidebar"
-              onClick={() => setSidebarCollapsed(false)}
-            >
-              <ChevronRight size={14} />
-            </button>
-            <button className="wk-side-icon-btn" title="Weak Areas" onClick={() => { setSidebarCollapsed(false); setActiveView('weak-areas'); }}>
-              <Activity size={16} />
-            </button>
-            <button className="wk-side-icon-btn" title="Topics Hub" onClick={() => { setSidebarCollapsed(false); setActiveView('topics-hub'); if (!topicsHub) loadTopicsHub(); }}>
-              <BookOpen size={16} />
-            </button>
-            <button className="wk-side-icon-btn" title="Intelligence" onClick={() => { setSidebarCollapsed(false); setActiveView('intelligence'); }}>
-              <Cpu size={16} />
-            </button>
-            <button className="wk-side-icon-btn" title="How I Learn" onClick={() => { setSidebarCollapsed(false); setActiveView('how-i-learn'); }}>
-              <Brain size={16} />
-            </button>
-            <button className="wk-side-icon-btn" title="Activity" onClick={() => { setSidebarCollapsed(false); setActiveView('activity'); if (!activityFeed) loadActivityFeed(); }}>
-              <Clock size={16} />
-            </button>
-            <button className="wk-side-icon-btn wk-side-icon-btn--accent" title="Dashboard" onClick={() => navigate('/dashboard-cerbyl')}>
-              <LayoutDashboard size={16} />
-            </button>
-          </aside>
-        ) : (
-          <aside className="wk-sidebar">
-            <button
-              className="wk-side-collapse-btn"
-              type="button"
-              title="Hide sidebar"
-              aria-label="Hide Weak Areas sidebar"
-              onClick={() => setSidebarCollapsed(true)}
-            >
-              <ChevronLeft size={14} />
-            </button>
-            <nav className="wk-sidebar-nav">
-              <button
-                className={`wk-sidebar-item ${activeView === 'weak-areas' ? 'active' : ''}`}
-                onClick={() => setActiveView('weak-areas')}
-              >
-                <Activity size={16} />
-                <span>Weak Areas</span>
-                {totalCount > 0 && <span className="wk-count">{totalCount}</span>}
-              </button>
-              <button
-                className={`wk-sidebar-item ${activeView === 'topics-hub' ? 'active' : ''}`}
-                onClick={() => { setActiveView('topics-hub'); if (!topicsHub) loadTopicsHub(); }}
-              >
-                <BookOpen size={16} />
-                <span>Topics Hub</span>
-                {topicsHub?.total_topics > 0 && <span className="wk-count">{topicsHub.total_topics}</span>}
-              </button>
-              <button
-                className={`wk-sidebar-item ${activeView === 'intelligence' ? 'active' : ''}`}
-                onClick={() => setActiveView('intelligence')}
-              >
-                <Cpu size={16} />
-                <span>Intelligence</span>
-              </button>
-              <button
-                className={`wk-sidebar-item ${activeView === 'how-i-learn' ? 'active' : ''}`}
-                onClick={() => setActiveView('how-i-learn')}
-              >
-                <Brain size={16} />
-                <span>How I Learn</span>
-              </button>
-              <button
-                className={`wk-sidebar-item ${activeView === 'activity' ? 'active' : ''}`}
-                onClick={() => { setActiveView('activity'); if (!activityFeed) loadActivityFeed(); }}
-              >
-                <Clock size={16} />
-                <span>Activity</span>
-              </button>
-            </nav>
-
-            <div className="wk-sidebar-actions">
-              <button className="wk-nav-btn" onClick={loadWeakAreas}>
-                <RefreshCw size={15} />
-                Refresh
-              </button>
-              <button className="wk-nav-btn wk-nav-btn-accent" onClick={() => navigate('/dashboard-cerbyl')}>
-                <LayoutDashboard size={15} />
-                Dashboard
-              </button>
+        <main className="wa-main">
+          <header className="wa-main-head">
+            <div>
+              <span>Weak Areas / {activeNav?.label}</span>
+              <h1>{pageTitle}</h1>
             </div>
+            <div className="wa-main-meta">
+              <span><strong>{totalCount}</strong>signals</span>
+              <span><strong>{allAreas.reduce((sum, area) => sum + (area.total_attempts || 0), 0)}</strong>attempts</span>
+              {['weak-areas', 'topics-hub', 'activity'].includes(activeView) ? (
+                <button type="button" onClick={activeView === 'weak-areas' ? loadWeakAreas : activeView === 'topics-hub' ? loadTopicsHub : loadActivityFeed} aria-label={`Refresh ${activeNav?.label}`}>
+                  <RefreshCw size={16} />
+                </button>
+              ) : null}
+            </div>
+          </header>
 
-            {activeView === 'weak-areas' && totalCount > 0 && (
-              <div className="wk-sidebar-stats">
-                {criticalCount > 0 && (
-                  <div className="wk-stat-pill wk-stat-critical">
-                    <span className="wk-stat-num">{criticalCount}</span>
-                    <span className="wk-stat-lbl">Critical</span>
-                  </div>
-                )}
-                {needsPracticeCount > 0 && (
-                  <div className="wk-stat-pill wk-stat-practice">
-                    <span className="wk-stat-num">{needsPracticeCount}</span>
-                    <span className="wk-stat-lbl">Practice</span>
-                  </div>
-                )}
-                {improvingCount > 0 && (
-                  <div className="wk-stat-pill wk-stat-improving">
-                    <span className="wk-stat-num">{improvingCount}</span>
-                    <span className="wk-stat-lbl">Improving</span>
-                  </div>
-                )}
-              </div>
+          {error ? <div className="wa-error" role="alert"><AlertTriangle size={16} /><span>{error}</span><button type="button" onClick={() => setError('')} aria-label="Dismiss error"><X size={15} /></button></div> : null}
+
+          <div className="wa-stage" key={activeView}>
+            {activeView === 'weak-areas' && (
+              <DiagnosisView
+                loading={loading}
+                failed={Boolean(error) && !weakAreasData}
+                areas={filteredAreas}
+                focusArea={priorityFocus}
+                totalCount={totalCount}
+                criticalCount={criticalCount}
+                needsPracticeCount={needsPracticeCount}
+                improvingCount={improvingCount}
+                filter={filterCategory}
+                onFilter={setFilterCategory}
+                onPractice={(topic) => navigate(`/weakness-tips/${encodeURIComponent(topic)}`)}
+                onPracticeAll={() => navigate('/weakness-practice')}
+                onStartLearning={() => navigate('/ai-chat')}
+                onRetry={loadWeakAreas}
+              />
             )}
-          </aside>
-        )}
 
-        <main className="wk-main">
-          {activeView === 'weak-areas' && (
-            <>
-              <div className="wk-view-header">
-                <span className="wk-view-kicker">Performance Analysis</span>
-                <h2 className="wk-view-title">Weak Areas</h2>
-                <p className="wk-view-sub">
-                  {totalCount > 0
-                    ? `${totalCount} area${totalCount !== 1 ? 's' : ''} identified across your activity`
-                    : 'No weak areas detected'}
-                </p>
-              </div>
+            {activeView === 'topics-hub' && (
+              <TopicsView
+                loading={topicsHubLoading}
+                failed={Boolean(error) && !topicsHub}
+                data={topicsHub}
+                filter={topicsHubFilter}
+                onFilter={setTopicsHubFilter}
+                onPractice={(topic) => navigate(`/weakness-tips/${encodeURIComponent(topic)}`)}
+                onStartLearning={() => navigate('/ai-chat')}
+                onRetry={loadTopicsHub}
+              />
+            )}
 
-              {totalCount > 0 && (
-                <div className="wk-filter-row">
-                  {[
-                    { key: 'all', label: 'All Areas', count: null },
-                    { key: 'critical', label: 'Critical', count: criticalCount },
-                    { key: 'needs_practice', label: 'Needs Practice', count: needsPracticeCount },
-                    { key: 'improving', label: 'Improving', count: improvingCount },
-                  ].map(({ key, label, count }) => (
-                    <button
-                      key={key}
-                      className={`wk-filter-pill ${filterCategory === key ? 'active' : ''} wk-filter-${key}`}
-                      onClick={() => setFilterCategory(key)}
-                    >
-                      {label}
-                      {count !== null && <span className="wk-filter-count">{count}</span>}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {filteredAreas.length === 0 ? (
-                <div className="wk-empty">
-                  <CheckCircle size={56} />
-                  <h3>No weak areas detected</h3>
-                  <p>You're performing well across all tracked topics. Keep learning to build your profile.</p>
-                  <button className="wk-cta-btn" onClick={() => navigate('/ai-chat')}>
-                    <Zap size={16} />
-                    Start Learning
-                  </button>
-                </div>
-              ) : (
-                <div className="wk-bento-grid">
-                  {filteredAreas.map((area, idx) => (
-                    <WeaknessCard
-                      key={idx}
-                      area={area}
-                      onClick={() => handleTopicClick(area.topic)}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-
-          {activeView === 'topics-hub' && (
-            <>
-              <div className="wk-view-header">
-                <span className="wk-view-kicker">Everything You've Learned</span>
-                <h2 className="wk-view-title">Topics Hub</h2>
-                <p className="wk-view-sub">
-                  {topicsHub?.total_topics > 0
-                    ? `${topicsHub.total_topics} topic${topicsHub.total_topics !== 1 ? 's' : ''} tracked · ${topicsHub.overall_mastery}% overall mastery`
-                    : 'Every topic you have studied, with mastery, accuracy, and practice history in one place'}
-                </p>
-              </div>
-
-              {topicsHubLoading ? (
-                <div className="wk-loading"><div className="wk-loading-dots"><span /><span /><span /></div><p>LOADING TOPICS</p></div>
-              ) : !topicsHub || topicsHub.total_topics === 0 ? (
-                <div className="wk-empty">
-                  <BookOpen size={56} />
-                  <h3>No topics tracked yet</h3>
-                  <p>Study with quizzes, flashcards, or chat to start building your topic mastery profile.</p>
-                  <button className="wk-cta-btn" onClick={() => navigate('/ai-chat')}>
-                    <Zap size={16} />
-                    Start Learning
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <div className="wk-filter-row">
-                    {[
-                      { key: 'all', label: 'All Topics', count: topicsHub.total_topics },
-                      { key: 'mastered', label: 'Mastered', count: topicsHub.mastered_topics },
-                      { key: 'progressing', label: 'Progressing', count: topicsHub.progressing_topics },
-                      { key: 'needs_work', label: 'Needs Work', count: topicsHub.needs_work_topics },
-                    ].map(({ key, label, count }) => (
-                      <button
-                        key={key}
-                        className={`wk-filter-pill ${topicsHubFilter === key ? 'active' : ''} wk-filter-${key === 'needs_work' ? 'critical' : key === 'progressing' ? 'needs_practice' : key === 'mastered' ? 'improving' : 'all'}`}
-                        onClick={() => setTopicsHubFilter(key)}
-                      >
-                        {label}
-                        <span className="wk-filter-count">{count}</span>
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="wk-bento-grid">
-                    {(topicsHubFilter === 'all'
-                      ? [...topicsHub.topic_breakdown.mastered, ...topicsHub.topic_breakdown.progressing, ...topicsHub.topic_breakdown.needs_work]
-                      : topicsHub.topic_breakdown[topicsHubFilter] || []
-                    ).map((t, idx) => (
-                      <TopicHubCard key={idx} topic={t} onClick={() => handleTopicClick(t.topic)} />
-                    ))}
-                  </div>
-                </>
-              )}
-            </>
-          )}
-
-          {activeView === 'intelligence' && (
-            <>
-              <div className="wk-view-header">
-                <span className="wk-view-kicker">AI-Powered Insights</span>
-                <h2 className="wk-view-title">Intelligence</h2>
-                <p className="wk-view-sub">Deep analysis of your learning patterns and concept mastery</p>
-              </div>
-              <div className="wk-component-wrapper">
+            {activeView === 'intelligence' && (
+              <section className="wa-component-panel">
+                <header className="wa-component-intro">
+                  <div><Cpu size={20} /><span>Pattern intelligence</span></div>
+                  <h2>How Cerbyl formed this diagnosis.</h2>
+                  <p>Long-term mastery, study frequency, and repeated mistakes appear here once enough evidence has accumulated.</p>
+                </header>
                 <WeaknessTracker userId={userName} token={token} onNavigate={navigate} />
-              </div>
-            </>
-          )}
+              </section>
+            )}
 
-          {activeView === 'how-i-learn' && (
-            <>
-              <div className="wk-view-header">
-                <span className="wk-view-kicker">Adaptive Strategy</span>
-                <h2 className="wk-view-title">How I Learn</h2>
-                <p className="wk-view-sub">Your personalized teaching strategy profile, powered by reinforcement learning</p>
-              </div>
-              <div className="wk-component-wrapper">
+            {activeView === 'how-i-learn' && (
+              <section className="wa-component-panel">
+                <header className="wa-component-intro">
+                  <div><Brain size={20} /><span>Teaching strategy</span></div>
+                  <h2>The methods that help you recover fastest.</h2>
+                  <p>Your tutor adapts its explanations as your interaction history becomes strong enough to reveal a pattern.</p>
+                </header>
                 <RLInsights userName={userName} token={token} />
-              </div>
-            </>
-          )}
+              </section>
+            )}
 
-          {activeView === 'activity' && (
-            <>
-              <div className="wk-view-header">
-                <span className="wk-view-kicker">Recent Activity</span>
-                <h2 className="wk-view-title">Activity Feed</h2>
-                <p className="wk-view-sub">Everything you've studied — chats, notes, flashcards, quizzes</p>
-              </div>
-              {activityLoading ? (
-                <div className="wk-loading"><div className="wk-loading-dots"><span /><span /><span /></div><p>LOADING ACTIVITY</p></div>
-              ) : activityFeed?.activities?.length > 0 ? (
-                <div className="wk-activity-feed">
-                  {activityFeed.activities.map((act, i) => <ActivityRow key={i} act={act} />)}
-                </div>
-              ) : (
-                <div className="wk-empty">
-                  <Clock size={32} />
-                  <p>No activity yet. Start studying to see your feed here.</p>
-                </div>
-              )}
-            </>
-          )}
+            {activeView === 'activity' && (
+              <ActivityView loading={activityLoading} failed={Boolean(error) && !activityFeed} feed={activityFeed} onStartLearning={() => navigate('/ai-chat')} onRetry={loadActivityFeed} />
+            )}
+          </div>
         </main>
       </div>
     </div>
   );
 };
 
-export default Weaknesses;
+const DiagnosisView = ({
+  loading,
+  failed,
+  areas,
+  focusArea,
+  totalCount,
+  criticalCount,
+  needsPracticeCount,
+  improvingCount,
+  filter,
+  onFilter,
+  onPractice,
+  onPracticeAll,
+  onStartLearning,
+  onRetry,
+}) => {
+  if (loading) return <LoadingState label="Analyzing your performance" />;
+  if (failed) return <RequestErrorState label="We could not read your diagnosis." onRetry={onRetry} />;
 
-// ==================== WEAKNESS CARD ====================
-
-const handleTileMove = (e) => {
-  const card = e.currentTarget;
-  const rect = card.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
-  const cx = x / rect.width - 0.5;
-  const cy = y / rect.height - 0.5;
-  card.style.setProperty('--mx', `${x}px`);
-  card.style.setProperty('--my', `${y}px`);
-  card.style.setProperty('--rx', `${(-cy * 7).toFixed(2)}deg`);
-  card.style.setProperty('--ry', `${(cx * 9).toFixed(2)}deg`);
-};
-
-const handleTileLeave = (e) => {
-  const card = e.currentTarget;
-  card.style.setProperty('--rx', '0deg');
-  card.style.setProperty('--ry', '0deg');
-};
-
-const WeaknessCard = ({ area, onClick }) => {
-  const navigate = useNavigate();
-  const cat = area.category;
-  const accuracy = area.accuracy ?? 0;
-
-  const catColor = {
-    critical: '#ef4444',
-    needs_practice: '#f59e0b',
-    improving: '#10b981',
-  }[cat] || '#6b7280';
-
-  const catLabel = {
-    critical: 'Critical',
-    needs_practice: 'Needs Practice',
-    improving: 'Improving',
-  }[cat] || cat;
-
-  const CoverIcon = {
-    critical: Target,
-    needs_practice: Brain,
-    improving: TrendingUp,
-  }[cat] || Target;
-
-  const hasMetrics = area.sources?.includes('quiz') || area.sources?.includes('flashcard');
-  const correct = (area.total_attempts || 0) - (area.total_wrong || 0);
+  if (!totalCount) {
+    return (
+      <EmptyState
+        icon={CheckCircle2}
+        title="No weak areas detected."
+        copy="Your tracked topics are holding steady. Keep studying to give Cerbyl more evidence."
+        action="Continue learning"
+        onAction={onStartLearning}
+      />
+    );
+  }
 
   return (
-    <div className={`wk-card wk-card--${cat}`} onClick={onClick} onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
-      <div className="cb-tile-texture" />
-      <div
-        className="wk-card-cover"
-        style={{
-          background: `linear-gradient(135deg, color-mix(in srgb, ${catColor} 22%, transparent) 0%, color-mix(in srgb, ${catColor} 8%, transparent) 100%)`,
-        }}
-      >
-        <div className="wk-card-cover-icon" style={{ color: catColor }}>
-          <CoverIcon size={40} />
+    <div className="wa-diagnosis">
+      <section className="wa-diagnosis-summary">
+        <div className="wa-summary-copy">
+          <span>Start here · {CATEGORY[focusArea?.category]?.label || 'Priority gap'}</span>
+          <h2>{displayTopic(focusArea?.topic)}</h2>
+          <p>
+            {Math.round(focusArea?.accuracy || 0)}% accuracy across {focusArea?.total_attempts || 0} attempts.
+            {' '}This is the strongest current intervention signal.
+          </p>
         </div>
-      </div>
-
-      <div className="wk-card-content">
-        <h3 className="wk-card-topic">{area.topic || 'Unknown Topic'}</h3>
-
-        <div className="wk-card-header">
-          <div className="wk-card-badges">
-            {area.sources?.includes('quiz') && <span className="wk-badge wk-badge--quiz">Quiz</span>}
-            {area.sources?.includes('flashcard') && <span className="wk-badge wk-badge--card">Cards</span>}
-            {area.sources?.includes('chat') && <span className="wk-badge wk-badge--chat">Chat</span>}
-          </div>
-          <span className="wk-card-cat" style={{ color: catColor }}>{catLabel}</span>
+        <dl className="wa-focus-evidence">
+          <div><dt>Wrong</dt><dd>{focusArea?.total_wrong || 0}</dd></div>
+          <div><dt>Source</dt><dd>{focusArea?.sources?.[0] || 'History'}</dd></div>
+          <div><dt>Queue</dt><dd>{criticalCount ? `${criticalCount} critical` : `${totalCount} active`}</dd></div>
+        </dl>
+        <button type="button" className="wa-focus-action" onClick={() => onPractice(focusArea?.topic)}><Target size={16} />Practice this gap<ArrowUpRight size={15} /></button>
+        <button type="button" className="wa-queue-action" onClick={onPracticeAll}><Zap size={15} />Practice the full queue</button>
+        <div className="wa-distribution" aria-label={`${criticalCount} critical, ${needsPracticeCount} need practice, ${improvingCount} improving`}>
+          <span className="critical" style={{ flex: criticalCount || 0.001 }} />
+          <span className="practice" style={{ flex: needsPracticeCount || 0.001 }} />
+          <span className="improving" style={{ flex: improvingCount || 0.001 }} />
         </div>
+      </section>
 
-        {hasMetrics && (
-          <div className="wk-card-bar-wrap">
-            <div className="wk-card-bar-track">
-              <div
-                className="wk-card-bar-fill"
-                style={{ width: `${accuracy}%`, background: catColor }}
-              />
-            </div>
-            <span className="wk-card-pct" style={{ color: catColor }}>{accuracy}%</span>
-          </div>
-        )}
-
-        {hasMetrics && (
-          <div className="wk-card-metrics">
-            <div className="wk-metric">
-              <span className="wk-metric-val" style={{ color: '#10b981' }}>{correct}</span>
-              <span className="wk-metric-lbl">Correct</span>
-            </div>
-            <div className="wk-metric">
-              <span className="wk-metric-val" style={{ color: '#ef4444' }}>{area.total_wrong || 0}</span>
-              <span className="wk-metric-lbl">Wrong</span>
-            </div>
-            <div className="wk-metric">
-              <span className="wk-metric-val">{area.total_attempts || 0}</span>
-              <span className="wk-metric-lbl">Attempts</span>
-            </div>
-          </div>
-        )}
-
-        <div className="wk-card-action-row">
-          <button
-            className="wk-card-btn wk-card-btn--practice"
-            onClick={(e) => { e.stopPropagation(); navigate(`/weakness-tips/${encodeURIComponent(area.topic)}`); }}
-          >
-            Practice
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ==================== TOPIC HUB CARD ====================
-
-const fmtLastPracticed = (iso) => {
-  if (!iso) return 'Never practiced';
-  const d = new Date(iso);
-  const days = Math.floor((Date.now() - d.getTime()) / 86400000);
-  if (days <= 0) return 'Today';
-  if (days === 1) return 'Yesterday';
-  if (days < 30) return `${days}d ago`;
-  return `${Math.floor(days / 30)}mo ago`;
-};
-
-const TopicHubCard = ({ topic, onClick }) => {
-  const navigate = useNavigate();
-  const masteryPct = Math.round((topic.mastery_level || 0) * 100);
-  const cat = masteryPct >= 80 ? 'improving' : masteryPct >= 50 ? 'needs_practice' : 'critical';
-  const catColor = { critical: '#ef4444', needs_practice: '#f59e0b', improving: '#10b981' }[cat];
-  const catLabel = masteryPct >= 80 ? 'Mastered' : masteryPct >= 50 ? 'Progressing' : 'Needs Work';
-  const CoverIcon = masteryPct >= 80 ? CheckCircle : masteryPct >= 50 ? Brain : Target;
-
-  return (
-    <div className={`wk-card wk-card--${cat}`} onClick={onClick} onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
-      <div className="cb-tile-texture" />
-      <div
-        className="wk-card-cover"
-        style={{
-          background: `linear-gradient(135deg, color-mix(in srgb, ${catColor} 22%, transparent) 0%, color-mix(in srgb, ${catColor} 8%, transparent) 100%)`,
-        }}
-      >
-        <div className="wk-card-cover-icon" style={{ color: catColor }}>
-          <CoverIcon size={40} />
-        </div>
-      </div>
-
-      <div className="wk-card-content">
-        <h3 className="wk-card-topic">{topic.topic || 'Unknown Topic'}</h3>
-
-        <div className="wk-card-header">
-          <div className="wk-card-badges">
-            {(topic.excels_at || []).slice(0, 1).map((s, i) => (
-              <span key={i} className="wk-badge wk-badge--card">{s}</span>
+      <section className="wa-queue">
+        <header className="wa-queue-head">
+          <div><span>Priority queue</span><strong>{areas.length} visible</strong></div>
+          <div className="wa-filters" role="group" aria-label="Filter weak areas">
+            {[
+              ['all', 'All', totalCount],
+              ['critical', 'Critical', criticalCount],
+              ['needs_practice', 'Practice', needsPracticeCount],
+              ['improving', 'Improving', improvingCount],
+            ].map(([key, label, count]) => (
+              <button key={key} type="button" className={filter === key ? 'active' : ''} onClick={() => onFilter(key)} aria-pressed={filter === key}>
+                {label}<small>{count}</small>
+              </button>
             ))}
           </div>
-          <span className="wk-card-cat" style={{ color: catColor }}>{catLabel}</span>
-        </div>
+        </header>
 
-        <div className="wk-card-bar-wrap">
-          <div className="wk-card-bar-track">
-            <div className="wk-card-bar-fill" style={{ width: `${masteryPct}%`, background: catColor }} />
-          </div>
-          <span className="wk-card-pct" style={{ color: catColor }}>{masteryPct}%</span>
+        <div className="wa-queue-list">
+          {areas.length ? areas.map((area, index) => (
+            <WeaknessRow key={`${area.topic}-${index}`} area={area} index={index} onPractice={() => onPractice(area.topic)} />
+          )) : (
+            <div className="wa-filter-empty"><CheckCircle2 size={24} /><span>No topics match this diagnosis filter.</span></div>
+          )}
         </div>
-
-        <div className="wk-card-metrics">
-          <div className="wk-metric">
-            <span className="wk-metric-val">{topic.accuracy ?? 0}%</span>
-            <span className="wk-metric-lbl">Accuracy</span>
-          </div>
-          <div className="wk-metric">
-            <span className="wk-metric-val">{topic.times_studied || 0}</span>
-            <span className="wk-metric-lbl">Sessions</span>
-          </div>
-          <div className="wk-metric">
-            <span className="wk-metric-val">{fmtLastPracticed(topic.last_practiced)}</span>
-            <span className="wk-metric-lbl">Last Seen</span>
-          </div>
-        </div>
-
-        {(topic.struggles_with || []).length > 0 && (
-          <p className="wk-evidence">Struggles with: {topic.struggles_with.slice(0, 2).join(', ')}</p>
-        )}
-
-        <div className="wk-card-action-row">
-          <button
-            className="wk-card-btn wk-card-btn--practice"
-            onClick={(e) => { e.stopPropagation(); navigate(`/weakness-tips/${encodeURIComponent(topic.topic)}`); }}
-          >
-            Practice
-          </button>
-        </div>
-      </div>
+      </section>
     </div>
   );
 };
 
-// ==================== ACTIVITY ROW ====================
+const WeaknessRow = ({ area, index, onPractice }) => {
+  const category = CATEGORY[area.category] || CATEGORY.needs_practice;
+  const accuracy = Math.max(0, Math.min(100, Math.round(area.accuracy || 0)));
+  const attempts = area.total_attempts || 0;
+  const wrong = area.total_wrong || 0;
+  const correct = Math.max(0, attempts - wrong);
+  const sources = area.sources || [];
+
+  return (
+    <article className={`wa-weak-row tone-${category.tone}`}>
+      <div className="wa-rank"><span>{String(index + 1).padStart(2, '0')}</span><i /></div>
+      <div className="wa-row-core">
+        <div className="wa-row-title">
+          <span>{category.label}</span>
+          <h3>{displayTopic(area.topic)}</h3>
+        </div>
+        <div className="wa-source-list" aria-label="Evidence sources">
+          {sources.length ? sources.map((source) => <span key={source}>{source}</span>) : <span>learning history</span>}
+        </div>
+      </div>
+      <div className="wa-accuracy">
+        <div><span>Accuracy</span><strong>{accuracy}%</strong></div>
+        <div className="wa-accuracy-track" role="progressbar" aria-label={`${displayTopic(area.topic)} accuracy`} aria-valuemin="0" aria-valuemax="100" aria-valuenow={accuracy}>
+          <i style={{ '--wa-accuracy': accuracy / 100 }} />
+        </div>
+      </div>
+      <dl className="wa-row-metrics">
+        <div><dt>Correct</dt><dd>{correct}</dd></div>
+        <div><dt>Wrong</dt><dd>{wrong}</dd></div>
+        <div><dt>Attempts</dt><dd>{attempts}</dd></div>
+      </dl>
+      <button type="button" className="wa-row-action" onClick={onPractice}>
+        Practice <ArrowUpRight size={15} />
+      </button>
+    </article>
+  );
+};
+
+const TopicsView = ({ loading, failed, data, filter, onFilter, onPractice, onStartLearning, onRetry }) => {
+  if (loading) return <LoadingState label="Loading topic mastery" />;
+  if (failed) return <RequestErrorState label="We could not load topic mastery." onRetry={onRetry} />;
+  if (!data || data.total_topics === 0) {
+    return (
+      <EmptyState
+        icon={BookOpen}
+        title="No topics tracked yet."
+        copy="Quizzes, flashcards, and study chats will begin building your mastery ledger."
+        action="Start learning"
+        onAction={onStartLearning}
+      />
+    );
+  }
+
+  const breakdown = data.topic_breakdown || {};
+  const topics = filter === 'all'
+    ? [...(breakdown.needs_work || []), ...(breakdown.progressing || []), ...(breakdown.mastered || [])]
+    : (breakdown[filter] || []);
+
+  return (
+    <section className="wa-topics">
+      <header className="wa-topics-overview">
+        <div><CircleGauge size={24} /><span>Overall mastery</span><strong>{data.overall_mastery || 0}%</strong></div>
+        <p>{data.total_topics} tracked topics, arranged by where another session will make the biggest difference.</p>
+      </header>
+      <div className="wa-filters" role="group" aria-label="Filter topic mastery">
+        {[
+          ['all', 'All topics', data.total_topics],
+          ['needs_work', 'Needs work', data.needs_work_topics],
+          ['progressing', 'Progressing', data.progressing_topics],
+          ['mastered', 'Mastered', data.mastered_topics],
+        ].map(([key, label, count]) => (
+          <button key={key} type="button" className={filter === key ? 'active' : ''} onClick={() => onFilter(key)} aria-pressed={filter === key}>
+            {label}<small>{count || 0}</small>
+          </button>
+        ))}
+      </div>
+      <div className="wa-topic-list">
+        {topics.length ? topics.map((topic, index) => <TopicRow key={`${topic.topic}-${index}`} topic={topic} onPractice={() => onPractice(topic.topic)} />) : (
+          <div className="wa-filter-empty"><CheckCircle2 size={24} /><span>No topics are in this mastery group yet.</span><button type="button" onClick={() => onFilter('all')}>Show all topics</button></div>
+        )}
+      </div>
+    </section>
+  );
+};
+
+const TopicRow = ({ topic, onPractice }) => {
+  const mastery = Math.max(0, Math.min(100, Math.round((topic.mastery_level || 0) * 100)));
+  const state = mastery >= 80 ? 'Mastered' : mastery >= 50 ? 'Progressing' : 'Needs work';
+  return (
+    <article className="wa-topic-row">
+      <div className="wa-topic-state" role="progressbar" aria-label={`${displayTopic(topic.topic)} mastery`} aria-valuemin="0" aria-valuemax="100" aria-valuenow={mastery}><span>{state}</span><strong>{mastery}%</strong></div>
+      <div className="wa-topic-copy">
+        <h3>{topic.topic || 'Unknown topic'}</h3>
+        <span>{(topic.struggles_with || []).slice(0, 2).join(' · ') || 'No specific struggle recorded'}</span>
+      </div>
+      <div className="wa-topic-stats">
+        <span><b>{topic.accuracy || 0}%</b> accuracy</span>
+        <span><b>{topic.times_studied || 0}</b> sessions</span>
+        <span>{formatLastPracticed(topic.last_practiced)}</span>
+      </div>
+      <button type="button" onClick={onPractice}>Open topic<ArrowUpRight size={15} /></button>
+    </article>
+  );
+};
+
+const ActivityView = ({ loading, failed, feed, onStartLearning, onRetry }) => {
+  if (loading) return <LoadingState label="Loading recent activity" />;
+  if (failed) return <RequestErrorState label="We could not load recent activity." onRetry={onRetry} />;
+  if (!feed?.activities?.length) {
+    return (
+      <EmptyState
+        icon={Activity}
+        title="No learning activity yet."
+        copy="Your study actions will appear here as evidence for future diagnoses."
+        action="Start learning"
+        onAction={onStartLearning}
+      />
+    );
+  }
+
+  return (
+    <section className="wa-activity">
+      <header><span>Recent evidence</span><strong>{feed.activities.length} events</strong></header>
+      <div>{feed.activities.map((activity, index) => <ActivityRow key={`${activity.ts}-${index}`} activity={activity} />)}</div>
+    </section>
+  );
+};
 
 const ACTIVITY_ICONS = {
   chat: MessageCircle,
   note: FileText,
-  flashcard: Layers,
-  quiz: CheckCircle,
+  flashcard: Layers3,
+  quiz: CheckCircle2,
   weak_area: Target,
 };
-const ACTIVITY_COLORS = {
-  chat: '#6366f1',
-  note: '#3b82f6',
-  flashcard: '#8b5cf6',
-  quiz: '#10b981',
-  weak_area: '#ef4444',
-};
 
-const fmtTs = (ts) => {
-  if (!ts) return '';
-  const d = new Date(ts);
-  const now = new Date();
-  const diffMs = now - d;
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-  return `${Math.floor(diffHr / 24)}d ago`;
-};
-
-const ActivityRow = ({ act }) => {
-  const Icon = ACTIVITY_ICONS[act.type] || Activity;
-  const color = ACTIVITY_COLORS[act.type] || '#6b7280';
+const ActivityRow = ({ activity }) => {
+  const Icon = ACTIVITY_ICONS[activity.type] || Activity;
   return (
-    <div className="wk-act-row">
-      <div className="wk-act-icon" style={{ color }}><Icon size={15} /></div>
-      <div className="wk-act-body">
-        <span className="wk-act-topic">{act.topic}</span>
-        {act.detail ? <span className="wk-act-detail">{act.detail}</span> : null}
-      </div>
-      <div className="wk-act-meta">
-        <span className="wk-act-type">{act.type}</span>
-        <span className="wk-act-ts">{fmtTs(act.ts)}</span>
-      </div>
-    </div>
+    <article className="wa-activity-row">
+      <div><Icon size={17} /></div>
+      <span><strong>{activity.topic || 'Learning activity'}</strong><small>{activity.detail || activity.type}</small></span>
+      <time>{formatTimestamp(activity.ts)}</time>
+    </article>
   );
 };
+
+const LoadingState = ({ label }) => (
+  <div className="wa-loading" role="status">
+    <div><span /><span /><span /></div>
+    <strong>{label}</strong>
+    <small>Reading your learning evidence</small>
+  </div>
+);
+
+const EmptyState = ({ icon: Icon, title, copy, action, onAction }) => (
+  <section className="wa-empty">
+    <Icon size={34} />
+    <h2>{title}</h2>
+    <p>{copy}</p>
+    <button type="button" onClick={onAction}>{action}<ArrowUpRight size={15} /></button>
+  </section>
+);
+
+const RequestErrorState = ({ label, onRetry }) => (
+  <section className="wa-empty wa-request-error" role="alert">
+    <AlertTriangle size={34} />
+    <h2>{label}</h2>
+    <p>Your existing learning data has not been replaced or cleared. Retry when the service is available.</p>
+    <button type="button" onClick={onRetry}><RefreshCw size={15} />Retry</button>
+  </section>
+);
+
+const formatLastPracticed = (iso) => {
+  if (!iso) return 'Never practiced';
+  const date = new Date(iso);
+  const days = Math.floor((Date.now() - date.getTime()) / 86400000);
+  if (days <= 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (days < 30) return `${days} days ago`;
+  return `${Math.floor(days / 30)} months ago`;
+};
+
+const formatTimestamp = (timestamp) => {
+  if (!timestamp) return '';
+  const difference = Date.now() - new Date(timestamp).getTime();
+  const minutes = Math.max(0, Math.floor(difference / 60000));
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+};
+
+const displayTopic = (topic) => {
+  const normalized = String(topic || '').trim();
+  if (!normalized || normalized.toLowerCase() === 'none' || normalized.toLowerCase() === 'null') {
+    return 'Unclassified concept';
+  }
+  return normalized;
+};
+
+export default Weaknesses;

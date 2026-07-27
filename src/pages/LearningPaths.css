@@ -364,6 +364,157 @@
   line-height: 1.5;
 }
 
+.lp-empty-stage {
+  min-height: 470px;
+  margin-top: 12px;
+  padding: clamp(28px, 5vw, 64px);
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+  align-items: center;
+  gap: clamp(36px, 7vw, 100px);
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+  background:
+    linear-gradient(rgba(215, 179, 140, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(215, 179, 140, 0.035) 1px, transparent 1px),
+    color-mix(in srgb, var(--bg-secondary) 82%, transparent);
+  background-size: 54px 54px, 54px 54px, auto;
+}
+
+.lp-empty-copy h3 {
+  max-width: 720px;
+  margin: 14px 0 18px;
+  color: var(--text-primary);
+  font-size: clamp(38px, 5vw, 72px);
+  line-height: 0.95;
+  letter-spacing: -0.06em;
+}
+
+.lp-empty-copy p {
+  max-width: 620px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.lp-empty-cta {
+  min-width: 220px;
+}
+
+.lp-path-preview {
+  position: relative;
+  padding: 30px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  background: color-mix(in srgb, var(--bg-primary) 82%, transparent);
+  transform: rotate(1.5deg);
+  transition: transform 220ms ease, border-color 220ms ease;
+}
+
+.lp-empty-stage:hover .lp-path-preview {
+  transform: rotate(0);
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+}
+
+.lp-preview-label {
+  display: block;
+  margin-bottom: 26px;
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.lp-preview-step {
+  display: grid;
+  grid-template-columns: 28px 34px 1fr;
+  align-items: center;
+  min-height: 74px;
+  color: var(--text-secondary);
+}
+
+.lp-preview-step span {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.lp-preview-step i {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+}
+
+.lp-preview-step:not(:last-child) i::after {
+  content: '';
+  position: absolute;
+  top: 12px;
+  left: 3px;
+  width: 2px;
+  height: 62px;
+  background: linear-gradient(var(--accent), color-mix(in srgb, var(--accent) 18%, transparent));
+}
+
+.lp-preview-step strong {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.lp-reset-filter {
+  margin-top: 16px;
+  min-height: 42px;
+  padding: 0 18px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .lp-empty-stage {
+    grid-template-columns: 1fr;
+  }
+
+  .lp-path-preview {
+    transform: none;
+  }
+
+  .lp-sort-row {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+}
+
+@media (max-width: 600px) {
+  .lp-empty-stage {
+    min-height: auto;
+    padding: 28px 20px;
+  }
+
+  .lp-empty-copy h3 {
+    font-size: 38px;
+  }
+
+  .lp-control-bar,
+  .lp-filter-row {
+    align-items: stretch;
+  }
+
+  .lp-filter-row {
+    width: 100%;
+  }
+
+  .lp-filter-btn {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
 /* ── Spinner ── */
 .lp-spinner {
   display: inline-block;
