@@ -1,5 +1,15 @@
 # Web Framework & Server
-fastapi>=0.100.0
+# fastapi was unpinned (">=0.100.0") -- a fresh install resolves to whatever's
+# newest at build time, which was NOT what this repo had ever actually been
+# tested against (the dev env had fastapi 0.104.1/starlette 0.27.0 sitting
+# untouched for a long time). Upgraded for real to 0.140.0/1.3.1 and verified:
+# full test suite (297 passed), a real app lifespan startup/shutdown, and real
+# HTTP requests through the full ASGI stack (health check, OpenAPI generation
+# -- 441 paths, /docs, an OAuth2 form-login route, a 404) via TestClient, all
+# against this exact pin. Pinned exactly so prod runs what's tested, not
+# whatever floats in on the next Docker build.
+fastapi==0.140.0
+starlette==1.3.1
 uvicorn[standard]>=0.20.0
 gunicorn
 python-multipart>=0.0.6
@@ -24,7 +34,14 @@ requests>=2.28.0
 groq>=0.4.0
 
 # AI/ML - Google Gemini (Primary)
-google-generativeai>=0.3.0
+# google-generativeai is EOL (Google ended all support/updates for it);
+# replaced with the actively maintained google-genai SDK's Client API
+# (google.genai.Client(...).models.generate_content(...)). Was capped below
+# 1.5.0 while fastapi was still 0.104.1 (newer google-genai needs anyio>=4.8,
+# incompatible with fastapi 0.104.1's anyio<4.0 pin) -- that ceiling is gone
+# now that fastapi is upgraded (see note above); verified 2.14.0 resolves and
+# runs clean against the current fastapi/pydantic pins.
+google-genai==2.14.0
 # Pinned below 2.29.0: that release added a startup check that scans every
 # installed package's file list, causing multi-minute import hangs on Windows.
 google-api-core<2.29.0
@@ -92,7 +109,10 @@ pycountry>=22.3.5
 python-dotenv>=1.0.0
 
 # Validation
-pydantic[email]>=2.0.0
+# Was capped below 2.10 while fastapi was still 0.104.1 (which crashed on
+# route collection under pydantic>=2.10 -- see the fastapi note above); gone
+# now that fastapi is upgraded. Pinned exactly to what's tested.
+pydantic[email]==2.13.4
 email-validator>=2.0.0
 
 # Caching

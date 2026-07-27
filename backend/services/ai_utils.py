@@ -65,22 +65,19 @@ class UnifiedAIClient:
         self.groq_vision_model = groq_vision_model
         self.fallback_ai_client = fallback_ai_client
 
+        # Note: self.gemini_client (a google-genai Client) is only used here as an
+        # "is Gemini configured" signal for the primary_ai branch above/below --
+        # actual Gemini generation goes through the raw REST calls in
+        # _call_gemini/_call_gemini_vision, not the SDK's own generate_content.
         if (openai_compat_api_key or self._has_pool(openai_compat_key_pool)) and not gemini_client and not groq_client and not self._has_pool(gemini_key_pool) and not self._has_pool(groq_key_pool):
             self.gemini_client = None
             self.primary_ai = "openai_compat"
         elif groq_client or self._has_pool(groq_key_pool):
-            try:
-                self.gemini_client = gemini_client.GenerativeModel(gemini_model) if gemini_client else None
-            except Exception:
-                self.gemini_client = None
+            self.gemini_client = gemini_client
             self.primary_ai = "groq"
         elif gemini_client or self._has_pool(gemini_key_pool):
-            try:
-                self.gemini_client = gemini_client.GenerativeModel(gemini_model) if gemini_client else None
-                self.primary_ai = "gemini"
-            except Exception:
-                self.gemini_client = None
-                raise ValueError("Gemini AI client failed to initialize")
+            self.gemini_client = gemini_client
+            self.primary_ai = "gemini"
         else:
             raise ValueError("At least one AI client (Gemini, Groq, or OpenAI-compat) must be provided")
 

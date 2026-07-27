@@ -31,11 +31,16 @@ except ImportError:
     pycountry = None
 
 try:
-    import google.generativeai as genai
+    from google import genai
     GEMINI_AVAILABLE = True
 except ImportError:
     genai = None
     GEMINI_AVAILABLE = False
+
+# "gemini-2.0-flash-exp" (the experimental preview model this used to target)
+# has been retired by Google and now 404s on every call -- this Gemini
+# fallback path was silently dead. Using the same stable model as deps.py.
+GEMINI_MODEL_NAME = "gemini-2.0-flash"
 
 try:
     from groq import Groq
@@ -67,13 +72,12 @@ load_backend_env()
 GEMINI_API_KEY = os.getenv("GOOGLE_GENERATIVE_AI_KEY") or os.getenv("GEMINI_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-if GEMINI_AVAILABLE and GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
+gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_AVAILABLE and GEMINI_API_KEY else None
 
 groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_AVAILABLE and GROQ_API_KEY else None
 
 class AIMediaProcessor:
-    
+
     def __init__(self):
         self.youtube_service = youtube_service
         self.groq_key_pool = build_key_pool("groq", ("GROQ_API_KEYS", "GROQ_API_KEY"))
@@ -82,16 +86,12 @@ class AIMediaProcessor:
             if GROQ_AVAILABLE and self.groq_key_pool.enabled
             else groq_client
         )
-        
-        if GEMINI_AVAILABLE and GEMINI_API_KEY:
-            try:
-                self.gemini_model = genai.GenerativeModel('gemini-2.0-flash-exp')
-                logger.info("Gemini available as fallback (Groq is primary)")
-            except Exception as e:
-                logger.warning(f"Could not initialize Gemini: {e}")
-                self.gemini_model = None
+
+        if gemini_client is not None:
+            self.gemini_client = gemini_client
+            logger.info("Gemini available as fallback (Groq is primary)")
         else:
-            self.gemini_model = None
+            self.gemini_client = None
             logger.info("Using Groq exclusively for AI processing")
 
     def _is_groq_quota_error(self, error: Exception) -> bool:
@@ -237,7 +237,7 @@ class AIMediaProcessor:
                 prompt_tokens=usage.get("prompt_tokens", 0),
                 completion_tokens=usage.get("completion_tokens", 0),
                 total_tokens=usage.get("total_tokens", 0),
-                model="gemini-2.0-flash-exp",
+                model=GEMINI_MODEL_NAME,
                 metadata=metadata
             )
         except Exception:
@@ -595,7 +595,7 @@ Format as valid JSON."""
                     else:
                         raise
             
-            if self.gemini_model:
+            if self.gemini_client:
                 logger.info("Using Gemini as fallback for analysis")
                 options = options or {}
                 subject = options.get('subject', 'general')
@@ -616,7 +616,7 @@ Provide a JSON response with:
 7. questions: 10 study questions
 8. language: detected language code"""
 
-                response = self.gemini_model.generate_content(prompt)
+                response = self.gemini_client.models.generate_content(model=GEMINI_MODEL_NAME, contents=prompt)
                 self._log_gemini_usage(user_id, "media_notes_ai", response, {"task": "analyze_transcript"}, prompt=prompt)
                 result_text = response.text
                 
@@ -718,7 +718,7 @@ Provide a JSON response with:
             else:
                 groq_error = "Groq client not available"
 
-            if self.gemini_model:
+            if self.gemini_client:
                 try:
                     can_call, wait_time = rate_limiter.can_call_gemini()
                     if not can_call:
@@ -726,7 +726,10 @@ Provide a JSON response with:
                         await asyncio.sleep(wait_time + 1)
 
                     rate_limiter.record_gemini_call()
-                    response = self.gemini_model.generate_content(f"{system_prompt}\n\n{prompt}")
+                    response = self.gemini_client.models.generate_content(
+                        model=GEMINI_MODEL_NAME,
+                        contents=f"{system_prompt}\n\n{prompt}",
+                    )
                     self._log_gemini_usage(
                         user_id,
                         "media_notes_ai",

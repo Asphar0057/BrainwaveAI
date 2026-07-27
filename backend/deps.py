@@ -73,10 +73,9 @@ def _init_ai_client() -> UnifiedAIClient:
     groq_client = Groq(api_key=effective_groq_key) if effective_groq_key and not groq_key_pool.enabled else None
     gemini_client = None
     try:
-        import google.generativeai as genai
+        from google import genai
         if effective_gemini_key:
-            genai.configure(api_key=effective_gemini_key)
-            gemini_client = genai
+            gemini_client = genai.Client(api_key=effective_gemini_key)
     except ImportError:
         pass
     return UnifiedAIClient(
