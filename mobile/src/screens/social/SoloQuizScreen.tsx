@@ -10,6 +10,7 @@ import { AuthUser } from '../../services/auth';
 import { createSoloQuiz, getSoloQuiz, completeSoloQuiz, SoloQuizQuestion } from '../../services/api';
 import HapticTouchable from '../../components/HapticTouchable';
 import GeoBackground from '../../components/GeoBackground';
+import MathText from '../../components/MathText';
 import SocialTileMaterial from '../../components/SocialTileMaterial';
 import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../../components/NeumorphicTexture';
 import { useAppTheme } from '../../contexts/ThemeContext';
@@ -285,7 +286,7 @@ function QuizSession({
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
         <View style={s.questionCard}>
           <SocialTileMaterial />
-          <Text style={s.questionText}>{question.question}</Text>
+          <MathText style={s.questionText}>{question.question}</MathText>
         </View>
 
         <View style={{ gap: 10 }}>
@@ -302,7 +303,7 @@ function QuizSession({
                 <View style={[s.optionLetter, active && s.optionLetterActive]}>
                   <Text style={[s.optionLetterText, active && { color: INK }]}>{letter}</Text>
                 </View>
-                <Text style={[s.optionText, active && s.optionTextActive]}>{opt}</Text>
+                <MathText style={[s.optionText, active && s.optionTextActive]}>{opt}</MathText>
               </HapticTouchable>
             );
           })}
@@ -356,11 +357,11 @@ function QuizReview({
             <View style={[s.reviewBadge, { backgroundColor: r.is_correct ? rgbaFromHex(theme.success, 0.16) : rgbaFromHex(theme.danger, 0.16) }]}>
               <Ionicons name={r.is_correct ? 'checkmark' : 'close'} size={13} color={r.is_correct ? theme.success : theme.danger} />
             </View>
-            <Text style={s.reviewQuestion} numberOfLines={3}>{r.question_text}</Text>
+            <MathText style={s.reviewQuestion} numberOfLines={3}>{r.question_text}</MathText>
           </View>
           <Text style={s.reviewAnswer}>your answer: <Text style={{ color: r.is_correct ? theme.success : theme.danger }}>{r.user_answer || '—'}</Text></Text>
           {!r.is_correct && <Text style={s.reviewAnswer}>correct answer: <Text style={{ color: theme.success }}>{r.correct_answer}</Text></Text>}
-          {!!r.explanation && <Text style={s.reviewExplanation}>{r.explanation}</Text>}
+          {!!r.explanation && <MathText style={s.reviewExplanation}>{r.explanation}</MathText>}
         </View>
       ))}
 

@@ -1,9 +1,31 @@
 import { useMemo, type ReactElement } from 'react';
 import { Text, View, StyleSheet } from 'react-native';
+import { MathJaxSvg } from 'react-native-mathjax-html-to-svg';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
+import { hasMath } from '../utils/mathDetection';
 
 interface Props { children: string; }
+
+// A line containing math renders as one MathJaxSvg block instead of going
+// through parseInline -- it loses **bold**/*italic* segment-splitting within
+// that one line (math and inline-markdown emphasis essentially never
+// overlap in AI-generated content), but actually typesets the LaTeX instead
+// of the previous fallback of stuffing "$$...$$" into a monospace code block.
+function renderTextOrMath(
+  text: string,
+  baseStyle: { color: string | number; fontSize?: number },
+  plainElement: ReactElement,
+): ReactElement {
+  if (!hasMath(text)) {
+    return plainElement;
+  }
+  return (
+    <MathJaxSvg fontSize={baseStyle.fontSize ?? 14} color={String(baseStyle.color)} fontCache>
+      {text}
+    </MathJaxSvg>
+  );
+}
 
 // Split text into inline segments: bold, italic, inline code, plain
 function parseInline(text: string, styles: ReturnType<typeof createStyles>): ReactElement[] {
@@ -35,12 +57,7 @@ function parseInline(text: string, styles: ReturnType<typeof createStyles>): Rea
 export default function MarkdownText({ children }: Props) {
   const { selectedTheme } = useAppTheme();
   const s = useMemo(() => createStyles(selectedTheme), [selectedTheme]);
-  const raw = children ?? '';
-
-  // Pre-process LaTeX: $$...$$ → code block, $...$ → inline code
-  const text = raw
-    .replace(/\$\$([^$]+)\$\$/g, (_, eq) => '\n```\n' + eq.trim() + '\n```\n')
-    .replace(/\$([^$\n]+)\$/g, (_, eq) => '`' + eq.trim() + '`');
+  const text = children ?? '';
 
   const lines = text.split('\n');
   const elements: ReactElement[] = [];
@@ -101,7 +118,7 @@ export default function MarkdownText({ children }: Props) {
           {items.map((item, idx) => (
             <View key={idx} style={s.listRow}>
               <Text style={s.bullet}>•</Text>
-              <Text style={s.listText}>{parseInline(item, s)}</Text>
+              {renderTextOrMath(item, s.listText, <Text style={s.listText}>{parseInline(item, s)}</Text>)}
             </View>
           ))}
         </View>
@@ -122,7 +139,7 @@ export default function MarkdownText({ children }: Props) {
           {items.map((item, idx) => (
             <View key={idx} style={s.listRow}>
               <Text style={s.bullet}>{item.n}.</Text>
-              <Text style={s.listText}>{parseInline(item.t, s)}</Text>
+              {renderTextOrMath(item.t, s.listText, <Text style={s.listText}>{parseInline(item.t, s)}</Text>)}
             </View>
           ))}
         </View>
@@ -132,9 +149,10 @@ export default function MarkdownText({ children }: Props) {
 
     // Blockquote
     if (line.startsWith('> ')) {
+      const quoted = line.slice(2);
       elements.push(
         <View key={key++} style={s.blockquote}>
-          <Text style={s.blockquoteText}>{parseInline(line.slice(2), s)}</Text>
+          {renderTextOrMath(quoted, s.blockquoteText, <Text style={s.blockquoteText}>{parseInline(quoted, s)}</Text>)}
         </View>
       );
       i++; continue;
@@ -148,7 +166,9 @@ export default function MarkdownText({ children }: Props) {
 
     // Normal paragraph
     elements.push(
-      <Text key={key++} style={s.para}>{parseInline(line, s)}</Text>
+      <View key={key++}>
+        {renderTextOrMath(line, s.para, <Text style={s.para}>{parseInline(line, s)}</Text>)}
+      </View>
     );
     i++;
   }

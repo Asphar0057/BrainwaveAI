@@ -30,6 +30,7 @@ import {
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
+import MathText from '../components/MathText';
 import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
@@ -202,7 +203,7 @@ export default function QuestionBankScreen({ user, onBack }: Props) {
                 <Text style={s.pill}>{q.difficulty || 'medium'}</Text>
                 <Text style={s.pill}>{q.question_type?.replace('_', ' ') || 'question'}</Text>
               </View>
-              <Text style={s.questionText}>{q.question_text}</Text>
+              <MathText style={s.questionText}>{q.question_text}</MathText>
 
               {options.length > 0 ? (
                 <View style={s.options}>
@@ -217,7 +218,7 @@ export default function QuestionBankScreen({ user, onBack }: Props) {
                         onPress={() => !result && setAnswers((prev) => ({ ...prev, [q.id]: option }))}
                         haptic="selection"
                       >
-                        <Text style={[s.optionText, active && s.optionTextActive]}>{option}</Text>
+                        <MathText style={[s.optionText, active && s.optionTextActive]}>{option}</MathText>
                       </HapticTouchable>
                     );
                   })}
@@ -240,7 +241,7 @@ export default function QuestionBankScreen({ user, onBack }: Props) {
                     {detail?.is_correct ? 'correct' : 'review'}
                   </Text>
                   <Text style={s.explainText}>answer: {detail?.correct_answer || q.correct_answer || 'not available'}</Text>
-                  {!!(detail?.explanation || q.explanation) && <Text style={s.explainText}>{detail?.explanation || q.explanation}</Text>}
+                  {!!(detail?.explanation || q.explanation) && <MathText style={s.explainText}>{detail?.explanation || q.explanation}</MathText>}
                 </View>
               ) : null}
             </View>

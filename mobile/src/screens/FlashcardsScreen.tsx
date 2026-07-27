@@ -19,6 +19,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import PagerView, { AppPagerHandle } from '../components/AppPager';
 import HapticTouchable from '../components/HapticTouchable';
+import MathText from '../components/MathText';
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
 import { AuthUser } from '../services/auth';
@@ -406,9 +407,9 @@ function StudyView({
                         FROM {studyCard.set_title.toUpperCase()}
                       </Text>
                     ) : null}
-                    <Text style={[s.cardText, pageFlipped && s.cardTextFlipped]}>
+                    <MathText style={[s.cardText, pageFlipped && s.cardTextFlipped]}>
                       {pageFlipped ? studyCard.answer : studyCard.question}
-                    </Text>
+                    </MathText>
                   </ScrollView>
 
                   <View style={s.cardFooter}>
