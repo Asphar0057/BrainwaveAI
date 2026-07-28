@@ -28,7 +28,7 @@ export function SidebarShell({ collapsed, onToggleCollapse, brandKicker, brandLo
         {collapsed ? (
           <div className="sb-collapsed-strip">
             {onToggleCollapse && (
-              <button type="button" className="sb-strip-btn" data-tip="Open sidebar" onClick={onToggleCollapse}>
+              <button type="button" className="sb-strip-btn" data-tip="Open sidebar" aria-label="Open sidebar" title="Open sidebar" onClick={onToggleCollapse}>
                 <ChevronRight size={18} />
               </button>
             )}
@@ -109,7 +109,15 @@ export function SidebarAction({ icon, label, onClick }) {
 
 export function SidebarStripButton({ icon, tip, active, onClick, disabled }) {
   return (
-    <button type="button" className={`sb-strip-btn ${active ? 'active' : ''}`} data-tip={tip} onClick={onClick} disabled={disabled}>
+    <button
+      type="button"
+      className={`sb-strip-btn ${active ? 'active' : ''}`}
+      data-tip={tip}
+      aria-label={tip}
+      title={tip}
+      onClick={onClick}
+      disabled={disabled}
+    >
       {icon}
     </button>
   );

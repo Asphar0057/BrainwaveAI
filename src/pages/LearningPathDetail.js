@@ -34,7 +34,6 @@ import {
   Link as LinkIcon,
   Search as SearchIcon,
   Star as StarIcon,
-  Youtube as YoutubeIcon,
 } from 'lucide-react';
 import learningPathService from '../services/learningPathService';
 import MathRenderer from '../components/MathRenderer';
@@ -76,7 +75,6 @@ const Globe2 = safeIcon(Globe2Icon);
 const Link = safeIcon(LinkIcon);
 const Search = safeIcon(SearchIcon);
 const Star = safeIcon(StarIcon);
-const Youtube = safeIcon(YoutubeIcon);
 
 const PATH_PANEL_MIN_WIDTH = 240;
 const PATH_PANEL_MAX_WIDTH = 560;
@@ -90,6 +88,9 @@ const LearningPathDetail = () => {
   const [path, setPath] = useState(null);
   const [nodes, setNodes] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
+  const [workspaceSection, setWorkspaceSection] = useState('overview');
+  const [learnSection, setLearnSection] = useState('content');
+  const [coreSectionIndex, setCoreSectionIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   
@@ -391,7 +392,12 @@ const LearningPathDetail = () => {
       }
       
       
-      setQuizQuestions(quizResponse.questions || []);
+      const questions = quizResponse.questions || [];
+      if (!questions.length) {
+        alert('The completion check is not ready yet. Review the node and try again.');
+        return;
+      }
+      setQuizQuestions(questions);
       setCurrentQuizQuestion(0);
       setQuizAnswers({});
       setQuizSubmitted(false);
@@ -414,6 +420,7 @@ const LearningPathDetail = () => {
   };
 
   const handleQuizSubmit = async () => {
+    if (!quizQuestions.length) return;
     
     let correct = 0;
     quizQuestions.forEach((q, idx) => {
@@ -471,6 +478,21 @@ const LearningPathDetail = () => {
     setQuizSubmitted(false);
     setQuizScore(0);
   };
+
+  useEffect(() => {
+    if (!showCompletionQuiz) return undefined;
+    const handleEscape = (event) => {
+      if (event.key === 'Escape' && !actionLoading) handleQuizClose();
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [showCompletionQuiz, actionLoading]);
+
+  useEffect(() => {
+    setWorkspaceSection('overview');
+    setLearnSection('content');
+    setCoreSectionIndex(0);
+  }, [selectedNode?.id]);
 
   const handleDifficultyChange = async (newDifficulty) => {
     if (!selectedNode) return;
@@ -548,7 +570,7 @@ const LearningPathDetail = () => {
       setResourceMessage('');
       const response = await learningPathService.searchResources(pathId, selectedNode.id, query, {
         provider: resourceSearchProvider,
-        includeYoutube: true,
+        includeYoutube: false,
         maxResults: 8
       });
       setResourceSearchResults(response.resources || []);
@@ -558,7 +580,7 @@ const LearningPathDetail = () => {
         setResourceMessage(
           enabled.length
             ? 'No resources found for that query.'
-            : 'Add BRAVE_SEARCH_API_KEY or TAVILY_API_KEY for web search, and YOUTUBE_API_KEY for YouTube results.'
+            : 'Add BRAVE_SEARCH_API_KEY or TAVILY_API_KEY to enable web resource search.'
         );
       }
     } catch (error) {
@@ -858,7 +880,7 @@ const LearningPathDetail = () => {
     const url = (resource?.url || '').toLowerCase();
     const type = (resource?.type || '').toLowerCase();
     if (type.includes('video') || url.includes('youtube.com') || url.includes('youtu.be')) {
-      return <Youtube size={18} />;
+      return <Play size={18} />;
     }
     if (type.includes('reference') || url.includes('docs') || url.includes('github')) {
       return <FileText size={18} />;
@@ -1019,9 +1041,16 @@ const LearningPathDetail = () => {
       {/* ── Node list sidebar ── */}
       <aside className="lpd-sidebar">
         <div className="lpd-sb-head">
-          <button className="lpd-sb-back" onClick={() => navigate('/learning-paths')}>
-            <ChevronLeft size={15} /> Paths
-          </button>
+          <div className="lpd-sb-brand">
+            <div>
+              <strong>cerbyl</strong>
+              <span>LEARNING PATH</span>
+            </div>
+            <button className="lpd-sb-back" onClick={() => navigate('/learning-paths')} aria-label="Back to learning paths">
+              <ChevronLeft size={17} />
+            </button>
+          </div>
+          <div className="lpd-sb-path-label">Current route</div>
           <div className="lpd-sb-path-name">{path.title}</div>
           <div className="lpd-sb-overall">
             <div className="lpd-sb-overall-bar">
@@ -1037,10 +1066,13 @@ const LearningPathDetail = () => {
             const isLocked = node.progress.status === 'locked';
             const pct = node.progress.progress_pct || 0;
             return (
-              <div
+              <button
+                type="button"
                 key={node.id}
                 className={`lpd-sb-node ${isActive ? 'active' : ''} ${isLocked ? 'locked' : ''}`}
                 onClick={() => !isLocked && setSelectedNode(node)}
+                disabled={isLocked}
+                aria-current={isActive ? 'step' : undefined}
               >
                 <div className="lpd-sb-node-icon">
                   {node.progress.status === 'completed'
@@ -1062,7 +1094,7 @@ const LearningPathDetail = () => {
                     </div>
                   )}
                 </div>
-              </div>
+              </button>
             );
           })}
         </nav>
@@ -1108,6 +1140,33 @@ const LearningPathDetail = () => {
                 </div>
               </div>
 
+              <nav className="lpd-workspace-tabs" aria-label="Node workspace sections" role="tablist">
+                {[
+                  { id: 'overview', label: 'Overview', icon: <Map size={16} />, meta: `${completedActivityCount}/${plannedActivityCount || 0}` },
+                  { id: 'learn', label: 'Learn', icon: <BookOpen size={16} />, meta: selectedNode.core_sections?.length || 0 },
+                  { id: 'resources', label: 'Resources', icon: <Globe2 size={16} />, meta: resourceCatalog.length },
+                  { id: 'notes', label: 'Notes', icon: <FileText size={16} />, meta: userNote.trim() ? 'Saved' : 'Draft' },
+                ].map((section) => (
+                  <button
+                    type="button"
+                    role="tab"
+                    key={section.id}
+                    id={`lpd-tab-${section.id}`}
+                    aria-controls={`lpd-panel-${section.id}`}
+                    aria-selected={workspaceSection === section.id}
+                    tabIndex={workspaceSection === section.id ? 0 : -1}
+                    className={workspaceSection === section.id ? 'active' : ''}
+                    onClick={() => setWorkspaceSection(section.id)}
+                  >
+                    <span className="lpd-tab-icon">{section.icon}</span>
+                    <span>{section.label}</span>
+                    <small>{section.meta}</small>
+                  </button>
+                ))}
+              </nav>
+
+              {workspaceSection === 'overview' && (
+              <section id="lpd-panel-overview" className="lpd-section-panel lpd-section-panel--overview" aria-labelledby="lpd-tab-overview" role="tabpanel">
               <div className="lpd-overview">
                 <div className="lpd-overview-card lpd-overview-next" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
                   <div className="cb-tile-texture" />
@@ -1174,7 +1233,7 @@ const LearningPathDetail = () => {
                   <div className="cb-tile-texture" />
                   <div className="lpd-overview-label">
                     <BarChart3 size={14} />
-                    Node Pulse
+                    Node Progress
                   </div>
                   <div className="lpd-pulse-score">
                     <strong>{Math.max(nodeProgressPct, activityCompletionPct)}%</strong>
@@ -1233,7 +1292,11 @@ const LearningPathDetail = () => {
                   ))}
                 </div>
               </div>
+              </section>
+              )}
 
+              {workspaceSection === 'resources' && (
+              <section id="lpd-panel-resources" className="lpd-section-panel lpd-section-panel--resources" aria-labelledby="lpd-tab-resources" role="tabpanel">
               <div className="lpd-block lpd-resource-lab">
                 <div className="lpd-resource-lab-head">
                   <div>
@@ -1241,7 +1304,7 @@ const LearningPathDetail = () => {
                       <Globe2 size={16} />
                       RESOURCE LAB
                     </h3>
-                    <p>Paste a YouTube link, article, docs page, or search the web for material tied to this node.</p>
+                    <p>Attach an article, docs page, course, or search the web for material tied to this node.</p>
                   </div>
                   <span>{resourceCatalog.length} saved</span>
                 </div>
@@ -1257,7 +1320,7 @@ const LearningPathDetail = () => {
                         <input
                           value={resourceUrl}
                           onChange={(event) => setResourceUrl(event.target.value)}
-                          placeholder="Paste YouTube, article, docs, GitHub, or course URL"
+                          placeholder="Paste an article, docs, GitHub, or course URL"
                           type="url"
                         />
                       </div>
@@ -1314,13 +1377,42 @@ const LearningPathDetail = () => {
                     </div>
                   ) : (
                     <div className="lpd-resource-empty">
-                      <Youtube size={22} />
+                      <BookOpen size={22} />
                       <span>No resources saved for this node yet.</span>
                     </div>
                   )}
                 </div>
               </div>
+              </section>
+              )}
 
+              {workspaceSection === 'learn' && (
+              <section id="lpd-panel-learn" className="lpd-section-panel lpd-section-panel--learn" aria-labelledby="lpd-tab-learn" role="tabpanel">
+              <nav className="lpd-learn-subnav" aria-label="Learning material sections" role="tablist">
+                {[
+                  { id: 'content', label: 'Core lesson', meta: selectedNode.core_sections?.length || 0 },
+                  { id: 'connections', label: 'Connections', meta: 'Map' },
+                  { id: 'practice', label: 'Practice', meta: selectedNode.content_plan?.length || 0 },
+                ].map((section) => (
+                  <button
+                    type="button"
+                    role="tab"
+                    key={section.id}
+                    id={`lpd-learn-tab-${section.id}`}
+                    aria-controls={`lpd-learn-panel-${section.id}`}
+                    aria-selected={learnSection === section.id}
+                    tabIndex={learnSection === section.id ? 0 : -1}
+                    className={learnSection === section.id ? 'active' : ''}
+                    onClick={() => setLearnSection(section.id)}
+                  >
+                    <span>{section.label}</span>
+                    <small>{section.meta}</small>
+                  </button>
+                ))}
+              </nav>
+
+              {learnSection === 'content' && (
+              <div id="lpd-learn-panel-content" className="lpd-learn-view lpd-learn-view--content" role="tabpanel" aria-labelledby="lpd-learn-tab-content">
               <div className="lpd-block lpd-difficulty-toggle">
                 <h3 className="lpd-block-title">
                   <TrendingUp size={16} />
@@ -1349,45 +1441,62 @@ const LearningPathDetail = () => {
               </div>
 
               {selectedNode.core_sections && selectedNode.core_sections.length > 0 && (
-                <div className="lpd-block">
-                  <h3 className="lpd-block-title">
-                    <BookOpen size={16} />
-                    CORE CONTENT
-                  </h3>
-                  <div className="lpd-core-sections">
+                <div className="lpd-lesson-stage">
+                  <nav className="lpd-lesson-index" aria-label="Core lesson index">
                     {selectedNode.core_sections.map((section, idx) => (
-                      <details key={idx} className="lpd-section-accordion" open={idx === 0}>
-                        <summary className="lpd-section-header">
-                          <span className="lpd-section-number">{idx + 1}</span>
-                          <span className="lpd-section-title">{section.title}</span>
-                          <ChevronRight size={14} className="lpd-section-chevron" />
-                        </summary>
-                        <div className="lpd-section-content">
-                          <MathRenderer content={section.content} className="lpd-section-text" />
-                          {section.example && (
-                            <div className="lpd-section-example">
-                              <strong>Example:</strong> {section.example}
-                            </div>
-                          )}
-                          {section.visual_description && (
-                            <div className="lpd-section-visual">
-                              <ImageIcon size={14} />
-                              <span>{section.visual_description}</span>
-                            </div>
-                          )}
-                          {section.practice_question && (
-                            <div className="lpd-section-practice">
-                              <Target size={14} />
-                              <span><strong>Quick Check:</strong> {section.practice_question}</span>
-                            </div>
-                          )}
-                        </div>
-                      </details>
+                      <button
+                        type="button"
+                        key={`${section.title}-${idx}`}
+                        className={coreSectionIndex === idx ? 'active' : ''}
+                        aria-current={coreSectionIndex === idx ? 'step' : undefined}
+                        onClick={() => setCoreSectionIndex(idx)}
+                      >
+                        <span>{String(idx + 1).padStart(2, '0')}</span>
+                        <strong>{section.title}</strong>
+                      </button>
                     ))}
-                  </div>
+                  </nav>
+                  <article className="lpd-lesson-canvas">
+                    <header>
+                      <span>Lesson {coreSectionIndex + 1} of {selectedNode.core_sections.length}</span>
+                      <h3>{selectedNode.core_sections[coreSectionIndex]?.title}</h3>
+                    </header>
+                    <div className="lpd-lesson-scroll">
+                      <MathRenderer content={selectedNode.core_sections[coreSectionIndex]?.content} className="lpd-section-text" />
+                      {selectedNode.core_sections[coreSectionIndex]?.example && (
+                        <div className="lpd-section-example">
+                          <strong>Example:</strong> {selectedNode.core_sections[coreSectionIndex].example}
+                        </div>
+                      )}
+                      {selectedNode.core_sections[coreSectionIndex]?.visual_description && (
+                        <div className="lpd-section-visual">
+                          <ImageIcon size={14} />
+                          <span>{selectedNode.core_sections[coreSectionIndex].visual_description}</span>
+                        </div>
+                      )}
+                      {selectedNode.core_sections[coreSectionIndex]?.practice_question && (
+                        <div className="lpd-section-practice">
+                          <Target size={14} />
+                          <span><strong>Quick Check:</strong> {selectedNode.core_sections[coreSectionIndex].practice_question}</span>
+                        </div>
+                      )}
+                    </div>
+                    <footer>
+                      <button type="button" disabled={coreSectionIndex === 0} onClick={() => setCoreSectionIndex((value) => Math.max(0, value - 1))}>
+                        <ChevronLeft size={14} /> Previous
+                      </button>
+                      <button type="button" disabled={coreSectionIndex === selectedNode.core_sections.length - 1} onClick={() => setCoreSectionIndex((value) => Math.min(selectedNode.core_sections.length - 1, value + 1))}>
+                        Next <ChevronRight size={14} />
+                      </button>
+                    </footer>
+                  </article>
                 </div>
               )}
+              </div>
+              )}
 
+              {learnSection === 'connections' && (
+              <div id="lpd-learn-panel-connections" className="lpd-learn-view lpd-learn-view--connections" role="tabpanel" aria-labelledby="lpd-learn-tab-connections">
               {selectedNode.connection_map && Object.keys(selectedNode.connection_map).length > 0 && (
                 <div className="lpd-block">
                   <h3 className="lpd-block-title">
@@ -1464,7 +1573,11 @@ const LearningPathDetail = () => {
                   </ul>
                 </div>
               )}
+              </div>
+              )}
 
+              {learnSection === 'practice' && (
+              <div id="lpd-learn-panel-practice" className="lpd-learn-view lpd-learn-view--practice" role="tabpanel" aria-labelledby="lpd-learn-tab-practice">
               <div className="lpd-block">
                 <h3 className="lpd-block-title">
                   <Target size={16} />
@@ -1506,7 +1619,8 @@ const LearningPathDetail = () => {
                   {selectedNode.content_plan?.map((activity, i) => {
                     const isCompleted = selectedNode.progress?.evidence?.[activity.type]?.completed;
                     return (
-                      <div 
+                      <button
+                        type="button"
                         key={i} 
                         className={`lpd-activity ${isCompleted ? 'lpd-activity-completed' : ''}`}
                         onClick={() => handleActivityClick(activity)}
@@ -1528,12 +1642,18 @@ const LearningPathDetail = () => {
                         ) : (
                           <ChevronRight size={16} className="lpd-activity-chevron" />
                         )}
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
               </div>
+              </div>
+              )}
+              </section>
+              )}
 
+              {workspaceSection === 'notes' && (
+              <section id="lpd-panel-notes" className="lpd-section-panel lpd-section-panel--notes" aria-labelledby="lpd-tab-notes" role="tabpanel">
               <div className="lpd-block">
                 <h3 className="lpd-block-title">
                   <FileText size={16} />
@@ -1603,6 +1723,8 @@ const LearningPathDetail = () => {
                   </button>
                 </div>
               </div>
+              </section>
+              )}
 
               <div className="lpd-actions">
                 {selectedNode.progress.status === 'unlocked' && (
@@ -1659,9 +1781,9 @@ const LearningPathDetail = () => {
 
       {showCompletionQuiz && (
         <div className="lpd-quiz-overlay">
-          <div className="lpd-quiz-modal">
+          <div className="lpd-quiz-modal" role="dialog" aria-modal="true" aria-labelledby="lpd-completion-quiz-title">
             <div className="lpd-quiz-header">
-              <h2>COMPLETION QUIZ</h2>
+              <h2 id="lpd-completion-quiz-title">COMPLETION QUIZ</h2>
               <p>Score 75% or higher to complete this node</p>
             </div>
 

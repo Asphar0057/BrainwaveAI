@@ -1,69 +1,38 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  ArrowRight,
+  BookOpen,
+  Check,
+  Clock3,
+  Compass,
+  Gauge,
+  Home,
+  Library,
+  Loader2,
+  Map,
+  Milestone,
+  Plus,
+  Route,
+  Sparkles,
+  Trash2,
+} from 'lucide-react';
 import learningPathService from '../services/learningPathService';
 import GeoBackground from '../components/GeoBackground';
-import './Flashcards.css';
+import {
+  SidebarAction,
+  SidebarActions,
+  SidebarMenuItem,
+  SidebarPrimaryButton,
+  SidebarSection,
+  SidebarShell,
+  SidebarStatBox,
+  SidebarStats,
+  SidebarStripButton,
+  SidebarStripDivider,
+  SidebarStripSpacer,
+} from '../components/Sidebar';
 import './LearningPaths.css';
-
-const LP_ICONS = {
-  chevronRight: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="9 18 15 12 9 6"/>
-    </svg>
-  ),
-  chevronLeft: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="15 18 9 12 15 6"/>
-    </svg>
-  ),
-  sparkle: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5L12 3z"/>
-    </svg>
-  ),
-  paths: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="5" cy="12" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="19" cy="19" r="2"/>
-      <path d="M7 12h8a2 2 0 0 0 2-2V7"/><path d="M7 12h8a2 2 0 0 1 2 2v3"/>
-    </svg>
-  ),
-  home: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-      <polyline points="9 22 9 12 15 12 15 22"/>
-    </svg>
-  ),
-  trash: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <polyline points="3 6 5 6 21 6"/>
-      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-      <path d="M10 11v6"/><path d="M14 11v6"/>
-      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-    </svg>
-  ),
-  clock: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-    </svg>
-  ),
-  book: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-    </svg>
-  ),
-  chevronDown: (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <polyline points="6 9 12 15 18 9"/>
-    </svg>
-  ),
-};
-
-const DIFFICULTY_COLORS = {
-  beginner: 'linear-gradient(135deg, #1a6b3c 0%, #27ae60dd 100%)',
-  intermediate: 'linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 60%, #8B5000) 100%)',
-  advanced: 'linear-gradient(135deg, #7b1818 0%, #c0392bdd 100%)',
-};
 
 const SUGGESTED_TOPICS = [
   'System design for AI products',
@@ -73,58 +42,79 @@ const SUGGESTED_TOPICS = [
 ];
 
 const FILTERS = [
-  { key: 'all', label: 'All' },
-  { key: 'active', label: 'Active' },
+  { key: 'all', label: 'All paths' },
+  { key: 'active', label: 'In motion' },
   { key: 'completed', label: 'Completed' },
 ];
 
 const SORTS = [
-  { key: 'recent', label: 'Recent' },
-  { key: 'progress', label: 'Progress' },
-  { key: 'time', label: 'Shortest' },
-  { key: 'az', label: 'A–Z' },
+  { key: 'recent', label: 'Recently updated' },
+  { key: 'progress', label: 'Most progress' },
+  { key: 'time', label: 'Shortest first' },
+  { key: 'az', label: 'A-Z' },
 ];
+
+function getPathProgress(path) {
+  return Math.round(path.progress?.completion_percentage || 0);
+}
+
+function getPathStatus(path) {
+  if (path.status === 'completed' || getPathProgress(path) >= 100) return 'completed';
+  return 'active';
+}
+
+function getDisplayTitle(path) {
+  const raw = String(path?.title || 'Untitled learning path')
+    .replace(/\*\*/g, '')
+    .replace(/^chat title:\s*/i, '')
+    .replace(/\s+(student|tutor):[\s\S]*$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return raw.length > 82 ? `${raw.slice(0, 79).trim()}...` : raw;
+}
+
+function getDisplayDescription(path) {
+  const description = String(path?.description || '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
+  if (!description || /chat title:|student:|tutor:/i.test(description)) {
+    return `A sequenced route through ${getDisplayTitle(path)}, with practice and checkpoints placed where they matter.`;
+  }
+  return description.length > 180 ? `${description.slice(0, 177).trim()}...` : description;
+}
 
 const LearningPaths = () => {
   const navigate = useNavigate();
   const location = useLocation();
-
   const [activePanel, setActivePanel] = useState('paths');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-
   const [paths, setPaths] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [generating, setGenerating] = useState(false);
-
+  const [generateError, setGenerateError] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
-
   const [topicPrompt, setTopicPrompt] = useState('');
   const [difficulty, setDifficulty] = useState('intermediate');
   const [pathLength, setPathLength] = useState('medium');
   const [goals, setGoals] = useState('');
-  const [difficultyOpen, setDifficultyOpen] = useState(false);
-  const [lengthOpen, setLengthOpen] = useState(false);
 
-  const handleTileMove = useCallback((e) => {
-    const card = e.currentTarget;
-    const rect = card.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const cx = x / rect.width - 0.5;
-    const cy = y / rect.height - 0.5;
-    card.style.setProperty('--mx', `${x}px`);
-    card.style.setProperty('--my', `${y}px`);
-    card.style.setProperty('--rx', `${(-cy * 7).toFixed(2)}deg`);
-    card.style.setProperty('--ry', `${(cx * 9).toFixed(2)}deg`);
-  }, []);
-  const handleTileLeave = useCallback((e) => {
-    const card = e.currentTarget;
-    card.style.setProperty('--rx', '0deg');
-    card.style.setProperty('--ry', '0deg');
-  }, []);
+  const loadPaths = async () => {
+    try {
+      setLoading(true);
+      setLoadError('');
+      const response = await learningPathService.getPaths();
+      setPaths(response.paths || []);
+    } catch (error) {
+      console.error('Error loading paths:', error);
+      setLoadError('Your paths could not be loaded. Try the route again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  useEffect(() => { loadPaths(); }, []);
+  useEffect(() => {
+    loadPaths();
+  }, []);
 
   useEffect(() => {
     if (location.state?.autoGenerate && location.state?.topic) {
@@ -136,484 +126,329 @@ const LearningPaths = () => {
     }
   }, [location.state]);
 
-  const loadPaths = async () => {
-    try {
-      setLoading(true);
-      const response = await learningPathService.getPaths();
-      setPaths(response.paths || []);
-    } catch (error) {
-      console.error('Error loading paths:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const summary = useMemo(() => {
-    const active = paths.filter(p => (p.status || 'active') === 'active');
-    const completed = paths.filter(p => p.status === 'completed').length;
+    const active = paths.filter((path) => getPathStatus(path) === 'active');
+    const completed = paths.filter((path) => getPathStatus(path) === 'completed');
     const avgProgress = active.length
-      ? Math.round(active.reduce((s, p) => s + (p.progress?.completion_percentage || 0), 0) / active.length)
+      ? Math.round(active.reduce((total, path) => total + getPathProgress(path), 0) / active.length)
       : 0;
-    return { total: paths.length, active: active.length, completed, avgProgress };
+    return { total: paths.length, active: active.length, completed: completed.length, avgProgress };
   }, [paths]);
 
-  const filteredPaths = useMemo(() => {
-    return paths
-      .filter(p => statusFilter === 'all' || (p.status || 'active') === statusFilter)
-      .sort((a, b) => {
-        if (sortBy === 'progress') return (b.progress?.completion_percentage || 0) - (a.progress?.completion_percentage || 0);
-        if (sortBy === 'time') return (a.estimated_hours || 0) - (b.estimated_hours || 0);
-        if (sortBy === 'az') return (a.title || '').localeCompare(b.title || '');
-        return new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0);
-      });
-  }, [paths, sortBy, statusFilter]);
+  const filteredPaths = useMemo(() => paths
+    .filter((path) => statusFilter === 'all' || getPathStatus(path) === statusFilter)
+    .sort((a, b) => {
+      if (sortBy === 'progress') return getPathProgress(b) - getPathProgress(a);
+      if (sortBy === 'time') return (a.estimated_hours || 0) - (b.estimated_hours || 0);
+      if (sortBy === 'az') return (a.title || '').localeCompare(b.title || '');
+      return new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0);
+    }), [paths, sortBy, statusFilter]);
+
+  const leadPath = useMemo(() => {
+    const active = paths.filter((path) => getPathStatus(path) === 'active');
+    return [...active].sort((a, b) => {
+      const aProgress = getPathProgress(a);
+      const bProgress = getPathProgress(b);
+      if (aProgress && bProgress) return bProgress - aProgress;
+      return new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0);
+    })[0] || paths[0];
+  }, [paths]);
 
   const handleCreatePath = async () => {
     const topic = topicPrompt.trim();
     if (!topic) return;
     try {
       setGenerating(true);
+      setGenerateError('');
       const response = await learningPathService.generatePath(topic, {
         difficulty,
         length: pathLength,
-        goals: goals.split('\n').map(g => g.trim()).filter(Boolean),
+        goals: goals.split('\n').map((goal) => goal.trim()).filter(Boolean),
       });
       if (response.success) {
         setTopicPrompt('');
         setGoals('');
         navigate(`/learning-paths/${response.path_id}`);
+      } else {
+        setGenerateError('The path was not created. Refine the topic and try again.');
       }
     } catch (error) {
       console.error('Error creating path:', error);
+      setGenerateError('The path was not created. Check your connection and try again.');
     } finally {
       setGenerating(false);
     }
   };
 
-  const handleDeletePath = async (pathId, e) => {
-    e.stopPropagation();
+  const handleDeletePath = async (pathId, event) => {
+    event.stopPropagation();
     if (!window.confirm('Delete this learning path? This cannot be undone.')) return;
     try {
       await learningPathService.deletePath(pathId);
-      setPaths(prev => prev.filter(p => p.id !== pathId));
+      setPaths((current) => current.filter((path) => path.id !== pathId));
     } catch (error) {
       console.error('Error deleting path:', error);
+      setLoadError('That path could not be deleted. Please try again.');
     }
   };
 
+  const openPanel = (panel) => {
+    setActivePanel(panel);
+    if (window.innerWidth <= 900) setSidebarCollapsed(true);
+  };
+
   return (
-    <div className="flashcards-page">
+    <div className="lp-page">
       <GeoBackground />
-
-      {/* Topbar */}
-      <div className="fc-qb-topbar">
-        <div className="fc-qb-tagline">
-          learning, <span style={{ color: 'var(--accent)' }}>unified</span>
+      <header className="lp-topbar">
+        <div className="lp-topbar-brand">learning, <span>unified</span></div>
+        <div className="lp-topbar-state">
+          <span className="lp-status-dot" />
+          {summary.active} active route{summary.active === 1 ? '' : 's'}
         </div>
-      </div>
+      </header>
 
-      <div className="fc-layout fc-qb-body">
-        <div className={`fc-qb-shell ${sidebarCollapsed ? 'fc-qb-shell--collapsed' : ''}`}>
+      <div className={`lp-shell ${sidebarCollapsed ? 'lp-shell--collapsed' : ''}`}>
+        <SidebarShell
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((value) => !value)}
+          brandKicker="LEARNING PATHS"
+          ariaLabel="Learning paths navigation"
+          collapsedContent={(
+            <>
+              <SidebarStripButton icon={<Plus size={18} />} tip="Create a path" active={activePanel === 'generator'} onClick={() => openPanel('generator')} />
+              <SidebarStripButton icon={<Route size={18} />} tip="My paths" active={activePanel === 'paths'} onClick={() => openPanel('paths')} />
+              <SidebarStripDivider />
+              <SidebarStripSpacer />
+              <SidebarStripButton icon={<Home size={18} />} tip="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} />
+            </>
+          )}
+        >
+          <SidebarPrimaryButton icon={<Sparkles size={18} />} label="Create a path" onClick={() => openPanel('generator')} />
+          <SidebarSection heading="Workspace">
+            <SidebarMenuItem icon={<Route size={18} />} label="My paths" active={activePanel === 'paths' && statusFilter === 'all'} badge={summary.total || null} onClick={() => { setStatusFilter('all'); openPanel('paths'); }} />
+            <SidebarMenuItem icon={<Compass size={18} />} label="In motion" active={activePanel === 'paths' && statusFilter === 'active'} badge={summary.active || null} onClick={() => { setStatusFilter('active'); openPanel('paths'); }} />
+            <SidebarMenuItem icon={<Check size={18} />} label="Completed" active={activePanel === 'paths' && statusFilter === 'completed'} badge={summary.completed || null} onClick={() => { setStatusFilter('completed'); openPanel('paths'); }} />
+            <SidebarMenuItem icon={<Milestone size={18} />} label="Path builder" active={activePanel === 'generator'} onClick={() => openPanel('generator')} />
+          </SidebarSection>
+          <SidebarSection heading="Your map">
+            <SidebarMenuItem icon={<Library size={18} />} label="Notes" onClick={() => navigate('/notes')} />
+            <SidebarMenuItem icon={<BookOpen size={18} />} label="Flashcards" onClick={() => navigate('/flashcards')} />
+          </SidebarSection>
+          <SidebarStats>
+            <SidebarStatBox value={summary.avgProgress + '%'} label="Active progress" />
+            <SidebarStatBox value={summary.total} label="Mapped paths" />
+          </SidebarStats>
+          <SidebarActions>
+            <SidebarAction icon={<Home size={18} />} label="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} />
+          </SidebarActions>
+        </SidebarShell>
 
-          {/* ── Sidebar ── */}
-          <aside className={`fc-qb-sidebar ${sidebarCollapsed ? 'fc-qb-sidebar--collapsed' : ''}`}>
-
-            {sidebarCollapsed ? (
-              /* Collapsed strip */
-              <div className="fc-qb-collapsed-strip">
-                <button
-                  className="fc-qb-strip-btn fc-qb-strip-logo"
-                  onClick={() => setSidebarCollapsed(false)}
-                  type="button"
-                >
-                  {LP_ICONS.chevronRight}
-                </button>
-                <button
-                  className={`fc-qb-strip-btn ${activePanel === 'generator' ? 'active' : ''}`}
-                  onClick={() => { setSidebarCollapsed(false); setActivePanel('generator'); }}
-                  type="button"
-                >
-                  {LP_ICONS.sparkle}
-                </button>
-                <button
-                  className={`fc-qb-strip-btn ${activePanel === 'paths' ? 'active' : ''}`}
-                  onClick={() => { setSidebarCollapsed(false); setActivePanel('paths'); }}
-                  type="button"
-                >
-                  {LP_ICONS.paths}
-                </button>
-                <div className="fc-qb-strip-spacer" />
-                <button
-                  className="fc-qb-strip-btn"
-                  onClick={() => navigate('/dashboard-cerbyl')}
-                  type="button"
-                >
-                  {LP_ICONS.home}
-                </button>
+        <main className="lp-main">
+          {activePanel === 'generator' ? (
+            <section className="lp-builder" aria-labelledby="lp-builder-title">
+              <div className="lp-builder-copy">
+                <span className="lp-kicker">Plot a new route</span>
+                <h1 id="lp-builder-title">Turn an ambition into a study sequence.</h1>
+                <p>Set the destination and constraints. Cerbyl will arrange the concepts, practice and checks in the order they should happen.</p>
+                <div className="lp-builder-route" aria-hidden="true">
+                  <div className="lp-builder-route-line" />
+                  {['Destination', 'Depth', 'Pace', 'Outcome'].map((label, index) => (
+                    <div className="lp-builder-route-stop" key={label}>
+                      <span>{String(index + 1).padStart(2, '0')}</span>
+                      <strong>{label}</strong>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ) : (
-              /* Expanded sidebar */
-              <>
-                {/* Brand */}
-                <div className="fc-qb-side-brand">
-                  <div className="fc-qb-brand-wrap">
-                    <div className="fc-qb-brand">cerbyl</div>
-                    <div className="fc-qb-brand-kicker">Learning Paths</div>
-                  </div>
-                  <button
-                    className="fc-qb-side-close-btn"
-                    onClick={() => setSidebarCollapsed(true)}
-                    type="button"
-                  >
-                    {LP_ICONS.chevronLeft}
-                  </button>
-                </div>
 
-                {/* Generate button */}
-                <button
-                  className="fc-qb-new-btn"
-                  onClick={() => setActivePanel('generator')}
-                  type="button"
-                >
-                  {LP_ICONS.sparkle}
-                  <span>Generate</span>
-                </button>
-
-                {/* Navigation */}
-                <div className="fc-qb-side-block fc-qb-side-block--grow">
-                  <div className="fc-qb-side-label">Navigation</div>
-                  <nav className="fc-qb-view-nav">
-                    <button
-                      className={`fc-qb-view-link ${activePanel === 'paths' ? 'fc-qb-view-link--active' : ''}`}
-                      onClick={() => setActivePanel('paths')}
-                      type="button"
-                    >
-                      {LP_ICONS.paths}
-                      <span>My Paths</span>
-                      {summary.total > 0 && (
-                        <span className="lp-nav-count">{summary.total}</span>
-                      )}
-                    </button>
-                    <button
-                      className={`fc-qb-view-link ${activePanel === 'generator' ? 'fc-qb-view-link--active' : ''}`}
-                      onClick={() => setActivePanel('generator')}
-                      type="button"
-                    >
-                      {LP_ICONS.sparkle}
-                      <span>Generator</span>
-                    </button>
-                  </nav>
-                </div>
-
-                {/* Footer */}
-                <div className="fc-qb-side-actions">
-                  <button
-                    className="fc-qb-action-btn"
-                    onClick={() => navigate('/dashboard-cerbyl')}
-                    type="button"
-                  >
-                    {LP_ICONS.home}
-                    <span>Dashboard</span>
-                  </button>
-                </div>
-              </>
-            )}
-          </aside>
-
-          {/* ── Main ── */}
-          <main className="fc-main fc-qb-main">
-
-            {/* Generator panel */}
-            {activePanel === 'generator' && (
-              <div className="fc-content">
-                <div className="fc-view-header">
-                  <span className="fc-view-kicker">AI-Powered</span>
-                  <h2 className="fc-view-title">New Learning Path</h2>
-                  <p className="fc-view-sub">Describe what you want to master — AI builds a structured curriculum for you</p>
-                </div>
-
-                <div className="fc-generator">
-                  <div className="fc-form-group">
-                    <label className="fc-label">Topic</label>
-                    <input
-                      className="fc-input"
-                      type="text"
-                      placeholder="e.g. learn backend system design for high-traffic AI apps"
-                      value={topicPrompt}
-                      onChange={e => setTopicPrompt(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleCreatePath(); }}
-                    />
-                  </div>
-
+              <div className="lp-planning-desk">
+                <div className="lp-field lp-field--destination">
+                  <label htmlFor="path-topic"><span>01</span> What do you want to understand?</label>
+                  <textarea
+                    id="path-topic"
+                    value={topicPrompt}
+                    onChange={(event) => setTopicPrompt(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) handleCreatePath();
+                    }}
+                    placeholder="Example: Design reliable AI systems that can serve millions of users"
+                    rows={3}
+                    autoFocus
+                  />
                   <div className="lp-topic-chips">
-                    {SUGGESTED_TOPICS.map(topic => (
-                      <button
-                        key={topic}
-                        className="lp-topic-chip"
-                        type="button"
-                        onClick={() => setTopicPrompt(topic)}
-                      >
-                        {topic}
-                      </button>
+                    {SUGGESTED_TOPICS.map((topic) => (
+                      <button type="button" key={topic} onClick={() => setTopicPrompt(topic)}>{topic}</button>
                     ))}
                   </div>
+                </div>
 
-                  <div className="fc-form-row">
-                    <div className="fc-form-group">
-                      <label className="fc-label">Difficulty</label>
-                      <div className="fc-custom-select-wrapper">
-                        <button
-                          className="fc-custom-select"
-                          type="button"
-                          onClick={() => { setDifficultyOpen(o => !o); setLengthOpen(false); }}
-                        >
-                          <span className="fc-custom-select-text">{difficulty.toUpperCase()}</span>
-                          <span className="fc-custom-select-arrow">{LP_ICONS.chevronDown}</span>
-                        </button>
-                        {difficultyOpen && (
-                          <div className="fc-custom-dropdown">
-                            {['beginner', 'intermediate', 'advanced'].map(level => (
-                              <button
-                                key={level}
-                                type="button"
-                                className={`fc-custom-option ${difficulty === level ? 'active' : ''}`}
-                                onClick={() => { setDifficulty(level); setDifficultyOpen(false); }}
-                              >
-                                {level.toUpperCase()}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                <div className="lp-builder-options">
+                  <fieldset className="lp-choice-group">
+                    <legend><span>02</span> Starting point</legend>
+                    {['beginner', 'intermediate', 'advanced'].map((level) => (
+                      <button type="button" key={level} aria-pressed={difficulty === level} className={difficulty === level ? 'active' : ''} onClick={() => setDifficulty(level)}>
+                        {level}
+                      </button>
+                    ))}
+                  </fieldset>
+                  <fieldset className="lp-choice-group">
+                    <legend><span>03</span> Route length</legend>
+                    {['short', 'medium', 'long'].map((length) => (
+                      <button type="button" key={length} aria-pressed={pathLength === length} className={pathLength === length ? 'active' : ''} onClick={() => setPathLength(length)}>
+                        {length}
+                      </button>
+                    ))}
+                  </fieldset>
+                </div>
 
-                    <div className="fc-form-group">
-                      <label className="fc-label">Length</label>
-                      <div className="fc-custom-select-wrapper">
-                        <button
-                          className="fc-custom-select"
-                          type="button"
-                          onClick={() => { setLengthOpen(o => !o); setDifficultyOpen(false); }}
-                        >
-                          <span className="fc-custom-select-text">{pathLength.toUpperCase()}</span>
-                          <span className="fc-custom-select-arrow">{LP_ICONS.chevronDown}</span>
-                        </button>
-                        {lengthOpen && (
-                          <div className="fc-custom-dropdown">
-                            {['short', 'medium', 'long'].map(item => (
-                              <button
-                                key={item}
-                                type="button"
-                                className={`fc-custom-option ${pathLength === item ? 'active' : ''}`}
-                                onClick={() => { setPathLength(item); setLengthOpen(false); }}
-                              >
-                                {item.toUpperCase()}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                <div className="lp-field">
+                  <label htmlFor="path-goals"><span>04</span> What should you be able to do at the end?</label>
+                  <textarea
+                    id="path-goals"
+                    value={goals}
+                    onChange={(event) => setGoals(event.target.value)}
+                    placeholder={"One outcome per line\nBuild a working prototype\nExplain the tradeoffs clearly"}
+                    rows={4}
+                  />
+                </div>
+
+                {generateError && <div className="lp-inline-error" role="alert">{generateError}</div>}
+                <div className="lp-builder-submit">
+                  <div>
+                    <span>Ready to plot</span>
+                    <p>{topicPrompt.trim() ? `${difficulty} depth, ${pathLength} route` : 'Add a destination to continue'}</p>
                   </div>
-
-                  <div className="fc-form-group">
-                    <label className="fc-label">
-                      Goals
-                      <span className="lp-label-optional"> · optional, one per line</span>
-                    </label>
-                    <textarea
-                      className="fc-input lp-goals-textarea"
-                      value={goals}
-                      onChange={e => setGoals(e.target.value)}
-                      placeholder={"e.g. Build a REST API\nUnderstand authentication flows"}
-                      rows={3}
-                    />
-                  </div>
-
-                  <button
-                    className="fc-generate-btn"
-                    onClick={handleCreatePath}
-                    disabled={generating || !topicPrompt.trim()}
-                  >
-                    {generating
-                      ? <><span className="lp-spinner" /> GENERATING PATH…</>
-                      : 'GENERATE LEARNING PATH'
-                    }
+                  <button type="button" onClick={handleCreatePath} disabled={generating || !topicPrompt.trim()}>
+                    {generating ? <Loader2 className="lp-spin" size={18} /> : <Route size={18} />}
+                    {generating ? 'Building route' : 'Build learning path'}
                   </button>
                 </div>
               </div>
-            )}
-
-            {/* My Paths panel */}
-            {activePanel === 'paths' && (
-              <div className="fc-content fc-cards-panel">
-                <div className="fc-view-header">
-                  <span className="fc-view-kicker">Your Collection</span>
-                  <h2 className="fc-view-title">My Learning Paths</h2>
-                  <p className="fc-view-sub">
-                    {summary.total} path{summary.total !== 1 ? 's' : ''} · {summary.avgProgress}% avg progress
-                  </p>
+            </section>
+          ) : (
+            <section className="lp-library" aria-labelledby="lp-library-title">
+              <div className="lp-library-head">
+                <div>
+                  <span className="lp-kicker">Route desk</span>
+                  <h1 id="lp-library-title">Pick up the thread.</h1>
+                  <p>Your paths are ordered journeys, not folders. Continue the next useful step or inspect the whole map.</p>
                 </div>
+                <button type="button" className="lp-head-create" onClick={() => openPanel('generator')}>
+                  <Plus size={17} /> New path
+                </button>
+              </div>
 
-                {/* Filter + sort */}
-                <div className="lp-control-bar">
-                  <div className="lp-filter-row">
-                    {FILTERS.map(({ key, label }) => (
-                      <button
-                        key={key}
-                        type="button"
-                        className={`lp-filter-btn ${statusFilter === key ? 'active' : ''}`}
-                        onClick={() => setStatusFilter(key)}
-                      >
-                        {label}
-                        <span>
-                          {key === 'all' ? summary.total : key === 'active' ? summary.active : summary.completed}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="lp-sort-row">
-                    {SORTS.map(({ key, label }) => (
-                      <button
-                        key={key}
-                        type="button"
-                        className={`lp-sort-btn ${sortBy === key ? 'active' : ''}`}
-                        onClick={() => setSortBy(key)}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
+              {loadError && (
+                <div className="lp-load-error" role="alert">
+                  <span>{loadError}</span>
+                  <button type="button" onClick={loadPaths}>Try again</button>
                 </div>
+              )}
 
-                {loading ? (
-                  <div className="lp-lib-loading">
-                    <span className="lp-spinner lp-spinner--lg" />
+              {loading ? (
+                <div className="lp-loading"><Loader2 className="lp-spin" size={28} /><span>Reading your map</span></div>
+              ) : paths.length === 0 ? (
+                <div className="lp-empty">
+                  <div className="lp-empty-map" aria-hidden="true">
+                    <span /><span /><span /><i />
                   </div>
-                ) : filteredPaths.length === 0 ? (
-                  paths.length ? (
-                    <div className="lp-empty-state lp-empty-state--filtered">
-                      <div className="lp-empty-icon">{LP_ICONS.paths}</div>
-                      <span className="fc-view-kicker">No matches</span>
-                      <h3 className="lp-empty-title">Nothing in this lane.</h3>
-                      <p className="lp-empty-sub">Try another status or return to the full collection.</p>
-                      <button className="lp-reset-filter" type="button" onClick={() => setStatusFilter('all')}>
-                        Show all paths
-                      </button>
+                  <span className="lp-kicker">No route plotted</span>
+                  <h2>Your next subject is still a blank map.</h2>
+                  <p>Start with a destination. Cerbyl will turn it into a sequence of concepts, practice and checks.</p>
+                  <button type="button" onClick={() => openPanel('generator')}>Plot the first path <ArrowRight size={16} /></button>
+                </div>
+              ) : (
+                <>
+                  {leadPath && statusFilter !== 'completed' && (
+                    <button type="button" className="lp-lead-path" onClick={() => navigate(`/learning-paths/${leadPath.id}`)}>
+                      <div className="lp-lead-copy">
+                        <span className="lp-kicker">Continue from here</span>
+                        <h2>{getDisplayTitle(leadPath)}</h2>
+                        <p>{getDisplayDescription(leadPath)}</p>
+                        <div className="lp-lead-meta">
+                          <span><Clock3 size={14} /> {Math.round(leadPath.estimated_hours || 0)} hours</span>
+                          <span><Milestone size={14} /> {leadPath.completed_nodes || 0} of {leadPath.total_nodes || 0} checkpoints</span>
+                          <span><Gauge size={14} /> {leadPath.difficulty || 'intermediate'}</span>
+                        </div>
+                      </div>
+                      <div className="lp-lead-map" aria-label={`${getPathProgress(leadPath)} percent complete`}>
+                        <div className="lp-lead-percent">{String(getPathProgress(leadPath)).padStart(2, '0')}<small>%</small></div>
+                        <div className="lp-route-track">
+                          {Array.from({ length: Math.max(3, Math.min(8, leadPath.total_nodes || 5)) }).map((_, index) => {
+                            const completeCount = Math.round((Math.max(3, Math.min(8, leadPath.total_nodes || 5)) * getPathProgress(leadPath)) / 100);
+                            return <span key={index} className={index < completeCount ? 'complete' : index === completeCount ? 'current' : ''} />;
+                          })}
+                        </div>
+                        <strong>Resume route <ArrowRight size={17} /></strong>
+                      </div>
+                    </button>
+                  )}
+
+                  <div className="lp-library-controls">
+                    <div className="lp-filter-row" aria-label="Filter learning paths">
+                      {FILTERS.map(({ key, label }) => (
+                        <button type="button" key={key} className={statusFilter === key ? 'active' : ''} onClick={() => setStatusFilter(key)}>
+                          {label}
+                          <span>{key === 'all' ? summary.total : key === 'active' ? summary.active : summary.completed}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <label className="lp-sort-select">
+                      <span>Order by</span>
+                      <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+                        {SORTS.map(({ key, label }) => <option value={key} key={key}>{label}</option>)}
+                      </select>
+                    </label>
+                  </div>
+
+                  {filteredPaths.length === 0 ? (
+                    <div className="lp-filter-empty">
+                      <Map size={28} />
+                      <h2>No paths in this view.</h2>
+                      <button type="button" onClick={() => setStatusFilter('all')}>Show every path</button>
                     </div>
                   ) : (
-                    <div className="lp-empty-stage">
-                      <div className="lp-empty-copy">
-                        <span className="fc-view-kicker">Path 01 · not plotted</span>
-                        <h3>Turn a broad goal into the next clear step.</h3>
-                        <p>Choose a topic and Cerbyl will sequence the concepts, checkpoints, and estimated study time into one navigable path.</p>
-                        <button
-                          className="fc-generate-btn lp-empty-cta"
-                          onClick={() => setActivePanel('generator')}
-                          type="button"
-                        >
-                          Plot my first path
-                        </button>
-                      </div>
-                      <div className="lp-path-preview" aria-hidden="true">
-                        <span className="lp-preview-label">A path takes shape</span>
-                        {['Foundation', 'Guided practice', 'Mastery check'].map((step, index) => (
-                          <div className="lp-preview-step" key={step}>
-                            <span>{String(index + 1).padStart(2, '0')}</span>
-                            <i />
-                            <strong>{step}</strong>
-                          </div>
-                        ))}
-                      </div>
+                    <div className="lp-route-list">
+                      {filteredPaths.map((path, index) => {
+                        const progress = getPathProgress(path);
+                        const nodeCount = Math.max(3, Math.min(7, path.total_nodes || 4));
+                        const completedNodes = Math.round((nodeCount * progress) / 100);
+                        return (
+                          <article className="lp-route-row" key={path.id}>
+                            <button type="button" className="lp-route-open" onClick={() => navigate(`/learning-paths/${path.id}`)}>
+                              <span className="lp-route-index">{String(index + 1).padStart(2, '0')}</span>
+                              <div className="lp-route-title">
+                                <span>{path.difficulty || 'intermediate'}</span>
+                                <h3>{getDisplayTitle(path)}</h3>
+                                <p>{getDisplayDescription(path)}</p>
+                              </div>
+                              <div className="lp-route-nodes" aria-label={`${progress} percent complete`}>
+                                {Array.from({ length: nodeCount }).map((_, nodeIndex) => (
+                                  <span key={nodeIndex} className={nodeIndex < completedNodes ? 'complete' : nodeIndex === completedNodes ? 'current' : ''}>
+                                    {nodeIndex < completedNodes ? <Check size={11} /> : nodeIndex + 1}
+                                  </span>
+                                ))}
+                              </div>
+                              <div className="lp-route-progress">
+                                <strong>{progress}%</strong>
+                                <span>{path.completed_nodes || 0}/{path.total_nodes || 0} steps</span>
+                              </div>
+                              <ArrowRight className="lp-route-arrow" size={20} />
+                            </button>
+                            <button type="button" className="lp-route-delete" aria-label={`Delete ${getDisplayTitle(path)}`} onClick={(event) => handleDeletePath(path.id, event)}>
+                              <Trash2 size={16} />
+                            </button>
+                          </article>
+                        );
+                      })}
                     </div>
-                  )
-                ) : (
-                  <div className="fc-grid">
-                    {filteredPaths.map(path => {
-                      const pct = Math.round(path.progress?.completion_percentage || 0);
-                      const gradBg = DIFFICULTY_COLORS[path.difficulty] || DIFFICULTY_COLORS.intermediate;
-                      const masteryLabel = pct >= 100 ? 'Complete' : pct >= 60 ? 'Active' : pct > 0 ? 'In Progress' : 'Not Started';
-                      const masteryColor = pct >= 100 ? '#22c55e' : pct >= 60 ? 'var(--accent)' : pct > 0 ? '#f59e0b' : undefined;
-                      return (
-                        <div
-                          key={path.id}
-                          className="fc-set-card-new lp-path-card"
-                          onClick={() => navigate(`/learning-paths/${path.id}`)}
-                          onMouseMove={handleTileMove}
-                          onMouseLeave={handleTileLeave}
-                        >
-                          <div className="cb-tile-texture" />
-                          {/* Thumbnail */}
-                          <div
-                            className="fc-set-thumbnail lp-path-thumb"
-                            style={{ background: gradBg }}
-                          >
-                            <div className="fc-set-thumbnail-content">
-                              <h2 className="fc-thumbnail-title">{path.title}</h2>
-                              <div className="fc-thumbnail-card-count">
-                                {path.total_nodes || 0} NODES · {Math.round(path.estimated_hours || 0)}H
-                              </div>
-                            </div>
-                            <button
-                              className="fc-delete-btn-thumb"
-                              type="button"
-                              onClick={e => handleDeletePath(path.id, e)}
-                            >
-                              {LP_ICONS.trash}
-                            </button>
-                          </div>
-
-                          {/* Content */}
-                          <div className="fc-set-content-new">
-                            <div className="lp-mastery-section">
-                              <div className="lp-mastery-info">
-                                <span className="fc-mastery-label">Progress</span>
-                                <span className="fc-mastery-value" style={masteryColor ? { color: masteryColor } : {}}>
-                                  {masteryLabel}
-                                </span>
-                              </div>
-                              <div className="fc-set-progress-new">
-                                <div
-                                  className="fc-set-progress-fill-new"
-                                  style={{
-                                    width: `${pct}%`,
-                                    background: masteryColor || 'var(--accent)',
-                                  }}
-                                />
-                              </div>
-                              <span className="fc-mastery-percentage">{pct}%</span>
-                            </div>
-
-                            <div className="lp-path-meta-row">
-                              {LP_ICONS.clock}
-                              <span>{Math.round(path.estimated_hours || 0)}h</span>
-                              <span className="lp-meta-dot">·</span>
-                              {LP_ICONS.book}
-                              <span>{path.completed_nodes || 0}/{path.total_nodes || 0}</span>
-                              <span className="lp-meta-dot">·</span>
-                              <span className="lp-diff-label">{path.difficulty || 'intermediate'}</span>
-                            </div>
-                          </div>
-
-                          {/* Open action */}
-                          <div className="fc-set-actions-new lp-path-actions">
-                            <button
-                              className="fc-action-btn-new lp-action-open"
-                              type="button"
-                              onClick={e => { e.stopPropagation(); navigate(`/learning-paths/${path.id}`); }}
-                            >
-                              <span>OPEN PATH</span>
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-          </main>
-        </div>
+                  )}
+                </>
+              )}
+            </section>
+          )}
+        </main>
       </div>
     </div>
   );

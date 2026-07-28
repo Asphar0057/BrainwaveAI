@@ -12,10 +12,10 @@ import {
   FileText,
   Flame,
   Gift,
+  LayoutDashboard,
   Layers,
   Lock,
   Map,
-
   MessageCircle,
   Package,
   Plus,
@@ -26,11 +26,22 @@ import {
   Star,
   Target,
   Trophy,
+  User,
+  X,
   Zap
 } from 'lucide-react';
-import { gsap } from 'gsap';
-import confetti from 'canvas-confetti';
-import * as PIXI from 'pixi.js';
+import {
+  SidebarAction,
+  SidebarActions,
+  SidebarMenuItem,
+  SidebarPrimaryButton,
+  SidebarSection,
+  SidebarShell,
+  SidebarStripButton,
+  SidebarStripDivider,
+  SidebarStripSpacer
+} from '../components/Sidebar';
+import XPRoadmapWorkspace from './XPRoadmapWorkspace';
 import './XPRoadmap.css';
 import '../components/SocialHubChrome.css';
 
@@ -84,12 +95,6 @@ function getWeekDecayLabel() {
   const days = Math.floor(diff / 86400000);
   const hours = Math.floor((diff % 86400000) / 3600000);
   return `${days}d ${hours}h`;
-}
-
-function hexToPixiColor(value, fallback = 0xff6b6b) {
-  if (!value || !value.trim().startsWith('#')) return fallback;
-  const parsed = Number.parseInt(value.trim().replace('#', ''), 16);
-  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function pathForSegment(from, to) {
@@ -153,18 +158,28 @@ const XPRoadmap = () => {
   const navigate = useNavigate();
   const shellRef = useRef(null);
   const pixiRef = useRef(null);
+  const drawerRef = useRef(null);
+  const drawerCloseRef = useRef(null);
+  const previousFocusRef = useRef(null);
   const [loading, setLoading] = useState(true);
+  const [statsError, setStatsError] = useState('');
+  const [statsRetry, setStatsRetry] = useState(0);
   const [roadmapLoading, setRoadmapLoading] = useState(false);
+  const [roadmapError, setRoadmapError] = useState('');
+  const [roadmapRetry, setRoadmapRetry] = useState(0);
   const [stats, setStats] = useState(null);
   const [personalizedRoadmap, setPersonalizedRoadmap] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
-  const [xpBursts, setXpBursts] = useState([]);
+  const [xpBursts] = useState([]);
   const [decayLabel, setDecayLabel] = useState(getWeekDecayLabel());
   const [levelWave, setLevelWave] = useState(false);
   const [powerUpLoading, setPowerUpLoading] = useState(null);
   const [powerNotice, setPowerNotice] = useState(null);
   const [missionLoading, setMissionLoading] = useState(false);
   const [missionNotice, setMissionNotice] = useState(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => (
+    typeof window !== 'undefined' ? window.innerWidth <= 768 : false
+  ));
 
   const xp = stats?.total_points || 0;
   const level = stats?.level || 1;
@@ -176,23 +191,26 @@ const XPRoadmap = () => {
 
     const fetchData = async () => {
       try {
+        if (isMounted) {
+          setLoading(true);
+          setStatsError('');
+        }
         const token = localStorage.getItem('token');
         const userName = localStorage.getItem('username');
 
         if (!userName) {
-          if (isMounted) setLoading(false);
+          if (isMounted) setStatsError('Sign in to load your XP roadmap.');
           return;
         }
 
         const headers = { Authorization: `Bearer ${token}` };
         const statsRes = await fetch(`${API_BASE_URL}/api/get_gamification_stats?user_id=${encodeURIComponent(userName)}`, { headers });
-
-        if (statsRes.ok) {
-          const data = await statsRes.json();
-          if (isMounted) setStats(data);
-        }
+        if (!statsRes.ok) throw new Error(`Progress request failed (${statsRes.status})`);
+        const data = await statsRes.json();
+        if (isMounted) setStats(data);
       } catch (error) {
         console.error('XP roadmap stats load error:', error);
+        if (isMounted) setStatsError('Your progress could not be loaded. Your XP is safe. Try again in a moment.');
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -203,7 +221,7 @@ const XPRoadmap = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [statsRetry]);
 
   useEffect(() => {
     if (loading || !userName) return undefined;
@@ -213,6 +231,7 @@ const XPRoadmap = () => {
     const headers = { Authorization: `Bearer ${token}` };
 
     setRoadmapLoading(true);
+    setRoadmapError('');
     fetch(`${API_BASE_URL}/api/xp_roadmap/personalized?user_id=${encodeURIComponent(userName)}`, { headers })
       .then(async (response) => {
         if (!response.ok) throw new Error(`XP roadmap request failed (${response.status})`);
@@ -223,6 +242,7 @@ const XPRoadmap = () => {
       })
       .catch((error) => {
         console.error('XP roadmap personalization load error:', error);
+        if (isMounted) setRoadmapError('Personalized topic arcs are temporarily unavailable.');
       })
       .finally(() => {
         if (isMounted) setRoadmapLoading(false);
@@ -231,26 +251,12 @@ const XPRoadmap = () => {
     return () => {
       isMounted = false;
     };
-  }, [loading, userName]);
+  }, [loading, userName, roadmapRetry]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setDecayLabel(getWeekDecayLabel()), 60000);
     return () => window.clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    if (loading) return undefined;
-
-    const ctx = gsap.context(() => {
-      gsap.fromTo('.xpv-run-cell', { opacity: 0, y: -12 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.05, ease: 'power2.out' });
-      gsap.fromTo('.xpv-stage', { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.7, ease: 'power3.out' });
-      gsap.fromTo('.xpv-mission-node', { opacity: 0, scale: 0.82 }, { opacity: 1, scale: 1, duration: 0.5, stagger: 0.05, ease: 'back.out(1.8)', delay: 0.18 });
-      gsap.fromTo('.xpv-rail-panel', { opacity: 0, x: 18 }, { opacity: 1, x: 0, duration: 0.45, stagger: 0.08, ease: 'power2.out', delay: 0.25 });
-      gsap.fromTo('.xpv-topic-arc', { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.42, stagger: 0.06, ease: 'power2.out', delay: 0.35 });
-    }, shellRef);
-
-    return () => ctx.revert();
-  }, [loading, stats]);
 
   useEffect(() => {
     if (loading) return undefined;
@@ -262,86 +268,6 @@ const XPRoadmap = () => {
       window.clearTimeout(cleanup);
     };
   }, [loading, level]);
-
-  useEffect(() => {
-    let app;
-    let raf;
-    let stars = [];
-    let orbit;
-
-    const setupPixi = async () => {
-      if (!pixiRef.current) return;
-
-      try {
-        const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent') || '#ff6b6b';
-        const accentColor = hexToPixiColor(accent);
-
-        app = new PIXI.Application();
-        await app.init({ backgroundAlpha: 0, antialias: true, resizeTo: pixiRef.current });
-        pixiRef.current.innerHTML = '';
-        pixiRef.current.appendChild(app.canvas);
-
-        const width = pixiRef.current.clientWidth || 1000;
-        const height = pixiRef.current.clientHeight || 620;
-
-        orbit = new PIXI.Graphics();
-        orbit.ellipse(width * 0.52, height * 0.48, width * 0.36, height * 0.18);
-        orbit.stroke({ width: 1, color: accentColor, alpha: 0.22 });
-        orbit.ellipse(width * 0.56, height * 0.5, width * 0.27, height * 0.11);
-        orbit.stroke({ width: 1, color: accentColor, alpha: 0.14 });
-        app.stage.addChild(orbit);
-
-        stars = Array.from({ length: 76 }, () => {
-          const dot = new PIXI.Graphics();
-          const radius = Math.random() * 1.9 + 0.7;
-          dot.circle(0, 0, radius);
-          dot.fill({ color: Math.random() > 0.25 ? accentColor : 0xeaecef, alpha: Math.random() * 0.42 + 0.16 });
-          dot.x = Math.random() * width;
-          dot.y = Math.random() * height;
-          app.stage.addChild(dot);
-          return {
-            sprite: dot,
-            driftX: (Math.random() - 0.5) * 0.12,
-            driftY: 0.12 + Math.random() * 0.34,
-            pulse: Math.random() * Math.PI * 2
-          };
-        });
-
-        app.ticker.add((ticker) => {
-          const w = pixiRef.current?.clientWidth || width;
-          const h = pixiRef.current?.clientHeight || height;
-          if (orbit) orbit.rotation += 0.0006 * ticker.deltaTime;
-          stars.forEach((star) => {
-            const sprite = star.sprite;
-            sprite.x += star.driftX * ticker.deltaTime;
-            sprite.y += star.driftY * ticker.deltaTime;
-            star.pulse += 0.025 * ticker.deltaTime;
-            sprite.alpha = 0.16 + ((Math.sin(star.pulse) + 1) * 0.2);
-            if (sprite.y > h + 6) {
-              sprite.y = -6;
-              sprite.x = Math.random() * w;
-            }
-          });
-        });
-
-        const render = () => {
-          app.render();
-          raf = window.requestAnimationFrame(render);
-        };
-        render();
-      } catch (error) {
-        console.error('XP roadmap canvas error:', error);
-      }
-    };
-
-    setupPixi();
-
-    return () => {
-      if (raf) window.cancelAnimationFrame(raf);
-      if (app) app.destroy(true, { children: true, texture: true });
-      if (pixiRef.current) pixiRef.current.innerHTML = '';
-    };
-  }, [loading]);
 
   const levelWindow = useMemo(() => getLevelWindow(level), [level]);
   const levelProgress = useMemo(() => {
@@ -484,7 +410,7 @@ const XPRoadmap = () => {
     if (!selectedNode) return null;
 
     const state = selectedNode.state || getNodeState(selectedNode, xp, nextNode?.xp);
-    const questSummary = quests.slice(1).map((quest) => ({
+    const questSummary = quests.map((quest) => ({
       id: quest.id,
       label: quest.label,
       progress: quest.progress,
@@ -498,6 +424,40 @@ const XPRoadmap = () => {
       delta: Math.max(0, selectedNode.xp - xp)
     };
   }, [selectedNode, xp, nextNode, quests]);
+
+  useEffect(() => {
+    if (!selectedNodeDetails) return undefined;
+    previousFocusRef.current = document.activeElement;
+    const focusFrame = window.requestAnimationFrame(() => drawerCloseRef.current?.focus());
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setSelectedNode(null);
+        return;
+      }
+      if (event.key !== 'Tab' || !drawerRef.current) return;
+
+      const focusable = Array.from(drawerRef.current.querySelectorAll(
+        'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      ));
+      if (!focusable.length) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      window.removeEventListener('keydown', onKeyDown);
+      previousFocusRef.current?.focus?.();
+    };
+  }, [selectedNodeDetails]);
 
   const selectedMissionAction = useMemo(() => {
     const targetNode = selectedNodeDetails?.state === 'locked' ? nextNode : selectedNodeDetails;
@@ -567,7 +527,7 @@ const XPRoadmap = () => {
 
   const activeMissionTopic = selectedMissionTopic || missionRecommendations[0]?.topic || getFallbackTopic(selectedNodeDetails || nextNode);
 
-  const selectedCtaLabel = `${selectedMissionAction.label}: ${activeMissionTopic}`;
+  const selectedCtaLabel = selectedMissionAction.label;
 
   const topicArcs = useMemo(() => {
     const topics = personalizedRoadmap?.topics || [];
@@ -605,23 +565,16 @@ const XPRoadmap = () => {
   const handleNodeClick = (node, state, event) => {
     setSelectedNode({ ...node, state });
 
-    if (state === 'mastered') {
-      const rect = event.currentTarget.getBoundingClientRect();
-      const id = `${node.id}-${Date.now()}`;
-      setXpBursts((items) => [...items, { id, x: rect.left + rect.width / 2, y: rect.top + 10, amount: node.xp }]);
-      window.setTimeout(() => setXpBursts((items) => items.filter((item) => item.id !== id)), 950);
-
-      confetti({
-        particleCount: node.type === 'boss' ? 220 : 120,
-        spread: node.type === 'boss' ? 98 : 72,
-        startVelocity: node.type === 'boss' ? 58 : 42,
-        scalar: 0.92,
-        colors: ['#ff6b6b', '#EAECEF', '#ffd43b', '#51cf66']
-      });
-    }
-
-    if (state === 'active') {
-      gsap.fromTo(event.currentTarget, { scale: 1 }, { scale: 1.08, yoyo: true, repeat: 1, duration: 0.16, ease: 'power2.out' });
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (state === 'active' && event.currentTarget.animate && !reduceMotion) {
+      event.currentTarget.animate(
+        [
+          { transform: 'translateY(0) scale(1)' },
+          { transform: 'translateY(-2px) scale(1.025)' },
+          { transform: 'translateY(0) scale(1)' }
+        ],
+        { duration: 260, easing: 'cubic-bezier(.23,1,.32,1)' }
+      );
     }
   };
 
@@ -763,6 +716,75 @@ const XPRoadmap = () => {
       setPowerUpLoading(null);
     }
   };
+
+  const scrollToPanel = (id) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const openNextMission = () => {
+    if (nextNode) {
+      setSelectedNode({ ...nextNode, state: 'active' });
+      return;
+    }
+    navigate('/analytics');
+  };
+
+  if (typeof XPRoadmapWorkspace === 'function') {
+    return (
+      <XPRoadmapWorkspace
+        loading={loading}
+        statsError={statsError}
+        retryStats={() => setStatsRetry((value) => value + 1)}
+        navigate={navigate}
+        shellRef={shellRef}
+        drawerRef={drawerRef}
+        drawerCloseRef={drawerCloseRef}
+        sidebarCollapsed={sidebarCollapsed}
+        setSidebarCollapsed={setSidebarCollapsed}
+        levelWave={levelWave}
+        level={level}
+        xp={xp}
+        displayName={displayName}
+        levelProgress={levelProgress}
+        levelWindow={levelWindow}
+        masteredCount={masteredCount}
+        nextNode={nextNode}
+        nextMissionAction={getMissionAction(nextNode)}
+        stats={stats}
+        quests={quests}
+        runMechanics={runMechanics}
+        decayLabel={decayLabel}
+        powerUps={powerUps}
+        powerUpLoading={powerUpLoading}
+        powerNotice={powerNotice}
+        handleUsePowerUp={handleUsePowerUp}
+        chestInventory={chestInventory}
+        nextRewards={nextRewards}
+        bossNode={bossNode}
+        streakChain={streakChain}
+        seasonTrack={seasonTrack}
+        topicArcs={topicArcs}
+        roadmapLoading={roadmapLoading}
+        roadmapError={roadmapError}
+        retryRoadmap={() => setRoadmapRetry((value) => value + 1)}
+        badgeCollection={badgeCollection}
+        handleNodeClick={handleNodeClick}
+        scrollToPanel={scrollToPanel}
+        openNextMission={openNextMission}
+        setSelectedNode={setSelectedNode}
+        xpBursts={xpBursts}
+        selectedNodeDetails={selectedNodeDetails}
+        missionRecommendations={missionRecommendations}
+        activeMissionTopic={activeMissionTopic}
+        setSelectedMissionTopic={setSelectedMissionTopic}
+        missionNotice={missionNotice}
+        selectedMissionAction={selectedMissionAction}
+        selectedCtaLabel={selectedCtaLabel}
+        missionLoading={missionLoading}
+        handleContinueMission={handleContinueMission}
+      />
+    );
+  }
 
   if (loading) {
     return (
