@@ -16,6 +16,13 @@ import { SidebarShell, SidebarSection, SidebarMenuItem, SidebarPrimaryButton, Si
 import './Vault.css';
 import '../components/SocialHubChrome.css';
 
+/*
+ * CONTEXT HUB DIRECTION
+ * Thesis: a focused source-composition desk, not a storage dashboard.
+ * Hierarchy: choose a workspace → find evidence → assemble a working context → create with it.
+ * Signature: the live context rail behaves like a set of eight physical source slots.
+ * Density: compact and operational, with detail revealed by selection instead of oversized cards.
+ */
 const DECK_SIZE = 8;
 const DECK_KEY  = 'ctx_selected_doc_ids';
 const FILE_INSIGHTS_KEY = 'ctx_file_action_stats';
@@ -1141,15 +1148,36 @@ const Vault = () => {
   
   const DeckTab = () => {
     const deckDocs = deckIds.map((id) => allDocs.get(id)).filter(Boolean);
+    const deckChunks = deckDocs.reduce((total, doc) => total + (doc.chunk_count || 0), 0);
+    const shelfCurriculumDocs = hsDocs.filter(d =>
+      !docSearch || [d.filename, d.title, d.subject, ...(d.topic_tags || [])]
+        .join(' ')
+        .toLowerCase()
+        .includes(docSearch.toLowerCase())
+    );
+    const shelfHasResults =
+      (sourceScope !== 'curriculum' && filteredUserDocs.length > 0) ||
+      (sourceScope !== 'mydocs' && shelfCurriculumDocs.length > 0);
 
     return (
     <div className="vlt-deck-layout">
+      <div className="vlt-composer-intro">
+        <div>
+          <span>01 · SOURCE COMPOSER</span>
+          <h2>Build a grounded working set.</h2>
+          <p>Choose only the material Cerbyl should use for the next output.</p>
+        </div>
+        <div className={`vlt-composer-status ${deckDocs.length ? 'ready' : ''}`}>
+          <span>{deckDocs.length ? 'Context online' : 'Waiting for sources'}</span>
+          <strong>{deckChunks} chunks</strong>
+        </div>
+      </div>
       {}
       <div className="vlt-deck-panel">
         <div className="vlt-deck-panel-head">
           <div className="vlt-deck-panel-title">
-            <Package size={16} />
-            <span>Active Context</span>
+            <span className="vlt-panel-index">B</span>
+            <span>Working Context</span>
           </div>
           <div className="vlt-deck-count">
             <span className={`vlt-deck-count-num ${deckIds.length === DECK_SIZE ? 'full' : ''}`}>
@@ -1177,9 +1205,9 @@ const Vault = () => {
 
         {deckDocs.length === 0 ? (
           <div className="vlt-deck-empty-state">
-            <div className="vlt-deck-empty-icon"><Library size={22} /></div>
-            <h3>No active sources</h3>
-            <p>Select documents from the source library to create a focused context for Cerbyl AI.</p>
+            <div className="vlt-empty-slot-stack" aria-hidden><span>01</span><span>02</span><span>03</span></div>
+            <h3>Your working set is empty</h3>
+            <p>Add a source from the shelf. Cerbyl will stay grounded in only what you place here.</p>
           </div>
         ) : (
           <div className="vlt-active-source-list">
@@ -1215,20 +1243,41 @@ const Vault = () => {
               <span>{deckDocs.length ? `${deckDocs.length} source${deckDocs.length === 1 ? '' : 's'} · ${deckDocs.reduce((total, doc) => total + (doc.chunk_count || 0), 0)} chunks` : 'Add at least one source to ask grounded questions'}</span>
             </div>
           </div>
-          <button disabled={!deckDocs.length} onClick={() => navigate('/ai-chat')}>
-            Ask with context <ChevronRight size={14} />
-          </button>
+          <span className="vlt-context-ready-count">{deckIds.length}/{DECK_SIZE}</span>
+        </div>
+
+        <div className="vlt-context-actions" aria-label="Use working context">
+          <div className="vlt-context-actions-copy">
+            <span>02 · USE CONTEXT</span>
+            <strong>{deckDocs.length ? 'Choose an output' : 'Add a source to unlock'}</strong>
+          </div>
+          <div className="vlt-context-action-grid">
+            {FEAT.map((feature) => {
+              const FeatureIcon = feature.icon;
+              return (
+                <button
+                  type="button"
+                  key={feature.id}
+                  disabled={!deckDocs.length}
+                  onClick={() => runContextAction(feature.id, deckIds, deckDocs)}
+                  style={{ '--feature-color': feature.color }}
+                >
+                  <FeatureIcon size={15} /><span>{feature.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
       {}
       <div className="vlt-deck-browser">
         <div className="vlt-deck-browser-head">
-          <span>Source Library</span>
+          <span><b className="vlt-panel-index">A</b> Source Shelf</span>
           <div className="vlt-deck-browser-search">
             <Search size={13} />
             <input
-              placeholder="Search…"
+              placeholder="Find a source"
               value={docSearch}
               onChange={e => setDocSearch(e.target.value)}
             />
@@ -1245,6 +1294,7 @@ const Vault = () => {
               key={scope.id}
               className={sourceScope === scope.id ? 'active' : ''}
               onClick={() => setSourceScope(scope.id)}
+              aria-pressed={sourceScope === scope.id}
             >
               {scope.label}<span>{scope.count}</span>
             </button>
@@ -1291,9 +1341,7 @@ const Vault = () => {
             <div className="vlt-browser-section-label">
               <Users size={11} /> Curriculum Books
             </div>
-            {hsDocs
-              .filter(d => !docSearch || (d.filename||'').toLowerCase().includes(docSearch.toLowerCase()))
-              .map(doc => {
+            {shelfCurriculumDocs.map(doc => {
                 const id  = doc.doc_id || doc.id;
                 const sel = deckSet.has(id);
                 const full = !sel && deckIds.length >= DECK_SIZE;
@@ -1321,12 +1369,15 @@ const Vault = () => {
           </div>
         )}
 
-        {((sourceScope === 'mydocs' && filteredUserDocs.length === 0) ||
-          (sourceScope === 'curriculum' && hsDocs.length === 0) ||
-          (sourceScope === 'all' && userDocs.length === 0 && hsDocs.length === 0)) && !loading && (
+        {!shelfHasResults && !loading && (
           <div className="vlt-browser-empty">
             <Library size={28} />
-            <p>No documents yet. Upload your first document in the Your Docs tab.</p>
+            <p>{docSearch ? `No sources match “${docSearch}”.` : 'No sources yet. Upload your first document.'}</p>
+            {docSearch ? (
+              <button type="button" onClick={() => { setDocSearch(''); setSidebarSearch(''); }}>Clear search</button>
+            ) : (
+              <button type="button" onClick={() => setActiveTab('upload')}><Upload size={13} /> Upload source</button>
+            )}
           </div>
         )}
       </div>
@@ -1362,6 +1413,12 @@ const Vault = () => {
               onClick={() => navigate(item.route)}
               role="button"
               tabIndex={0}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  navigate(item.route);
+                }
+              }}
             >
               <div className="vlt-recent-icon" style={{ background: `${recentColor(item.icon)}18`, color: recentColor(item.icon) }}>
                 {recentIcon(item.icon)}
@@ -1402,11 +1459,13 @@ const Vault = () => {
             <input
               className="vlt-dz-input"
               placeholder="Subject (optional)"
+              aria-label="Document subject (optional)"
               value={uploadSubject}
               onChange={e => setUploadSubject(e.target.value)}
             />
             <select
               className="vlt-dz-input"
+              aria-label="Destination folder"
               value={uploadFolderId}
               onChange={e => setUploadFolderId(e.target.value)}
             >
@@ -1424,7 +1483,7 @@ const Vault = () => {
               ref={fileRef}
               type="file"
               accept=".pdf,.txt,.docx,.md"
-              style={{ display: 'none' }}
+              className="vlt-visually-hidden-file"
               onChange={e => handleUpload(e.target.files[0])}
               disabled={uploading}
             />
@@ -1647,6 +1706,7 @@ const Vault = () => {
                   key={c}
                   className={`vlt-curr-toggle-btn ${currMode === c ? 'active' : ''}`}
                   onClick={() => { setCurrMode(c); setCurrSubject(null); }}
+                  aria-pressed={currMode === c}
                 >
                   {c === 'uk' ? '🇬🇧 UK' : '🇺🇸 US'}
                 </button>
@@ -1833,12 +1893,16 @@ const Vault = () => {
                 <Search size={14} />
                 <input
                   value={sidebarSearch}
-                  onChange={(event) => setSidebarSearch(event.target.value)}
+                  onChange={(event) => {
+                    setSidebarSearch(event.target.value);
+                    setDocSearch(event.target.value);
+                    setActiveTab('deck');
+                  }}
                   placeholder="Search sources..."
                   aria-label="Search ContextHub sources"
                 />
                 {sidebarSearch && (
-                  <button type="button" onClick={() => setSidebarSearch('')} aria-label="Clear source search"><X size={12} /></button>
+                  <button type="button" onClick={() => { setSidebarSearch(''); setDocSearch(''); }} aria-label="Clear source search"><X size={12} /></button>
                 )}
               </div>
             </div>
@@ -1887,42 +1951,32 @@ const Vault = () => {
               </div>
             )}
 
-            <div className="vlt-sidebar-sources">
+            <div className="vlt-sidebar-context">
               <div className="vlt-sidebar-section-head">
-                <span>{sidebarSearch ? 'Search results' : 'Your sources'}</span>
-                <strong>{sidebarDocs.length}</strong>
+                <span>Working context</span>
+                <strong>{deckIds.length}/{DECK_SIZE}</strong>
               </div>
-              <div className="vlt-sidebar-source-list">
-                {sidebarDocs.length === 0 ? (
-                  <div className="vlt-sidebar-empty">
-                    <FileText size={18} />
-                    <span>{sidebarSearch ? 'No matching sources' : 'No documents yet'}</span>
-                  </div>
-                ) : sidebarDocs.map((doc) => {
+              <div className="vlt-sidebar-context-track" aria-hidden>
+                {Array.from({ length: DECK_SIZE }, (_, index) => (
+                  <span key={index} className={index < deckIds.length ? 'filled' : ''} />
+                ))}
+              </div>
+              <div className="vlt-sidebar-context-list">
+                {deckIds.length === 0 ? (
+                  <button type="button" className="vlt-sidebar-context-empty" onClick={() => setActiveTab('deck')}>
+                    <Plus size={15} /><span>Select sources in the composer</span>
+                  </button>
+                ) : deckIds.map((sourceId) => {
+                  const doc = allDocs.get(sourceId);
+                  if (!doc) return null;
                   const id = doc.doc_id || doc.id;
-                  const inDeck = deckSet.has(id);
-                  const deckFull = !inDeck && deckIds.length >= DECK_SIZE;
                   return (
-                    <div className={`vlt-sidebar-source ${inDeck ? 'active' : ''}`} key={id}>
-                      <button
-                        type="button"
-                        className="vlt-sidebar-source-toggle"
-                        disabled={deckFull}
-                        onClick={() => inDeck ? removeFromDeck(id) : addToDeck(id)}
-                        aria-label={inDeck ? `Remove ${doc.filename || doc.title} from context` : `Add ${doc.filename || doc.title} to context`}
-                      >
-                        <span className="vlt-sidebar-source-state">{inDeck ? <Check size={12} /> : <Plus size={12} />}</span>
-                        <span className="vlt-sidebar-source-copy">
-                          <strong>{doc.filename || doc.title || 'Untitled'}</strong>
-                          <small>{doc.subject ? subjectLabel(doc.subject) : 'Document'}{doc.chunk_count ? ` · ${doc.chunk_count} chunks` : ''}</small>
-                        </span>
+                    <div className="vlt-sidebar-context-item" key={id}>
+                      <span><FileText size={12} /></span>
+                      <strong title={doc.filename || doc.title}>{doc.filename || doc.title || 'Untitled'}</strong>
+                      <button type="button" onClick={() => removeFromDeck(id)} aria-label={`Remove ${doc.filename || doc.title || 'source'}`}>
+                        <X size={11} />
                       </button>
-                      <button
-                        type="button"
-                        className="vlt-sidebar-source-open"
-                        onClick={() => navigate(`/contexthub/file/${id}`)}
-                        aria-label={`Open ${doc.filename || doc.title || 'source'}`}
-                      ><ChevronRight size={13} /></button>
                     </div>
                   );
                 })}
@@ -1947,36 +2001,19 @@ const Vault = () => {
 
           <main className="vlt-main vlt-qb-main">
         {}
-        <section className="vlt-hero">
-          <div className="vlt-hero-left">
-            <div className="vlt-eyebrow">CONTEXT HUB</div>
-            <h1 className="vlt-title">Your Context<span className="vlt-period">.</span></h1>
-            <p className="vlt-subtitle">Manage your documents, curriculum books, and AI context deck</p>
+        <section className="vlt-command-header">
+          <div className="vlt-command-copy">
+            <span>CONTEXT HUB / {TABS.find(tab => tab.id === activeTab)?.label}</span>
+            <h1>{activeTab === 'deck' ? 'Context, composed.' : activeTab === 'mydocs' ? 'Your source archive.' : activeTab === 'upload' ? 'Bring in new evidence.' : 'Curriculum, ready to use.'}</h1>
           </div>
-          <div className="vlt-hero-right">
-            <div className="vlt-hero-actions" aria-label="ContextHub quick actions">
-              <button className="vlt-hero-action vlt-hero-action--primary" onClick={() => setActiveTab('upload')}>
-                <Upload size={14} /> Add source <ChevronRight size={14} />
-              </button>
-              <button className="vlt-hero-action" onClick={() => navigate('/ai-chat')}>
-                <MessageCircle size={14} /> Ask AI <ChevronRight size={14} />
-              </button>
-            </div>
-            <div className="vlt-stat-row">
-              {[
-                { num: String(stats.deck).padStart(2,'0'),   lbl: 'IN DECK',    sub: `of ${DECK_SIZE}`, accent: true },
-                { num: String(stats.myDocs).padStart(2,'0'), lbl: 'YOUR DOCS' },
-                { num: String(stats.books).padStart(2,'0'),  lbl: 'BOOKS' },
-                { num: stats.chunks,                          lbl: 'CHUNKS' },
-              ].map(s => (
-                <div key={s.lbl} className={`vlt-stat ${s.accent ? 'vlt-stat--accent' : ''}`}>
-                  <div className="vlt-stat-num">{s.num}</div>
-                  <div className="vlt-stat-lbl">{s.lbl}</div>
-                  {s.sub && <div className="vlt-stat-sub">{s.sub}</div>}
-                </div>
-              ))}
-            </div>
+          <div className="vlt-command-stats" aria-label="Context Hub summary">
+            <span><strong>{String(stats.deck).padStart(2, '0')}</strong> active</span>
+            <span><strong>{String(stats.myDocs).padStart(2, '0')}</strong> documents</span>
+            <span><strong>{stats.chunks}</strong> chunks</span>
           </div>
+          <button className="vlt-command-add" type="button" onClick={() => setActiveTab('upload')}>
+            <Plus size={15} /> Add source
+          </button>
         </section>
 
         {}
@@ -1986,6 +2023,7 @@ const Vault = () => {
           {activeTab === 'upload'     && UploadTab()}
           {activeTab === 'curriculum' && CurriculumTab()}
         </div>
+        {activeTab === 'deck' && <RecentTab />}
           </main>
         </div>
       </div>

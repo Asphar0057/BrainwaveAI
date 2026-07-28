@@ -7,7 +7,9 @@ import {
   Zap,
   Database,
   Timer,
-  AlertTriangle
+  AlertTriangle,
+  Shield,
+  ArrowLeft
 } from 'lucide-react';
 import './AdminAnalytics.css';
 import { API_URL } from '../config';
@@ -765,9 +767,17 @@ const AdminAnalytics = () => {
 
   return (
     <div className="admin-analytics">
+      <div className="aa-topbar">
+        <span>LEARNING, <b>UNIFIED</b></span>
+        <button type="button" onClick={() => navigate('/dashboard-cerbyl')}>
+          <ArrowLeft size={14} />
+          Dashboard
+        </button>
+      </div>
       <div className="aa-hero">
         <div>
-          <h1>Admin Analytics Dashboard</h1>
+          <span className="aa-eyebrow"><Shield size={13} /> Operations intelligence</span>
+          <h1>Product health,<br />without the noise.</h1>
           <p>Real-time product usage, AI token efficiency, and reliability signals.</p>
         </div>
         <div className="aa-header-actions">

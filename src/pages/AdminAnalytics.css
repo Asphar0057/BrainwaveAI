@@ -7,34 +7,89 @@
   --aa-border: var(--border);
   --aa-text: var(--text-primary);
   --aa-muted: var(--text-secondary);
-  padding: 40px;
-  max-width: 1500px;
+  padding: 0 40px 64px;
+  max-width: none;
   margin: 0 auto;
   min-height: 100vh;
   color: var(--aa-text);
-  background: radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 8%, transparent), transparent 50%),
+  background:
+    linear-gradient(rgba(215, 179, 140, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(215, 179, 140, 0.04) 1px, transparent 1px),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 8%, transparent), transparent 50%),
     radial-gradient(circle at 20% 20%, rgba(244, 195, 122, 0.08), transparent 45%),
     var(--bg-primary);
+  background-size: 72px 72px, 72px 72px, auto, auto, auto;
 }
+
+.aa-topbar {
+  min-height: 64px;
+  margin: 0 -40px 30px;
+  padding: 0 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--aa-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+}
+
+.aa-topbar b { color: var(--aa-accent); font-weight: inherit; }
+
+.aa-topbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--aa-muted);
+  font: inherit;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.aa-topbar button:hover { color: var(--aa-accent); }
 
 .aa-hero {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 28px;
+  width: min(1600px, 100%);
+  margin: 0 auto 28px;
+  padding: clamp(32px, 5vw, 70px);
+  border: 1px solid color-mix(in srgb, var(--aa-accent) 18%, transparent);
+  background:
+    repeating-linear-gradient(108deg, rgba(215, 179, 140, 0.028) 0 1px, transparent 1px 14px),
+    color-mix(in srgb, var(--aa-card-bg) 88%, transparent);
   gap: 24px;
 }
 
 .aa-hero h1 {
-  margin: 0 0 8px 0;
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--aa-accent);
+  margin: 14px 0 18px;
+  max-width: 900px;
+  font-size: clamp(48px, 6.5vw, 92px);
+  line-height: 0.86;
+  letter-spacing: -0.065em;
+  font-weight: 780;
+  color: var(--aa-text);
 }
 
 .aa-hero p {
   margin: 0;
   color: var(--aa-muted);
+}
+
+.aa-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--aa-accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
 }
 
 .aa-header-actions {
@@ -47,12 +102,20 @@
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin: 0 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  width: min(1600px, 100%);
+  margin: 0 auto 24px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--aa-accent) 16%, transparent);
+  background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
+  backdrop-filter: blur(16px);
 }
 
 .aa-section-tab {
   padding: 8px 16px;
-  border-radius: 999px;
+  border-radius: 8px;
   border: 1px solid var(--aa-border);
   background: var(--aa-card-bg);
   color: var(--aa-muted);
@@ -134,6 +197,9 @@
 }
 
 .aa-kpi-grid {
+  width: min(1600px, 100%);
+  margin-left: auto;
+  margin-right: auto;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 18px;
@@ -177,12 +243,21 @@
 .aa-kpi-card {
   background: var(--aa-card-bg);
   border: 1px solid var(--aa-border);
-  border-radius: 16px;
+  border-radius: 12px;
   padding: 18px;
   display: flex;
   gap: 14px;
   align-items: center;
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+}
+
+.aa-section,
+.aa-users-section,
+.aa-metric-grid,
+.aa-grid {
+  width: min(1600px, 100%);
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .aa-kpi-icon {
@@ -941,7 +1016,20 @@
 
 @media (max-width: 768px) {
   .admin-analytics {
-    padding: 24px;
+    padding: 0 16px 40px;
+  }
+
+  .aa-topbar {
+    margin: 0 -16px 18px;
+    padding: 0 16px;
+  }
+
+  .aa-hero {
+    padding: 28px 20px;
+  }
+
+  .aa-hero h1 {
+    font-size: 46px;
   }
 
   .aa-card {

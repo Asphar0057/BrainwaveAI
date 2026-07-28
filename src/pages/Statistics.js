@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader, TrendingUp, BookOpen, Target, Clock } from 'lucide-react';
+import { ArrowLeft, Loader, TrendingUp, BookOpen, Target, Clock, RefreshCw, Play, BarChart3 } from 'lucide-react';
 import './Statistics.css';
 import '../components/SocialHubChrome.css';
 import { API_URL } from '../config';
@@ -14,6 +14,7 @@ const Statistics = () => {
   const [stats, setStats] = useState(null);
   const [learningReviews, setLearningReviews] = useState([]);
   const [timeRange, setTimeRange] = useState('all');
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     fetchUserProfile();
@@ -35,6 +36,7 @@ const Statistics = () => {
   const fetchStatistics = async () => {
     try {
       setLoading(true);
+      setLoadError(false);
       const response = await fetch(`${API_URL}/get_learning_reviews?time_range=${timeRange}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -45,8 +47,14 @@ const Statistics = () => {
         
         const calculatedStats = calculateStats(data.reviews || []);
         setStats(calculatedStats);
+      } else {
+        setLoadError(true);
+        setStats(calculateStats([]));
       }
-    } catch (error) { /* silenced */ } finally {
+    } catch (error) {
+      setLoadError(true);
+      setStats(calculateStats([]));
+    } finally {
       setLoading(false);
     }
   };
@@ -136,6 +144,18 @@ const Statistics = () => {
       </div>
 
       <div className="st-content">
+        <section className="st-hero">
+          <div>
+            <span className="st-eyebrow">Learning signal</span>
+            <h1>{userName ? `${userName}'s progress,` : 'Your progress,'}<br />made legible.</h1>
+            <p>See what is sticking, where time is going, and which topic deserves the next session.</p>
+          </div>
+          <div className="st-hero-mark" aria-hidden="true">
+            <BarChart3 size={30} />
+            <span>{String(stats?.totalSessions || 0).padStart(2, '0')}</span>
+            <small>sessions</small>
+          </div>
+        </section>
         {loading ? (
           <div className="st-loading">
             <Loader size={40} className="st-spinner" />
@@ -143,10 +163,17 @@ const Statistics = () => {
           </div>
         ) : !stats ? (
           <div className="st-empty">
-            <p>No data available yet</p>
+            <p>We could not read your learning signal.</p>
+            <button type="button" onClick={fetchStatistics}><RefreshCw size={15} /> Try again</button>
           </div>
         ) : (
           <>
+            {loadError && (
+              <div className="st-inline-notice">
+                <span>Live statistics are temporarily unavailable. Showing a clean starting point.</span>
+                <button type="button" onClick={fetchStatistics}><RefreshCw size={14} /> Retry</button>
+              </div>
+            )}
             <div className="st-stats-grid">
               <div className="st-stat-card">
                 <div className="st-stat-icon">
@@ -188,6 +215,20 @@ const Statistics = () => {
                 </div>
               </div>
             </div>
+
+            {stats.totalSessions === 0 && (
+              <section className="st-zero-state">
+                <div>
+                  <span className="st-eyebrow">No signal yet</span>
+                  <h2>Your first review creates the baseline.</h2>
+                  <p>Complete one focused quiz or learning review. Cerbyl will turn it into score, time, topic, and improvement signals here.</p>
+                </div>
+                <button type="button" onClick={() => navigate('/learning-review')}>
+                  <Play size={15} fill="currentColor" />
+                  Start a review
+                </button>
+              </section>
+            )}
 
             <div className="st-performance-grid">
               <div className="st-performance-card">

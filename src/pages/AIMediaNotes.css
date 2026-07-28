@@ -678,41 +678,6 @@
   background: color-mix(in srgb, var(--mn-accent) 20%, transparent);
 }
 
-.mn-youtube-input {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 20px;
-  background: var(--mn-bg-card);
-  border: 1px solid color-mix(in srgb, var(--mn-accent) 20%, transparent);
-  border-radius: 12px;
-  transition: all 0.2s;
-}
-
-.mn-youtube-input:focus-within {
-  border-color: var(--mn-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mn-accent) 10%, transparent);
-}
-
-.mn-youtube-input svg {
-  color: var(--mn-accent);
-  flex-shrink: 0;
-}
-
-.mn-youtube-input input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--mn-text-primary);
-}
-
-.mn-youtube-input input::placeholder {
-  color: var(--mn-text-secondary);
-}
-
 .mn-settings-panel {
   margin-top: 32px;
   border: 1px solid color-mix(in srgb, var(--mn-accent) 20%, transparent);
@@ -2175,7 +2140,6 @@
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mn-accent) 8%, transparent);
 }
 
-.mn-youtube-input,
 .mn-settings-panel,
 .mn-uploaded-file {
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
@@ -3024,6 +2988,120 @@
   color: var(--mn-accent);
 }
 
+/* Media desk — useful source-to-study hierarchy */
+.mn-workflow-strip {
+  display: grid;
+  grid-template-columns: auto minmax(24px, 1fr) auto minmax(24px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin: -2px 0 20px;
+  padding: 12px 15px;
+  border: 1px solid color-mix(in srgb, var(--mn-accent) 14%, transparent);
+  border-radius: 11px;
+  color: var(--mn-text-secondary);
+  background: rgba(0,0,0,.12);
+}
+.mn-workflow-strip span { display: inline-flex; align-items: center; gap: 8px; font-size: 9px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; }
+.mn-workflow-strip span b { display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid color-mix(in srgb, var(--mn-accent) 18%, transparent); border-radius: 50%; color: inherit; font-size: 8px; }
+.mn-workflow-strip i { height: 1px; background: color-mix(in srgb, var(--mn-accent) 14%, transparent); }
+.mn-workflow-strip span.is-current { color: var(--mn-accent); }
+.mn-workflow-strip span.is-current b { background: color-mix(in srgb, var(--mn-accent) 12%, transparent); box-shadow: 0 0 18px color-mix(in srgb, var(--mn-accent) 12%, transparent); }
+.mn-workflow-strip span.is-complete { color: color-mix(in srgb, #63d29b 75%, var(--mn-text-primary)); }
+.mn-workflow-strip span.is-complete b { border-color: color-mix(in srgb, #63d29b 45%, transparent); }
+
+.mn-recipe-picker {
+  margin-bottom: 17px;
+  padding-bottom: 17px;
+  border-bottom: 1px solid color-mix(in srgb, var(--mn-accent) 13%, transparent);
+}
+.mn-recipe-label {
+  display: block;
+  margin-bottom: 9px;
+  color: color-mix(in srgb, var(--mn-accent) 76%, var(--mn-text-secondary));
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+.mn-recipe-picker > div { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.mn-recipe-picker button {
+  min-width: 0;
+  padding: 11px 10px;
+  border: 1px solid color-mix(in srgb, var(--mn-accent) 14%, transparent);
+  border-radius: 9px;
+  color: var(--mn-text-secondary);
+  text-align: left;
+  background: rgba(0,0,0,.14);
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms cubic-bezier(.2,.8,.2,1);
+}
+.mn-recipe-picker button:hover { transform: translateY(-2px); color: var(--mn-text-primary); border-color: color-mix(in srgb, var(--mn-accent) 35%, transparent); }
+.mn-recipe-picker button.is-selected { color: var(--mn-text-primary); border-color: color-mix(in srgb, var(--mn-accent) 52%, transparent); background: color-mix(in srgb, var(--mn-accent) 10%, transparent); }
+.mn-recipe-picker strong, .mn-recipe-picker small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mn-recipe-picker strong { font-size: 10px; }
+.mn-recipe-picker small { margin-top: 5px; color: var(--mn-text-secondary); font-size: 8px; }
+
+.amn-library-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 28px;
+  padding-bottom: 25px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--mn-accent) 15%, transparent);
+}
+.amn-library-heading .mn-view-heading { margin: 0; }
+.amn-library-heading .view-title { margin-top: 7px; font-size: clamp(42px, 5vw, 70px); line-height: .92; letter-spacing: -.06em; }
+.amn-library-heading .view-sub { max-width: 650px; margin-top: 12px; line-height: 1.55; }
+.amn-library-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 43px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 10px;
+  color: #17110d;
+  background: var(--mn-accent);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 170ms cubic-bezier(.2,.8,.2,1), box-shadow 170ms ease;
+}
+.amn-library-new:hover { transform: translateY(-2px); box-shadow: 0 12px 30px color-mix(in srgb, var(--mn-accent) 20%, transparent); }
+
+.amn-library-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.amn-library-card {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 250px;
+  padding: 18px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--mn-bg-card) 86%, transparent);
+  transition: transform 200ms cubic-bezier(.2,.8,.2,1), border-color 200ms ease, box-shadow 200ms ease;
+}
+.amn-library-card:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--mn-accent) 43%, transparent); box-shadow: 0 18px 44px rgba(0,0,0,.24); }
+.amn-library-card-top { display: flex; align-items: flex-start; justify-content: space-between; }
+.amn-library-index { color: var(--mn-accent); font-size: 9px; font-weight: 800; letter-spacing: .16em; }
+.amn-library-kind { display: block; margin-bottom: 8px; color: color-mix(in srgb, var(--mn-accent) 72%, var(--mn-text-secondary)); font-size: 8px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+.amn-library-card-title { font-size: 22px; line-height: 1.05; letter-spacing: -.035em; }
+.amn-library-card-preview { margin-top: 10px; font-size: 11px; line-height: 1.55; -webkit-line-clamp: 2; }
+.amn-library-card-footer { gap: 9px; }
+.amn-library-open { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; color: var(--mn-accent); font-size: 8px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; opacity: 0; transform: translateX(-4px); transition: opacity 160ms ease, transform 160ms ease; }
+.amn-library-card:hover .amn-library-open { opacity: 1; transform: none; }
+
+@media (max-width: 720px) {
+  .mn-workflow-strip { grid-template-columns: repeat(3, 1fr); }
+  .mn-workflow-strip i { display: none; }
+  .mn-workflow-strip span { justify-content: center; }
+  .mn-recipe-picker > div { grid-template-columns: 1fr; }
+  .amn-library-heading { align-items: flex-start; flex-direction: column; }
+}
+
 /* Media Notes 2026 — source-aware study workspace */
 .amn-line-field {
   position: fixed;
@@ -3358,65 +3436,29 @@
   font-size: 11px;
 }
 
-.mn-source-divider {
-  position: relative;
-  margin: 22px 0 14px;
-  text-align: center;
+.mn-local-source-note {
+  display: grid;
+  gap: 5px;
+  margin-top: 12px;
+  padding: 13px 14px;
+  border: 1px solid color-mix(in srgb, var(--mn-accent) 14%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--mn-accent) 4%, transparent);
 }
 
-.mn-source-divider::before {
-  content: '';
-  position: absolute;
-  inset: 50% 0 auto;
-  height: 1px;
-  background: color-mix(in srgb, var(--mn-accent) 14%, transparent);
-}
-
-.mn-source-divider span {
-  position: relative;
-  padding: 0 12px;
-  background: color-mix(in srgb, var(--mn-bg-card) 96%, transparent);
-  color: var(--mn-text-secondary);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.mn-intake .mn-youtube-input {
-  position: relative;
-  min-height: 72px;
-  padding: 25px 16px 8px 48px;
-  border-radius: 12px;
-  display: block;
-  box-shadow: none;
-}
-
-.mn-intake .mn-youtube-input > svg {
-  position: absolute;
-  left: 16px;
-  top: 26px;
-}
-
-.mn-input-label {
-  position: absolute;
-  top: 9px;
-  left: 48px;
-  color: color-mix(in srgb, var(--mn-accent) 70%, var(--mn-text-secondary));
+.mn-local-source-note span {
+  color: color-mix(in srgb, var(--mn-accent) 76%, var(--mn-text-primary));
   font-size: 9px;
   font-weight: 800;
-  letter-spacing: 0.14em;
+  letter-spacing: .13em;
   text-transform: uppercase;
 }
 
-.mn-intake .mn-youtube-input input {
-  width: 100%;
-  padding: 4px 0;
-  font-size: 13px;
-}
-
-.mn-youtube-input.has-source {
-  border-color: color-mix(in srgb, var(--mn-accent) 70%, transparent);
+.mn-local-source-note p {
+  margin: 0;
+  color: var(--mn-text-secondary);
+  font-size: 10px;
+  line-height: 1.5;
 }
 
 .mn-intake .mn-settings-content {

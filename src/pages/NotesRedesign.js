@@ -6,6 +6,7 @@ import "./NotesRedesign.css";
 import "./NotesRedesignSmartFolders.css";
 import "./NotesRedesignChatImport.css";
 import "./NotesRedesignConvert.css";
+import "../components/NotesSidebarSystem.css";
 import CustomPopup from "./CustomPopup";
 import NotesLineField from "../components/NotesLineField";
 import { useTheme } from '../contexts/ThemeContext';
@@ -18,7 +19,8 @@ import {
   MoreVertical, Archive, RefreshCw, Save, Clock,
   AlignLeft, Bold, Italic, Underline, 
   List, ListOrdered, Link2, Image, Code,
-  ChevronLeft, Layout, Filter, Palette, Command, Zap
+  ChevronLeft, Layout, Filter, Palette, Command, Zap, Home,
+  Quote, CheckSquare, Minus, Type
 } from 'lucide-react';
 import { API_URL } from '../config';
 import { sanitizeHtml, escapeHtml } from '../utils/sanitize';
@@ -1931,6 +1933,7 @@ const NotesRedesign = ({ sharedMode = false }) => {
     const newBlocks = [...noteBlocks, newBlock];
     setNoteBlocks(newBlocks);
     handleBlocksChange(newBlocks);
+    setPendingFocusBlockId(newBlock.id);
   };
 
   const handleTemplateSelect = (template) => {
@@ -3014,9 +3017,11 @@ const NotesRedesign = ({ sharedMode = false }) => {
                 My Notes
               </button>
             )}
-            <button className="nr-qb-top-btn" onClick={() => setSidebarOpen((prev) => !prev)} type="button">
-              {sidebarOpen && !isSharedContent ? 'Hide Sidebar' : 'Show Sidebar'}
-            </button>
+            {!isSharedContent && (
+              <button className="nr-qb-top-btn nr-qb-mobile-sidebar-btn" onClick={() => setSidebarOpen((prev) => !prev)} type="button">
+                {sidebarOpen ? 'Hide tools' : 'Show tools'}
+              </button>
+            )}
             <button className="nr-qb-top-btn nr-qb-top-btn--accent" onClick={() => setShowImportExport(true)} type="button">
               Convert
             </button>
@@ -3030,193 +3035,108 @@ const NotesRedesign = ({ sharedMode = false }) => {
       {/* Body - Sidebar + Content */}
       <div className="nr-body">
         {selectedNote ? (
-          <div className={`nr-qb-shell ${sidebarOpen && !isSharedContent ? "" : "nr-qb-shell--collapsed"}`}>
-            {sidebarOpen && !isSharedContent && (
-              <aside className="nr-qb-sidebar" aria-label="Notes tools">
+          <div className={`nr-qb-shell ${isSharedContent ? "nr-qb-shell--shared" : (!sidebarOpen ? "nr-qb-shell--collapsed" : "")}`}>
+            {!isSharedContent && (
+              <aside className={`nr-qb-sidebar notes-sidebar-system ${sidebarOpen ? '' : 'nr-qb-sidebar--collapsed'}`} aria-label="Notes tools">
+                <div className="notes-sidebar-texture" aria-hidden="true" />
                 <div className="cb-tile-texture" aria-hidden />
-                <div className="nr-qb-side-brand">
-                  <div className="nr-qb-brand-wrap">
-                    <div className="nr-qb-brand">cerbyl</div>
-                    <div className="nr-qb-brand-kicker">Notes</div>
+                {!sidebarOpen ? (
+                  <div className="nr-qb-collapsed-strip">
+                    <button className="nr-qb-strip-btn nr-qb-strip-logo" data-tip="Open sidebar" onClick={() => setSidebarOpen(true)} type="button">
+                      <ChevronRight size={17} />
+                    </button>
+                    <button className={`nr-qb-strip-btn ${viewMode === 'edit' ? 'active' : ''}`} data-tip="Edit" onClick={() => setViewMode('edit')} type="button">
+                      <Edit3 size={17} />
+                    </button>
+                    <button className={`nr-qb-strip-btn ${viewMode === 'preview' ? 'active' : ''}`} data-tip="Preview" onClick={() => setViewMode('preview')} type="button">
+                      <Eye size={17} />
+                    </button>
+                    <button className="nr-qb-strip-btn" data-tip="AI Assist" onClick={() => setShowAIAssistant(true)} type="button">
+                      <Sparkles size={17} />
+                    </button>
+                    <button className="nr-qb-strip-btn" data-tip="Convert" onClick={() => setShowImportExport(true)} type="button">
+                      <Zap size={17} />
+                    </button>
+                    <button className="nr-qb-strip-btn" data-tip="Search" onClick={() => setShowAdvancedSearch(true)} type="button">
+                      <Search size={17} />
+                    </button>
+                    <div className="nr-qb-strip-spacer" />
+                    <button className="nr-qb-strip-btn" data-tip="My Notes" onClick={() => navigate('/notes/my-notes')} type="button">
+                      <FileText size={17} />
+                    </button>
+                    <button className="nr-qb-strip-btn" data-tip="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} type="button">
+                      <Home size={17} />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => setSidebarOpen(false)}
-                    className="nr-qb-side-close-btn"
-                    type="button"
-                    title="Close sidebar"
-                    aria-label="Close notes sidebar"
-                  >
-                    <ChevronLeft size={14} />
-                  </button>
-                </div>
-
-                <div className="nr-qb-side-block">
-                  <div className="nr-qb-side-label">Notes Workspace</div>
-                  <nav className="nr-qb-view-nav" aria-label="Note view mode">
-                    <button
-                      className={`nr-qb-view-link ${viewMode === "edit" ? "nr-qb-view-link--active" : ""}`}
-                      onClick={() => setViewMode("edit")}
-                      title="Edit mode"
-                      type="button"
-                    >
-                      <Edit3 size={16} />
-                      <span>Edit</span>
-                    </button>
-                    <button
-                      className={`nr-qb-view-link ${viewMode === "preview" ? "nr-qb-view-link--active" : ""}`}
-                      onClick={() => setViewMode("preview")}
-                      title="Preview note"
-                      type="button"
-                    >
-                      <Eye size={16} />
-                      <span>Preview</span>
-                    </button>
-                  </nav>
-                </div>
-
-                <div className="nr-qb-side-block nr-qb-side-block--grow">
-                  <div className="nr-qb-side-label">Editor</div>
-                  <nav className="nr-qb-view-nav" aria-label="Editor tools">
-                    <button
-                      className={`nr-qb-view-link ${editorDarkMode ? "nr-qb-view-link--active" : ""}`}
-                      onClick={() => setEditorDarkMode((value) => !value)}
-                      title={editorDarkMode ? "Use light paper" : "Use dark paper"}
-                      type="button"
-                    >
-                      <Palette size={16} />
-                      <span>{editorDarkMode ? "Dark Paper" : "Light Paper"}</span>
-                    </button>
-                    {!isSharedContent && (
+                ) : (
+                  <>
+                    <div className="nr-qb-side-brand">
+                      <div className="nr-qb-brand-wrap">
+                        <div className="nr-qb-brand">cerbyl</div>
+                        <div className="nr-qb-brand-kicker">Notes</div>
+                      </div>
                       <button
-                        className={`nr-qb-view-link ${showPageProperties ? "nr-qb-view-link--active" : ""}`}
-                        onClick={() => setShowPageProperties((value) => !value)}
-                        title="Page properties"
+                        onClick={() => setSidebarOpen(false)}
+                        className="nr-qb-side-close-btn"
                         type="button"
+                        title="Close sidebar"
+                        aria-label="Close notes sidebar"
                       >
-                        <Layout size={16} />
-                        <span>Page Setup</span>
+                        <ChevronLeft size={14} />
                       </button>
-                    )}
-                    <button
-                      className={`nr-qb-view-link ${isFullscreen ? "nr-qb-view-link--active" : ""}`}
-                      onClick={toggleFullscreen}
-                      title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-                      type="button"
-                    >
-                      {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-                      <span>{isFullscreen ? "Exit Full" : "Fullscreen"}</span>
-                    </button>
-                    <button
-                      className="nr-qb-view-link"
-                      onClick={() => setShowKeyboardShortcuts(true)}
-                      title="Keyboard shortcuts"
-                      type="button"
-                    >
-                      <Command size={16} />
-                      <span>Shortcuts</span>
-                    </button>
-                  </nav>
-                </div>
+                    </div>
 
-                <div className="nr-qb-side-block">
-                  <div className="nr-qb-side-label">Export</div>
-                  <nav className="nr-qb-view-nav" aria-label="Export note">
-                    <button 
-                      className="nr-qb-view-link"
-                      onClick={exportAsPDF} 
-                      title="Export as PDF"
-                      type="button"
-                    >
-                      <FileDown size={16} />
-                      <span>PDF</span>
-                    </button>
-                    <button 
-                      className="nr-qb-view-link"
-                      onClick={exportAsText} 
-                      title="Export as Text"
-                      type="button"
-                    >
-                      <Download size={16} />
-                      <span>TXT</span>
-                    </button>
-                  </nav>
-                </div>
-
-                <div className="nr-qb-side-block">
-                  <div className="nr-qb-side-label">AI Tools</div>
-                  <nav className="nr-qb-view-nav" aria-label="AI note tools">
-                    <button
-                      className="nr-qb-view-link"
-                      onClick={() => setShowAIAssistant(true)}
-                      title="AI Writing Assistant"
-                      type="button"
-                    >
-                      <Sparkles size={16} />
+                    <button className="nr-qb-new-btn" onClick={() => setShowAIAssistant(true)} type="button">
+                      <Sparkles size={15} />
                       <span>AI Assist</span>
                     </button>
-                    <button
-                      className="nr-qb-view-link"
-                      onClick={() => {
-                                                                        setShowChatImport(true);
-                      }}
-                      title="Import from AI Chat"
-                      type="button"
-                    >
-                      <Upload size={16} />
-                      <span>From Chat</span>
-                    </button>
-                    <button
-                      className="nr-qb-view-link nr-qb-view-link--accent"
-                      onClick={() => setShowImportExport(true)}
-                      title="Convert Notes"
-                      type="button"
-                    >
-                      <Zap size={16} />
-                      <span>Convert</span>
-                    </button>
-                  </nav>
-                </div>
 
-                <nav className="nr-qb-side-nav-groups" aria-label="More note tools">
-                  <div className="nr-qb-side-group">
-                    <div className="nr-qb-side-group-title">Quick Actions</div>
-                    <button
-                      className="nr-qb-side-link"
-                      onClick={() => setShowAdvancedSearch(true)}
-                      title="Advanced Search"
-                      type="button"
-                    >
-                      <span className="nr-qb-side-link-dot" />
-                      Search
-                    </button>
-                    <button
-                      className="nr-qb-side-link"
-                      onClick={() => setShowTemplates(true)}
-                      title="Templates"
-                      type="button"
-                    >
-                      <span className="nr-qb-side-link-dot" />
-                      Templates
-                    </button>
-                  </div>
-                  <div className="nr-qb-side-group">
-                    <div className="nr-qb-side-group-title">Visual Tools</div>
-                    <button 
-                      onClick={() => setShowCanvasMode(true)}
-                      className="nr-qb-side-link"
-                      title="Canvas Mode - Draw and brainstorm"
-                      type="button"
-                    >
-                      <span className="nr-qb-side-link-dot" />
-                      Canvas
-                    </button>
-                  </div>
-                </nav>
+                    <div className="notes-standard-scroll">
+                    <div className="nr-qb-side-block nr-qb-side-block--grow">
+                      <div className="nr-qb-side-label">Workspace</div>
+                      <nav className="nr-qb-view-nav" aria-label="Note workspace">
+                        <button className={`nr-qb-view-link ${viewMode === 'edit' ? 'nr-qb-view-link--active' : ''}`} onClick={() => setViewMode('edit')} type="button">
+                          <Edit3 size={16} /><span>Edit note</span>
+                        </button>
+                        <button className={`nr-qb-view-link ${viewMode === 'preview' ? 'nr-qb-view-link--active' : ''}`} onClick={() => setViewMode('preview')} type="button">
+                          <Eye size={16} /><span>Reading view</span>
+                        </button>
+                        <button className={`nr-qb-view-link ${showPageProperties ? 'nr-qb-view-link--active' : ''}`} onClick={() => setShowPageProperties((value) => !value)} type="button">
+                          <Layout size={16} /><span>Page setup</span>
+                        </button>
+                        <button className={`nr-qb-view-link ${isFullscreen ? 'nr-qb-view-link--active' : ''}`} onClick={toggleFullscreen} type="button">
+                          {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}<span>{isFullscreen ? 'Exit fullscreen' : 'Focus mode'}</span>
+                        </button>
+                      </nav>
+                    </div>
 
-                <div className="nr-qb-side-actions">
-                  <button className="nr-qb-action-btn" onClick={() => setShowImportExport(true)} type="button">Convert</button>
-                  <button className="nr-qb-action-btn nr-qb-action-btn--ghost" onClick={() => navigate('/notes/my-notes')} type="button">My Notes</button>
-                </div>
+                    <div className="nr-qb-side-block">
+                      <div className="nr-qb-side-label">Create &amp; find</div>
+                      <nav className="nr-qb-view-nav" aria-label="Note tools">
+                        <button className="nr-qb-view-link" onClick={() => setShowImportExport(true)} type="button"><Zap size={16} /><span>Convert</span></button>
+                        <button className="nr-qb-view-link" onClick={() => setShowChatImport(true)} type="button"><Upload size={16} /><span>Import from chat</span></button>
+                        <button className="nr-qb-view-link" onClick={() => setShowAdvancedSearch(true)} type="button"><Search size={16} /><span>Search</span></button>
+                        <button className="nr-qb-view-link" onClick={() => setShowTemplates(true)} type="button"><FileText size={16} /><span>Templates</span></button>
+                        <button className="nr-qb-view-link" onClick={() => setShowCanvasMode(true)} type="button"><Palette size={16} /><span>Canvas</span></button>
+                      </nav>
+                    </div>
+
+                    <div className="nr-qb-side-block nr-qb-side-block--compact">
+                      <div className="nr-qb-side-label">Export</div>
+                      <nav className="nr-qb-view-nav nr-qb-view-nav--inline" aria-label="Export note">
+                        <button className="nr-qb-view-link" onClick={exportAsPDF} type="button"><FileDown size={16} /><span>PDF</span></button>
+                        <button className="nr-qb-view-link" onClick={exportAsText} type="button"><Download size={16} /><span>TXT</span></button>
+                      </nav>
+                    </div>
+                    </div>
+
+                    <div className="nr-qb-side-actions">
+                      <button className="nr-qb-action-btn" onClick={() => navigate('/notes/my-notes')} type="button"><FileText size={15} /><span>My Notes</span></button>
+                      <button className="nr-qb-action-btn nr-qb-action-btn--ghost" onClick={() => navigate('/dashboard-cerbyl')} type="button"><Home size={15} /><span>Dashboard</span></button>
+                      <button className="nr-qb-shortcuts-btn" onClick={() => setShowKeyboardShortcuts(true)} type="button"><Command size={14} />Shortcuts</button>
+                    </div>
+                  </>
+                )}
               </aside>
             )}
 
@@ -3228,25 +3148,37 @@ const NotesRedesign = ({ sharedMode = false }) => {
                   <span>View Only - You don't have permission to edit this shared note</span>
                 </div>
               )}
-              
+
+              <section className="nr-document-stage">
               <div className={`title-section ${titleSectionCollapsed ? 'collapsed' : ''}`}>
               <div className="title-section-header">
                 <div className="title-section-content">
+                  <div className="nr-document-kicker">
+                    <span>{viewMode === 'edit' ? 'Writing workspace' : 'Reading view'}</span>
+                    <i aria-hidden="true" />
+                    <span>{selectedNote?.is_favorite ? 'Favorite note' : 'Personal note'}</span>
+                  </div>
                   <input
                     type="text"
                     className="title-input-new"
                     value={noteTitle}
                     onChange={(e) => setNoteTitle(e.target.value)}
                     placeholder="Untitled Note"
-                    disabled={isSharedContent && !canEdit}
+                    disabled={viewMode === 'preview' || (isSharedContent && !canEdit)}
                   />
                   <div className="title-meta">
                     <span className="last-edited">
-                      Last edited: {formatDateTime(selectedNote.updated_at) || 'Unknown'}
+                      Edited {formatDateTime(selectedNote.updated_at) || 'recently'}
                     </span>
+                    <span>{Math.max(1, Math.ceil(wordCount / 200))} min read</span>
+                    <span>{wordCount} {wordCount === 1 ? 'word' : 'words'}</span>
                   </div>
                 </div>
                 <div className="title-actions">
+                  <div className={`nr-document-status ${saveError ? 'is-error' : saving ? 'is-saving' : autoSaved ? 'is-saved' : 'is-unsaved'}`}>
+                    <span aria-hidden="true" />
+                    {saveError ? 'Save interrupted' : saving ? 'Saving' : autoSaved ? 'Saved' : 'Unsaved'}
+                  </div>
                   <button
                     className={`title-action-btn ${isFullscreen ? 'title-action-btn--fullscreen' : ''}`}
                     type="button"
@@ -3354,6 +3286,7 @@ const NotesRedesign = ({ sharedMode = false }) => {
                       className="format-btn" 
                       onClick={() => applyEditorCommand('strikeThrough')}
                       title="Strikethrough"
+                      aria-label="Strikethrough"
                     >
                       <span style={{ textDecoration: 'line-through', fontSize: '14px', fontWeight: 'bold' }}>S</span>
                     </button>
@@ -3400,6 +3333,7 @@ const NotesRedesign = ({ sharedMode = false }) => {
                       className="format-btn" 
                       onClick={() => applyEditorCommand('justifyCenter')}
                       title="Align Center"
+                      aria-label="Align center"
                     >
                       <span style={{ fontSize: '16px' }}>≡</span>
                     </button>
@@ -3407,6 +3341,7 @@ const NotesRedesign = ({ sharedMode = false }) => {
                       className="format-btn" 
                       onClick={() => applyEditorCommand('justifyRight')}
                       title="Align Right"
+                      aria-label="Align right"
                     >
                       <span style={{ fontSize: '16px' }}>≣</span>
                     </button>
@@ -3466,6 +3401,18 @@ const NotesRedesign = ({ sharedMode = false }) => {
                       <Sparkles size={16} />
                     </button>
                   </div>
+                </div>
+              )}
+
+              {viewMode === "edit" && (!isSharedContent || canEdit) && (
+                <div className="nr-insert-rail" aria-label="Quick insert blocks">
+                  <span className="nr-insert-label">Add block</span>
+                  <button type="button" onClick={() => handleInsertBlock('paragraph')}><Type size={14} /> Text</button>
+                  <button type="button" onClick={() => handleInsertBlock('todo')}><CheckSquare size={14} /> To-do</button>
+                  <button type="button" onClick={() => handleInsertBlock('quote')}><Quote size={14} /> Quote</button>
+                  <button type="button" onClick={() => handleInsertBlock('divider')}><Minus size={14} /> Divider</button>
+                  <button type="button" onClick={() => setShowCanvasMode(true)}><Palette size={14} /> Canvas</button>
+                  <span className="nr-insert-hint">Type <kbd>/</kbd> for every block</span>
                 </div>
               )}
               
@@ -3561,6 +3508,7 @@ const NotesRedesign = ({ sharedMode = false }) => {
                 )}
               </div>
             </div>
+            </section>
 
               {/* Backlinks Panel */}
               {selectedNote && backlinks.length > 0 && !isSharedContent && (

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, FileText, X, Edit2, Check } from 'lucide-react';
+import { Plus, Trash2, FileText, X, Edit2, Check, LayoutDashboard, StickyNote, PenTool, ArrowUpRight } from 'lucide-react';
 import CanvasMode from '../components/CanvasMode';
 import { getRelativeTime } from '../utils/dateUtils';
 import { API_URL } from '../config';
@@ -126,11 +126,47 @@ const CanvasHub = () => {
           <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
         </div>
       </div>
-      <div className="ch-body">
+      <div className="ch-shell">
+        <aside className="ch-sidebar">
+          <div className="ch-brand">
+            <strong>cerbyl</strong>
+            <span>CANVAS</span>
+          </div>
+          <button className="ch-new-btn ch-new-btn-wide" onClick={() => setShowNewModal(true)}>
+            <Plus size={16} />
+            New Canvas
+          </button>
+          <div className="ch-side-group">
+            <span className="ch-side-label">Workspace</span>
+            <button className="ch-side-link active" type="button">
+              <PenTool size={17} />
+              <span>My canvases</span>
+              <small>{canvases.length}</small>
+            </button>
+            <button className="ch-side-link" type="button" onClick={() => navigate('/notes')}>
+              <StickyNote size={17} />
+              <span>Notes</span>
+              <ArrowUpRight size={13} />
+            </button>
+          </div>
+          <div className="ch-side-note">
+            <span>Canvas → Notes</span>
+            <p>Sketch the idea first, then attach the finished canvas to a note without exporting it.</p>
+          </div>
+          <button className="ch-side-link ch-side-dashboard" type="button" onClick={() => navigate('/dashboard-cerbyl')}>
+            <LayoutDashboard size={17} />
+            <span>Dashboard</span>
+          </button>
+        </aside>
+        <main className="ch-body">
         <div className="ch-page-header">
           <div className="ch-page-header-left">
-            <h2 className="ch-page-title">Canvases</h2>
-            <span className="ch-count">{canvases.length} saved</span>
+            <div>
+              <span className="ch-eyebrow">Visual workspace</span>
+              <h2 className="ch-page-title">Think beyond the page.</h2>
+              <p className="ch-page-subtitle">Map a concept, diagram a process, or make a rough idea visible.</p>
+            </div>
+            <span className="ch-count">{String(canvases.length).padStart(2, '0')} saved</span>
           </div>
           <button className="ch-new-btn" onClick={() => setShowNewModal(true)}>
             <Plus size={15} />
@@ -147,8 +183,9 @@ const CanvasHub = () => {
                 <circle cx="18" cy="18" r="2" fill="currentColor"/>
               </svg>
             </div>
-            <p className="ch-empty-title">No canvases yet</p>
-            <p className="ch-empty-sub">Create a canvas to start drawing, diagramming, or brainstorming.</p>
+            <span className="ch-empty-index">CANVAS 01</span>
+            <p className="ch-empty-title">Give the first idea some room.</p>
+            <p className="ch-empty-sub">Start with an open surface for diagrams, annotations, and spatial notes. Nothing needs to be polished yet.</p>
             <button className="ch-new-btn" onClick={() => setShowNewModal(true)}>
               <Plus size={15} />
               New Canvas
@@ -212,6 +249,7 @@ const CanvasHub = () => {
             ))}
           </div>
         )}
+        </main>
       </div>
 
       {showNewModal && (

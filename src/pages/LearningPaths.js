@@ -491,28 +491,42 @@ const LearningPaths = () => {
                     <span className="lp-spinner lp-spinner--lg" />
                   </div>
                 ) : filteredPaths.length === 0 ? (
-                  <div className="lp-empty-state">
-                    <div className="lp-empty-icon">{LP_ICONS.paths}</div>
-                    <span className="fc-view-kicker" style={{ marginBottom: 6 }}>
-                      {paths.length ? 'No matches' : 'Empty collection'}
-                    </span>
-                    <h3 className="lp-empty-title">
-                      {paths.length ? 'No Matching Paths' : 'No Learning Paths Yet'}
-                    </h3>
-                    <p className="lp-empty-sub">
-                      {paths.length
-                        ? 'Try adjusting your filters'
-                        : 'Create your first AI-powered structured curriculum'}
-                    </p>
-                    {!paths.length && (
-                      <button
-                        className="fc-generate-btn lp-empty-cta"
-                        onClick={() => setActivePanel('generator')}
-                      >
-                        Get Started
+                  paths.length ? (
+                    <div className="lp-empty-state lp-empty-state--filtered">
+                      <div className="lp-empty-icon">{LP_ICONS.paths}</div>
+                      <span className="fc-view-kicker">No matches</span>
+                      <h3 className="lp-empty-title">Nothing in this lane.</h3>
+                      <p className="lp-empty-sub">Try another status or return to the full collection.</p>
+                      <button className="lp-reset-filter" type="button" onClick={() => setStatusFilter('all')}>
+                        Show all paths
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="lp-empty-stage">
+                      <div className="lp-empty-copy">
+                        <span className="fc-view-kicker">Path 01 · not plotted</span>
+                        <h3>Turn a broad goal into the next clear step.</h3>
+                        <p>Choose a topic and Cerbyl will sequence the concepts, checkpoints, and estimated study time into one navigable path.</p>
+                        <button
+                          className="fc-generate-btn lp-empty-cta"
+                          onClick={() => setActivePanel('generator')}
+                          type="button"
+                        >
+                          Plot my first path
+                        </button>
+                      </div>
+                      <div className="lp-path-preview" aria-hidden="true">
+                        <span className="lp-preview-label">A path takes shape</span>
+                        {['Foundation', 'Guided practice', 'Mastery check'].map((step, index) => (
+                          <div className="lp-preview-step" key={step}>
+                            <span>{String(index + 1).padStart(2, '0')}</span>
+                            <i />
+                            <strong>{step}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
                 ) : (
                   <div className="fc-grid">
                     {filteredPaths.map(path => {

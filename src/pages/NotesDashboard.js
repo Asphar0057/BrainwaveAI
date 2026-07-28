@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Plus, Search, Filter, FileText, Layout, Settings, ArrowLeft, MessageSquare, LayoutDashboard, LogOut, Menu} from 'lucide-react';
 import './NotesDashboard.css';
+import '../components/NotesSidebarSystem.css';
 import '../components/SocialHubChrome.css';
 import DatabaseViews from '../components/DatabaseViews';
 import AdvancedSearch from '../components/AdvancedSearch';
@@ -256,7 +257,8 @@ const NotesDashboard = () => {
           />
         )}
         <div className={`ndb-qb-shell ${sidebarCollapsed ? 'ndb-qb-shell--collapsed' : ''}`}>
-          <aside className={`ndb-qb-sidebar ${sidebarCollapsed ? 'ndb-qb-sidebar--collapsed' : ''}`} aria-label="Notes Dashboard navigation">
+          <aside className={`ndb-qb-sidebar notes-sidebar-system ${sidebarCollapsed ? 'ndb-qb-sidebar--collapsed' : ''}`} aria-label="Notes Dashboard navigation">
+            <div className="notes-sidebar-texture" aria-hidden="true" />
             {sidebarCollapsed ? (
               <div className="ndb-qb-collapsed-strip">
                 <button className="ndb-qb-strip-btn ndb-qb-strip-logo" data-tip="Open sidebar" onClick={() => setSidebarCollapsed(false)} type="button">
@@ -310,13 +312,15 @@ const NotesDashboard = () => {
                 </button>
               </div>
 
+              <button className="ndb-qb-new-btn" onClick={handleCreateNote} disabled={creatingNote} type="button">
+                <Plus size={16} />
+                <span>{creatingNote ? 'Creating…' : 'New Note'}</span>
+              </button>
+
+              <div className="notes-standard-scroll">
               <div className="ndb-qb-side-block">
-                <div className="ndb-qb-side-label">Quick Actions</div>
+                <div className="ndb-qb-side-label">Workspace</div>
                 <nav className="ndb-qb-view-nav" aria-label="Notes quick actions">
-                  <button className="ndb-qb-view-link ndb-qb-view-link--accent" onClick={handleCreateNote} disabled={creatingNote} type="button">
-                    <Plus size={16} />
-                    <span>{creatingNote ? 'Creating…' : 'New Note'}</span>
-                  </button>
                   <button className="ndb-qb-view-link" onClick={() => setShowTemplates(true)} type="button">
                     <Layout size={16} />
                     <span>Templates</span>
@@ -377,6 +381,7 @@ const NotesDashboard = () => {
                     <small>This Week</small>
                   </div>
                 </div>
+              </div>
               </div>
 
               <div className="ndb-qb-side-actions">

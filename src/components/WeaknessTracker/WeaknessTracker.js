@@ -171,7 +171,7 @@ function MasteryBar({ value }) {
   );
 }
 
-export default function WeaknessTracker({ userId, token, onNavigate }) {
+export default function WeaknessTracker({ userId, token, onNavigate, emptyFallback = null }) {
   const [profile, setProfile] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -216,7 +216,7 @@ export default function WeaknessTracker({ userId, token, onNavigate }) {
     </div>
   );
 
-  if (!profile) return null;
+  if (!profile) return emptyFallback;
 
   const {
     stats = {}, weak_concepts = [], badges = [],

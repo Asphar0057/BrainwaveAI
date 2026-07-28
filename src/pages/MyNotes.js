@@ -10,6 +10,7 @@ import './MyNotes.css';
 import './MyNotesSmartFolders.css';
 import './MyNotesChatImport.css';
 import './MyNotesConvert.css';
+import '../components/NotesSidebarSystem.css';
 import { API_URL } from '../config';
 import MathRenderer from '../components/MathRenderer';
 import Templates from '../components/Templates';
@@ -667,7 +668,8 @@ const MyNotes = () => {
 
       <div className="mn-body mn-qb-body">
         <div className={`mn-qb-shell ${sidebarCollapsed ? 'mn-qb-shell--collapsed' : ''}`}>
-          <aside className={`mn-qb-sidebar ${sidebarCollapsed ? 'mn-qb-sidebar--collapsed' : ''}`} aria-label="Notes navigation">
+          <aside className={`mn-qb-sidebar notes-sidebar-system ${sidebarCollapsed ? 'mn-qb-sidebar--collapsed' : ''}`} aria-label="Notes navigation">
+            <div className="notes-sidebar-texture" aria-hidden="true" />
             {sidebarCollapsed ? (
               <div className="mn-qb-collapsed-strip">
                 <button className="mn-qb-strip-btn mn-qb-strip-logo" data-tip="Open sidebar" onClick={() => setSidebarCollapsed(false)} type="button">
@@ -716,6 +718,7 @@ const MyNotes = () => {
                 <span>New Note</span>
               </button>
 
+              <div className="notes-standard-scroll">
               <div className="mn-qb-side-block">
                 <div className="mn-qb-side-label">Create</div>
                 <nav className="mn-qb-view-nav" aria-label="Notes quick actions">
@@ -850,6 +853,7 @@ const MyNotes = () => {
                   </button>
                 </nav>
               </div>
+              </div>
 
               <div className="mn-qb-side-actions">
                 <button className="mn-qb-action-btn" onClick={() => navigate('/dashboard-cerbyl')} type="button">
@@ -863,25 +867,37 @@ const MyNotes = () => {
 
           <main className="mn-qb-main">
             <div className="nt-content">
-            <div className="nt-view-header">
-              <div className="view-heading">
-                <span className="view-kicker">Notes Library</span>
+            <div className="nt-library-command">
+              <div className="nt-library-title">
+                <span className="view-kicker">Notes Library / {currentTitle}</span>
                 <h2 className="view-title">{currentTitle}</h2>
-                <p className="view-sub">{filteredNotes.length} note{filteredNotes.length !== 1 ? 's' : ''}</p>
+                <p className="view-sub">Find a thread, continue writing, or turn existing study material into something reusable.</p>
               </div>
+              <div className="nt-library-stats" aria-label="Library summary">
+                <div><strong>{filteredNotes.length}</strong><span>in view</span></div>
+                <div><strong>{favoriteCount}</strong><span>starred</span></div>
+                <div><strong>{folders.length}</strong><span>folders</span></div>
+              </div>
+              <button className="nt-command-create" onClick={createNewNote} type="button">
+                <Plus size={16} /><span>New note</span>
+              </button>
             </div>
+
             <div className="nt-content-controls">
-              <div className="nt-search">
+              <label className="nt-search">
                 <Search size={16} />
+                <span className="nt-search-label">Search this view</span>
                 <input
                   type="text"
-                  placeholder="Search notes..."
+                  placeholder="Title, phrase, or idea…"
                   aria-label="Search notes"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
-              </div>
+                {searchTerm && <button type="button" onClick={() => setSearchTerm('')} aria-label="Clear search"><X size={14} /></button>}
+              </label>
               <div className="nt-view-controls">
+                <span>{viewMode === 'grid' ? 'Cards' : 'Index'}</span>
                 <button
                   className={`nt-view-btn ${viewMode === 'grid' ? 'active' : ''}`}
                   onClick={() => setViewMode('grid')}
@@ -931,7 +947,7 @@ const MyNotes = () => {
                 {filteredNotes.map(note => (
                   <div
                     key={note.id}
-                    className="nt-note-card"
+                    className={`nt-note-card ${note.is_favorite ? 'nt-note-card--favorite' : ''}`}
                     onClick={() => {
                       if (!showTrash) navigate(`/notes/editor/${note.id}`);
                     }}
@@ -940,7 +956,9 @@ const MyNotes = () => {
                       <div className="nt-favorite-badge"><Star size={14} /></div>
                     )}
                     <div className="nt-note-card-cover">
+                      <span className="nt-note-card-type">{note.source_type ? note.source_type.replace('_', ' ') : 'note'}</span>
                       <MathRenderer content={note.content || '<p>Empty note</p>'} className="nt-note-cover-preview" />
+                      <span className="nt-note-open-cue">Open <ChevronRight size={13} /></span>
                     </div>
                     <div className="nt-note-card-content">
                       <div className="nt-note-card-header">

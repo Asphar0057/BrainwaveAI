@@ -5,7 +5,8 @@ import {
   Plus, Play, Trash2, TrendingUp, Target, Brain, Zap, Award,
   CheckCircle, XCircle, Loader, Clock, FileUp, BookOpen, PieChart, ChevronLeft, ChevronRight, Home,
   Download, FileDown, Eye, Edit3, RefreshCw, Layers, AlertTriangle,
-  Star, GitMerge, Wand2, List, ChevronDown, ChevronUp, X, Save, Settings
+  Star, GitMerge, Wand2, List, ChevronDown, ChevronUp, X, Save, Settings,
+  Search, ArrowUpRight, Filter, Check
 } from 'lucide-react';
 import './Questionbankdashboard.css';
 import './QuestionbankConvert.css';
@@ -24,30 +25,11 @@ const QUICK_SECTIONS = [
 ];
 
 const QUESTION_VIEWS = [
+  { key: 'question-sets', label: 'Practice Library', icon: FileText },
   { key: 'upload-pdf', label: 'PDF Sources', icon: Upload },
-  { key: 'chat-slides', label: 'AI Chat & Slides', icon: MessageSquare },
-  { key: 'custom', label: 'Generate Custom', icon: Sparkles },
-  { key: 'question-sets', label: 'All Question Sets', icon: FileText },
-  { key: 'analytics', label: 'Analytics', icon: BarChart3 }
-];
-
-const SIDEBAR_NAV_GROUPS = [
-  {
-    title: 'Explore',
-    items: [
-      { label: 'Search Hub', route: '/search-hub' },
-      { label: 'Knowledge Map', route: '/knowledge-map' },
-      { label: 'Slide Explorer', route: '/slide-explorer' }
-    ]
-  },
-  {
-    title: 'Practice',
-    items: [
-      { label: 'Weak Areas', route: '/weaknesses' },
-      { label: 'Quiz Hub', route: '/quiz-hub' },
-      { label: 'Solo Quiz', route: '/solo-quiz' }
-    ]
-  }
+  { key: 'chat-slides', label: 'Chats & Slides', icon: MessageSquare },
+  { key: 'custom', label: 'Build a Set', icon: Sparkles },
+  { key: 'analytics', label: 'Performance', icon: BarChart3 }
 ];
 
 const getQuestionText = (question) => (
@@ -166,6 +148,9 @@ const QuestionBankDashboard = () => {
 
   const [activeView, setActiveView] = useState('question-sets');
   const [questionSets, setQuestionSets] = useState([]);
+  const [questionSearch, setQuestionSearch] = useState('');
+  const [questionFilter, setQuestionFilter] = useState('all');
+  const [questionSort, setQuestionSort] = useState('recent');
   const [uploadedDocuments, setUploadedDocuments] = useState([]);
   const [chatSessions, setChatSessions] = useState([]);
   const [uploadedSlides, setUploadedSlides] = useState([]);
@@ -323,6 +308,14 @@ const QuestionBankDashboard = () => {
   const [referenceDocId, setReferenceDocId] = useState(null);
   const [showSmartOptions, setShowSmartOptions] = useState(false);
   const defaultQuestionTypes = ['multiple_choice'];
+
+  useEffect(() => {
+    setSelectedSets([]);
+  }, [questionSearch, questionFilter]);
+
+  useEffect(() => {
+    document.querySelector('.qbd-rb-main')?.scrollTo({ top: 0, behavior: 'auto' });
+  }, [activeView]);
 
   const getSelectedQuestionTypes = () => (
     questionTypes.length > 0 ? questionTypes : defaultQuestionTypes
@@ -1513,7 +1506,7 @@ const QuestionBankDashboard = () => {
   };
 
   const renderUploadPDF = () => (
-    <div className="qbd-view">
+    <div className="qbd-view qbd-studio-view qbd-source-studio">
       <div className="qbd-view-header">
         <div className="qbd-view-title-group">
           <Upload className="qbd-view-icon" size={32} />
@@ -1527,9 +1520,14 @@ const QuestionBankDashboard = () => {
       <div className="qbd-content-grid">
         <div className="qbd-upload-section">
           <div className="qbd-upload-box">
-            <FileUp size={48} />
-            <h3>Add PDF Source</h3>
-            <p>Upload PDFs to use as sources for question generation</p>
+            <div className="qbd-upload-mark">
+              <FileUp size={28} />
+            </div>
+            <div className="qbd-upload-copy">
+              <span className="qbd-upload-kicker">Source intake</span>
+              <h3>Add a PDF to your source shelf</h3>
+              <p>Keep the source connected while Cerbyl turns its ideas into focused questions.</p>
+            </div>
             <input
               type="file"
               accept=".pdf"
@@ -1539,8 +1537,9 @@ const QuestionBankDashboard = () => {
             />
             <label htmlFor="pdf-upload-input" className="qbd-btn-primary">
               {loading ? <Loader className="qbd-spin" size={18} /> : <Upload size={18} />}
-              <span>{loading ? 'Uploading...' : 'Add PDF'}</span>
+              <span>{loading ? 'Uploading...' : 'Choose PDF'}</span>
             </label>
+            <span className="qbd-upload-format">PDF only</span>
           </div>
         </div>
 
@@ -1878,13 +1877,13 @@ const QuestionBankDashboard = () => {
   );
 
   const renderChatSlides = () => (
-    <div className="qbd-view">
+    <div className="qbd-view qbd-studio-view qbd-context-studio">
       <div className="qbd-view-header">
         <div className="qbd-view-title-group">
           <MessageSquare className="qbd-view-icon" size={32} />
           <div>
-            <h2 className="qbd-view-title">AI Chat & Slides</h2>
-            <p className="qbd-view-subtitle">Generate questions from your AI conversations and slide presentations</p>
+            <h2 className="qbd-view-title">Chats & Slides</h2>
+            <p className="qbd-view-subtitle">Choose the conversations and presentations that should shape your next question set.</p>
           </div>
         </div>
       </div>
@@ -2067,13 +2066,13 @@ const QuestionBankDashboard = () => {
   );
 
   const renderCustom = () => (
-    <div className="qbd-view">
+    <div className="qbd-view qbd-studio-view qbd-builder-studio">
       <div className="qbd-view-header">
         <div className="qbd-view-title-group">
           <Sparkles className="qbd-view-icon" size={32} />
           <div>
-            <h2 className="qbd-view-title">Generate Custom Questions</h2>
-            <p className="qbd-view-subtitle">Enter content once, then tune generation settings from a dedicated desktop panel</p>
+            <h2 className="qbd-view-title">Build a question set</h2>
+            <p className="qbd-view-subtitle">Write the source brief on the left, then shape the practice experience on the right.</p>
           </div>
         </div>
       </div>
@@ -2085,7 +2084,7 @@ const QuestionBankDashboard = () => {
               <div className="qbd-custom-section-icon">
                 <FileText size={20} />
               </div>
-              <h3 className="qbd-custom-section-title">Question Set Details</h3>
+              <h3 className="qbd-custom-section-title">Source & brief</h3>
             </div>
 
             <div className="qbd-custom-input-wrapper">
@@ -2120,7 +2119,7 @@ const QuestionBankDashboard = () => {
               <div className="qbd-custom-section-icon">
                 <Settings size={20} />
               </div>
-              <h3 className="qbd-custom-section-title">Generation Settings</h3>
+              <h3 className="qbd-custom-section-title">Practice blueprint</h3>
             </div>
 
             <div className="qbd-settings-row">
@@ -2255,30 +2254,81 @@ const QuestionBankDashboard = () => {
   );
 
   const renderQuestionSets = () => {
+    const normalizedSearch = questionSearch.trim().toLowerCase();
+    const filteredSets = questionSets
+      .filter((set) => {
+        const title = String(set.title || '').toLowerCase();
+        const description = String(set.description || '').toLowerCase();
+        const matchesSearch = !normalizedSearch
+          || title.includes(normalizedSearch)
+          || description.includes(normalizedSearch);
+        const attempts = Number(set.attempts || 0);
+        const score = Number(set.best_score || 0);
+        const matchesFilter = questionFilter === 'all'
+          || (questionFilter === 'unstarted' && attempts === 0)
+          || (questionFilter === 'review' && attempts > 0 && score < 70)
+          || (questionFilter === 'strong' && attempts > 0 && score >= 70);
+        return matchesSearch && matchesFilter;
+      })
+      .sort((a, b) => {
+        if (questionSort === 'score') {
+          return Number(b.best_score || 0) - Number(a.best_score || 0);
+        }
+        if (questionSort === 'title') {
+          return String(a.title || '').localeCompare(String(b.title || ''));
+        }
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+      });
+
+    const attemptedSets = questionSets.filter((set) => Number(set.attempts || 0) > 0);
+    const featuredSet = filteredSets.find((set) => Number(set.attempts || 0) > 0)
+      || filteredSets[0];
+    const totalQuestions = questionSets.reduce(
+      (total, set) => total + Number(set.total_questions || 0),
+      0
+    );
+    const averageScore = attemptedSets.length
+      ? Math.round(
+        attemptedSets.reduce((total, set) => total + Number(set.best_score || 0), 0)
+        / attemptedSets.length
+      )
+      : 0;
+
+    const getSetStatus = (set) => {
+      const attempts = Number(set.attempts || 0);
+      const score = Number(set.best_score || 0);
+      if (!attempts) return { label: 'Ready to begin', tone: 'new' };
+      if (score >= 80) return { label: 'Strong', tone: 'strong' };
+      if (score >= 60) return { label: 'Building', tone: 'building' };
+      return { label: 'Needs review', tone: 'review' };
+    };
+
     return (
-    <div className="qbd-view">
-      {/* Batch Selection Header */}
-      {questionSets.length > 0 && (
-        <div className="qbd-sets-header">
-          <div className="qbd-sets-title">
-            <h2>Your Question Sets ({questionSets.length})</h2>
-          </div>
-          <div className="qbd-sets-actions">
-            <button 
-              className="qbd-btn-secondary qbd-btn-small"
-              onClick={() => {
-                if (selectedSets.length === questionSets.length) {
-                  setSelectedSets([]);
-                } else {
-                  setSelectedSets(questionSets.map(s => s.id));
-                }
-              }}
-            >
-              {selectedSets.length === questionSets.length ? 'Deselect All' : 'Select All'}
-            </button>
-          </div>
+    <div className="qbd-view qbd-question-hub">
+      <header className="qbd-qh-hero">
+        <div className="qbd-qh-hero-copy">
+          <span className="qbd-qh-kicker">Question hub / practice desk</span>
+          <h1>Make every question count.</h1>
+          <p>Resume a set, find a weak spot, or build focused practice from the material you already have.</p>
         </div>
-      )}
+        <div className="qbd-qh-hero-actions">
+          <button className="qbd-qh-quiet-btn" onClick={fetchQuestionSets} type="button">
+            <RefreshCw size={15} />
+            Refresh
+          </button>
+          <button className="qbd-qh-primary-btn" onClick={() => setActiveView('custom')} type="button">
+            <Sparkles size={16} />
+            Build a set
+          </button>
+        </div>
+      </header>
+
+      <div className="qbd-qh-metrics" aria-label="Question library summary">
+        <div><strong>{questionSets.length}</strong><span>sets in library</span></div>
+        <div><strong>{totalQuestions}</strong><span>questions ready</span></div>
+        <div><strong>{attemptedSets.length}</strong><span>sets practiced</span></div>
+        <div><strong>{averageScore}%</strong><span>average best</span></div>
+      </div>
 
       {loading ? (
         <div className="qbd-loading">
@@ -2292,102 +2342,236 @@ const QuestionBankDashboard = () => {
           <p>Generate your first question set to get started</p>
           <button className="qbd-btn-primary" onClick={() => setActiveView('upload-pdf')}>
             <Plus size={18} />
-            Create Question Set
+            Create from PDF
           </button>
         </div>
       ) : (
-        <div className="qbd-sets-grid">
-          {questionSets.map(set => {
-            const isSelected = selectedSets.includes(set.id);
-            return (
-              <div 
-                key={set.id} 
-                className={`qbd-set-card ${isSelected ? 'selected' : ''}`}
-                onClick={() => startStudySession(set.id)}
-              >
-                {/* Cover Area with Icon */}
-                <div className="qbd-set-card-cover">
-                  <div className="qbd-set-cover-icon">
-                    <Brain size={80} />
-                  </div>
-                  <button 
-                    className="qbd-set-delete"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteQuestionSet(set.id);
-                    }}
-                    title="Delete question set"
+        <>
+          {featuredSet && (
+            <section className="qbd-qh-focus" aria-label="Recommended next practice">
+              <div className="qbd-qh-focus-main">
+                <div className="qbd-qh-focus-label">
+                  <span className="qbd-qh-live-dot" />
+                  {Number(featuredSet.attempts || 0) ? 'Continue your practice' : 'Start here'}
+                </div>
+                <h2>{featuredSet.title || 'Untitled question set'}</h2>
+                <p>{featuredSet.description || 'A focused set ready for your next practice session.'}</p>
+                <div className="qbd-qh-focus-meta">
+                  <span><FileText size={14} /> {featuredSet.total_questions || 0} questions</span>
+                  <span><Clock size={14} /> {featuredSet.attempts || 0} attempts</span>
+                  <span>{formatDocumentType(featuredSet.source_type)}</span>
+                </div>
+                <div className="qbd-qh-focus-actions">
+                  <button
+                    className="qbd-qh-primary-btn"
+                    onClick={() => startStudySession(featuredSet.id)}
+                    type="button"
                   >
-                    <Trash2 size={16} />
+                    <Play size={15} fill="currentColor" />
+                    {Number(featuredSet.attempts || 0) ? 'Continue practice' : 'Start practice'}
+                  </button>
+                  <button
+                    className="qbd-qh-quiet-btn"
+                    onClick={() => openExportModal(featuredSet.id)}
+                    type="button"
+                  >
+                    <Download size={15} />
+                    Export
                   </button>
                 </div>
-
-                {/* Content Section */}
-                <div className="qbd-set-content">
-                  <h3>{set.title || 'Untitled Quiz'}</h3>
-                  <p>{set.description || 'No description'}</p>
-                  
-                  <div className="qbd-set-meta">
-                    <span className="qbd-source-badge">{set.source_type}</span>
-                    <span className="qbd-date-badge">
-                      {new Date(set.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-
-                  <div className="qbd-set-stats">
-                    <div className="qbd-stat-item">
-                      <FileText size={14} />
-                      <span>{set.total_questions} questions</span>
-                    </div>
-                    <div className="qbd-stat-item">
-                      <Target size={14} />
-                      <span>Best: {set.best_score}%</span>
-                    </div>
-                    <div className="qbd-stat-item">
-                      <TrendingUp size={14} />
-                      <span>{set.attempts} attempts</span>
-                    </div>
-                  </div>
-
-                  <div className="qbd-set-actions">
-                    <button 
-                      className="qbd-set-study-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        startStudySession(set.id);
-                      }}
-                    >
-                      <Play size={16} />
-                      <span>Study</span>
-                    </button>
-                    <button 
-                      className="qbd-set-export"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openExportModal(set.id);
-                      }}
-                      disabled={exportingPdf === set.id}
-                    >
-                      {exportingPdf === set.id ? (
-                        <Loader className="qbd-spin" size={16} />
-                      ) : (
-                        <Download size={16} />
-                      )}
-                      <span>Export</span>
-                    </button>
+              </div>
+              <div className="qbd-qh-score">
+                <div
+                  className="qbd-qh-score-ring"
+                  style={{ '--qbd-score': `${Math.max(2, Number(featuredSet.best_score || 0)) * 3.6}deg` }}
+                >
+                  <div>
+                    <strong>{Number(featuredSet.attempts || 0) ? `${featuredSet.best_score || 0}%` : '—'}</strong>
+                    <span>best score</span>
                   </div>
                 </div>
+                <p>
+                  {Number(featuredSet.attempts || 0) && Number(featuredSet.best_score || 0) >= 80
+                    ? 'Strong result — keep the recall fresh'
+                    : Number(featuredSet.attempts || 0)
+                      ? `${80 - Number(featuredSet.best_score || 0)} points to a strong pass`
+                    : 'Your first result will appear here'}
+                </p>
               </div>
-            );
-          })}
-        </div>
+            </section>
+          )}
+
+          <section className="qbd-qh-library">
+            <div className="qbd-qh-library-heading">
+              <div>
+                <span className="qbd-qh-kicker">Your practice library</span>
+                <h2>Question sets</h2>
+              </div>
+              <span>{filteredSets.length} shown</span>
+            </div>
+
+            <div className="qbd-qh-toolbar">
+              <label className="qbd-qh-search">
+                <Search size={17} />
+                <input
+                  value={questionSearch}
+                  onChange={(event) => setQuestionSearch(event.target.value)}
+                  placeholder="Search titles or topics"
+                  aria-label="Search question sets"
+                />
+                {questionSearch && (
+                  <button onClick={() => setQuestionSearch('')} aria-label="Clear search" type="button">
+                    <X size={14} />
+                  </button>
+                )}
+              </label>
+              <label className="qbd-qh-select">
+                <Filter size={15} />
+                <select
+                  value={questionFilter}
+                  onChange={(event) => setQuestionFilter(event.target.value)}
+                  aria-label="Filter by progress"
+                >
+                  <option value="all">All progress</option>
+                  <option value="unstarted">Not started</option>
+                  <option value="review">Needs review</option>
+                  <option value="strong">Strong</option>
+                </select>
+              </label>
+              <label className="qbd-qh-select">
+                <List size={15} />
+                <select
+                  value={questionSort}
+                  onChange={(event) => setQuestionSort(event.target.value)}
+                  aria-label="Sort question sets"
+                >
+                  <option value="recent">Recently added</option>
+                  <option value="score">Highest score</option>
+                  <option value="title">Title A–Z</option>
+                </select>
+              </label>
+              <button
+                className={`qbd-qh-select-all ${selectedSets.length ? 'active' : ''}`}
+                onClick={() => {
+                  if (filteredSets.length > 0 && filteredSets.every((set) => selectedSets.includes(set.id))) {
+                    setSelectedSets(selectedSets.filter((id) => !filteredSets.some((set) => set.id === id)));
+                  } else {
+                    setSelectedSets([...new Set([...selectedSets, ...filteredSets.map((set) => set.id)])]);
+                  }
+                }}
+                type="button"
+              >
+                <Check size={14} />
+                {selectedSets.length ? `${selectedSets.length} selected` : 'Select'}
+              </button>
+            </div>
+
+            {filteredSets.length === 0 ? (
+              <div className="qbd-qh-no-results">
+                <Search size={24} />
+                <h3>No matching sets</h3>
+                <p>Try another search or clear the current progress filter.</p>
+                <button
+                  onClick={() => {
+                    setQuestionSearch('');
+                    setQuestionFilter('all');
+                  }}
+                  type="button"
+                >
+                  Reset filters
+                </button>
+              </div>
+            ) : (
+              <div className="qbd-qh-set-list">
+                {filteredSets.map((set, index) => {
+                  const isSelected = selectedSets.includes(set.id);
+                  const status = getSetStatus(set);
+                  const score = Number(set.best_score || 0);
+                  return (
+                    <article
+                      key={set.id}
+                      className={`qbd-qh-set-row ${isSelected ? 'selected' : ''}`}
+                    >
+                      <button
+                        className="qbd-qh-check"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          toggleSetSelection(set.id);
+                        }}
+                        aria-label={`${isSelected ? 'Deselect' : 'Select'} ${set.title || 'question set'}`}
+                        aria-pressed={isSelected}
+                        type="button"
+                      >
+                        {isSelected ? <Check size={14} /> : <span>{String(index + 1).padStart(2, '0')}</span>}
+                      </button>
+                      <div className="qbd-qh-set-copy">
+                        <div className="qbd-qh-set-title-line">
+                          <h3>{set.title || 'Untitled question set'}</h3>
+                          <span className={`qbd-qh-status qbd-qh-status--${status.tone}`}>{status.label}</span>
+                        </div>
+                        <p>{set.description || 'No description added yet.'}</p>
+                        <div className="qbd-qh-set-meta">
+                          <span>{formatDocumentType(set.source_type)}</span>
+                          <span>{set.total_questions || 0} questions</span>
+                          <span>{new Date(set.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                      <div className="qbd-qh-set-progress">
+                        <div><span>Best</span><strong>{Number(set.attempts || 0) ? `${score}%` : '—'}</strong></div>
+                        <div className="qbd-qh-mini-track">
+                          <span style={{ width: `${score}%` }} />
+                        </div>
+                        <small>{set.attempts || 0} attempt{Number(set.attempts || 0) === 1 ? '' : 's'}</small>
+                      </div>
+                      <div className="qbd-qh-row-actions">
+                        <button
+                          className="qbd-qh-icon-btn"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openExportModal(set.id);
+                          }}
+                          aria-label={`Export ${set.title || 'question set'}`}
+                          type="button"
+                        >
+                          <Download size={16} />
+                        </button>
+                        <button
+                          className="qbd-qh-icon-btn qbd-qh-icon-btn--danger"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            deleteQuestionSet(set.id);
+                          }}
+                          aria-label={`Delete ${set.title || 'question set'}`}
+                          type="button"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                        <button
+                          className="qbd-qh-open-btn"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            startStudySession(set.id);
+                          }}
+                          type="button"
+                        >
+                          Practice
+                          <ArrowUpRight size={15} />
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </>
       )}
     </div>
   );
   };
 
   const renderAnalytics = () => (
-    <div className="qbd-view">
+    <div className="qbd-view qbd-studio-view qbd-performance-studio">
       <div className="qbd-view-header">
         <div className="qbd-view-title-group">
           <BarChart3 className="qbd-view-icon" size={32} />
@@ -3063,6 +3247,7 @@ const QuestionBankDashboard = () => {
 
       <div className={`qbd-rb-shell ${sidebarCollapsed ? 'qbd-rb-shell--collapsed' : ''}`}>
         <aside className={`qbd-rb-sidebar ${sidebarCollapsed ? 'qbd-rb-sidebar--collapsed' : ''}`} aria-label="Question bank navigation">
+          <div className="qbd-tile-texture" aria-hidden="true" />
           {sidebarCollapsed ? (
             <div className="qbd-rb-collapsed-strip">
               <button className="qbd-rb-strip-btn qbd-rb-strip-logo" data-tip="Open sidebar" onClick={() => setSidebarCollapsed(false)} type="button">
@@ -3089,7 +3274,7 @@ const QuestionBankDashboard = () => {
             <div className="qbd-rb-side-brand">
               <div className="qbd-rb-brand-wrap">
                 <div className="qbd-rb-brand">cerbyl</div>
-                <div className="qbd-rb-brand-kicker">Question Bank</div>
+                <div className="qbd-rb-brand-kicker">Question Hub</div>
               </div>
               <button
                 className="qbd-rb-side-close-btn"
@@ -3103,24 +3288,11 @@ const QuestionBankDashboard = () => {
 
             <button className="qbd-rb-new-btn" onClick={() => setActiveView('custom')} type="button">
               <Sparkles size={16} />
-              <span>Generate Custom</span>
+              <span>Build a question set</span>
             </button>
 
-            <div className="qbd-rb-side-block">
-              <div className="qbd-rb-side-label">Quick Access</div>
-              <div className="qbd-rb-quick-list">
-                {QUICK_SECTIONS.map((section) => (
-                  <button key={section.label} className="qbd-rb-quick-item" onClick={() => navigate(section.route)} type="button">
-                    <span className="qbd-rb-quick-dot" />
-                    <span>{section.label}</span>
-                    <Plus size={12} />
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <div className="qbd-rb-side-block qbd-rb-side-block--grow">
-              <div className="qbd-rb-side-label">Question Bank</div>
+              <div className="qbd-rb-side-label">Practice desk</div>
               <nav className="qbd-rb-view-nav">
                 {QUESTION_VIEWS.filter((view) => view.key !== 'custom').map((view) => {
                   const Icon = view.icon;
@@ -3139,23 +3311,31 @@ const QuestionBankDashboard = () => {
               </nav>
             </div>
 
+            <div className="qbd-rb-side-block">
+              <div className="qbd-rb-side-label">Use your context</div>
+              <div className="qbd-rb-quick-list">
+                {QUICK_SECTIONS.map((section) => (
+                  <button key={section.label} className="qbd-rb-quick-item" onClick={() => navigate(section.route)} type="button">
+                    <span className="qbd-rb-quick-dot" />
+                    <span>{section.label}</span>
+                    <ArrowUpRight size={12} />
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <nav className="qbd-rb-side-nav-groups">
-              {SIDEBAR_NAV_GROUPS.map((group) => (
-                <div key={group.title} className="qbd-rb-side-group">
-                  <div className="qbd-rb-side-group-title">{group.title}</div>
-                  {group.items.map((item) => (
-                    <button
-                      key={`${group.title}-${item.label}`}
-                      className="qbd-rb-side-link"
-                      onClick={() => navigate(item.route)}
-                      type="button"
-                    >
-                      <span className="qbd-rb-side-link-dot" />
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-              ))}
+              <div className="qbd-rb-side-group">
+                <div className="qbd-rb-side-group-title">Keep improving</div>
+                <button className="qbd-rb-side-link" onClick={() => navigate('/weaknesses')} type="button">
+                  <span className="qbd-rb-side-link-dot" />
+                  Weak areas
+                </button>
+                <button className="qbd-rb-side-link" onClick={() => navigate('/quiz-hub')} type="button">
+                  <span className="qbd-rb-side-link-dot" />
+                  Quiz modes
+                </button>
+              </div>
             </nav>
 
             <div className="qbd-rb-side-actions">
@@ -3182,6 +3362,7 @@ const QuestionBankDashboard = () => {
           </div>
 
           <section className="qbd-rb-panel">
+            <div className="qbd-tile-texture qbd-tile-texture--panel" aria-hidden="true" />
             <div className="qbd-main">
               <div className="qbd-content">
                 {renderViewContent()}

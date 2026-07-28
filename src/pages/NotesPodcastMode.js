@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircle, Loader2 } from 'lucide-react';
-import PodcastStudio from '../components/media/PodcastStudio';
 import conversionAgentService from '../services/conversionAgentService';
 import './NotesPodcastMode.css';
 import '../components/SocialHubChrome.css';
+import '../components/NotesSidebarSystem.css';
+import PodcastStudio from '../components/media/PodcastStudio';
 
 const parseNoteIds = (raw) =>
   (raw || '')

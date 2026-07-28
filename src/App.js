@@ -85,7 +85,7 @@ const AdminAnalytics = lazyRoute(() => import('./pages/AdminAnalytics'));
 const AdminApiUsage = lazyRoute(() => import('./pages/AdminApiUsage'));
 const AdminRateLimits = lazyRoute(() => import('./pages/AdminRateLimits'));
 const CanvasHub = lazyRoute(() => import('./pages/CanvasHub'));
-const Vault = lazyRoute(() => import('./pages/Vault'));
+const Vault = lazyRoute(() => import('./pages/ContextHubWorkspace'));
 const ContextFileAnalysis = lazyRoute(() => import('./pages/ContextFileAnalysis'));
 const AIChatDock = lazyRoute(() => import('./components/AIChatDock'));
 
