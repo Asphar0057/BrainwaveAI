@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { MessageCircle, Minimize2, Maximize2, X, Send } from 'lucide-react';
-import { marked } from 'marked';
 import { API_URL } from '../config';
 import { queueChatCompletion, USE_AI_JOB_QUEUE } from '../services/aiJobService';
 import MathRenderer from './MathRenderer';
+import { renderMarkdownWithMath } from '../utils/mathMarkdown';
 import GraphRenderer, { detectGraphLanguage } from './GraphRenderer';
 import { disableChatDock, getChatDockState, listenChatDockUpdates } from '../utils/chatDock';
 import { formatUsageLimitMessage, getUsageLimitFromError, throwIfUsageLimitResponse } from '../utils/usageLimit';
@@ -104,54 +104,13 @@ function isAnsweringPreviousComprehensionCheck(text = '', messages = []) {
   return COMPREHENSION_CHECK_RE.test(getLastAiMessage(messages)) && looksLikeComprehensionAnswer(text);
 }
 
-function renderMarkdownWithMath(text) {
-  if (!text) return '';
-
-  const mathStore = [];
-  const placeholder = (i) => `ZMATH${i}Z`;
-
-  let processed = String(text || '')
+const renderDockMarkdownWithMath = (text) => renderMarkdownWithMath(text, {
+  preprocess: (t) => t
     .replace(/\\([*`>#.!+-])/g, '$1')
     .replace(/(\*\*)\s+(\d+\.\s+\*\*)/g, '$1\n\n$2')
     .replace(/([.:])\s+(\d+\.\s+\*\*)/g, '$1\n\n$2')
-    .replace(/\s+(\*\s+\*\*[^*]+:\*\*)/g, '\n$1');
-  processed = processed.replace(/\$\$([\s\S]+?)\$\$/g, (_, m) => {
-    mathStore.push({ tex: m.trim(), display: true });
-    return placeholder(mathStore.length - 1);
-  });
-  processed = processed.replace(/\\\[([\s\S]+?)\\\]/g, (_, m) => {
-    mathStore.push({ tex: m.trim(), display: true });
-    return placeholder(mathStore.length - 1);
-  });
-  processed = processed.replace(/\$([^\n$]{1,300}?)\$/g, (_, m) => {
-    mathStore.push({ tex: m.trim(), display: false });
-    return placeholder(mathStore.length - 1);
-  });
-  processed = processed.replace(/\\\(([^\n]{1,300}?)\\\)/g, (_, m) => {
-    mathStore.push({ tex: m.trim(), display: false });
-    return placeholder(mathStore.length - 1);
-  });
-
-  const renderer = new marked.Renderer();
-  renderer.heading = ({ text: t, depth }) => `<h${depth} class="md-h${depth}">${t}</h${depth}>`;
-  renderer.strong = ({ text: t }) => `<strong class="md-bold-inline">${t}</strong>`;
-  renderer.codespan = ({ text: t }) => `<code class="md-inline-code">${t}</code>`;
-  marked.use({ renderer, breaks: true, gfm: true });
-
-  let html = '';
-  try {
-    html = marked.parse(processed);
-  } catch {
-    html = `<p>${processed}</p>`;
-  }
-
-  return html.replace(/ZMATH(\d+)Z/g, (_, i) => {
-    const record = mathStore[Number(i)];
-    if (!record) return '';
-    if (record.display) return `<div class="math-display-wrap">$$${record.tex}$$</div>`;
-    return `$${record.tex}$`;
-  });
-}
+    .replace(/\s+(\*\s+\*\*[^*]+:\*\*)/g, '\n$1'),
+});
 
 function renderDockMessageContent(content) {
   const cleaned = stripThinking(content || '');
@@ -199,7 +158,7 @@ function renderDockMessageContent(content) {
     return (
       <MathRenderer
         key={`dock_text_${idx}`}
-        content={renderMarkdownWithMath(part.content)}
+        content={renderDockMarkdownWithMath(part.content)}
         className="acd-math-content"
       />
     );

@@ -68,12 +68,14 @@ const SoloQuiz = () => {
     setError(null);
 
     try {
+      const useHsContext = localStorage.getItem('hs_mode_enabled') === 'true';
       let response;
       if (useAdaptive) {
         response = await quizAgentService.generateAdaptiveQuiz({
           userId: username,
           topic: topicToUse,
-          questionCount: countToUse
+          questionCount: countToUse,
+          use_hs_context: useHsContext
         });
       } else {
         response = await quizAgentService.generateQuiz({
@@ -81,7 +83,8 @@ const SoloQuiz = () => {
           topic: topicToUse,
           questionCount: countToUse,
           difficultyMix: getDifficultyMix(),
-          questionTypes
+          questionTypes,
+          use_hs_context: useHsContext
         });
       }
 

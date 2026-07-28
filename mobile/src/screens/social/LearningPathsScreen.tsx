@@ -27,6 +27,7 @@ import { cbTileShadow } from '../../components/NeumorphicTexture';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../../utils/theme';
 import { useResponsiveLayout } from '../../hooks/useResponsiveLayout';
+import MathText from '../../components/MathText';
 
 const DIFFICULTIES = ['beginner', 'intermediate', 'advanced'];
 const LENGTHS = ['short', 'medium', 'long'];
@@ -405,8 +406,8 @@ function NodeSheet({ node, visible, busy, onClose, onStart, theme, styles, ink }
           {!!node?.description && <Text style={styles.sheetDescription}>{node.description}</Text>}
           <View style={styles.nodeInfoRow}><View style={styles.nodeInfoPill}><Ionicons name="time-outline" size={13} color={theme.accentHover} /><Text style={styles.nodeInfoText}>{node?.estimated_minutes ?? 20} MIN</Text></View><View style={styles.nodeInfoPill}><Ionicons name="sparkles-outline" size={13} color={theme.accentHover} /><Text style={styles.nodeInfoText}>{node?.progress?.xp_earned ?? 0} XP</Text></View><View style={styles.nodeInfoPill}><Text style={styles.nodeInfoText}>{status.replace('_', ' ').toUpperCase()}</Text></View></View>
           {!!node?.objectives?.length && <SheetSection title="What you’ll learn" icon="flag-outline" styles={styles}>{node.objectives.map((objective, index) => <View key={`${objective}-${index}`} style={styles.objectiveRow}><View style={styles.objectiveDot} /><Text style={styles.objectiveText}>{objective}</Text></View>)}</SheetSection>}
-          {!!node?.core_sections?.length && <SheetSection title="Module outline" icon="layers-outline" styles={styles}>{node.core_sections.slice(0, 4).map((section, index) => <View key={`${section.title}-${index}`} style={styles.outlineRow}><Text style={styles.outlineIndex}>{String(index + 1).padStart(2, '0')}</Text><View style={{ flex: 1 }}><Text style={styles.outlineTitle}>{section.title || `Section ${index + 1}`}</Text>{!!section.content && <Text style={styles.outlineText} numberOfLines={3}>{section.content}</Text>}</View></View>)}</SheetSection>}
-          {!!summaries.length && <SheetSection title="Key takeaways" icon="bulb-outline" styles={styles}>{summaries.map((item, index) => <Text key={`${item}-${index}`} style={styles.takeawayText}>— {item}</Text>)}</SheetSection>}
+          {!!node?.core_sections?.length && <SheetSection title="Module outline" icon="layers-outline" styles={styles}>{node.core_sections.slice(0, 4).map((section, index) => <View key={`${section.title}-${index}`} style={styles.outlineRow}><Text style={styles.outlineIndex}>{String(index + 1).padStart(2, '0')}</Text><View style={{ flex: 1 }}><Text style={styles.outlineTitle}>{section.title || `Section ${index + 1}`}</Text>{!!section.content && <MathText style={styles.outlineText} numberOfLines={3}>{section.content}</MathText>}</View></View>)}</SheetSection>}
+          {!!summaries.length && <SheetSection title="Key takeaways" icon="bulb-outline" styles={styles}>{summaries.map((item, index) => <MathText key={`${item}-${index}`} style={styles.takeawayText}>{`— ${item}`}</MathText>)}</SheetSection>}
         </ScrollView>
         {status !== 'completed' && <View style={styles.sheetFooter}><HapticTouchable style={styles.startBtn} onPress={onStart} disabled={busy} haptic="medium">{busy ? <ActivityIndicator color={ink} /> : <><Ionicons name={status === 'in_progress' ? 'arrow-forward' : 'play'} size={16} color={ink} /><Text style={styles.startBtnText}>{status === 'in_progress' ? 'CONTINUE MODULE' : 'START MODULE'}</Text></>}</HapticTouchable></View>}
       </View>

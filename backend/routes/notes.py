@@ -70,6 +70,8 @@ class NoteAgentRequest(BaseModel):
     tone: Optional[str] = "professional"
     depth: Optional[str] = "standard"
     context: Optional[str] = None
+    use_hs_context: bool = True
+    context_doc_ids: Optional[list[str]] = None
 
 def _note_folder_ids(db: Session, note: models.Note) -> list[int]:
     folder_ids = {
@@ -1038,7 +1040,8 @@ async def generate_note_content(
     )
     try:
         content = await call_ai_async(prompt, max_tokens=2000, temperature=0.7)
-        return {"content": content.strip(), "status": "success"}
+        from services.math_processor import process_math_in_response
+        return {"content": process_math_in_response(content.strip()), "status": "success"}
     except Exception as e:
         logger.error("note generation error: %s", e, exc_info=True)
         return {"content": "", "status": "error", "error": "AI generation failed"}
@@ -1066,7 +1069,8 @@ async def generate_note_summary(
 
     try:
         content = await call_ai_async(prompt, max_tokens=2000, temperature=0.5)
-        return {"content": content.strip(), "title": session_titles, "status": "success"}
+        from services.math_processor import process_math_in_response
+        return {"content": process_math_in_response(content.strip()), "title": session_titles, "status": "success"}
     except Exception as e:
         return {"content": conversation_data[:500], "title": session_titles, "status": "fallback"}
 
@@ -1082,7 +1086,8 @@ async def expand_note_content(
     )
     try:
         expanded = await call_ai_async(prompt, max_tokens=2000, temperature=0.7)
-        return {"content": expanded.strip(), "status": "success"}
+        from services.math_processor import process_math_in_response
+        return {"content": process_math_in_response(expanded.strip()), "status": "success"}
     except Exception as e:
         return {"content": content, "status": "error"}
 
@@ -1103,7 +1108,8 @@ async def ai_writing_assistant(
 
     try:
         result = await call_ai_async(prompt, max_tokens=1500, temperature=0.7)
-        return {"content": result.strip(), "status": "success", "action": request.action}
+        from services.math_processor import process_math_in_response
+        return {"content": process_math_in_response(result.strip()), "status": "success", "action": request.action}
     except Exception as e:
         logger.error("note generation error: %s", e, exc_info=True)
         return {"content": "", "status": "error", "error": "AI generation failed"}
@@ -1117,11 +1123,46 @@ async def notes_agent(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    _NOTES_RAG_ACTIONS = {"generate", "explain", "summarize", "key_points", "outline"}
+
     try:
         prompt = _build_note_agent_prompt(request)
+
+        rag_sources = []
+        if request.use_hs_context and request.action in _NOTES_RAG_ACTIONS:
+            query = (request.topic or request.content or "")[:300].strip()
+            if query:
+                try:
+                    from services import context_store
+                    if context_store.available():
+                        results = context_store.search_context(
+                            query=query,
+                            user_id=str(user.id),
+                            use_hs=request.use_hs_context,
+                            top_k=5,
+                            doc_ids=request.context_doc_ids or None,
+                        )
+                        rag_sources = context_store.build_rag_sources(results)
+                        if rag_sources:
+                            excerpts_text = context_store.format_rag_sources_block(rag_sources)
+                            prompt += (
+                                f"\n\nRELEVANT CURRICULUM CONTEXT:\n{excerpts_text}\n"
+                                "Cite sources inline as [1], [2], etc. when used.\n"
+                            )
+                            logger.info(
+                                f"[NOTES AGENT RAG] injected {len(rag_sources)} source(s) for action={request.action}"
+                            )
+                except Exception as rag_err:
+                    logger.warning(f"[NOTES AGENT RAG] context fetch failed: {rag_err}")
+
         temperature = 0.2 if request.action == "grammar" else 0.7
         result = await call_ai_async(prompt, max_tokens=1500, temperature=temperature)
         content = _clean_grammar_result(result) if request.action == "grammar" else result.strip()
+        from services.math_processor import process_math_in_response
+        content = process_math_in_response(content)
+        if rag_sources:
+            from services.context_store import resolve_citations
+            content = resolve_citations(content, rag_sources)
         return {"success": True, "content": content, "action": request.action}
     except Exception as e:
         logger.error("note agent error: %s", e, exc_info=True)

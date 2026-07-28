@@ -55,6 +55,7 @@ class TutorState(TypedDict, total=False):
     episodic_memories: list[str]
     structured_context: list[str]
     rag_context: list[str]
+    rag_sources: list[dict]
     use_hs_context: bool
     context_doc_ids: list[str]
     context_only: bool

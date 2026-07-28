@@ -32,6 +32,9 @@ import {
 } from '../services/api';
 import { darkenColor, getDefaultTheme, rgbaFromHex } from '../utils/theme';
 import { getResponsiveLayout, useResponsiveLayout } from '../hooks/useResponsiveLayout';
+import { hasMath } from '../utils/mathDetection';
+import { MathJaxSvg } from 'react-native-mathjax-html-to-svg';
+import MathText from '../components/MathText';
 
 const DEFAULT_THEME = getDefaultTheme();
 const DEFAULT_LAYOUT = getResponsiveLayout(393, 852);
@@ -237,6 +240,13 @@ function parseSpans(line: string): Span[] {
 
 // ── Step 3: render inline spans ───────────────────────────────────────
 function Inline({ line, baseStyle }: { line: string; baseStyle: any }) {
+  if (hasMath(line)) {
+    return (
+      <MathJaxSvg fontSize={(baseStyle as any).fontSize ?? 15} color={String((baseStyle as any).color ?? GOLD_L)} fontCache>
+        {line}
+      </MathJaxSvg>
+    );
+  }
   const spans = parseSpans(line);
   // fast path — no markup
   if (spans.length === 1 && !spans[0].bold && !spans[0].italic && !spans[0].code) {
@@ -999,7 +1009,7 @@ function PodcastMode({
               <Text style={s.chapterIndex}>{String((chapter.index ?? index) + 1).padStart(2, '0')}</Text>
               <View style={{ flex: 1 }}>
                 <Text style={s.chapterTitle}>{chapter.title || `Chapter ${(chapter.index ?? index) + 1}`}</Text>
-                {!!chapter.summary && <Text style={s.chapterSummary} numberOfLines={2}>{chapter.summary}</Text>}
+                {!!chapter.summary && <MathText style={s.chapterSummary} numberOfLines={2}>{chapter.summary}</MathText>}
               </View>
               {busy === `jump-${chapter.index ?? index}` ? <ActivityIndicator color={GOLD_M} size="small" /> : null}
             </HapticTouchable>
@@ -1027,7 +1037,7 @@ function PodcastMode({
         <HapticTouchable style={s.podcastSecondary} onPress={() => ask()} disabled={busy === 'ask' || !question.trim()} haptic="selection">
           {busy === 'ask' ? <ActivityIndicator color={GOLD_L} /> : <Text style={s.podcastSecondaryText}>ask</Text>}
         </HapticTouchable>
-        {!!answer && <Text style={s.podcastAnswer}>{answer}</Text>}
+        {!!answer && <MathText style={s.podcastAnswer}>{answer}</MathText>}
         {followUps.length ? (
           <View style={s.followRow}>
             {followUps.slice(0, 3).map((item) => (
@@ -1043,17 +1053,17 @@ function PodcastMode({
         <View style={s.podcastSection}>
           <Text style={s.podcastSectionTitle}>quick check</Text>
           {mcq.completed ? (
-            <Text style={s.podcastAnswer}>{mcq.summary || `Score: ${mcq.score || 0}/${mcq.total || 0}`}</Text>
+            <MathText style={s.podcastAnswer}>{mcq.summary || `Score: ${mcq.score || 0}/${mcq.total || 0}`}</MathText>
           ) : (
             <>
-              <Text style={s.mcqQuestion}>{mcq.question?.question}</Text>
+              <MathText style={s.mcqQuestion}>{mcq.question?.question}</MathText>
               {(mcq.question?.options || []).map((option, index) => (
                 <HapticTouchable key={`${option}-${index}`} style={s.mcqOption} onPress={() => answerDrill(index)} disabled={busy === `mcq-${index}`} haptic="selection">
                   <Text style={s.mcqLetter}>{String.fromCharCode(65 + index)}</Text>
-                  <Text style={s.mcqText}>{option}</Text>
+                  <MathText style={s.mcqText}>{option}</MathText>
                 </HapticTouchable>
               ))}
-              {!!mcqFeedback && <Text style={s.podcastAnswer}>{mcqFeedback}</Text>}
+              {!!mcqFeedback && <MathText style={s.podcastAnswer}>{mcqFeedback}</MathText>}
             </>
           )}
         </View>

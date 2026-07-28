@@ -11,6 +11,7 @@ import ContextSelector from '../components/ContextSelector';
 import ContextPanel from '../components/ContextPanel';
 import contextService from '../services/contextService';
 import AbstractFx from '../components/AbstractFx';
+import MathRenderer from '../components/MathRenderer';
 import { queueLegacyAIEndpoint, queuedAIFormFetch, queuedAIJsonFetch, USE_AI_JOB_QUEUE } from '../services/aiJobService';
 
 const COMMAND_HIGHLIGHT_PALETTE = [
@@ -3097,7 +3098,7 @@ const SearchHub = () => {
                     <Sparkles size={14} />
                     <span>AI Overview</span>
                   </div>
-                  <p className="sh-ai-text">{aiSuggestion.description}</p>
+                  <MathRenderer content={aiSuggestion.description} className="sh-ai-text" />
                   <button
                     className="sh-ai-chat-btn"
                     onClick={() => {
@@ -3194,7 +3195,7 @@ const SearchHub = () => {
                 <div className="sh-ai-response">
                   <div className="sh-ai-panel">
                     <div className="sh-ai-panel-head"><Sparkles size={14} /> <span>AI Assistant</span></div>
-                    <p className="sh-ai-text">{aiSuggestion?.description}</p>
+                    <MathRenderer content={aiSuggestion?.description || ''} className="sh-ai-text" />
                   </div>
                   <div className="sh-create-grid sh-create-grid--sm">
                     {[
@@ -3232,7 +3233,7 @@ const SearchHub = () => {
                         <Sparkles size={14} />
                         <span>{searchResults.action_executed === 'show_weak_areas' ? 'Recommended Next Steps' : 'AI Assistant'}</span>
                       </div>
-                      <p className="sh-ai-text">{aiSuggestion.description}</p>
+                      <MathRenderer content={aiSuggestion.description} className="sh-ai-text" />
                       <div className="sh-create-grid sh-create-grid--sm">
                         {[
                           { icon: <Layers size={22} />, label: 'Flashcards', desc: 'Study deck', num: '01', action: () => handleCreateContent('flashcards') },

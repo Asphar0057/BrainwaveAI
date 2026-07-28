@@ -56,6 +56,7 @@ import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../components/Neum
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
+import MathText from '../components/MathText';
 
 type HubTab = 'vault' | 'ask' | 'concepts' | 'reviews' | 'commands';
 type AppTarget = 'flashcards' | 'notes' | 'aimedia' | 'settings' | 'questionBank' | 'knowledgeMaps' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'weaknessPractice' | 'learningPaths';
@@ -637,7 +638,7 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
         {askResult ? (
           <View style={s.answerCard}>
             <Text style={s.sectionTitle}>answer</Text>
-            <Text style={s.answerText}>{askResult.answer}</Text>
+            <MathText style={s.answerText}>{askResult.answer}</MathText>
             {askResult.sources?.length ? (
               <View style={s.sourceList}>
                 {askResult.sources.slice(0, 4).map((source, index) => (
@@ -764,7 +765,7 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
         {commandResult ? (
           <View style={s.answerCard}>
             <Text style={s.sectionTitle}>{commandResult.metadata?.action || 'result'}</Text>
-            <Text style={s.answerText}>{commandResult.ai_response || commandResult.metadata?.chatbot_message || commandResult.content_title || 'Command completed.'}</Text>
+            <MathText style={s.answerText}>{commandResult.ai_response || commandResult.metadata?.chatbot_message || commandResult.content_title || 'Command completed.'}</MathText>
             {Array.isArray(commandResult.search_results) && commandResult.search_results.length ? (
               <Text style={s.sectionHint}>{commandResult.search_results.length} search results</Text>
             ) : null}

@@ -7,6 +7,7 @@ from typing import Any, Optional, TypedDict
 
 from langgraph.graph import StateGraph, END
 from services.ai_json_parser import parse_json_array_response
+from services.context_store import format_rag_sources_block, resolve_citations
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ class QuizGenState(TypedDict, total=False):
     student_strengths: list[str]
     quiz_history: list[dict]
     rag_context: list[str]
+    rag_sources: list[dict]
     use_hs_context: bool
     context_doc_ids: list[str]
     built_prompt: str
@@ -82,6 +84,7 @@ async def fetch_context(state: QuizGenState) -> dict:
     )
 
     rag_chunks: list[str] = []
+    rag_sources: list[dict] = []
     topic = state.get("topic", "")
     use_hs = state.get("use_hs_context", True)
     context_doc_ids = state.get("context_doc_ids") or []
@@ -110,6 +113,7 @@ async def fetch_context(state: QuizGenState) -> dict:
                         top_k=4,
                     )
                 rag_chunks = [r["text"] for r in results]
+                rag_sources = context_store.build_rag_sources(results)
                 if rag_chunks:
                     logger.info(
                         f"[QUIZ RAG] Retrieved {len(rag_chunks)} chunk(s) for '{topic}' "
@@ -145,6 +149,7 @@ async def fetch_context(state: QuizGenState) -> dict:
         "student_strengths": strengths,
         "quiz_history": quiz_history,
         "rag_context": rag_chunks,
+        "rag_sources": rag_sources,
     }
 
 DIFFICULTY_GUIDES = {
@@ -244,14 +249,21 @@ def build_prompt(state: QuizGenState) -> dict:
         parts.append(f"ADDITIONAL INSTRUCTIONS FROM STUDENT:\n{additional_specs}\n")
 
     rag_context = state.get("rag_context", [])
+    rag_sources = state.get("rag_sources") or []
     if rag_context:
         logger.info(f"[QUIZ PROMPT] *** INJECTING {len(rag_context)} RAG chunk(s) into prompt ***")
-        context_block = "\n---\n".join((chunk or "")[:1400] for chunk in rag_context[:4])
+        context_block = (
+            format_rag_sources_block(rag_sources, max_sources=4, max_chars=1400)
+            if rag_sources
+            else "\n---\n".join((chunk or "")[:1400] for chunk in rag_context[:4])
+        )
         parts.append(
             f"RELEVANT CURRICULUM CONTEXT (from student's documents and HS curriculum):\n"
             f"{context_block}\n\n"
             "Prioritise this material when relevant to the topic. "
-            "Use it to make quiz questions more curriculum-aligned and accurate.\n"
+            "Use it to make quiz questions more curriculum-aligned and accurate. "
+            "When a question's explanation draws on a specific source above, cite it inline "
+            "in the explanation as [1], [2], etc., matching the source numbers.\n"
         )
     else:
         logger.info("[QUIZ PROMPT] No RAG context — generating from model knowledge only")
@@ -302,6 +314,7 @@ def generate_questions_node(state: QuizGenState) -> dict:
     difficulty = state.get("difficulty", "mixed")
     question_count = state.get("question_count", 10)
     topic = state.get("topic", "")
+    rag_sources = state.get("rag_sources") or []
 
     def _generate_with(client) -> list[dict]:
         started = time.perf_counter()
@@ -334,6 +347,7 @@ def generate_questions_node(state: QuizGenState) -> dict:
             if isinstance(options, list):
                 options = [str(o)[:300] for o in options[:4]]
             explanation = (q.get("explanation") or "")[:500]
+            explanation = resolve_citations(explanation, rag_sources)
 
             if q_type == "multiple_choice" and len(options) < 2:
                 continue

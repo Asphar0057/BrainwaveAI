@@ -6,69 +6,15 @@ import {
   ChevronDown, ChevronUp, ChevronRight, Share2, Heart, Lock, Globe, GraduationCap,
   CheckCircle, Sparkles, Zap, GitFork, Search, ArrowLeft, ArrowUpRight, ListChecks, Circle, Layers3
 } from 'lucide-react';
-import { marked } from 'marked';
 import './PlaylistDetailPage.css';
 import '../components/SocialHubChrome.css';
 import { API_URL } from '../config';
-import { sanitizeHtml } from '../utils/sanitize';
 import MathRenderer from '../components/MathRenderer';
+import { renderMarkdownWithMath } from '../utils/mathMarkdown';
 import PlaylistShareModal from '../components/PlaylistShareModal';
 import SocialHubChrome from '../components/SocialHubChrome';
 
-const renderPlaylistMarkdown = (value = '') => {
-  if (!value) return '';
-
-  const mathStore = [];
-  const placeholder = (index) => `PMATH${index}P`;
-  let text = String(value);
-
-  text = text.replace(/\$\$([\s\S]+?)\$\$/g, (_, math) => {
-    mathStore.push({ tex: math.trim(), display: true });
-    return placeholder(mathStore.length - 1);
-  });
-  text = text.replace(/\\\[([\s\S]+?)\\\]/g, (_, math) => {
-    mathStore.push({ tex: math.trim(), display: true });
-    return placeholder(mathStore.length - 1);
-  });
-  text = text.replace(/\$([^\n$]{1,300}?)\$/g, (_, math) => {
-    mathStore.push({ tex: math.trim(), display: false });
-    return placeholder(mathStore.length - 1);
-  });
-  text = text.replace(/\\\(([^\n]{1,300}?)\\\)/g, (_, math) => {
-    mathStore.push({ tex: math.trim(), display: false });
-    return placeholder(mathStore.length - 1);
-  });
-
-  const renderer = new marked.Renderer();
-  renderer.heading = ({ text: heading, depth }) => `<h${depth} class="md-h${depth}">${heading}</h${depth}>`;
-  renderer.strong = ({ text: strongText }) => `<strong class="md-bold-inline">${strongText}</strong>`;
-  renderer.codespan = ({ text: codeText }) => `<code class="md-inline-code">${codeText}</code>`;
-  renderer.list = function list(token) {
-    const body = (token.items || []).map((item) => this.listitem(item)).join('');
-    const tag = token.ordered ? 'ol' : 'ul';
-    const className = token.ordered ? 'md-ol' : 'md-ul';
-    return `<${tag} class="${className}">${body}</${tag}>`;
-  };
-  renderer.listitem = function listitem(token) {
-    return `<li class="md-li">${this.parser.parseInline(token.tokens || [])}</li>`;
-  };
-
-  marked.use({ renderer, breaks: true, gfm: true });
-
-  try {
-    text = marked.parse(text);
-  } catch {
-    text = `<p>${text}</p>`;
-  }
-
-  return text.replace(/PMATH(\d+)P/g, (_, index) => {
-    const record = mathStore[Number(index)];
-    if (!record) return '';
-    return record.display
-      ? `<div class="math-display-wrap">$$${record.tex}$$</div>`
-      : `$${record.tex}$`;
-  });
-};
+const renderPlaylistMarkdown = (value = '') => renderMarkdownWithMath(value, {});
 
 const PlaylistDetailPage = () => {
   const { playlistId } = useParams();
@@ -1196,10 +1142,7 @@ const ViewItemModal = ({ item, content, onClose }) => {
 
         <div className="modal-content pdx-view-content">
           {content.type === 'note' && (
-            <div
-              className="note-viewer pdx-note-sheet"
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(content.content || '<p>No content</p>') }}
-            />
+            <MathRenderer content={content.content || '<p>No content</p>'} className="note-viewer pdx-note-sheet" />
           )}
 
           {content.type === 'chat' && (

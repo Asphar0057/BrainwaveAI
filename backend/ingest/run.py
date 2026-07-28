@@ -99,10 +99,17 @@ def main() -> int:
         action="store_true",
         help="List catalog entries for the selected source and exit",
     )
+    parser.add_argument(
+        "--slug",
+        default=None,
+        help="Ingest only the catalog entry with this exact slug (useful for a quick single-book test ingest)",
+    )
     args = parser.parse_args()
 
     from ingest.catalog import SOURCE_FILTER
     catalog = SOURCE_FILTER.get(args.source, [])
+    if args.slug:
+        catalog = [e for e in catalog if e["slug"] == args.slug]
 
     if args.list:
         print(f"\n{args.source} catalog ({len(catalog)} entries):\n")
@@ -115,7 +122,7 @@ def main() -> int:
     _print_banner(args.source, args.dry_run, args.resume, len(catalog))
 
     if not catalog:
-        logger.error(f"No catalog entries found for source={args.source}")
+        logger.error(f"No catalog entries found for source={args.source} slug={args.slug}")
         return 1
 
     from ingest.pipeline import IngestPipeline

@@ -68,7 +68,8 @@ class QuizAgentService {
       body: JSON.stringify({
         subject: topic,
         difficulty: this._getDifficultyFromMix(difficultyMix),
-        question_count: questionCount
+        question_count: questionCount,
+        use_hs_context: use_hs_context !== false
       })
     });
 
@@ -107,14 +108,15 @@ class QuizAgentService {
     // now genuinely requests the bandit-picked difficulty instead of guessing
     // one here, and surfaces which difficulty/selection method it landed on so
     // the UI can show that this was in fact an adaptive pick.
-    const { userId, topic, questionCount = 10 } = params;
+    const { userId, topic, questionCount = 10, use_hs_context } = params;
 
     const createResponse = await this.request('/create_solo_quiz', {
       method: 'POST',
       body: JSON.stringify({
         subject: topic,
         difficulty: 'auto',
-        question_count: questionCount
+        question_count: questionCount,
+        use_hs_context: use_hs_context !== false
       })
     });
 

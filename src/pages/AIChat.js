@@ -23,12 +23,12 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { API_URL } from '../config';
-import { escapeHtml, safeInternalPath } from '../utils/sanitize';
+import { safeInternalPath } from '../utils/sanitize';
+import { renderMarkdownWithMath } from '../utils/mathMarkdown';
 import { signOutAppSession } from '../utils/authSession';
 import gamificationService from '../services/gamificationService';
 import MathRenderer from '../components/MathRenderer';
 import GraphRenderer, { detectGraphLanguage } from '../components/GraphRenderer';
-import { marked } from 'marked';
 
 import './AIChat.css';
 import ContextSelector from '../components/ContextSelector';
@@ -2461,104 +2461,19 @@ const AIChat = ({ sharedMode = false }) => {
 
   const renderMarkdown = (text) => {
     if (!text) return '';
-    const tutorContract = parseTutorResponseContract(text);
-    if (tutorContract?.answer) {
-      text = tutorContract.answer;
-    }
-    text = normalizeTutorStepMarkdown(text);
-    text = normalizeMarkdownForRenderer(text);
-
-    // ── Step 1: Extract ALL math blocks BEFORE markdown touches them ──────────
-    // Markdown mangles \[, \(, and $$  by treating \ as an escape character
-    // and $ as potential formatting. We replace every math span with a safe
-    // alphanumeric placeholder, let marked run, then put the math back.
-    const mathStore = [];
-    const placeholder = (i) => `ZMATH${i}Z`;
-
-    const extractMath = (src) => {
-      // Display: $$...$$ (may be multiline)
-      src = src.replace(/\$\$([\s\S]+?)\$\$/g, (_, m) => {
-        mathStore.push({ tex: m.trim(), display: true });
-        return placeholder(mathStore.length - 1);
-      });
-      // Display: \[...\] (may be multiline)
-      src = src.replace(/\\\[([\s\S]+?)\\\]/g, (_, m) => {
-        mathStore.push({ tex: m.trim(), display: true });
-        return placeholder(mathStore.length - 1);
-      });
-      // Inline: $...$  (single-line only)
-      src = src.replace(/\$([^\n$]{1,300}?)\$/g, (_, m) => {
-        mathStore.push({ tex: m.trim(), display: false });
-        return placeholder(mathStore.length - 1);
-      });
-      // Inline: \(...\)
-      src = src.replace(/\\\(([^\n]{1,300}?)\\\)/g, (_, m) => {
-        mathStore.push({ tex: m.trim(), display: false });
-        return placeholder(mathStore.length - 1);
-      });
-      return src;
-    };
-
-    // After markdown, swap placeholders back to KaTeX-ready delimiters
-    const restoreMath = (html) => {
-      return html.replace(/ZMATH(\d+)Z/g, (_, i) => {
-        const { tex, display } = mathStore[parseInt(i, 10)];
-        if (display) {
-          // Wrap in a div so KaTeX renders as display block
-          return `<div class="math-display-wrap">$$${tex}$$</div>`;
+    return renderMarkdownWithMath(text, {
+      preprocess: (src) => {
+        const tutorContract = parseTutorResponseContract(src);
+        if (tutorContract?.answer) {
+          src = tutorContract.answer;
         }
-        return `$${tex}$`;
-      });
-    };
-
-    text = extractMath(text);
-
-    // ── Step 2: Parse markdown (math is safely placeholdered) ─────────────────
-    const renderer = new marked.Renderer();
-    renderer.heading = ({ text: t, depth }) =>
-      `<h${depth} class="md-h${depth}">${t}</h${depth}>`;
-    renderer.strong = ({ text: t }) =>
-      `<strong class="md-bold-inline">${t}</strong>`;
-    renderer.codespan = ({ text: t }) =>
-      `<code class="md-inline-code">${t}</code>`;
-    const renderListItem = function renderListItem(token) {
-      const t = this.parser.parseInline(token.tokens || []);
-      const stepMatch = String(t || '').match(/^(?:<p>)?\s*(?:<strong[^>]*>)?\s*(Step\s+\d+\s*[—–-]\s*[^:<]+:?)(?:<\/strong>)?\s*([\s\S]*?)(?:<\/p>)?$/i);
-      if (stepMatch) {
-        return `<li class="ac-tutor-step-item"><span class="ac-tutor-step-title">${stepMatch[1].trim()}</span>${stepMatch[2] ? ` <span class="ac-tutor-step-body">${stepMatch[2].trim()}</span>` : ''}</li>`;
-      }
-      return `<li>${t}</li>`;
-    };
-    renderer.list = function list(token) {
-      const body = (token.items || []).map((item) => renderListItem.call(this, item)).join('');
-      const isTutorStepList = /class="ac-tutor-step-item"/.test(body);
-      const tag = token.ordered ? 'ol' : 'ul';
-      const className = isTutorStepList ? 'ac-tutor-step-list' : (token.ordered ? 'md-ol' : 'md-ul');
-      return `<${tag} class="${className}">${body}</${tag}>`;
-    };
-    renderer.listitem = renderListItem;
-
-    try {
-      text = marked.parse(text, { renderer, breaks: true, gfm: true });
-    } catch {
-      try {
-        text = marked.parse(text, { breaks: true, gfm: true });
-      } catch {
-        text = `<p>${escapeHtml(text).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br />')}</p>`;
-      }
-    }
-
-    // ── Step 3: Restore math delimiters ──────────────────────────────────────
-    text = restoreMath(text);
-
-    // ── Step 4: Highlight ALL-CAPS keywords (skip inside math wrappers) ───────
-    text = text.replace(/>([^<]+)</g, (full, inner) => {
-      // Don't touch content inside math wrappers
-      if (/\$/.test(inner)) return full;
-      return '>' + inner.replace(/\b([A-Z]{3,})\b/g, '<span class="kw-highlight">$1</span>') + '<';
+        src = normalizeTutorStepMarkdown(src);
+        src = normalizeMarkdownForRenderer(src);
+        return src;
+      },
+      tutorStepList: true,
+      highlightKeywords: true,
     });
-
-    return text;
   };
 
   const stripThinking = (text) => {

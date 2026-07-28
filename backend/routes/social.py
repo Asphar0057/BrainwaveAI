@@ -22,6 +22,7 @@ from deps import (
     JWT_ISSUER,
 )
 from services.ai_json_parser import parse_json_array_response
+from services.math_processor import process_math_in_response
 from services.websocket_manager import manager
 from services.admin_analytics import check_admin
 from services.content_bandit import get_content_bandit, is_auto_difficulty
@@ -82,7 +83,45 @@ async def create_solo_quiz(
         db.commit()
         db.refresh(quiz)
 
-        questions = await _generate_quiz_questions(subject, difficulty, question_count)
+        use_hs_context = bool(payload.get("use_hs_context", True))
+        context_doc_ids = payload.get("context_doc_ids") or []
+
+        questions = []
+        try:
+            from graphs.quiz_graph import get_quiz_graph
+            quiz_graph = get_quiz_graph()
+            if quiz_graph and subject:
+                logger.info(f"[SOLO_QUIZ] routing through quiz_graph use_hs_context={use_hs_context}")
+                questions_data = await quiz_graph.invoke(
+                    user_id=str(current_user.id),
+                    topic=subject,
+                    question_count=question_count,
+                    difficulty=difficulty,
+                    question_types=["multiple_choice"],
+                    use_hs_context=use_hs_context,
+                    context_doc_ids=context_doc_ids,
+                )
+                for q in questions_data:
+                    options = q.get("options") or []
+                    if len(options) < 2:
+                        continue
+                    correct_text = q.get("correct_answer", "")
+                    try:
+                        correct_index = options.index(correct_text)
+                    except ValueError:
+                        correct_index = 0
+                    questions.append({
+                        "question": q.get("question_text", ""),
+                        "options": options,
+                        "correct_answer": correct_index,
+                        "explanation": q.get("explanation", ""),
+                    })
+        except Exception as e:
+            logger.warning(f"[SOLO_QUIZ] quiz graph failed, falling back to direct generation: {e}")
+            questions = []
+
+        if not questions:
+            questions = await _generate_quiz_questions(subject, difficulty, question_count)
 
         for q_data in questions:
             question = models.SoloQuizQuestion(
@@ -482,10 +521,10 @@ Use this exact structure:
             raise ValueError(f"AI returned empty question text for question {index + 1}")
 
         normalized_questions.append({
-            "question": question_text,
-            "options": options,
+            "question": process_math_in_response(question_text),
+            "options": [process_math_in_response(o) for o in options],
             "correct_answer": correct_answer,
-            "explanation": str(item.get("explanation") or "").strip(),
+            "explanation": process_math_in_response(str(item.get("explanation") or "").strip()),
         })
 
     return normalized_questions

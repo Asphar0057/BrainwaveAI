@@ -37,6 +37,7 @@ import {
   Youtube as YoutubeIcon,
 } from 'lucide-react';
 import learningPathService from '../services/learningPathService';
+import MathRenderer from '../components/MathRenderer';
 import { sanitizeUrl } from '../utils/sanitize';
 import './LearningPathDetail.css';
 
@@ -1362,7 +1363,7 @@ const LearningPathDetail = () => {
                           <ChevronRight size={14} className="lpd-section-chevron" />
                         </summary>
                         <div className="lpd-section-content">
-                          <p className="lpd-section-text">{section.content}</p>
+                          <MathRenderer content={section.content} className="lpd-section-text" />
                           {section.example && (
                             <div className="lpd-section-example">
                               <strong>Example:</strong> {section.example}
@@ -1457,7 +1458,7 @@ const LearningPathDetail = () => {
                     {selectedNode.summary.map((item, idx) => (
                       <li key={idx}>
                         <CheckCircle size={12} />
-                        <span>{item}</span>
+                        <MathRenderer content={item} />
                       </li>
                     ))}
                   </ul>
@@ -1772,7 +1773,7 @@ const LearningPathDetail = () => {
                           <div className="lpd-quiz-item-answer">
                             <p><strong>Your answer:</strong> {q.options[userAnswer]}</p>
                             <p><strong>Correct answer:</strong> {q.options[q.correct_answer]}</p>
-                            {q.explanation && <p className="lpd-explanation">{q.explanation}</p>}
+                            {q.explanation && <MathRenderer content={q.explanation} className="lpd-explanation" />}
                           </div>
                         )}
                       </div>

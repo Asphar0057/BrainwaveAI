@@ -16,7 +16,7 @@ import '../components/SocialHubChrome.css';
 import { API_URL } from '../config';
 import { queueChatCompletion, queuedAIJsonFetch, USE_AI_JOB_QUEUE } from '../services/aiJobService';
 import MathRenderer from '../components/MathRenderer';
-import { marked } from 'marked';
+import { renderMarkdownWithMath } from '../utils/mathMarkdown';
 import { formatUsageLimitMessage, getUsageLimitFromError, throwIfUsageLimitResponse } from '../utils/usageLimit';
 
 const GENERIC_EXPLORATION_MARKERS = new Set([
@@ -1414,61 +1414,7 @@ ${answeringComprehensionCheck ? `- The student is answering this previous compre
     return tableBlockHtml;
   };
 
-  const renderMarkdown = (text) => {
-    if (!text) return '';
-
-    const mathStore = [];
-    const placeholder = (i) => `ZMATH${i}Z`;
-
-    const extractMath = (src) => {
-      src = src.replace(/\$\$([\s\S]+?)\$\$/g, (_, m) => {
-        mathStore.push({ tex: m.trim(), display: true });
-        return placeholder(mathStore.length - 1);
-      });
-      src = src.replace(/\\\[([\s\S]+?)\\\]/g, (_, m) => {
-        mathStore.push({ tex: m.trim(), display: true });
-        return placeholder(mathStore.length - 1);
-      });
-      src = src.replace(/\$([^\n$]{1,300}?)\$/g, (_, m) => {
-        mathStore.push({ tex: m.trim(), display: false });
-        return placeholder(mathStore.length - 1);
-      });
-      src = src.replace(/\\\(([^\n]{1,300}?)\\\)/g, (_, m) => {
-        mathStore.push({ tex: m.trim(), display: false });
-        return placeholder(mathStore.length - 1);
-      });
-      return src;
-    };
-
-    const restoreMath = (html) => html.replace(/ZMATH(\d+)Z/g, (_, i) => {
-      const item = mathStore[parseInt(i, 10)];
-      if (!item) return '';
-      if (item.display) return `<div class="math-display-wrap">$$${item.tex}$$</div>`;
-      return `$${item.tex}$`;
-    });
-
-    text = extractMath(text);
-
-    const renderer = new marked.Renderer();
-    renderer.heading = ({ text: t, depth }) => `<h${depth} class="md-h${depth}">${t}</h${depth}>`;
-    renderer.strong = ({ text: t }) => `<strong class="md-bold-inline">${t}</strong>`;
-    renderer.codespan = ({ text: t }) => `<code class="md-inline-code">${t}</code>`;
-    marked.use({ renderer, breaks: true, gfm: true });
-
-    try {
-      text = marked.parse(text);
-    } catch {
-      text = `<p>${text}</p>`;
-    }
-
-    text = restoreMath(text);
-    text = text.replace(/>([^<]+)</g, (full, inner) => {
-      if (/\$/.test(inner)) return full;
-      return `>${inner.replace(/\b([A-Z]{3,})\b/g, '<span class="keyword">$1</span>')}<`;
-    });
-
-    return text;
-  };
+  const renderMarkdown = (text) => renderMarkdownWithMath(text, { highlightKeywords: 'keyword' });
 
   const stripThinking = (text) => {
     if (!text) return text;

@@ -16,6 +16,7 @@ def build_tutor_prompt(state: TutorState) -> str:
     task               = state.get("instructional_task", "")
     user_input         = state.get("user_input", "")
     rag_context        = state.get("rag_context", [])
+    rag_sources        = state.get("rag_sources") or []
     analysis           = state.get("language_analysis") or {}
     selected_style     = state.get("selected_style", "")
     intent             = state.get("intent", "")
@@ -37,7 +38,7 @@ def build_tutor_prompt(state: TutorState) -> str:
             sections.append(_context_only_section())
             if rag_context:
                 logger.info(f"[TUTOR PROMPT] *** CONTEXT-ONLY: INJECTING {len(rag_context)} RAG chunk(s) ***")
-                sections.append(_rag_section(rag_context))
+                sections.append(_rag_section(rag_sources or rag_context))
             else:
                 logger.info("[TUTOR PROMPT] CONTEXT-ONLY mode with no RAG chunks")
             if selected_style and intent != "project_build":
@@ -51,7 +52,7 @@ def build_tutor_prompt(state: TutorState) -> str:
                 sections.append(_memory_section(other_memories))
             if rag_context:
                 logger.info(f"[TUTOR PROMPT] *** INJECTING {len(rag_context)} RAG chunk(s) ***")
-                sections.append(_rag_section(rag_context))
+                sections.append(_rag_section(rag_sources or rag_context))
             else:
                 logger.info("[TUTOR PROMPT] No RAG context — model knowledge only")
             if analysis:
@@ -114,12 +115,23 @@ def _memory_section(memories: list[str]) -> str:
         lines.append(f"- {m}")
     return "\n".join(lines)
 
-def _rag_section(chunks: list[str]) -> str:
+def _rag_section(sources: list) -> str:
     lines = ["[CURRICULUM CONTEXT (from student's uploaded documents and HS curriculum)]"]
     lines.append("Prioritise this material when relevant. Use it to give accurate, curriculum-aligned answers.")
-    for i, chunk in enumerate(chunks[:5], 1):
-        lines.append(f"\n--- Source {i} ---")
-        lines.append(chunk)
+    lines.append(
+        "When you use information from a source below, cite it inline as [1], [2], etc., "
+        "matching the source numbers. End your answer with a 'Sources:' line listing each "
+        "citation used, e.g. 'Sources: [1] Biology 2e, p.249'."
+    )
+    for i, item in enumerate(sources[:5], 1):
+        if isinstance(item, dict):
+            page_str = f", p.{item['page']}" if item.get("page") else ""
+            label = item.get("source_label") or "Your Notes"
+            lines.append(f"\n[{i}] {item.get('book_title', 'Unknown')}{page_str} ({label})")
+            lines.append(str(item.get("text", ""))[:800])
+        else:
+            lines.append(f"\n--- Source {i} ---")
+            lines.append(str(item))
     return "\n".join(lines)
 
 def _context_only_section() -> str:

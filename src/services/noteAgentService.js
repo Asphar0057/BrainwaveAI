@@ -31,7 +31,9 @@ class NoteAgentService {
           tone: params.tone || 'professional',
           depth: params.depth || 'standard',
           context: params.context || null,
-          session_id: params.sessionId || null
+          session_id: params.sessionId || null,
+          use_hs_context: params.useHsContext === true,
+          context_doc_ids: params.contextDocIds || null
         })
       });
 

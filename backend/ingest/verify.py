@@ -38,8 +38,8 @@ def spot_check_doc(
     max_distance: float = 0.5,
 ) -> SpotCheckResult:
     try:
-        import context_store
-        import vector_store as vs
+        from services import context_store
+        from services import vector_store as vs
     except ImportError as e:
         return SpotCheckResult(
             doc_id=doc_id, title=title, passed=False,

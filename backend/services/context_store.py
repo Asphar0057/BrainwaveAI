@@ -449,6 +449,70 @@ def get_document_chunks(
             })
     return chunks
 
+def source_label(source: str) -> str:
+    """Human-readable label for a retrieved chunk's origin, matching /api/context/ask's wording."""
+    return "Community Curriculum" if source == "hs" else "Your Notes"
+
+def build_rag_sources(results: list[dict]) -> list[dict]:
+    """Turn search_context()/get_document_chunks() results into numbered citation
+    metadata: {index, text, filename, book_title, page, subject, source_label}.
+    Mirrors the citation fields routes/context.py's /ask endpoint already builds,
+    so every RAG-consuming graph can cite the same book_title/page info."""
+    sources = []
+    for i, r in enumerate(results, start=1):
+        meta = r.get("metadata") or {}
+        filename = meta.get("filename") or meta.get("book_title") or "Unknown"
+        book_title = meta.get("book_title") or filename
+        page = meta.get("page_number") or meta.get("page_start") or ""
+        sources.append({
+            "index": i,
+            "text": r.get("text", ""),
+            "filename": filename,
+            "book_title": book_title,
+            "page": page,
+            "subject": meta.get("subject", ""),
+            "source_label": source_label(r.get("source", "private")),
+        })
+    return sources
+
+def format_rag_sources_block(rag_sources: list[dict], max_sources: int = 5, max_chars: int = 800) -> str:
+    """Render rag_sources (from build_rag_sources) as numbered excerpts for a prompt:
+    '[1] Book Title, p.X (label)\\n<excerpt text>'."""
+    blocks = []
+    for s in rag_sources[:max_sources]:
+        page_str = f", p.{s['page']}" if s.get("page") else ""
+        blocks.append(
+            f"[{s.get('index')}] {s.get('book_title', 'Unknown')}{page_str} ({s.get('source_label', 'Your Notes')})\n"
+            f"{str(s.get('text', ''))[:max_chars]}"
+        )
+    return "\n\n".join(blocks)
+
+import re as _re
+_CITATION_MARKER_RE = _re.compile(r"\[(\d+)\]")
+
+def resolve_citations(text: str, rag_sources: list[dict]) -> str:
+    """If text uses [n] citation markers referencing rag_sources, append a resolved
+    '(Source: book, p.X)' suffix so the citation is human-readable without the reader
+    needing the numbered source list. No-op if there are no markers or no sources."""
+    if not text or not rag_sources:
+        return text
+    used = sorted({int(m) for m in _CITATION_MARKER_RE.findall(text)})
+    if not used:
+        return text
+    by_index = {s["index"]: s for s in rag_sources}
+    parts = []
+    for i in used:
+        src = by_index.get(i)
+        if not src:
+            continue
+        page_str = f", p.{src['page']}" if src.get("page") else ""
+        label = f"{src.get('book_title', 'Unknown')}{page_str}"
+        if label not in text:
+            parts.append(label)
+    if not parts:
+        return text
+    return f"{text} (Source: {'; '.join(parts)})"
+
 def list_user_docs(user_id: str) -> list[dict]:
     if not available():
         return []

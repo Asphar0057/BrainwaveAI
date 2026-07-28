@@ -11,7 +11,7 @@ import './MyNotesSmartFolders.css';
 import './MyNotesChatImport.css';
 import './MyNotesConvert.css';
 import { API_URL } from '../config';
-import { sanitizeHtml } from '../utils/sanitize';
+import MathRenderer from '../components/MathRenderer';
 import Templates from '../components/Templates';
 import ImportExportModal from '../components/ImportExportModal';
 import ContextSelector from '../components/ContextSelector';
@@ -940,7 +940,7 @@ const MyNotes = () => {
                       <div className="nt-favorite-badge"><Star size={14} /></div>
                     )}
                     <div className="nt-note-card-cover">
-                      <div className="nt-note-cover-preview" dangerouslySetInnerHTML={{ __html: sanitizeHtml(note.content || '<p>Empty note</p>') }} />
+                      <MathRenderer content={note.content || '<p>Empty note</p>'} className="nt-note-cover-preview" />
                     </div>
                     <div className="nt-note-card-content">
                       <div className="nt-note-card-header">

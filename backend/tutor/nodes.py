@@ -253,6 +253,31 @@ def _looks_like_comprehension_answer(text: str) -> bool:
 
     return bool(re.search(r"\b(it|this|that|they|wave|particle|means?)\b", lower))
 
+_CITATION_MARKER_RE = re.compile(r"\[(\d+)\]")
+
+def _append_rag_citations(response: str, rag_sources: list) -> str:
+    """If the tutor response uses [n] citation markers and doesn't already end with a
+    Sources line, append one resolved from rag_sources (book_title/page), so citations
+    are always accurate even if the model's own trailer is missing or wrong."""
+    if not response or not rag_sources:
+        return response
+    if "sources:" in response.lower():
+        return response
+    used_indices = sorted({int(m) for m in _CITATION_MARKER_RE.findall(response)})
+    if not used_indices:
+        return response
+    by_index = {s["index"]: s for s in rag_sources if isinstance(s, dict)}
+    parts = []
+    for i in used_indices:
+        src = by_index.get(i)
+        if not src:
+            continue
+        page_str = f", p.{src['page']}" if src.get("page") else ""
+        parts.append(f"[{i}] {src.get('book_title', 'Unknown')}{page_str}")
+    if not parts:
+        return response
+    return f"{response}\n\n**Sources:** {' · '.join(parts)}"
+
 def _has_tutor_contract_leak(text: str) -> bool:
     lowered = str(text or "").strip().lower()
     if not lowered:
@@ -1125,6 +1150,7 @@ def gate_and_retrieve(state: TutorState) -> dict:
             structured_context.extend(activity_context)
 
     rag_chunks: list[str] = []
+    rag_sources: list[dict] = []
     use_hs = state.get("use_hs_context", True)
     use_hs_for_query = bool(use_hs) and not bool(context_doc_ids)
     should_query_context = bool(user_input.strip()) and (bool(use_hs) or bool(context_doc_ids))
@@ -1145,6 +1171,7 @@ def gate_and_retrieve(state: TutorState) -> dict:
                     doc_ids=context_doc_ids or None,
                 )
                 rag_chunks = [r["text"] for r in rag_results]
+                rag_sources = context_store.build_rag_sources(rag_results)
                 if rag_chunks:
                     logger.info(
                         f"[TUTOR RAG] *** HS CONTEXT FOUND *** {len(rag_chunks)} chunk(s) retrieved"
@@ -1168,6 +1195,7 @@ def gate_and_retrieve(state: TutorState) -> dict:
         "episodic_memories": memories,
         "structured_context": structured_context,
         "rag_context": rag_chunks,
+        "rag_sources": rag_sources,
         "context_only": context_only,
         "context_only_no_match": bool(context_only and use_hs and not rag_chunks),
     }
@@ -2069,6 +2097,7 @@ async def build_prompt_and_respond(state: TutorState) -> dict:
                 response,
                 str(state.get("user_input") or ""),
             )
+        response = _append_rag_citations(response, state.get("rag_sources") or [])
         return {"response": response, "instructional_task": task}
     except Exception as e:
         main_ai = state.get("_ai_client")
@@ -2097,6 +2126,7 @@ async def build_prompt_and_respond(state: TutorState) -> dict:
                         response,
                         str(state.get("user_input") or ""),
                     )
+                response = _append_rag_citations(response, state.get("rag_sources") or [])
                 return {"response": response, "instructional_task": task}
             except Exception as fallback_error:
                 logger.error(f"Fallback LLM generation failed: {fallback_error}")

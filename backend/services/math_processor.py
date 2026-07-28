@@ -143,3 +143,16 @@ def enhance_display_math(text: str) -> str:
 
 def format_math_response(text: str) -> str:
     return process_math_in_response(text)
+
+def process_math_in_json(obj):
+    """Recursively normalize LaTeX delimiters in every string value of a
+    parsed JSON structure (dict/list), leaving keys and non-string values untouched.
+    Useful for AI responses that return structured JSON (quiz arrays, outlines, etc)
+    rather than a single free-text blob."""
+    if isinstance(obj, str):
+        return process_math_in_response(obj)
+    if isinstance(obj, dict):
+        return {k: process_math_in_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [process_math_in_json(v) for v in obj]
+    return obj

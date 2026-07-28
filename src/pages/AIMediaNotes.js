@@ -10,7 +10,7 @@ import './AIMediaNotes.css';
 import './AIMediaNotesConvert.css';
 import { API_URL } from '../config';
 import { queueLegacyAIEndpoint, queueLegacyAIFileEndpoint, USE_AI_JOB_QUEUE } from '../services/aiJobService';
-import { sanitizeHtml } from '../utils/sanitize';
+import MathRenderer from '../components/MathRenderer';
 import ImportExportModal from '../components/ImportExportModal';
 import PodcastStudio from '../components/media/PodcastStudio';
 import GeometricGrid from '../components/GeometricGrid';
@@ -1089,9 +1089,9 @@ const AIMediaNotes = () => {
                           <span>Generated notes</span>
                           <span>{noteStyle.replace('_', ' ')}</span>
                         </div>
-                        <div
+                        <MathRenderer
+                          content={results.notes.content || ''}
                           className="mn-notes-output"
-                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(results.notes.content || '') }}
                         />
                       </div>
                       {showTranscriptRail && transcriptText && (
@@ -1260,7 +1260,7 @@ const AIMediaNotes = () => {
                           {results.quiz_questions.map((q, idx) => (
                             <div key={idx} className="mn-quiz-question">
                               <h4>Question {idx + 1}</h4>
-                              <p className="mn-question-text">{q.question}</p>
+                              <MathRenderer content={q.question} className="mn-question-text" />
                               <div className="mn-quiz-options">
                                 {(Array.isArray(q.options) ? q.options : []).map((option, optIdx) => (
                                   <div
@@ -1268,13 +1268,13 @@ const AIMediaNotes = () => {
                                     className={`mn-quiz-option ${optIdx === q.correct_answer ? 'correct' : ''}`}
                                   >
                                     <span className="mn-option-letter">{String.fromCharCode(65 + optIdx)}</span>
-                                    {option}
+                                    <MathRenderer content={String(option)} />
                                   </div>
                                 ))}
                               </div>
                               {q.explanation && (
                                 <div className="mn-explanation">
-                                  <strong>Explanation:</strong> {q.explanation}
+                                  <strong>Explanation:</strong> <MathRenderer content={q.explanation} />
                                 </div>
                               )}
                             </div>

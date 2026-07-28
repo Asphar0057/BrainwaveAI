@@ -1072,7 +1072,8 @@ const NotesRedesign = ({ sharedMode = false }) => {
       const result = await noteAgentService.invoke('explain', {
         userId: userName,
         content: selectedText,
-        context: noteContent
+        context: noteContent,
+        useHsContext: hsMode
       });
 
       if (!isAgentSuccess(result)) throw new Error("AI explanation failed");
@@ -1123,7 +1124,8 @@ const NotesRedesign = ({ sharedMode = false }) => {
         userId: userName,
         content: selectedText,
         topic: selectedText,
-        context: noteContent
+        context: noteContent,
+        useHsContext: hsMode
       });
 
       if (!isAgentSuccess(result)) throw new Error("AI generation failed");
@@ -2259,7 +2261,8 @@ const NotesRedesign = ({ sharedMode = false }) => {
         userId: userName,
         topic: aiPrompt,
         content: aiPrompt,
-        context: noteContent
+        context: noteContent,
+        useHsContext: hsMode
       });
 
       if (!isAgentSuccess(result)) throw new Error("AI generation failed");
@@ -2310,7 +2313,8 @@ const NotesRedesign = ({ sharedMode = false }) => {
         userId: userName,
         topic: aiPrompt || "Generate content",
         content: aiPrompt || "Generate content",
-        context: noteContent
+        context: noteContent,
+        useHsContext: hsMode
       });
 
       if (!isAgentSuccess(result)) throw new Error("AI generation failed");
@@ -2480,7 +2484,8 @@ const NotesRedesign = ({ sharedMode = false }) => {
         userId: userName,
         topic: transcript,
         content: transcript,
-        context: noteContent
+        context: noteContent,
+        useHsContext: hsMode
       });
 
       if (!isAgentSuccess(result)) {
@@ -2561,7 +2566,8 @@ const NotesRedesign = ({ sharedMode = false }) => {
       
       const agentAction = actionMap[action] || action;
       const shouldIncludeNoteContext = agentAction !== 'grammar';
-      
+      const ragEligible = agentAction === 'generate' || agentAction === 'summarize';
+
       // Use the note agent service
       const result = await noteAgentService.invoke(agentAction, {
         userId: userName,
@@ -2570,7 +2576,8 @@ const NotesRedesign = ({ sharedMode = false }) => {
         tone: aiAssistTone,
         context: shouldIncludeNoteContext
           ? noteBlocks.map(b => b.content).join('\n')
-          : null
+          : null,
+        useHsContext: ragEligible && hsMode
       });
 
       if (!isAgentSuccess(result)) throw new Error("AI assist failed");

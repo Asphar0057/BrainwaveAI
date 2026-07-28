@@ -8,6 +8,7 @@ import { queuedAIJsonFetch } from '../services/aiJobService';
 import useSharedWebSocket from '../hooks/useSharedWebSocket';
 import gamificationService from '../services/gamificationService';
 import { extractQuestionText, normalizeQuestions } from '../utils/quizQuestionUtils';
+import MathRenderer from '../components/MathRenderer';
 
 const QuizBattleSession = () => {
   const navigate = useNavigate();
@@ -577,7 +578,7 @@ const QuizBattleSession = () => {
       <div className="battle-session-container">
         <div className="question-card">
           <div className="question-header">
-            <h2 className="question-text">{currentQuestionText}</h2>
+            <MathRenderer content={currentQuestionText} className="question-text" />
             <div className="question-difficulty">
               <span className={`difficulty-badge ${battle?.difficulty}`}>
                 {battle?.difficulty}

@@ -105,6 +105,8 @@ def _generate_question_for_topic(topic: str, difficulty: str, db: Session) -> di
         start = raw.find("{")
         end = raw.rfind("}") + 1
         data = json.loads(raw[start:end])
+        from services.math_processor import process_math_in_json
+        data = process_math_in_json(data)
     except (json.JSONDecodeError, ValueError):
         data = {
             "question_text": f"Explain a key concept in {topic}.",
@@ -170,7 +172,8 @@ def _evaluate_answer(question: dict, user_answer: str) -> tuple[bool, str]:
         start = raw.find("{")
         end = raw.rfind("}") + 1
         data = json.loads(raw[start:end])
-        return bool(data.get("is_correct", False)), data.get("feedback", "")
+        from services.math_processor import process_math_in_response
+        return bool(data.get("is_correct", False)), process_math_in_response(data.get("feedback", ""))
     except (json.JSONDecodeError, ValueError):
         is_correct = user_answer.strip().lower() in correct_answer.strip().lower()
         return is_correct, f"Expected: {correct_answer}"
@@ -611,6 +614,8 @@ async def generate_study_plan(
             start = raw.find("{")
             end = raw.rfind("}") + 1
             plan_data = json.loads(raw[start:end])
+            from services.math_processor import process_math_in_json
+            plan_data = process_math_in_json(plan_data)
         except (json.JSONDecodeError, ValueError):
             plan_data = {
                 "plan_title": f"{duration_weeks}-Week Study Plan",

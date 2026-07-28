@@ -5,6 +5,7 @@ import './ChallengeSession.css';
 import '../components/SocialHubChrome.css';
 import { API_URL } from '../config';
 import { queuedAIJsonFetch } from '../services/aiJobService';
+import MathRenderer from '../components/MathRenderer';
 
 const ChallengeSession = () => {
   const navigate = useNavigate();
@@ -328,7 +329,7 @@ const ChallengeSession = () => {
       <div className="challenge-session-container">
         <div className="question-card">
           <div className="question-header">
-            <h2 className="question-text">{currentQuestion.question}</h2>
+            <MathRenderer content={currentQuestion.question} className="question-text" />
             {challenge?.subject && (
               <div className="question-subject">
                 <span className="subject-badge">{challenge.subject}</span>
@@ -372,7 +373,7 @@ const ChallengeSession = () => {
                 <strong>
                   {selectedAnswer === currentQuestion.correct_answer ? 'Correct!' : 'Incorrect'}
                 </strong>
-                <p>{currentQuestion.explanation}</p>
+                <MathRenderer content={currentQuestion.explanation} />
               </div>
             </div>
           )}

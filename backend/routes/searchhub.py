@@ -343,6 +343,8 @@ async def _create_note_with_ai(
             )
             try:
                 content = (await call_ai_async(prompt, max_tokens=2000, temperature=0.7)).strip()
+                from services.math_processor import process_math_in_response
+                content = process_math_in_response(content)
             except Exception:
                 content = f"# {note_title}\n\n- Key ideas\n- Definitions\n- Examples"
 
@@ -609,6 +611,8 @@ async def searchhub_agent(request: SearchHubRequest, db: Session = Depends(get_d
         )
         try:
             explanation = (await call_ai_async(prompt, max_tokens=400, temperature=0.6)).strip()
+            from services.math_processor import process_math_in_response
+            explanation = process_math_in_response(explanation)
         except Exception:
             explanation = f"Here is a concise overview of {topic}. I can also create flashcards or notes if you'd like."
 
@@ -737,11 +741,13 @@ async def searchhub_agent(request: SearchHubRequest, db: Session = Depends(get_d
         ai_response = _build_search_ai_response(query, topic, results, suggestions)
         if not results:
             try:
-                ai_response = await call_ai_async(
+                ai_response = (await call_ai_async(
                     f"Provide a short, friendly description of '{topic}' in 2-3 sentences.",
                     max_tokens=200,
                     temperature=0.6,
-                ).strip()
+                )).strip()
+                from services.math_processor import process_math_in_response
+                ai_response = process_math_in_response(ai_response)
             except Exception:
                 ai_response = (
                     f"I can help you learn about {topic}. "
@@ -866,6 +872,8 @@ async def explain_endpoint(request: ExplainRequest, db: Session = Depends(get_db
     )
     try:
         explanation = (await call_ai_async(prompt, max_tokens=400, temperature=0.6)).strip()
+        from services.math_processor import process_math_in_response
+        explanation = process_math_in_response(explanation)
     except Exception:
         explanation = f"Here is a concise overview of {topic}. I can also create flashcards or notes if you'd like."
 

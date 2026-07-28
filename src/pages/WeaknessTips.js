@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import './WeaknessTips.css';
 import '../components/SocialHubChrome.css';
+import MathRenderer from '../components/MathRenderer';
 import { queuedAIJsonFetch } from '../services/aiJobService';
 
 const AccuracyMeter = ({ accuracy }) => {
@@ -390,7 +391,7 @@ const WeaknessTips = () => {
                       <span className={`wt-q-diff wt-q-diff--${q.difficulty}`}>{q.difficulty}</span>
                       {q.is_new && <span className="wt-q-new">NEW</span>}
                     </div>
-                    <p className="wt-q-text">{q.question_text}</p>
+                    <MathRenderer content={q.question_text} className="wt-q-text" />
                     {!q.is_new && q.user_answer && (
                       <div className="wt-q-history">
                         <span className="wt-q-yours">Your answer: {q.user_answer}</span>

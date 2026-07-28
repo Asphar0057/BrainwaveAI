@@ -5,8 +5,33 @@ import re
 from typing import Any, Optional, TypedDict
 
 from langgraph.graph import StateGraph, END
+from services.context_store import format_rag_sources_block
 
 logger = logging.getLogger(__name__)
+
+_CITATION_MARKER_RE = re.compile(r"\[(\d+)\]")
+
+def _ensure_references_section(content: str, rag_sources: list) -> str:
+    """If the notes use [n] citation markers but never rendered a References section,
+    append one resolved from rag_sources so citations are always traceable."""
+    if not content or not rag_sources:
+        return content
+    if re.search(r"^#+\s*references\b", content, re.IGNORECASE | re.MULTILINE):
+        return content
+    used = sorted({int(m) for m in _CITATION_MARKER_RE.findall(content)})
+    if not used:
+        return content
+    by_index = {s["index"]: s for s in rag_sources if isinstance(s, dict)}
+    lines = ["\n## References"]
+    for i in used:
+        src = by_index.get(i)
+        if not src:
+            continue
+        page_str = f", p.{src['page']}" if src.get("page") else ""
+        lines.append(f"- [{i}] {src.get('book_title', 'Unknown')}{page_str}")
+    if len(lines) == 1:
+        return content
+    return content + "\n" + "\n".join(lines)
 
 class NoteGenState(TypedDict, total=False):
     user_id: str
@@ -19,6 +44,7 @@ class NoteGenState(TypedDict, total=False):
     student_weaknesses: list[str]
     student_strengths: list[str]
     rag_context: list[str]
+    rag_sources: list[dict]
     use_hs_context: bool
     context_doc_ids: list[str]
     built_prompt: str
@@ -68,6 +94,7 @@ async def fetch_context(state: NoteGenState) -> dict:
             logger.warning(f"NoteGraph DB context fetch failed: {e}")
 
     rag_chunks: list[str] = []
+    rag_sources: list[dict] = []
     use_hs = state.get("use_hs_context", True)
     context_doc_ids = state.get("context_doc_ids") or []
     logger.info(
@@ -94,6 +121,7 @@ async def fetch_context(state: NoteGenState) -> dict:
                         top_k=8,
                     )
                 rag_chunks = [r["text"] for r in results]
+                rag_sources = context_store.build_rag_sources(results)
                 if rag_chunks:
                     logger.info(
                         f"[NOTE RAG] Retrieved {len(rag_chunks)} chunk(s) for '{topic}' "
@@ -118,6 +146,7 @@ async def fetch_context(state: NoteGenState) -> dict:
         "student_weaknesses": weaknesses,
         "student_strengths": strengths,
         "rag_context": rag_chunks,
+        "rag_sources": rag_sources,
     }
 
 DEPTH_GUIDES = {
@@ -200,14 +229,22 @@ def build_prompt(state: NoteGenState) -> dict:
         parts.append(f"ADDITIONAL INSTRUCTIONS:\n{additional_specs}\n")
 
     rag_context = state.get("rag_context", [])
+    rag_sources = state.get("rag_sources") or []
+    cite_instructions = ""
     if rag_context:
         logger.info(f"[NOTE PROMPT] *** INJECTING {len(rag_context)} RAG chunk(s) into prompt ***")
-        context_block = "\n---\n".join(rag_context[:5])
+        context_block = format_rag_sources_block(rag_sources) if rag_sources else "\n---\n".join(rag_context[:5])
         parts.append(
             f"RELEVANT CURRICULUM CONTEXT (from student's documents and HS curriculum):\n"
             f"{context_block}\n\n"
             "Prioritise this material when relevant to the topic. "
             "Use it to make the notes more curriculum-aligned and accurate.\n"
+        )
+        cite_instructions = (
+            "\n- Cite sources inline as [1], [2], etc. when the notes use specific facts from the "
+            "curriculum context above, matching the source numbers.\n"
+            "- End the notes with a '## References' section listing each numbered source used, "
+            "formatted as '- [1] Book Title, p.X'."
         )
     else:
         logger.info("[NOTE PROMPT] No RAG context — generating from model knowledge only")
@@ -219,6 +256,7 @@ def build_prompt(state: NoteGenState) -> dict:
         "- Include a brief intro paragraph, then structured sections\n"
         "- If relevant, include a 'Summary' or 'Key Takeaways' section at the end\n"
         "- Return only the note content — no meta-commentary or preamble"
+        + cite_instructions
     )
 
     return {"built_prompt": "\n".join(parts)}
@@ -237,19 +275,20 @@ def generate_note(state: NoteGenState) -> dict:
 
     prompt = state.get("built_prompt", "")
     depth = state.get("depth", "standard")
+    rag_sources = state.get("rag_sources") or []
 
     max_tokens = {"brief": 800, "standard": 2000, "deep": 3500}.get(depth, 2000)
 
     try:
         content = ai_client.generate(prompt, max_tokens=max_tokens, temperature=0.65)
-        return {"note_content": content.strip()}
+        return {"note_content": _ensure_references_section(content.strip(), rag_sources)}
     except Exception as e:
         main_ai = state.get("_ai_client")
         if ai_client is hs_ai and main_ai and main_ai is not ai_client:
             logger.error(f"HS NoteGraph generation failed; falling back to main AI client: {e}")
             try:
                 content = main_ai.generate(prompt, max_tokens=max_tokens, temperature=0.65)
-                return {"note_content": content.strip()}
+                return {"note_content": _ensure_references_section(content.strip(), rag_sources)}
             except Exception as fallback_error:
                 logger.error(f"Main AI NoteGraph fallback failed: {fallback_error}")
         logger.error(f"NoteGraph generation failed: {e}")

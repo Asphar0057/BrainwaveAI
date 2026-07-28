@@ -740,6 +740,11 @@ def build_outline(state: LearningPathState) -> dict:
         response = ai_client.generate(prompt, max_tokens=1800, temperature=0.4)
         parsed = _parse_json_payload(response)
         if parsed and parsed.get("nodes"):
+            try:
+                from services.math_processor import process_math_in_json
+                parsed = process_math_in_json(parsed)
+            except Exception:
+                pass
             return parsed
     except Exception as e:
         logger.warning(f"Learning path AI outline failed: {e}")

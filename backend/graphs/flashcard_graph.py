@@ -7,6 +7,7 @@ from typing import Any, Optional, TypedDict
 from langgraph.graph import StateGraph, END
 from services.ai_json_parser import parse_json_array_response
 from services.document_flashcard_source import has_low_document_card_quality
+from services.context_store import format_rag_sources_block, resolve_citations
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ class FlashcardGenState(TypedDict, total=False):
     student_weaknesses: list[str]
     student_strengths: list[str]
     rag_context: list[str]
+    rag_sources: list[dict]
     use_hs_context: bool
     context_doc_ids: list[str]
     built_prompt: str
@@ -50,6 +52,7 @@ async def fetch_context(state: FlashcardGenState) -> dict:
             logger.warning(f"DB context fetch failed: {e}")
 
     rag_chunks: list[str] = []
+    rag_sources: list[dict] = []
     topic = state.get("topic", "")
     use_hs = state.get("use_hs_context", True)
     context_doc_ids = state.get("context_doc_ids") or []
@@ -82,6 +85,7 @@ async def fetch_context(state: FlashcardGenState) -> dict:
                         top_k=8,
                     )
                 rag_chunks = [r["text"] for r in results]
+                rag_sources = context_store.build_rag_sources(results)
                 if rag_chunks:
                     logger.info(
                         f"[FLASHCARD RAG] Retrieved {len(rag_chunks)} chunk(s) for '{topic}' "
@@ -106,6 +110,7 @@ async def fetch_context(state: FlashcardGenState) -> dict:
         "student_weaknesses": weaknesses,
         "student_strengths": strengths,
         "rag_context": rag_chunks,
+        "rag_sources": rag_sources,
     }
 
 DIFFICULTY_GUIDES = {
@@ -206,14 +211,17 @@ def build_prompt(state: FlashcardGenState) -> dict:
         parts.append(f"ADDITIONAL INSTRUCTIONS FROM STUDENT:\n{additional_specs.strip()}\n")
 
     rag_context = state.get("rag_context", [])
+    rag_sources = state.get("rag_sources") or []
     if rag_context:
         logger.info(f"[FLASHCARD PROMPT] *** INJECTING {len(rag_context)} RAG chunk(s) into prompt ***")
-        context_block = "\n---\n".join(rag_context[:5])
+        context_block = format_rag_sources_block(rag_sources) if rag_sources else "\n---\n".join(rag_context[:5])
         parts.append(
             f"RELEVANT CURRICULUM CONTEXT (from student's documents and HS curriculum):\n"
             f"{context_block}\n\n"
             "Prioritise this material when relevant to the topic. "
-            "Use it to make flashcards more curriculum-aligned and accurate.\n"
+            "Use it to make flashcards more curriculum-aligned and accurate. "
+            "When a card's answer draws on a specific source above, cite it inline in the answer "
+            "text as [1], [2], etc., matching the source numbers.\n"
         )
     else:
         logger.info("[FLASHCARD PROMPT] No RAG context — generating from model knowledge only")
@@ -252,6 +260,7 @@ def generate_cards(state: FlashcardGenState) -> dict:
     prompt = state.get("built_prompt", "")
     difficulty = state.get("difficulty", "medium")
     card_count = state.get("card_count", 10)
+    rag_sources = state.get("rag_sources") or []
 
     def _generate_with(client, prompt_text: str) -> list[dict]:
         response = client.generate(prompt_text, max_tokens=3000, temperature=0.45)
@@ -263,6 +272,7 @@ def generate_cards(state: FlashcardGenState) -> dict:
                 answer = card["answer"]
                 if len(answer) > 400:
                     answer = answer[:400] + "..."
+                answer = resolve_citations(answer, rag_sources)
                 wrong_options = card.get("wrong_options", [])
                 wrong_options = [
                     opt[:400] + "..." if len(opt) > 400 else opt

@@ -1532,6 +1532,12 @@ Return ONLY the description text, no labels or extra formatting."""
         if description.lower().startswith("description:"):
             description = description[12:].strip()
 
+        try:
+            from services.math_processor import process_math_in_response
+            description = process_math_in_response(description)
+        except Exception:
+            pass
+
         logger.info(f"Generated description: {description[:100]}...")
 
         return {
