@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
+  Award,
   BookOpen,
   Clock3,
   Compass,
+  Flame,
   Gauge,
   Home,
   Library,
@@ -15,10 +17,12 @@ import {
   Route,
   Search,
   Sparkles,
+  TrendingUp,
   Trash2,
 } from 'lucide-react';
 import learningPathService from '../services/learningPathService';
 import GeoBackground from '../components/GeoBackground';
+import { API_URL } from '../config';
 import {
   SidebarAction,
   SidebarActions,
@@ -34,11 +38,17 @@ import {
 } from '../components/Sidebar';
 import './LearningPaths.css';
 
-const SUGGESTED_TOPICS = [
+const FALLBACK_TOPICS = [
   'System design for AI products',
   'React performance architecture',
   'Advanced calculus for ML',
   'Data structures in Python',
+];
+
+const TOPIC_GROUPS = [
+  { key: 'needs_work', label: 'Strengthen these', icon: Flame },
+  { key: 'progressing', label: 'In progress', icon: TrendingUp },
+  { key: 'mastered', label: 'Already strong', icon: Award },
 ];
 
 const FILTERS = [
@@ -100,6 +110,8 @@ const LearningPaths = () => {
   const [difficulty, setDifficulty] = useState('intermediate');
   const [pathLength, setPathLength] = useState('medium');
   const [goals, setGoals] = useState('');
+  const [topicMastery, setTopicMastery] = useState(null);
+  const [masteryLoading, setMasteryLoading] = useState(true);
 
   const loadPaths = async () => {
     try {
@@ -115,8 +127,31 @@ const LearningPaths = () => {
     }
   };
 
+  const loadTopicMastery = async () => {
+    const token = localStorage.getItem('token');
+    const userName = localStorage.getItem('username');
+    if (!token || !userName) {
+      setMasteryLoading(false);
+      return;
+    }
+    try {
+      setMasteryLoading(true);
+      const response = await fetch(`${API_URL}/weakness-practice/mastery-overview?user_id=${encodeURIComponent(userName)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Topic mastery unavailable');
+      setTopicMastery(await response.json());
+    } catch (error) {
+      console.error('Error loading topic mastery:', error);
+      setTopicMastery(null);
+    } finally {
+      setMasteryLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadPaths();
+    loadTopicMastery();
   }, []);
 
   useEffect(() => {
@@ -137,6 +172,19 @@ const LearningPaths = () => {
       : 0;
     return { total: paths.length, active: active.length, completed: completed.length, avgProgress };
   }, [paths]);
+
+  const topicGroups = useMemo(() => {
+    const breakdown = topicMastery?.topic_breakdown;
+    if (!breakdown || !topicMastery?.total_topics) return [];
+    return TOPIC_GROUPS.map(({ key, label, icon }) => ({
+      key,
+      label,
+      icon,
+      topics: [...(breakdown[key] || [])]
+        .sort((a, b) => (key === 'mastered' ? b.mastery_level - a.mastery_level : a.mastery_level - b.mastery_level))
+        .slice(0, 6),
+    })).filter((group) => group.topics.length > 0);
+  }, [topicMastery]);
 
   const filteredPaths = useMemo(() => paths
     .filter((path) => statusFilter === 'all' || getPathStatus(path) === statusFilter)
@@ -285,11 +333,47 @@ const LearningPaths = () => {
                     rows={3}
                     autoFocus
                   />
-                  <div className="lp-topic-chips">
-                    {SUGGESTED_TOPICS.map((topic) => (
-                      <button type="button" key={topic} onClick={() => setTopicPrompt(topic)}>{topic}</button>
-                    ))}
+                </div>
+
+                <div className="lp-topics-panel">
+                  <div className="lp-topics-head">
+                    <span>Your topics</span>
+                    {topicMastery?.total_topics > 0 && (
+                      <p>{topicMastery.total_topics} tracked &middot; {topicMastery.overall_mastery}% overall mastery</p>
+                    )}
                   </div>
+
+                  {masteryLoading ? (
+                    <div className="lp-topics-loading"><Loader2 className="lp-spin" size={15} /> Reading your topic history</div>
+                  ) : topicGroups.length > 0 ? (
+                    topicGroups.map((group) => {
+                      const GroupIcon = group.icon;
+                      return (
+                        <div className="lp-topic-group" key={group.key}>
+                          <span className="lp-topic-group-label"><GroupIcon size={12} /> {group.label}</span>
+                          <div className="lp-topic-chips">
+                            {group.topics.map((t) => (
+                              <button type="button" key={t.topic} onClick={() => setTopicPrompt(t.topic)}>
+                                {t.topic}
+                                <em>{Math.round((t.mastery_level || 0) * 100)}%</em>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <>
+                      <p className="lp-topics-empty">
+                        No tracked topics yet &mdash; study a topic anywhere in Cerbyl and it&apos;ll show up here. For now, here are a few to start from:
+                      </p>
+                      <div className="lp-topic-chips">
+                        {FALLBACK_TOPICS.map((topic) => (
+                          <button type="button" key={topic} onClick={() => setTopicPrompt(topic)}>{topic}</button>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div className="lp-builder-options">

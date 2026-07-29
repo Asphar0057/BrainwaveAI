@@ -1240,6 +1240,7 @@ async def firebase_authentication(request: Request, db: Session = Depends(get_db
                         id_token,
                         GoogleAuthRequest(),
                         audience=firebase_project_id,
+                        clock_skew_in_seconds=10,
                     )
                     expected_issuer = f"https://securetoken.google.com/{firebase_project_id}"
                     subject = decoded.get("sub")
