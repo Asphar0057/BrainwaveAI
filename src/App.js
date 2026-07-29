@@ -5,6 +5,7 @@ import { ToastProvider } from './contexts/ToastContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import ProactiveNotification from './components/ProactiveNotification';
 import ProtectedRoute from './components/ProtectedRoute';
+import RoleProtectedRoute from './components/RoleProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
 import GlobalNotifications from './components/GlobalNotifications';
@@ -61,6 +62,10 @@ const MyNotes = lazyRoute(() => import('./pages/MyNotes'));
 const NotesPodcastMode = lazyRoute(() => import('./pages/NotesPodcastMode'));
 const Login = lazyRoute(() => import('./pages/Login'));
 const Register = lazyRoute(() => import('./pages/Register'));
+const WorkspaceSelect = lazyRoute(() => import('./pages/WorkspaceSelect'));
+const StudentDashboard = lazyRoute(() => import('./pages/StudentDashboard'));
+const EducatorDashboard = lazyRoute(() => import('./pages/EducatorDashboard'));
+const InstitutionClassroomPage = lazyRoute(() => import('./pages/InstitutionClassroomPage'));
 const Profile = lazyRoute(() => import('./pages/ProfileNew'));
 const UsageStats = lazyRoute(() => import('./pages/UsageStats'));
 const ProfileQuiz = lazyRoute(() => import('./pages/ProfileQuiz'));
@@ -89,8 +94,22 @@ const Vault = lazyRoute(() => import('./pages/ContextHubWorkspace'));
 const ContextFileAnalysis = lazyRoute(() => import('./pages/ContextFileAnalysis'));
 const AIChatDock = lazyRoute(() => import('./components/AIChatDock'));
 
+function LearnerProtectedRoute({ children }) {
+  return (
+    <ProtectedRoute>
+      <RoleProtectedRoute role="learner">
+        {children}
+      </RoleProtectedRoute>
+    </ProtectedRoute>
+  );
+}
+
 const ROUTE_PRELOAD_ORDER = [
   DashboardCerbyl,
+  WorkspaceSelect,
+  StudentDashboard,
+  EducatorDashboard,
+  InstitutionClassroomPage,
   SearchHub,
   AIChat,
   NotesHub,
@@ -277,9 +296,21 @@ function App() {
                   <Route path="/search-hub" element={<ProtectedRoute><SearchHub /></ProtectedRoute>} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
-                  <Route path="/homepage" element={<ProtectedRoute><Homepage /></ProtectedRoute>} />
+                  <Route path="/workspace" element={<ProtectedRoute><WorkspaceSelect /></ProtectedRoute>} />
+                  <Route path="/student" element={<ProtectedRoute><RoleProtectedRoute role="student"><StudentDashboard /></RoleProtectedRoute></ProtectedRoute>} />
+                  <Route path="/educator" element={<ProtectedRoute><RoleProtectedRoute role="educator"><EducatorDashboard /></RoleProtectedRoute></ProtectedRoute>} />
+                  <Route path="/student/classes" element={<ProtectedRoute><RoleProtectedRoute role="student"><InstitutionClassroomPage role="student" view="classes" /></RoleProtectedRoute></ProtectedRoute>} />
+                  <Route path="/student/assignments" element={<ProtectedRoute><RoleProtectedRoute role="student"><InstitutionClassroomPage role="student" view="assignments" /></RoleProtectedRoute></ProtectedRoute>} />
+                  <Route path="/student/messages" element={<ProtectedRoute><RoleProtectedRoute role="student"><InstitutionClassroomPage role="student" view="messages" /></RoleProtectedRoute></ProtectedRoute>} />
+                  <Route path="/student/notifications" element={<ProtectedRoute><RoleProtectedRoute role="student"><InstitutionClassroomPage role="student" view="notifications" /></RoleProtectedRoute></ProtectedRoute>} />
+                  <Route path="/educator/classes" element={<ProtectedRoute><RoleProtectedRoute role="educator"><InstitutionClassroomPage role="educator" view="classes" /></RoleProtectedRoute></ProtectedRoute>} />
+                  <Route path="/educator/assignments" element={<ProtectedRoute><RoleProtectedRoute role="educator"><InstitutionClassroomPage role="educator" view="assignments" /></RoleProtectedRoute></ProtectedRoute>} />
+                  <Route path="/educator/gradebook" element={<ProtectedRoute><RoleProtectedRoute role="educator"><InstitutionClassroomPage role="educator" view="gradebook" /></RoleProtectedRoute></ProtectedRoute>} />
+                  <Route path="/educator/messages" element={<ProtectedRoute><RoleProtectedRoute role="educator"><InstitutionClassroomPage role="educator" view="messages" /></RoleProtectedRoute></ProtectedRoute>} />
+                  <Route path="/educator/notifications" element={<ProtectedRoute><RoleProtectedRoute role="educator"><InstitutionClassroomPage role="educator" view="notifications" /></RoleProtectedRoute></ProtectedRoute>} />
+                  <Route path="/homepage" element={<LearnerProtectedRoute><Homepage /></LearnerProtectedRoute>} />
                   <Route path="/profile-quiz" element={<ProtectedRoute><ProfileQuiz /></ProtectedRoute>} />
-                  <Route path="/dashboard-cerbyl" element={<ProtectedRoute><DashboardCerbyl /></ProtectedRoute>} />
+                  <Route path="/dashboard-cerbyl" element={<LearnerProtectedRoute><DashboardCerbyl /></LearnerProtectedRoute>} />
                   <Route path="/dashboard" element={<Navigate to="/dashboard-cerbyl" replace />} />
                   <Route path="/dashboard-classic" element={<Navigate to="/dashboard-cerbyl" replace />} />
                   <Route path="/study-insights" element={<ProtectedRoute><StudyInsights /></ProtectedRoute>} />
@@ -336,9 +367,9 @@ function App() {
                   <Route path="/notes/podcast" element={<ProtectedRoute><NotesPodcastMode /></ProtectedRoute>} />
                   <Route path="/notes/editor/:noteId" element={<ProtectedRoute><NotesRedesign /></ProtectedRoute>} />
                   <Route path="/activity-timeline" element={<ProtectedRoute><ActivityTimeline /></ProtectedRoute>} />
-                  <Route path="/customize-dashboard" element={<ProtectedRoute><CustomizeDashboard /></ProtectedRoute>} />
+                  <Route path="/customize-dashboard" element={<LearnerProtectedRoute><CustomizeDashboard /></LearnerProtectedRoute>} />
                   <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-                  <Route path="/profile/usage" element={<ProtectedRoute><UsageStats /></ProtectedRoute>} />
+                  <Route path="/profile/usage" element={<LearnerProtectedRoute><UsageStats /></LearnerProtectedRoute>} />
                   <Route path="/admin/analytics" element={<ProtectedRoute><AdminAnalytics /></ProtectedRoute>} />
                   <Route path="/admin/api-usage" element={<ProtectedRoute><AdminApiUsage /></ProtectedRoute>} />
                   <Route path="/admin/rate-limits" element={<ProtectedRoute><AdminRateLimits /></ProtectedRoute>} />

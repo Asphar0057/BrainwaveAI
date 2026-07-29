@@ -4800,3 +4800,395 @@ body.lpd-is-resizing * {
   .lpd-lesson-index button { min-width: 190px; }
   .lpd-lesson-scroll { max-height: 430px; }
 }
+
+/* Clean route cockpit: shared floating sidebar + one-screen node workspace. */
+.lpd-shell {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 24px;
+  padding: 18px;
+  box-sizing: border-box;
+  transition: grid-template-columns 220ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.lpd-shell--collapsed {
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
+.lpd-shell .sb-sidebar {
+  align-self: stretch;
+  width: auto;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  position: relative;
+  top: auto;
+  border-radius: 18px;
+}
+
+.lpd-shell .sb-sidebar:not(.sb-sidebar--collapsed) {
+  gap: 12px;
+  padding: 22px 18px;
+}
+
+.lpd-shell .sb-sidebar-brand {
+  padding: 4px 8px 14px;
+}
+
+.lpd-shell .sb-sidebar--collapsed {
+  width: 64px;
+}
+
+.lpd-shell .lpd-sb-head {
+  flex: 0 0 auto;
+  padding: 12px;
+  border: 1px solid var(--lpd-route-line);
+  border-radius: 14px;
+  background: rgba(5, 5, 5, .46);
+}
+
+.lpd-shell .lpd-sb-path-label {
+  margin-bottom: 6px;
+  font-size: 9px;
+}
+
+.lpd-shell .lpd-sb-path-name {
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.lpd-shell .lpd-sb-nodes {
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 2px;
+  gap: 3px;
+  overflow-x: hidden;
+}
+
+.lpd-shell .lpd-sb-node {
+  width: 100%;
+  min-width: 0;
+  min-height: 52px;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  box-sizing: border-box;
+  overflow: hidden;
+  contain: paint;
+  isolation: isolate;
+}
+
+.lpd-shell .lpd-sb-node.active {
+  padding-left: 10px;
+  box-shadow: none;
+}
+
+.lpd-shell .lpd-sb-node::before {
+  display: none;
+}
+
+.lpd-shell .lpd-sb-node-icon {
+  width: 24px;
+  height: 24px;
+  align-self: center;
+}
+
+.lpd-shell .lpd-sb-node-body {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.lpd-shell .lpd-sb-node-num {
+  margin-bottom: 1px;
+  font-size: 7.5px;
+}
+
+.lpd-shell .lpd-sb-node-title {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.lpd-strip-node-number {
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.lpd-shell .sb-sidebar-actions {
+  flex: 0 0 auto;
+  margin-top: 0;
+}
+
+.lpd-main-wrap {
+  height: 100%;
+  min-height: 0;
+  border: 0 !important;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 12px 18px 44px rgba(0, 0, 0, .32);
+}
+
+.lpd-hero {
+  min-height: 76px;
+  padding: 12px 24px;
+  align-items: center;
+}
+
+.lpd-hero-title {
+  max-width: 720px;
+  margin-bottom: 3px;
+  font-size: clamp(26px, 2.4vw, 38px);
+  letter-spacing: -.035em;
+}
+
+.lpd-hero-desc {
+  display: none;
+}
+
+.lpd-main {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.lpd-details {
+  width: min(100%, 1280px);
+  max-width: 1280px;
+  height: 100%;
+  min-height: 0;
+  margin: 0 auto;
+  padding: 14px 24px 12px;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.lpd-details-head {
+  min-height: 58px;
+  padding-bottom: 10px;
+}
+
+.lpd-details-info h2 {
+  max-width: 30ch;
+  font-size: clamp(24px, 2.2vw, 34px);
+  line-height: 1.02;
+}
+
+.lpd-details-info p {
+  max-width: 74ch;
+  margin-top: 6px;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.lpd-status-badge {
+  padding: 10px 13px;
+}
+
+.lpd-workspace-tabs {
+  position: relative;
+  min-height: 48px;
+  margin-bottom: 10px;
+  padding: 5px;
+  border-color: var(--lpd-route-line);
+  box-shadow: none;
+}
+
+.lpd-workspace-tabs::before {
+  inset: 5px auto 5px 5px;
+  width: calc((100% - 10px) / 4);
+}
+
+.lpd-workspace-tabs button {
+  min-height: 42px;
+  padding: 0 13px;
+}
+
+.lpd-section-panel {
+  min-height: 0;
+}
+
+.lpd-section-panel--overview {
+  overflow: hidden !important;
+}
+
+.lpd-section-panel--overview .lpd-overview {
+  min-height: 0;
+  grid-template-columns: minmax(0, 1.45fr) minmax(185px, .65fr) minmax(175px, .58fr);
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.lpd-section-panel--overview .lpd-overview-card {
+  min-height: 190px;
+  padding: 17px;
+  border-radius: 14px;
+}
+
+.lpd-section-panel--overview .lpd-overview-next {
+  padding: 20px;
+}
+
+.lpd-section-panel--overview .lpd-overview-next h4 {
+  font-size: clamp(26px, 2.7vw, 40px);
+}
+
+.lpd-overview-card p {
+  margin-bottom: 10px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.lpd-focus-timer {
+  font-size: 34px;
+}
+
+.lpd-section-panel--overview > .lpd-block {
+  margin: 0;
+  padding: 8px 0 0;
+}
+
+.lpd-section-panel--overview .lpd-block-title {
+  margin-bottom: 8px;
+}
+
+.lpd-section-panel--overview .lpd-toolkit {
+  gap: 8px;
+}
+
+.lpd-section-panel--overview .lpd-toolkit-card {
+  min-height: 72px;
+  padding: 10px;
+}
+
+.lpd-section-panel--overview .lpd-toolkit-icon {
+  width: 34px;
+  height: 34px;
+}
+
+.lpd-actions {
+  position: relative;
+  margin-top: 10px;
+  padding: 8px;
+  border-color: var(--lpd-route-line);
+  box-shadow: none;
+}
+
+.lpd-actions .lpd-btn {
+  min-height: 44px;
+}
+
+@media (max-width: 1220px) and (min-width: 769px) {
+  .lpd-shell {
+    grid-template-columns: 260px minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .lpd-shell--collapsed {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+
+  .lpd-section-panel--overview .lpd-overview {
+    grid-template-columns: minmax(0, 1.35fr) repeat(2, minmax(165px, .65fr));
+  }
+}
+
+@media (max-height: 760px) and (min-width: 769px) {
+  .lpd-shell {
+    padding: 12px;
+  }
+
+  .lpd-hero {
+    min-height: 64px;
+    padding-block: 8px;
+  }
+
+  .lpd-details {
+    padding-top: 10px;
+  }
+
+  .lpd-details-head {
+    min-height: 50px;
+  }
+
+  .lpd-details-info p {
+    display: none;
+  }
+
+  .lpd-section-panel--overview .lpd-overview-card {
+    min-height: 166px;
+    padding: 14px;
+  }
+
+  .lpd-section-panel--overview .lpd-toolkit-card {
+    min-height: 62px;
+  }
+}
+
+@media (max-width: 768px) {
+  .lpd-shell,
+  .lpd-shell--collapsed {
+    display: block;
+    padding: 12px;
+    overflow: hidden;
+  }
+
+  .lpd-shell .sb-sidebar {
+    top: 62px;
+    bottom: 10px;
+    width: min(328px, calc(100vw - 20px));
+    height: auto;
+  }
+
+  .lpd-main-wrap {
+    height: calc(100dvh - 24px);
+    overflow: hidden;
+    border-radius: 16px;
+  }
+
+  .lpd-hero {
+    align-items: flex-start;
+    min-height: 0;
+    padding: 18px 18px 14px 52px;
+  }
+
+  .lpd-hero-right {
+    width: 100%;
+  }
+
+  .lpd-main {
+    overflow-y: auto;
+  }
+
+  .lpd-details {
+    height: auto;
+    padding: 18px 16px 28px;
+  }
+
+  .lpd-details-head {
+    align-items: flex-start;
+  }
+
+  .lpd-section-panel--overview {
+    overflow: visible !important;
+  }
+
+  .lpd-section-panel--overview .lpd-overview,
+  .lpd-section-panel--overview .lpd-toolkit {
+    grid-template-columns: 1fr;
+  }
+
+  .lpd-section-panel--overview .lpd-overview-card {
+    min-height: 170px;
+  }
+
+  .lpd-actions {
+    position: sticky;
+    bottom: 0;
+  }
+}

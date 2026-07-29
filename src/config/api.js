@@ -8,8 +8,9 @@ export const apiRequest = async (endpoint, options = {}) => {
   const url = `${API_URL}/${cleanEndpoint}`;
   const token = localStorage.getItem('token');
 
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const defaultHeaders = {
-    'Content-Type': 'application/json',
+    ...(!isFormData && { 'Content-Type': 'application/json' }),
     ...(token && { 'Authorization': `Bearer ${token}` }),
   };
 

@@ -43,6 +43,7 @@ from services.subscription_catalog import (
 )
 from services.token_limits import get_user_token_reset_at
 from services.token_usage_filters import BILLABLE_AI_USAGE_WHERE
+from services.access_control import landing_route_for_role, normalize_account_role
 from middleware.rate_limiter import get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -1346,6 +1347,8 @@ async def firebase_authentication(request: Request, db: Session = Depends(get_db
                     "last_name": user.last_name,
                     "picture_url": user.picture_url,
                     "google_user": True,
+                    "account_role": normalize_account_role(user.account_role),
+                    "landing_route": landing_route_for_role(user.account_role),
                 }
             }
 
@@ -1388,6 +1391,8 @@ async def get_current_user_info(current_user: models.User = Depends(get_current_
         "school_university": current_user.school_university,
         "picture_url": current_user.picture_url,
         "google_user": current_user.google_user,
+        "account_role": normalize_account_role(current_user.account_role),
+        "landing_route": landing_route_for_role(current_user.account_role),
         "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
     }
 

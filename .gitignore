@@ -60,3 +60,4 @@ QUIZ_FIXES_SUMMARY.md
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+backend/uploads/

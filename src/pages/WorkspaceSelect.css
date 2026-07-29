@@ -1,0 +1,313 @@
+/*
+THESIS: Workspace choice is a deliberate operating-mode decision, not a role dropdown hidden inside login.
+OWN-WORLD: Cerbyl graphite, warm gold, Inter, measured grid lines, low-gloss panels, and precise status typography.
+STORY: The user understands the three Cerbyl products, chooses one confidently, and knows switching is temporary test access.
+FIRST VIEWPORT: Wordmark and test status above one introduction and three full-width workspace lanes with distinct information density.
+FORM: A mode switchboard ranked sixth in the grounded structures; each lane behaves like an operational destination, not a marketing card.
+*/
+
+.ws-page {
+  --ws-bg: #060607;
+  --ws-panel: #0c0d0f;
+  --ws-panel-hi: #111216;
+  --ws-text: #f3f2ee;
+  --ws-muted: #a5a49f;
+  --ws-faint: #74736f;
+  --ws-accent: var(--accent, #d8b38d);
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+  padding: 28px clamp(20px, 5vw, 76px) 24px;
+  background: var(--ws-bg);
+  color: var(--ws-text);
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.ws-background {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.ws-grid {
+  width: 100%;
+  height: 100%;
+  opacity: 0.09;
+  mask-image: linear-gradient(to bottom, black, transparent 78%);
+}
+
+.ws-grid-lines line {
+  stroke: color-mix(in srgb, var(--ws-accent) 45%, #fff);
+  stroke-width: 0.45;
+}
+
+.ws-grid-numbers text {
+  fill: var(--ws-accent);
+  font-family: 'Inter', sans-serif;
+  font-size: 7px;
+}
+
+.ws-light {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 74% 8%, color-mix(in srgb, var(--ws-accent) 13%, transparent), transparent 30%),
+    linear-gradient(180deg, transparent 68%, rgba(0, 0, 0, 0.48));
+}
+
+.ws-header,
+.ws-intro,
+.ws-options,
+.ws-footer {
+  position: relative;
+  z-index: 1;
+  width: min(1180px, 100%);
+  margin-inline: auto;
+}
+
+.ws-routing {
+  min-height: 55vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.ws-retry {
+  width: fit-content;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 24px;
+  padding: 0 15px;
+  border: 1px solid color-mix(in srgb, var(--ws-accent) 34%, transparent);
+  border-radius: 12px;
+  color: #16130e;
+  background: var(--ws-accent);
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ws-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ws-wordmark {
+  color: var(--ws-accent);
+  font-size: 1.35rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.ws-test-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 0 11px;
+  border: 1px solid color-mix(in srgb, var(--ws-accent) 25%, transparent);
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--ws-accent) 82%, #fff);
+  background: color-mix(in srgb, var(--ws-panel) 92%, transparent);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.ws-intro {
+  margin-top: clamp(56px, 9vh, 104px);
+  max-width: 780px;
+  margin-left: max(0px, calc((100% - min(1180px, 100%)) / 2));
+  margin-right: auto;
+}
+
+.ws-intro p {
+  margin: 0 0 14px;
+  color: var(--ws-accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.ws-intro h1 {
+  max-width: 740px;
+  margin: 0;
+  font-size: clamp(2.4rem, 5.3vw, 4.75rem);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.ws-intro span {
+  display: block;
+  margin-top: 18px;
+  color: var(--ws-muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.ws-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: clamp(42px, 7vh, 78px);
+  border-top: 1px solid color-mix(in srgb, var(--ws-accent) 22%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--ws-accent) 22%, transparent);
+}
+
+.ws-option {
+  min-height: 360px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 28px;
+  background: color-mix(in srgb, var(--ws-panel) 90%, transparent);
+  transition: background 180ms ease-out;
+}
+
+.ws-option + .ws-option {
+  border-left: 1px solid color-mix(in srgb, var(--ws-accent) 18%, transparent);
+}
+
+.ws-option:hover,
+.ws-option:focus-within {
+  background: color-mix(in srgb, var(--ws-panel-hi) 96%, var(--ws-accent) 4%);
+}
+
+.ws-index {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  color: color-mix(in srgb, var(--ws-text) 24%, transparent);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.ws-option-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--ws-accent) 30%, transparent);
+  border-radius: 14px;
+  color: var(--ws-accent);
+  background: color-mix(in srgb, var(--ws-accent) 7%, transparent);
+}
+
+.ws-option-copy {
+  margin-top: 38px;
+}
+
+.ws-option-meta {
+  color: var(--ws-faint);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.ws-option h2 {
+  margin: 9px 0 22px;
+  font-size: clamp(1.45rem, 2.2vw, 2rem);
+  letter-spacing: -0.035em;
+}
+
+.ws-option strong {
+  display: block;
+  max-width: 31ch;
+  font-size: 0.94rem;
+  line-height: 1.45;
+}
+
+.ws-option p {
+  max-width: 40ch;
+  margin: 10px 0 0;
+  color: var(--ws-muted);
+  font-size: 0.78rem;
+  line-height: 1.62;
+}
+
+.ws-option button {
+  width: 100%;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding: 0 15px;
+  border: 1px solid color-mix(in srgb, var(--ws-accent) 34%, transparent);
+  border-radius: 12px;
+  color: var(--ws-text);
+  background: transparent;
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ws-option button:hover {
+  color: #16130e;
+  background: var(--ws-accent);
+}
+
+.ws-option button:focus-visible {
+  outline: 2px solid var(--ws-accent);
+  outline-offset: 3px;
+}
+
+.ws-footer {
+  padding-top: 22px;
+  color: var(--ws-faint);
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 880px) {
+  .ws-page {
+    overflow: auto;
+  }
+
+  .ws-options {
+    grid-template-columns: 1fr;
+  }
+
+  .ws-option {
+    min-height: 290px;
+  }
+
+  .ws-option + .ws-option {
+    border-left: 0;
+    border-top: 1px solid color-mix(in srgb, var(--ws-accent) 18%, transparent);
+  }
+}
+
+@media (max-width: 560px) {
+  .ws-page {
+    padding: 20px 16px 28px;
+  }
+
+  .ws-intro {
+    margin-top: 64px;
+  }
+
+  .ws-test-chip {
+    font-size: 0;
+  }
+
+  .ws-test-chip::after {
+    content: 'Test mode';
+    font-size: 0.68rem;
+  }
+
+  .ws-option {
+    padding: 24px 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ws-option {
+    transition: none;
+  }
+}

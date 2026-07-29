@@ -690,6 +690,7 @@ from routes import (
     rate_limits,
     ai_jobs,
     public_share,
+    institution,
 )
 
 app.include_router(auth.router)
@@ -722,6 +723,7 @@ app.include_router(intelligence.router)
 app.include_router(rate_limits.router)
 app.include_router(ai_jobs.router)
 app.include_router(public_share.router)
+app.include_router(institution.router)
 
 try:
     from flashcard_api_minimal import register_flashcard_api_minimal

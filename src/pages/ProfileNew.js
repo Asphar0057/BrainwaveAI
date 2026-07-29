@@ -5,6 +5,8 @@ import { SidebarShell, SidebarSection, SidebarMenuItem, SidebarPrimaryButton, Si
 import WeaknessTracker from '../components/WeaknessTracker/WeaknessTracker';
 import { API_URL } from '../config';
 import { signOutAppSession } from '../utils/authSession';
+import { fetchAccountSession } from '../utils/institutionSession';
+import { getProfileExperience } from '../utils/profileExperience';
 import './ProfileNew.css';
 import './ProfileWorkspace.css';
 import '../components/SocialHubChrome.css';
@@ -372,6 +374,8 @@ const ProfileNew = () => {
   const pfpPreviousFocusRef = useRef(null);
   const token = localStorage.getItem('token');
   const [userName, setUserName] = useState(() => localStorage.getItem('username') || '');
+  const [accountRole, setAccountRole] = useState(null);
+  const profileExperience = getProfileExperience(accountRole);
 
   const [pfp, setPfp] = useState(() => {
     const raw = localStorage.getItem('userProfile');
@@ -440,7 +444,7 @@ const ProfileNew = () => {
       'pn-section-overview',
       'pn-section-personal',
       'pn-section-subjects',
-      'pn-section-subscription',
+      ...(profileExperience.showPaymentInformation ? ['pn-section-subscription'] : []),
       'pn-section-mastery',
       'pn-section-settings'
     ];
@@ -468,18 +472,18 @@ const ProfileNew = () => {
       window.removeEventListener('resize', onScroll);
       if (frame != null) window.cancelAnimationFrame(frame);
     };
-  }, []);
+  }, [profileExperience.showPaymentInformation]);
 
   useEffect(() => {
     if (!dataLoaded) return undefined;
     const params = new URLSearchParams(location.search || '');
-    if (params.get('upgrade') !== '1') return undefined;
+    if (!profileExperience.showPaymentInformation || params.get('upgrade') !== '1') return undefined;
 
     const timer = setTimeout(() => {
       scrollToSection('pn-section-subscription');
     }, 120);
     return () => clearTimeout(timer);
-  }, [dataLoaded, location.search, scrollToSection]);
+  }, [dataLoaded, location.search, profileExperience.showPaymentInformation, scrollToSection]);
 
   const activeBillingCycle = subscriptionData.billingCycle === 'yearly' ? 'yearly' : 'monthly';
   const billingLabel = activeBillingCycle === 'yearly' ? '/yr' : '/mo';
@@ -491,18 +495,35 @@ const ProfileNew = () => {
   const currentPlanYearlyEquivalentMonthly = currentPlan ? getYearlyEquivalentMonthly(currentPlan) : 0;
 
   useEffect(() => {
+    let cancelled = false;
+    fetchAccountSession({ force: true })
+      .then((session) => {
+        if (!cancelled) setAccountRole(session.role);
+      })
+      .catch(() => {
+        if (!cancelled) navigate('/login', { replace: true });
+      });
+    return () => { cancelled = true; };
+  }, [navigate]);
+
+  useEffect(() => {
     if (!token) { navigate('/login'); return; }
+    if (!accountRole) return undefined;
     if (userName) {
       loadProfile();
       const idleHandles = [
-        scheduleProfileIdle(() => loadSubscriptionOverview({ silent: true, includeUsage: true })),
         scheduleProfileIdle(() => loadGamificationStats()),
-        scheduleProfileIdle(() => loadRateLimitStatus())
+        ...(profileExperience.showPaymentInformation
+          ? [
+            scheduleProfileIdle(() => loadSubscriptionOverview({ silent: true, includeUsage: true })),
+            scheduleProfileIdle(() => loadRateLimitStatus()),
+          ]
+          : []),
       ];
       return () => idleHandles.forEach(cancelProfileIdle);
     }
     return undefined;
-  }, []);
+  }, [accountRole]);
 
   const displayName = profileData.firstName || pfp?.firstName || pfp?.first_name
     || localStorage.getItem(DISPLAY_NAME_KEY)
@@ -925,7 +946,7 @@ const ProfileNew = () => {
           <div className={`pn-save-status ${profileSaveError ? 'is-error' : ''}`} role="status">
             {autoSaving ? 'Saving changes' : profileSaveError || (lastSaved ? `Saved ${lastSaved}` : 'Profile ready')}
           </div>
-          <button className="pn-top-action" onClick={() => navigate('/dashboard-cerbyl')} type="button">Dashboard</button>
+          <button className="pn-top-action" onClick={() => navigate(profileExperience.dashboardRoute)} type="button">Dashboard</button>
         </div>
       </header>
 
@@ -941,13 +962,13 @@ const ProfileNew = () => {
                 <SidebarStripButton icon={<User size={18} />} tip="Overview" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-overview'); }} />
                 <SidebarStripButton icon={<BookOpen size={18} />} tip="Identity" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-personal'); }} />
                 <SidebarStripButton icon={<Sparkles size={18} />} tip="Learning profile" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-subjects'); }} />
-                <SidebarStripButton icon={<CreditCard size={18} />} tip="Plan" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-subscription'); }} />
+                {profileExperience.showPaymentInformation && <SidebarStripButton icon={<CreditCard size={18} />} tip="Plan" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-subscription'); }} />}
                 <SidebarStripButton icon={<BarChart3 size={18} />} tip="Mastery" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-mastery'); }} />
                 <SidebarStripDivider />
                 <SidebarStripButton icon={<Settings size={18} />} tip="Preferences" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-settings'); }} />
-                <SidebarStripButton icon={<Gauge size={18} />} tip="Usage" onClick={() => navigate('/profile/usage')} />
+                {profileExperience.showPaymentInformation && <SidebarStripButton icon={<Gauge size={18} />} tip="Usage" onClick={() => navigate('/profile/usage')} />}
                 <SidebarStripSpacer />
-                <SidebarStripButton icon={<LayoutDashboard size={18} />} tip="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} />
+                <SidebarStripButton icon={<LayoutDashboard size={18} />} tip="Dashboard" onClick={() => navigate(profileExperience.dashboardRoute)} />
               </>
             )}
           >
@@ -956,7 +977,7 @@ const ProfileNew = () => {
               <SidebarMenuItem icon={<User size={16} />} label="Overview" active={activeSection === 'pn-section-overview'} onClick={() => scrollToSection('pn-section-overview')} />
               <SidebarMenuItem icon={<BookOpen size={16} />} label="Identity" active={activeSection === 'pn-section-personal'} onClick={() => scrollToSection('pn-section-personal')} />
               <SidebarMenuItem icon={<Sparkles size={16} />} label="Learning profile" active={activeSection === 'pn-section-subjects'} onClick={() => scrollToSection('pn-section-subjects')} />
-              <SidebarMenuItem icon={<CreditCard size={16} />} label="Plan and usage" active={activeSection === 'pn-section-subscription'} onClick={() => scrollToSection('pn-section-subscription')} />
+              {profileExperience.showPaymentInformation && <SidebarMenuItem icon={<CreditCard size={16} />} label="Plan and usage" active={activeSection === 'pn-section-subscription'} onClick={() => scrollToSection('pn-section-subscription')} />}
             </SidebarSection>
             <SidebarSection heading="Account">
               <SidebarMenuItem icon={<BarChart3 size={16} />} label="Mastery" active={activeSection === 'pn-section-mastery'} onClick={() => scrollToSection('pn-section-mastery')} />
@@ -964,7 +985,7 @@ const ProfileNew = () => {
               <SidebarMenuItem icon={<Award size={16} />} label="Assessment" onClick={() => navigate('/profile-quiz')} />
             </SidebarSection>
             <SidebarActions>
-              <SidebarAction icon={<LayoutDashboard size={15} />} label="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} />
+              <SidebarAction icon={<LayoutDashboard size={15} />} label="Dashboard" onClick={() => navigate(profileExperience.dashboardRoute)} />
               <SidebarAction icon={<LogOut size={15} />} label="Sign out" onClick={clearSessionAndGoLogin} />
             </SidebarActions>
           </SidebarShell>
@@ -984,7 +1005,7 @@ const ProfileNew = () => {
                 {!profilePhoto && <div className="pnw-identity-initial" aria-hidden="true">{initial}</div>}
                 <div className="pnw-identity-nameplate" aria-hidden="true">{displayName}</div>
                 <div className="pnw-identity-copy">
-                  <p className="pnw-kicker">Your learner identity</p>
+                  <p className="pnw-kicker">{profileExperience.identityLabel}</p>
                   <h1>{displayName}<span>.</span></h1>
                   <p className="pnw-identity-summary">
                     {arch
@@ -1020,7 +1041,11 @@ const ProfileNew = () => {
                 <div data-value={String(profileLevel).padStart(2, '0')}><span>Level</span><strong>{String(profileLevel).padStart(2, '0')}</strong></div>
                 <div data-value={profileXp.toLocaleString()}><span>Experience</span><strong>{profileXp.toLocaleString()} XP</strong></div>
                 <div data-value={`${Math.round(levelProgress)}%`}><span>Next level</span><strong>{Math.round(levelProgress)}%</strong></div>
-                <div data-value={(currentPlan?.name || 'Starter').slice(0, 8)}><span>Current plan</span><strong>{currentPlan?.name || 'Starter'}</strong></div>
+                {profileExperience.showPaymentInformation ? (
+                  <div data-value={(currentPlan?.name || 'Starter').slice(0, 8)}><span>Current plan</span><strong>{currentPlan?.name || 'Starter'}</strong></div>
+                ) : (
+                  <div data-value={profileExperience.role || 'profile'}><span>Access</span><strong>{profileExperience.workspaceLabel}</strong></div>
+                )}
               </section>
 
               <div className="pnw-work-grid">
@@ -1157,7 +1182,7 @@ const ProfileNew = () => {
                 </div>
               </section>
 
-              <section className="pnw-plan-section" id="pn-section-subscription">
+              {profileExperience.showPaymentInformation && <section className="pnw-plan-section" id="pn-section-subscription">
                 <div className="pnw-plan-heading">
                   <div className="pnw-section-heading">
                     <div>
@@ -1226,7 +1251,7 @@ const ProfileNew = () => {
                     );
                   })}
                 </div>
-              </section>
+              </section>}
 
               <section className="pnw-mastery" id="pn-section-mastery">
                 <div className="pnw-section-heading">

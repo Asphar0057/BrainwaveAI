@@ -12,9 +12,12 @@ import {
   enableGoogleAutoSignIn,
   hasUsableBackendSession,
   restoreGoogleBackendSession,
+  signOutAppSession,
   storeGoogleBackendSession,
 } from '../utils/authSession';
 import { clearBackendSession } from '../utils/backendSession';
+import { cacheAccountSession } from '../utils/institutionSession';
+import { setLearnDestination } from '../utils/workspace';
 
 function Login() {
   const [username, setUsername] = useState('');
@@ -49,15 +52,32 @@ function Login() {
   };
 
   const checkAndRedirect = async (username) => {
+    const requestToken = localStorage.getItem('token');
+    const requestUsername = localStorage.getItem('username');
+    const accountIsStillActive = () => (
+      localStorage.getItem('token') === requestToken
+      && localStorage.getItem('username') === requestUsername
+    );
+
     try {
-      const token = localStorage.getItem('token');
+      const sessionResponse = await axios.get(`${API_URL}/institution/session`, {
+        headers: { 'Authorization': `Bearer ${requestToken}` }
+      });
+      if (!accountIsStillActive()) return;
+      const accountSession = sessionResponse.data;
+      cacheAccountSession(accountSession);
+
+      if (accountSession.role === 'student' || accountSession.role === 'educator') {
+        window.location.replace(accountSession.landing_route);
+        return;
+      }
       
       try {
         const profileResponse = await axios.get(`${API_URL}/get_comprehensive_profile?user_id=${username}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { 'Authorization': `Bearer ${requestToken}` }
         });
         
-        if (profileResponse.data) {
+        if (profileResponse.data && accountIsStillActive()) {
           const profileData = profileResponse.data;
           const existingProfile = localStorage.getItem('userProfile');
           let mergedProfile = {};
@@ -88,23 +108,29 @@ function Login() {
       } catch (_) { /* silenced */ }
       
       const response = await axios.get(`${API_URL}/check_profile_quiz?user_id=${username}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${requestToken}` }
       });
+      if (!accountIsStillActive()) return;
 
       if (response.data.completed) {
         sessionStorage.setItem('justLoggedIn', 'true');
-        navigate('/dashboard-cerbyl');
+        setLearnDestination('/dashboard-cerbyl');
+        window.location.replace('/dashboard-cerbyl');
       } else {
-        navigate('/profile-quiz');
+        setLearnDestination('/profile-quiz');
+        window.location.replace('/profile-quiz');
       }
     } catch (error) {
-            navigate('/profile-quiz');
+      if (!accountIsStillActive()) return;
+      setLearnDestination('/profile-quiz');
+      window.location.replace('/workspace');
     }
   };
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
+      await signOutAppSession();
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
       const userData = await exchangeGoogleSession(user);
@@ -129,7 +155,7 @@ function Login() {
 
     const restoreGoogleSignIn = async () => {
       if (hasUsableBackendSession()) {
-        navigate('/dashboard-cerbyl', { replace: true });
+        await checkAndRedirect(localStorage.getItem('username'));
         return;
       }
 
@@ -183,12 +209,13 @@ function Login() {
       );
 
       const token = response.data.access_token;
+      await signOutAppSession();
       localStorage.setItem('token', token);
-      localStorage.setItem('username', username);
+      localStorage.setItem('username', username.trim());
       
       sessionStorage.setItem('justLoggedIn', 'true');
       
-      await checkAndRedirect(username);
+      await checkAndRedirect(username.trim());
     } catch (err) {
             alert('Login failed: ' + (err.response?.data?.detail || 'Unknown error'));
     }

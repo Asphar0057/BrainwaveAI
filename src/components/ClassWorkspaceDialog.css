@@ -1,0 +1,162 @@
+/*
+ * Critical class-workspace shell.
+ *
+ * This component is opened from more than one role surface, so its structural
+ * CSS must travel with the component instead of depending on a parent
+ * dashboard stylesheet having already loaded.
+ */
+
+.ci-modal.ci-modal--workspace {
+  width: min(1040px, calc(100vw - 32px));
+  min-height: min(620px, calc(100vh - 32px));
+  max-height: min(780px, calc(100vh - 32px));
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.ci-modal--workspace .ci-workspace-tabs {
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding-inline: 20px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--ci-line-soft);
+  background: rgba(4, 4, 4, 0.56);
+  scrollbar-width: thin;
+}
+
+.ci-modal--workspace .ci-workspace-tabs button {
+  min-width: max-content;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 13px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  color: var(--ci-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 750;
+  cursor: pointer;
+  appearance: none;
+}
+
+.ci-modal--workspace .ci-workspace-tabs button:hover,
+.ci-modal--workspace .ci-workspace-tabs button.is-active {
+  color: var(--ci-text);
+  background: color-mix(in srgb, var(--ci-accent) 5%, transparent);
+}
+
+.ci-modal--workspace .ci-workspace-tabs button.is-active {
+  border-bottom-color: var(--ci-accent);
+}
+
+.ci-modal--workspace .ci-workspace-tabs svg {
+  flex: 0 0 auto;
+  color: var(--ci-accent);
+}
+
+.ci-modal--workspace .ci-workspace-body {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 22px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.ci-modal--workspace .ci-workspace-overview {
+  min-width: 0;
+  display: grid;
+  gap: 18px;
+}
+
+.ci-modal--workspace .ci-workspace-facts {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--ci-line-soft);
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(4, 4, 4, 0.62);
+}
+
+.ci-modal--workspace .ci-workspace-facts > div {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding: 15px;
+  border-inline-end: 1px solid var(--ci-line-soft);
+}
+
+.ci-modal--workspace .ci-workspace-facts > div:last-child {
+  border-inline-end: 0;
+}
+
+.ci-modal--workspace .ci-workspace-brief {
+  min-width: 0;
+  min-height: 170px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px;
+}
+
+.ci-modal--workspace .ci-attendance-summary {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 28px auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .ci-modal--workspace .ci-workspace-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ci-modal--workspace .ci-workspace-facts > div:nth-child(2) {
+    border-inline-end: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .ci-modal.ci-modal--workspace {
+    width: calc(100vw - 16px);
+    min-height: calc(100vh - 16px);
+    max-height: calc(100vh - 16px);
+  }
+
+  .ci-modal--workspace .ci-workspace-tabs {
+    padding-inline: 8px;
+  }
+
+  .ci-modal--workspace .ci-workspace-tabs button {
+    padding-inline: 10px;
+  }
+
+  .ci-modal--workspace .ci-workspace-body {
+    padding: 14px;
+  }
+
+  .ci-modal--workspace .ci-workspace-brief {
+    min-height: 210px;
+    align-items: stretch;
+    flex-direction: column;
+    padding: 18px;
+  }
+
+  .ci-modal--workspace .ci-attendance-summary {
+    grid-template-columns: 26px minmax(0, 1fr);
+  }
+}

@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   BookOpen,
-  Check,
   Clock3,
   Compass,
   Gauge,
@@ -14,6 +13,7 @@ import {
   Milestone,
   Plus,
   Route,
+  Search,
   Sparkles,
   Trash2,
 } from 'lucide-react';
@@ -85,7 +85,9 @@ const LearningPaths = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [activePanel, setActivePanel] = useState('paths');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth <= 900,
+  );
   const [paths, setPaths] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -93,6 +95,7 @@ const LearningPaths = () => {
   const [generateError, setGenerateError] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
+  const [searchQuery, setSearchQuery] = useState('');
   const [topicPrompt, setTopicPrompt] = useState('');
   const [difficulty, setDifficulty] = useState('intermediate');
   const [pathLength, setPathLength] = useState('medium');
@@ -137,12 +140,19 @@ const LearningPaths = () => {
 
   const filteredPaths = useMemo(() => paths
     .filter((path) => statusFilter === 'all' || getPathStatus(path) === statusFilter)
+    .filter((path) => {
+      const query = searchQuery.trim().toLowerCase();
+      if (!query) return true;
+      return `${getDisplayTitle(path)} ${getDisplayDescription(path)} ${path.difficulty || ''}`
+        .toLowerCase()
+        .includes(query);
+    })
     .sort((a, b) => {
       if (sortBy === 'progress') return getPathProgress(b) - getPathProgress(a);
       if (sortBy === 'time') return (a.estimated_hours || 0) - (b.estimated_hours || 0);
       if (sortBy === 'az') return (a.title || '').localeCompare(b.title || '');
       return new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0);
-    }), [paths, sortBy, statusFilter]);
+    }), [paths, searchQuery, sortBy, statusFilter]);
 
   const leadPath = useMemo(() => {
     const active = paths.filter((path) => getPathStatus(path) === 'active');
@@ -151,12 +161,22 @@ const LearningPaths = () => {
       const bProgress = getPathProgress(b);
       if (aProgress && bProgress) return bProgress - aProgress;
       return new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0);
-    })[0] || paths[0];
+    })[0] || null;
   }, [paths]);
+
+  const libraryPaths = useMemo(
+    () => filteredPaths.filter((path) => !(
+      leadPath
+      && statusFilter !== 'completed'
+      && !searchQuery.trim()
+      && path.id === leadPath.id
+    )),
+    [filteredPaths, leadPath, searchQuery, statusFilter],
+  );
 
   const handleCreatePath = async () => {
     const topic = topicPrompt.trim();
-    if (!topic) return;
+    if (!topic || generating) return;
     try {
       setGenerating(true);
       setGenerateError('');
@@ -227,8 +247,6 @@ const LearningPaths = () => {
           <SidebarPrimaryButton icon={<Sparkles size={18} />} label="Create a path" onClick={() => openPanel('generator')} />
           <SidebarSection heading="Workspace">
             <SidebarMenuItem icon={<Route size={18} />} label="My paths" active={activePanel === 'paths' && statusFilter === 'all'} badge={summary.total || null} onClick={() => { setStatusFilter('all'); openPanel('paths'); }} />
-            <SidebarMenuItem icon={<Compass size={18} />} label="In motion" active={activePanel === 'paths' && statusFilter === 'active'} badge={summary.active || null} onClick={() => { setStatusFilter('active'); openPanel('paths'); }} />
-            <SidebarMenuItem icon={<Check size={18} />} label="Completed" active={activePanel === 'paths' && statusFilter === 'completed'} badge={summary.completed || null} onClick={() => { setStatusFilter('completed'); openPanel('paths'); }} />
             <SidebarMenuItem icon={<Milestone size={18} />} label="Path builder" active={activePanel === 'generator'} onClick={() => openPanel('generator')} />
           </SidebarSection>
           <SidebarSection heading="Your map">
@@ -249,17 +267,8 @@ const LearningPaths = () => {
             <section className="lp-builder" aria-labelledby="lp-builder-title">
               <div className="lp-builder-copy">
                 <span className="lp-kicker">Plot a new route</span>
-                <h1 id="lp-builder-title">Turn an ambition into a study sequence.</h1>
-                <p>Set the destination and constraints. Cerbyl will arrange the concepts, practice and checks in the order they should happen.</p>
-                <div className="lp-builder-route" aria-hidden="true">
-                  <div className="lp-builder-route-line" />
-                  {['Destination', 'Depth', 'Pace', 'Outcome'].map((label, index) => (
-                    <div className="lp-builder-route-stop" key={label}>
-                      <span>{String(index + 1).padStart(2, '0')}</span>
-                      <strong>{label}</strong>
-                    </div>
-                  ))}
-                </div>
+                <h1 id="lp-builder-title">Build a learning path.</h1>
+                <p>Choose the subject, depth and outcome. Cerbyl will arrange the sequence.</p>
               </div>
 
               <div className="lp-planning-desk">
@@ -330,9 +339,9 @@ const LearningPaths = () => {
             <section className="lp-library" aria-labelledby="lp-library-title">
               <div className="lp-library-head">
                 <div>
-                  <span className="lp-kicker">Route desk</span>
-                  <h1 id="lp-library-title">Pick up the thread.</h1>
-                  <p>Your paths are ordered journeys, not folders. Continue the next useful step or inspect the whole map.</p>
+                  <span className="lp-kicker">Learning paths</span>
+                  <h1 id="lp-library-title">Your routes</h1>
+                  <p>Resume the path that matters now, or find another route in your library.</p>
                 </div>
                 <button type="button" className="lp-head-create" onClick={() => openPanel('generator')}>
                   <Plus size={17} /> New path
@@ -360,32 +369,56 @@ const LearningPaths = () => {
                 </div>
               ) : (
                 <>
-                  {leadPath && statusFilter !== 'completed' && (
-                    <button type="button" className="lp-lead-path" onClick={() => navigate(`/learning-paths/${leadPath.id}`)}>
-                      <div className="lp-lead-copy">
-                        <span className="lp-kicker">Continue from here</span>
-                        <h2>{getDisplayTitle(leadPath)}</h2>
-                        <p>{getDisplayDescription(leadPath)}</p>
-                        <div className="lp-lead-meta">
-                          <span><Clock3 size={14} /> {Math.round(leadPath.estimated_hours || 0)} hours</span>
-                          <span><Milestone size={14} /> {leadPath.completed_nodes || 0} of {leadPath.total_nodes || 0} checkpoints</span>
-                          <span><Gauge size={14} /> {leadPath.difficulty || 'intermediate'}</span>
-                        </div>
+                  {leadPath && statusFilter !== 'completed' && !searchQuery.trim() && (
+                    <section className="lp-resume" aria-labelledby="lp-resume-title">
+                      <div className="lp-resume-label">
+                        <Compass size={16} />
+                        <span>Continue learning</span>
                       </div>
-                      <div className="lp-lead-map" aria-label={`${getPathProgress(leadPath)} percent complete`}>
-                        <div className="lp-lead-percent">{String(getPathProgress(leadPath)).padStart(2, '0')}<small>%</small></div>
-                        <div className="lp-route-track">
-                          {Array.from({ length: Math.max(3, Math.min(8, leadPath.total_nodes || 5)) }).map((_, index) => {
-                            const completeCount = Math.round((Math.max(3, Math.min(8, leadPath.total_nodes || 5)) * getPathProgress(leadPath)) / 100);
-                            return <span key={index} className={index < completeCount ? 'complete' : index === completeCount ? 'current' : ''} />;
-                          })}
+                      <button type="button" className="lp-resume-path" onClick={() => navigate(`/learning-paths/${leadPath.id}`)}>
+                        <div className="lp-resume-copy">
+                          <h2 id="lp-resume-title">{getDisplayTitle(leadPath)}</h2>
+                          <p>{getDisplayDescription(leadPath)}</p>
+                          <div className="lp-lead-meta">
+                            <span><Clock3 size={14} /> {Math.round(leadPath.estimated_hours || 0)} hours</span>
+                            <span><Milestone size={14} /> {leadPath.completed_nodes || 0}/{leadPath.total_nodes || 0} checkpoints</span>
+                            <span><Gauge size={14} /> {leadPath.difficulty || 'intermediate'}</span>
+                          </div>
                         </div>
-                        <strong>Resume route <ArrowRight size={17} /></strong>
-                      </div>
-                    </button>
+                        <div className="lp-resume-action" aria-label={`${getPathProgress(leadPath)} percent complete`}>
+                          <strong>{getPathProgress(leadPath)}%</strong>
+                          <span>{getPathProgress(leadPath) > 0 ? 'Resume path' : 'Start path'} <ArrowRight size={16} /></span>
+                        </div>
+                      </button>
+                    </section>
                   )}
 
-                  <div className="lp-library-controls">
+                  <section className="lp-path-library" aria-labelledby="lp-path-library-title">
+                    <div className="lp-path-library-head">
+                      <div>
+                        <h2 id="lp-path-library-title">Path library</h2>
+                        <p>{libraryPaths.length} route{libraryPaths.length === 1 ? '' : 's'} in this view</p>
+                      </div>
+                      <div className="lp-library-tools">
+                        <label className="lp-search">
+                          <Search size={16} />
+                          <span className="lp-visually-hidden">Search learning paths</span>
+                          <input
+                            type="search"
+                            value={searchQuery}
+                            onChange={(event) => setSearchQuery(event.target.value)}
+                            placeholder="Search paths"
+                          />
+                        </label>
+                        <label className="lp-sort-select">
+                          <span>Order</span>
+                          <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+                            {SORTS.map(({ key, label }) => <option value={key} key={key}>{label}</option>)}
+                          </select>
+                        </label>
+                      </div>
+                    </div>
+
                     <div className="lp-filter-row" aria-label="Filter learning paths">
                       {FILTERS.map(({ key, label }) => (
                         <button type="button" key={key} className={statusFilter === key ? 'active' : ''} onClick={() => setStatusFilter(key)}>
@@ -394,56 +427,46 @@ const LearningPaths = () => {
                         </button>
                       ))}
                     </div>
-                    <label className="lp-sort-select">
-                      <span>Order by</span>
-                      <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
-                        {SORTS.map(({ key, label }) => <option value={key} key={key}>{label}</option>)}
-                      </select>
-                    </label>
-                  </div>
 
-                  {filteredPaths.length === 0 ? (
-                    <div className="lp-filter-empty">
-                      <Map size={28} />
-                      <h2>No paths in this view.</h2>
-                      <button type="button" onClick={() => setStatusFilter('all')}>Show every path</button>
-                    </div>
-                  ) : (
-                    <div className="lp-route-list">
-                      {filteredPaths.map((path, index) => {
-                        const progress = getPathProgress(path);
-                        const nodeCount = Math.max(3, Math.min(7, path.total_nodes || 4));
-                        const completedNodes = Math.round((nodeCount * progress) / 100);
-                        return (
-                          <article className="lp-route-row" key={path.id}>
-                            <button type="button" className="lp-route-open" onClick={() => navigate(`/learning-paths/${path.id}`)}>
-                              <span className="lp-route-index">{String(index + 1).padStart(2, '0')}</span>
-                              <div className="lp-route-title">
-                                <span>{path.difficulty || 'intermediate'}</span>
-                                <h3>{getDisplayTitle(path)}</h3>
-                                <p>{getDisplayDescription(path)}</p>
-                              </div>
-                              <div className="lp-route-nodes" aria-label={`${progress} percent complete`}>
-                                {Array.from({ length: nodeCount }).map((_, nodeIndex) => (
-                                  <span key={nodeIndex} className={nodeIndex < completedNodes ? 'complete' : nodeIndex === completedNodes ? 'current' : ''}>
-                                    {nodeIndex < completedNodes ? <Check size={11} /> : nodeIndex + 1}
-                                  </span>
-                                ))}
-                              </div>
-                              <div className="lp-route-progress">
-                                <strong>{progress}%</strong>
-                                <span>{path.completed_nodes || 0}/{path.total_nodes || 0} steps</span>
-                              </div>
-                              <ArrowRight className="lp-route-arrow" size={20} />
-                            </button>
-                            <button type="button" className="lp-route-delete" aria-label={`Delete ${getDisplayTitle(path)}`} onClick={(event) => handleDeletePath(path.id, event)}>
-                              <Trash2 size={16} />
-                            </button>
-                          </article>
-                        );
-                      })}
-                    </div>
-                  )}
+                    {libraryPaths.length === 0 ? (
+                      <div className="lp-filter-empty">
+                        <Map size={26} />
+                        <h3>{searchQuery ? 'No matching paths' : 'No paths in this view'}</h3>
+                        <p>{searchQuery ? 'Try a different title or topic.' : 'Change the filter to see the rest of your library.'}</p>
+                        <button type="button" onClick={() => { setSearchQuery(''); setStatusFilter('all'); }}>Reset library</button>
+                      </div>
+                    ) : (
+                      <div className="lp-route-list">
+                        {libraryPaths.map((path) => {
+                          const progress = getPathProgress(path);
+                          return (
+                            <article className="lp-route-row" key={path.id} style={{ '--lp-progress': `${progress}%` }}>
+                              <button type="button" className="lp-route-open" onClick={() => navigate(`/learning-paths/${path.id}`)}>
+                                <div className="lp-route-title">
+                                  <h3>{getDisplayTitle(path)}</h3>
+                                  <p>{getDisplayDescription(path)}</p>
+                                  <div className="lp-route-meta">
+                                    <span>{path.difficulty || 'intermediate'}</span>
+                                    <span>{Math.round(path.estimated_hours || 0)} hours</span>
+                                    <span>{path.completed_nodes || 0}/{path.total_nodes || 0} checkpoints</span>
+                                  </div>
+                                </div>
+                                <div className="lp-route-progress" aria-label={`${progress} percent complete`}>
+                                  <strong>{progress}%</strong>
+                                  <span>{progress > 0 ? 'Continue' : 'Start'}</span>
+                                  <i aria-hidden="true"><b /></i>
+                                </div>
+                                <ArrowRight className="lp-route-arrow" size={19} />
+                              </button>
+                              <button type="button" className="lp-route-delete" aria-label={`Delete ${getDisplayTitle(path)}`} onClick={(event) => handleDeletePath(path.id, event)}>
+                                <Trash2 size={16} />
+                              </button>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </section>
                 </>
               )}
             </section>

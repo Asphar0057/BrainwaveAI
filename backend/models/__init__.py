@@ -163,6 +163,22 @@ from models.podcast import (
     PodcastBookmark,
 )
 
+from models.institution import (
+    AcademicTerm,
+    Announcement,
+    Assignment,
+    AttendanceRecord,
+    ClassActivityEvent,
+    ClassSection,
+    ClassroomMessage,
+    Course,
+    CourseMaterial,
+    Enrollment,
+    Organization,
+    OrganizationMembership,
+    Submission,
+)
+
 from models.schemas import (
     LearningReviewCreate,
     LearningReviewResponse,

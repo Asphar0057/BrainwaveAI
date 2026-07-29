@@ -37,6 +37,14 @@ import {
 } from 'lucide-react';
 import learningPathService from '../services/learningPathService';
 import MathRenderer from '../components/MathRenderer';
+import {
+  SidebarAction,
+  SidebarActions,
+  SidebarPrimaryButton,
+  SidebarShell,
+  SidebarStripButton,
+  SidebarStripSpacer,
+} from '../components/Sidebar';
 import { sanitizeUrl } from '../utils/sanitize';
 import './LearningPathDetail.css';
 
@@ -89,6 +97,9 @@ const LearningPathDetail = () => {
   const [nodes, setNodes] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
   const [workspaceSection, setWorkspaceSection] = useState('overview');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth <= 720
+  );
   const [learnSection, setLearnSection] = useState('content');
   const [coreSectionIndex, setCoreSectionIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -1015,7 +1026,7 @@ const LearningPathDetail = () => {
   }
 
   return (
-    <div className="lpd-shell">
+    <div className={`lpd-shell ${sidebarCollapsed ? 'lpd-shell--collapsed' : ''}`}>
       {/* Geo background */}
       <svg className="lpd-geo-bg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
         <circle cx="1200" cy="150" r="420" fill="none" stroke="currentColor" strokeWidth="1"/>
@@ -1038,18 +1049,47 @@ const LearningPathDetail = () => {
         </div>
       )}
 
-      {/* ── Node list sidebar ── */}
-      <aside className="lpd-sidebar">
+      {/* ── Standard learning workspace sidebar ── */}
+      <SidebarShell
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((value) => !value)}
+        brandKicker="LEARNING PATH"
+        ariaLabel="Learning path navigation"
+        collapsedContent={(
+          <>
+            {nodes.map((node, index) => {
+              const isActive = selectedNode?.id === node.id;
+              const isLocked = node.progress.status === 'locked';
+              return (
+                <SidebarStripButton
+                  key={node.id}
+                  icon={node.progress.status === 'completed'
+                    ? <CheckCircle size={16} />
+                    : isLocked
+                    ? <Lock size={16} />
+                    : <span className="lpd-strip-node-number">{index + 1}</span>}
+                  tip={node.title}
+                  active={isActive}
+                  disabled={isLocked}
+                  onClick={() => {
+                    setSelectedNode(node);
+                    setSidebarCollapsed(false);
+                  }}
+                />
+              );
+            })}
+            <SidebarStripSpacer />
+            <SidebarStripButton icon={<LayoutDashboard size={17} />} tip="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} />
+          </>
+        )}
+      >
+        <SidebarPrimaryButton
+          icon={<ChevronLeft size={17} />}
+          label="All learning paths"
+          onClick={() => navigate('/learning-paths')}
+        />
+
         <div className="lpd-sb-head">
-          <div className="lpd-sb-brand">
-            <div>
-              <strong>cerbyl</strong>
-              <span>LEARNING PATH</span>
-            </div>
-            <button className="lpd-sb-back" onClick={() => navigate('/learning-paths')} aria-label="Back to learning paths">
-              <ChevronLeft size={17} />
-            </button>
-          </div>
           <div className="lpd-sb-path-label">Current route</div>
           <div className="lpd-sb-path-name">{path.title}</div>
           <div className="lpd-sb-overall">
@@ -1060,7 +1100,7 @@ const LearningPathDetail = () => {
           </div>
         </div>
 
-        <nav className="lpd-sb-nodes">
+        <nav className="lpd-sb-nodes" aria-label="Path nodes">
           {nodes.map((node, index) => {
             const isActive = selectedNode?.id === node.id;
             const isLocked = node.progress.status === 'locked';
@@ -1099,12 +1139,10 @@ const LearningPathDetail = () => {
           })}
         </nav>
 
-        <div className="lpd-sb-footer">
-          <button className="lpd-sb-footer-btn" onClick={() => navigate('/dashboard-cerbyl')}>
-            <LayoutDashboard size={14} /> Dashboard
-          </button>
-        </div>
-      </aside>
+        <SidebarActions>
+          <SidebarAction icon={<LayoutDashboard size={16} />} label="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} />
+        </SidebarActions>
+      </SidebarShell>
 
       {/* ── Main content ── */}
       <div className="lpd-main-wrap">
