@@ -1811,6 +1811,7 @@
   margin: 0 auto;
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
+  transition: grid-template-columns 220ms cubic-bezier(.22, 1, .36, 1);
   gap: 24px;
 }
 

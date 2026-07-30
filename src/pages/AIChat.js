@@ -720,6 +720,7 @@ const AIChat = ({ sharedMode = false }) => {
   const [userProfile, setUserProfile] = useState(null);
   const [chatSessions, setChatSessions] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
+  const [isChatSwitching, setIsChatSwitching] = useState(false);
   const [shareLinkCopied, setShareLinkCopied] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -754,6 +755,9 @@ const AIChat = ({ sharedMode = false }) => {
   const [actionNotice, setActionNotice] = useState('');
   const actionNoticeTimerRef = useRef(null);
   const _newChatRef = useRef({ id: null, uid: null });
+  const chatSessionsRef = useRef([]);
+  const activeChatIdRef = useRef(null);
+  const messagesRef = useRef([]);
 
   const handleFolderCreation = async () => {
     if (!folderName.trim()) return;
@@ -1254,6 +1258,7 @@ const AIChat = ({ sharedMode = false }) => {
     } finally {
       if (chatLoadRequestRef.current === requestId) {
         isLoadingRef.current = false;
+        setIsChatSwitching(false);
       }
     }
   };
@@ -1313,8 +1318,8 @@ const AIChat = ({ sharedMode = false }) => {
       if (!token) return;
       
       
-      const potentialEmptyChats = chatSessions.filter(
-        chat => chat.title === 'New Chat' && chat.id !== activeChatId
+      const potentialEmptyChats = chatSessionsRef.current.filter(
+        chat => chat.title === 'New Chat' && chat.id !== activeChatIdRef.current
       );
 
       for (const chat of potentialEmptyChats) {
@@ -1352,6 +1357,24 @@ const AIChat = ({ sharedMode = false }) => {
 
   const handleNewChat = async () => {
     if (loading || creatingChatRef.current) return;
+
+    // Already sitting on an untouched "New Chat" - reuse it instead of
+    // spawning another empty session (this is what was piling up duplicate
+    // "New Chat" rows in the sidebar).
+    const currentChat = chatSessions.find(c => c.id === activeChatId);
+    if (currentChat && currentChat.title === 'New Chat' && messages.length === 0) {
+      if (sidebarNavRef.current) {
+        sidebarNavRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      scrollToTop();
+      setInputMessage('');
+      clearAllFiles();
+      setSelectedFolder(null);
+      setSearchQuery('');
+      setShowSearchDialog(false);
+      return;
+    }
+
     creatingChatRef.current = true;
 
     try {
@@ -1397,6 +1420,7 @@ const AIChat = ({ sharedMode = false }) => {
     }
     chatLoadRequestRef.current += 1;
     setMessages([]);
+    setIsChatSwitching(true);
     clearAllFiles();
     isLoadingRef.current = false;
     setActiveChatId(chatSessionId);
@@ -2840,10 +2864,23 @@ const AIChat = ({ sharedMode = false }) => {
     }
   }, [messages]); // Re-run when messages change
 
+  useEffect(() => {
+    chatSessionsRef.current = chatSessions;
+  }, [chatSessions]);
+
+  useEffect(() => {
+    activeChatIdRef.current = activeChatId;
+  }, [activeChatId]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
   // Cleanup empty "New Chat" sessions on unmount (when leaving the page)
   useEffect(() => {
     return () => {
-      // Cleanup when component unmounts
+      // Cleanup when component unmounts. Uses refs (not the stale `chatSessions`/
+      // `activeChatId` closed over at mount) so it sees the latest sessions.
       cleanupEmptyNewChats();
       if (actionNoticeTimerRef.current) {
         clearTimeout(actionNoticeTimerRef.current);
@@ -3259,7 +3296,7 @@ const AIChat = ({ sharedMode = false }) => {
         )}
 
         {/* Main Content */}
-        <main className={`ac-main ${messages.length === 0 ? 'empty-state' : ''}`}>
+        <main className={`ac-main ${messages.length === 0 && !isChatSwitching ? 'empty-state' : ''}`}>
           <div className="cb-tile-texture" aria-hidden />
           {/* Persistent vector background */}
           <svg className="ac-hero-bg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
@@ -3299,7 +3336,7 @@ const AIChat = ({ sharedMode = false }) => {
             className="ac-content"
             onScroll={handleScroll}
           >
-            {messages.length === 0 ? (
+            {messages.length === 0 && !isChatSwitching ? (
               <div className="ac-empty-center">
                 <div className="ac-welcome-hero">
                   <h1 className="ac-welcome-title">{greeting}</h1>

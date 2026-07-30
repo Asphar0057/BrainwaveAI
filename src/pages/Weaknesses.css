@@ -21,7 +21,7 @@
 }
 
 .wa-root *, .wa-root *::before, .wa-root *::after { box-sizing: border-box; }
-.wa-root button, .wa-root input, .wa-root select { font: inherit; }
+.wa-root button, .wa-root input, .wa-root select { font-family: inherit; }
 .wa-root button:focus-visible { outline: 2px solid var(--wa-accent); outline-offset: 2px; }
 
 .wa-line-field {
@@ -70,6 +70,7 @@
   margin: 0 auto;
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
+  transition: grid-template-columns 220ms cubic-bezier(.22, 1, .36, 1);
   gap: 24px;
   padding: 20px 24px 28px;
 }

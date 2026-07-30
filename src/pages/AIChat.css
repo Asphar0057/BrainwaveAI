@@ -3816,38 +3816,6 @@ sub {
   opacity: 0.3;
 }
 
-.ai-chat-page [title] {
-  position: relative;
-}
-
-.ai-chat-page [title]:hover::after {
-  content: attr(title);
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 6px 12px;
-  background: var(--ac-bg-elevated);
-  border: 1px solid var(--ac-border-subtle);
-  color: var(--ac-text-primary);
-  font-size: 12px;
-  white-space: nowrap;
-  z-index: 1000;
-  animation: tooltipFade 0.2s;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-@keyframes tooltipFade {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-}
-
 .status-online,
 .status-typing,
 .status-away {
@@ -5770,6 +5738,7 @@ sub {
   margin: 0 auto;
   display: grid !important;
   grid-template-columns: 280px minmax(0, 1fr);
+  transition: grid-template-columns 220ms cubic-bezier(.22, 1, .36, 1);
   gap: 24px;
   overflow: hidden !important;
 }
@@ -5800,6 +5769,7 @@ sub {
   overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--accent) 28%, transparent) transparent;
+  transition: width 220ms cubic-bezier(.22, 1, .36, 1), padding 220ms cubic-bezier(.22, 1, .36, 1);
 }
 
 .ai-chat-page.ac-qb-page .ac-qb-sidebar > .cb-tile-texture {

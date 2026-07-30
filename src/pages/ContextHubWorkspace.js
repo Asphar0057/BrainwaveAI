@@ -1,31 +1,29 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Archive, ArrowLeft, BookOpen, Brain, Check, CheckSquare, ChevronRight,
-  FileText, Folder, FolderPlus, GraduationCap, LayoutDashboard, Layers,
-  Loader2, Lock, Menu, MessageCircle, MoreHorizontal, Pencil,
+  Archive, Brain, Check, CheckSquare, ChevronRight,
+  FileText, Folder, LayoutDashboard, Layers,
+  Loader2, Lock, MessageCircle, Pencil, Package,
   Plus, RefreshCw, Search, Square, Target, Trash2, Upload, X
 } from 'lucide-react';
 import contextService from '../services/contextService';
 import { queuedAIJsonFetch } from '../services/aiJobService';
+import { SidebarShell, SidebarSection, SidebarMenuItem, SidebarPrimaryButton, SidebarActions, SidebarAction, SidebarStripButton, SidebarStripSpacer } from '../components/Sidebar';
 import './ContextHubWorkspace.css';
 
 /*
- * THESIS: Context Hub is an evidence desk. It refuses the hero + metric-card dashboard.
- * OWN-WORLD: charcoal ledger surfaces, warm paper markers, ruled seams, compact source rows.
- * STORY: find evidence, place it in a working stack, then make one grounded study artifact.
- * FIRST VIEWPORT: navigation left; source ledger center; live evidence stack and actions right.
- * FORM: split research desk, ranked first for clarity; established Cerbyl world, operate mode.
+ * THESIS: Context Hub is a focused source-composition desk, three tabs only.
+ * STORY: build a working deck of sources, keep a plain library of everything you've uploaded, add new sources.
+ * FORM: standardized shared sidebar (same component every other page uses); no nested browsing UI.
  */
 
 const DECK_KEY = 'ctx_selected_doc_ids';
 const DECK_LIMIT = 8;
 
 const NAV_ITEMS = [
-  { id: 'desk', label: 'Evidence desk', icon: Archive },
-  { id: 'library', label: 'My library', icon: Lock },
-  { id: 'upload', label: 'Add a source', icon: Upload },
-  { id: 'curriculum', label: 'Curriculum', icon: GraduationCap },
+  { id: 'desk', label: 'My Deck', icon: Package },
+  { id: 'library', label: 'My Library', icon: Lock },
+  { id: 'upload', label: 'Upload', icon: Upload },
 ];
 
 const OUTPUTS = [
@@ -64,7 +62,9 @@ function ContextHubWorkspace() {
   const fileInputRef = useRef(null);
 
   const [view, setView] = useState('desk');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => (
+    typeof window === 'undefined' ? false : window.innerWidth <= 768
+  ));
   const [userDocs, setUserDocs] = useState([]);
   const [curriculumDocs, setCurriculumDocs] = useState([]);
   const [folders, setFolders] = useState([]);
@@ -74,7 +74,6 @@ function ContextHubWorkspace() {
   const [query, setQuery] = useState('');
   const [scope, setScope] = useState('all');
   const [activeFolder, setActiveFolder] = useState('all');
-  const [curriculumSubject, setCurriculumSubject] = useState('all');
   const [selectedIds, setSelectedIds] = useState([]);
   const [newFolder, setNewFolder] = useState('');
   const [newFolderParent, setNewFolderParent] = useState('');
@@ -89,6 +88,8 @@ function ContextHubWorkspace() {
   const [dragging, setDragging] = useState(false);
   const [actionBusy, setActionBusy] = useState('');
   const [rowBusy, setRowBusy] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerQuery, setPickerQuery] = useState('');
 
   const loadWorkspace = useCallback(async () => {
     setLoading(true);
@@ -123,13 +124,14 @@ function ContextHubWorkspace() {
   useEffect(() => { loadWorkspace(); }, [loadWorkspace]);
 
   useEffect(() => {
-    if (!sidebarOpen) return undefined;
+    if (sidebarCollapsed) return undefined;
+    if (typeof window === 'undefined' || window.innerWidth > 768) return undefined;
     const closeOnEscape = (event) => {
-      if (event.key === 'Escape') setSidebarOpen(false);
+      if (event.key === 'Escape') setSidebarCollapsed(true);
     };
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [sidebarOpen]);
+  }, [sidebarCollapsed]);
 
   const allDocs = useMemo(() => {
     const map = new Map();
@@ -176,25 +178,31 @@ function ContextHubWorkspace() {
     });
   }, [activeFolder, query, userDocs]);
 
-  const curriculumSubjects = useMemo(() => {
-    return Array.from(new Set(curriculumDocs.map((doc) => pretty(doc.subject)).filter(Boolean))).sort();
-  }, [curriculumDocs]);
-
   const filteredCurriculumDocs = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return curriculumDocs.filter((doc) => {
-      const subjectMatch = curriculumSubject === 'all' || pretty(doc.subject) === curriculumSubject;
       const searchMatch = !needle || [docName(doc), doc.subject, ...(doc.topic_tags || [])]
         .join(' ').toLowerCase().includes(needle);
-      return subjectMatch && searchMatch;
+      return searchMatch;
     });
-  }, [curriculumDocs, curriculumSubject, query]);
+  }, [curriculumDocs, query]);
 
   const deskSources = useMemo(() => {
     if (scope === 'mine') return filteredUserDocs;
     if (scope === 'curriculum') return filteredCurriculumDocs;
     return [...filteredUserDocs, ...filteredCurriculumDocs];
   }, [filteredCurriculumDocs, filteredUserDocs, scope]);
+
+  const pickerCandidates = useMemo(() => {
+    const needle = pickerQuery.trim().toLowerCase();
+    return [...userDocs, ...curriculumDocs].filter((doc) => {
+      const id = docId(doc);
+      if (!id || deckSet.has(id)) return false;
+      if (!needle) return true;
+      return [docName(doc), doc.subject, ...(doc.topic_tags || [])]
+        .join(' ').toLowerCase().includes(needle);
+    });
+  }, [curriculumDocs, deckSet, pickerQuery, userDocs]);
 
   const updateDeck = (next) => {
     const normalized = Array.from(new Set(next.map(String))).slice(0, DECK_LIMIT);
@@ -239,11 +247,6 @@ function ContextHubWorkspace() {
       ? current.filter((item) => item !== key)
       : [...current, key]);
   };
-
-  const selectedDocs = useMemo(
-    () => selectedIds.map((id) => allDocs.get(String(id))).filter(Boolean),
-    [allDocs, selectedIds]
-  );
 
   const runOutput = useCallback(async (target, docs = deckDocs) => {
     const ids = Array.from(new Set(docs.map(docId).filter(Boolean))).slice(0, DECK_LIMIT);
@@ -429,10 +432,10 @@ function ContextHubWorkspace() {
 
   const switchView = (next) => {
     setView(next);
-    setSidebarOpen(false);
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) setSidebarCollapsed(true);
     setSelectedIds([]);
     setQuery('');
-    if (next !== 'library') setActiveFolder('all');
+    setActiveFolder('all');
   };
 
   const renderSourceRow = (doc, curriculum = false) => {
@@ -468,8 +471,8 @@ function ContextHubWorkspace() {
       <section className="cxh-ledger" aria-labelledby="source-ledger-title">
         <header className="cxh-pane-head">
           <div>
-            <p>Source ledger</p>
-            <h2 id="source-ledger-title">Find your evidence</h2>
+            <p>Browse sources</p>
+            <h2 id="source-ledger-title">Find your sources</h2>
           </div>
           <span>{deskSources.length} available</span>
         </header>
@@ -499,7 +502,7 @@ function ContextHubWorkspace() {
           ) : (
             <div className="cxh-state">
               <Search />
-              <strong>No matching evidence</strong>
+              <strong>No matching sources</strong>
               <span>Clear the search or add a source to your library.</span>
               <button type="button" onClick={() => query ? setQuery('') : switchView('upload')}>{query ? 'Clear search' : 'Add source'}</button>
             </div>
@@ -511,32 +514,70 @@ function ContextHubWorkspace() {
         <header className="cxh-pane-head">
           <div>
             <p>Working context</p>
-            <h2 id="working-stack-title">Evidence stack</h2>
+            <h2 id="working-stack-title">Your Deck</h2>
           </div>
           <span className="cxh-stack-count">{deckIds.length}/{DECK_LIMIT}</span>
         </header>
-        <div className="cxh-stack-meter" aria-label={`${deckIds.length} of ${DECK_LIMIT} sources selected`}>
-          {Array.from({ length: DECK_LIMIT }, (_, index) => <span key={index} className={index < deckIds.length ? 'filled' : ''} />)}
-        </div>
-        <div className="cxh-stack-list">
-          {deckDocs.length ? deckDocs.map((doc, index) => (
-            <article className="cxh-stack-item" key={docId(doc)}>
-              <span className="cxh-stack-index">{String(index + 1).padStart(2, '0')}</span>
-              <FileText size={16} />
-              <div>
-                <strong>{docName(doc)}</strong>
-                <small>{doc.chunk_count || 0} chunks</small>
+        <div className="cxh-slots" aria-label={`${deckIds.length} of ${DECK_LIMIT} sources selected`}>
+          {Array.from({ length: DECK_LIMIT }, (_, index) => {
+            const doc = deckDocs[index];
+            return doc ? (
+              <div className="cxh-slot cxh-slot--filled" key={docId(doc)}>
+                <FileText size={15} />
+                <span title={docName(doc)}>{docName(doc)}</span>
+                <button type="button" onClick={() => toggleDeck(docId(doc))} aria-label={`Remove ${docName(doc)}`}><X size={12} /></button>
               </div>
-              <button type="button" onClick={() => toggleDeck(docId(doc))} aria-label={`Remove ${docName(doc)}`}><X size={13} /></button>
-            </article>
-          )) : (
-            <div className="cxh-stack-empty">
-              <div className="cxh-paper-stack" aria-hidden><i /><i /><i /></div>
-              <strong>Build a small, deliberate context.</strong>
-              <span>Add sources from the ledger. Everything you create will be grounded in this stack.</span>
-            </div>
-          )}
+            ) : (
+              <button
+                type="button"
+                className="cxh-slot cxh-slot--empty"
+                key={`slot-${index}`}
+                onClick={() => { setPickerOpen(true); setPickerQuery(''); }}
+                aria-label="Add a source"
+              >
+                <Plus size={18} />
+              </button>
+            );
+          })}
         </div>
+
+        {pickerOpen && (
+          <div className="cxh-slot-picker" role="dialog" aria-label="Add a source to your deck">
+            <div className="cxh-slot-picker-head">
+              <label className="cxh-search">
+                <Search size={15} />
+                <input
+                  autoFocus
+                  value={pickerQuery}
+                  onChange={(event) => setPickerQuery(event.target.value)}
+                  onKeyDown={(event) => event.key === 'Escape' && setPickerOpen(false)}
+                  placeholder="Search your sources"
+                />
+                {pickerQuery && <button type="button" onClick={() => setPickerQuery('')} aria-label="Clear search"><X size={13} /></button>}
+              </label>
+              <button type="button" className="cxh-slot-picker-close" onClick={() => setPickerOpen(false)} aria-label="Close">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="cxh-slot-picker-list">
+              {pickerCandidates.length ? pickerCandidates.map((doc) => (
+                <button
+                  type="button"
+                  key={docId(doc)}
+                  onClick={() => { toggleDeck(docId(doc)); setPickerOpen(false); }}
+                >
+                  <FileText size={14} />
+                  <span>
+                    <strong>{docName(doc)}</strong>
+                    <small>{doc.subject ? pretty(doc.subject) : 'General'}{doc.chunk_count ? ` · ${doc.chunk_count} chunks` : ''}</small>
+                  </span>
+                </button>
+              )) : (
+                <div className="cxh-state"><Search /><strong>No matching sources</strong><span>Try a different search, or add a new one.</span></div>
+              )}
+            </div>
+          </div>
+        )}
         <div className="cxh-stack-summary">
           <span className={deckDocs.length ? 'ready' : ''} />
           <div><strong>{deckDocs.length ? 'Context ready' : 'No active context'}</strong><small>{deckChunks} searchable chunks</small></div>
@@ -615,11 +656,6 @@ function ContextHubWorkspace() {
         {selectedIds.length > 0 && (
           <div className="cxh-bulk-bar">
             <strong>{selectedIds.length} selected</strong>
-            {selectedIds.length > DECK_LIMIT && <span>AI outputs use the first {DECK_LIMIT}</span>}
-            {OUTPUTS.map((output) => {
-              const Icon = output.icon;
-              return <button key={output.id} type="button" onClick={() => runOutput(output.id, selectedDocs)}><Icon size={13} />{output.label}</button>;
-            })}
             <select aria-label="Move selected documents" value={bulkMoveFolder} onChange={(event) => setBulkMoveFolder(event.target.value)}>
               <option value="">Move to uncategorized</option>
               {folders.map((folder) => <option key={folder.id} value={folder.id}>Move to {folder.name}</option>)}
@@ -631,7 +667,7 @@ function ContextHubWorkspace() {
         )}
 
         <div className="cxh-table-head" aria-hidden>
-          <span>Source</span><span>Context</span><span>Folder</span><span>Actions</span>
+          <span>Source</span><span>Folder</span><span>Actions</span>
         </div>
         <div className="cxh-table-body">
           {loading ? (
@@ -649,15 +685,11 @@ function ContextHubWorkspace() {
                   <span><strong>{docName(doc)}</strong><small>{pretty(doc.subject)}{doc.chunk_count ? ` · ${doc.chunk_count} chunks` : ''}{doc.file_size ? ` · ${formatBytes(doc.file_size)}` : ''}{progressMap[id]?.mastered_topics != null ? ` · ${progressMap[id].mastered_topics} mastered` : ''}</small></span>
                   <ChevronRight size={14} />
                 </button>
-                <button type="button" className={`cxh-context-toggle ${deckSet.has(id) ? 'active' : ''}`} onClick={() => toggleDeck(id)} disabled={!deckSet.has(id) && deckIds.length >= DECK_LIMIT}>
-                  {deckSet.has(id) ? <Check size={13} /> : <Plus size={13} />}{deckSet.has(id) ? 'In stack' : 'Add'}
-                </button>
                 <select aria-label={`Move ${docName(doc)} to folder`} value={doc.folder_id == null ? '' : String(doc.folder_id)} onChange={(event) => moveDocument(id, event.target.value)} disabled={rowBusy === id}>
                   <option value="">Uncategorized</option>
                   {folders.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}
                 </select>
                 <div className="cxh-row-actions">
-                  <button type="button" onClick={() => runOutput('chat', [doc])} aria-label={`Ask about ${docName(doc)}`}><MessageCircle size={14} /></button>
                   <button type="button" onClick={() => deleteDocument(doc)} aria-label={`Delete ${docName(doc)}`}>{rowBusy === id ? <Loader2 className="cxh-spin" size={14} /> : <Trash2 size={14} />}</button>
                 </div>
               </article>
@@ -673,7 +705,7 @@ function ContextHubWorkspace() {
   const renderUpload = () => (
     <section className="cxh-ingest" aria-labelledby="upload-title">
       <div className="cxh-ingest-copy">
-        <p>Add to your evidence base</p>
+        <p>Add a new source</p>
         <h2 id="upload-title">Drop in the material you actually study from.</h2>
         <span>PDF, DOCX, TXT, or Markdown up to 50 MB. Cerbyl indexes the source so every generated artifact can stay grounded.</span>
         <div className="cxh-file-spec">
@@ -712,33 +744,6 @@ function ContextHubWorkspace() {
     </section>
   );
 
-  const renderCurriculum = () => (
-    <div className="cxh-curriculum">
-      <aside>
-        <p>Subjects</p>
-        <button type="button" className={curriculumSubject === 'all' ? 'active' : ''} onClick={() => setCurriculumSubject('all')}>
-          <BookOpen size={15} /><span>All subjects</span><small>{curriculumDocs.length}</small>
-        </button>
-        {curriculumSubjects.map((subject) => (
-          <button type="button" key={subject} className={curriculumSubject === subject ? 'active' : ''} onClick={() => setCurriculumSubject(subject)}>
-            <BookOpen size={15} /><span>{subject}</span><small>{curriculumDocs.filter((doc) => pretty(doc.subject) === subject).length}</small>
-          </button>
-        ))}
-      </aside>
-      <section>
-        <header className="cxh-library-head">
-          <div><p>Reference shelf</p><h2>{curriculumSubject === 'all' ? 'All curriculum' : curriculumSubject}</h2></div>
-          <label className="cxh-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search curriculum" /></label>
-        </header>
-        <div className="cxh-curriculum-list">
-          {loading ? <div className="cxh-state" role="status"><Loader2 className="cxh-spin" /><span>Loading curriculum</span></div> : filteredCurriculumDocs.length ? filteredCurriculumDocs.map((doc) => renderSourceRow(doc, true)) : (
-            <div className="cxh-state"><GraduationCap /><strong>No curriculum sources available</strong><span>Try a different subject or search.</span></div>
-          )}
-        </div>
-      </section>
-    </div>
-  );
-
   const activeNav = NAV_ITEMS.find((item) => item.id === view);
 
   return (
@@ -749,33 +754,50 @@ function ContextHubWorkspace() {
         <button type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
       </header>
 
-      <div className="cxh-layout">
-        <button className="cxh-mobile-menu" type="button" onClick={() => setSidebarOpen(true)} aria-label="Open navigation"><Menu /></button>
-        {sidebarOpen && <button className="cxh-scrim" type="button" onClick={() => setSidebarOpen(false)} aria-label="Close navigation" />}
-        <aside className={`cxh-sidebar ${sidebarOpen ? 'is-open' : ''}`} role={sidebarOpen ? 'dialog' : undefined} aria-modal={sidebarOpen ? 'true' : undefined} aria-label={sidebarOpen ? 'Context Hub navigation' : undefined}>
-          <div className="cxh-side-texture" aria-hidden="true" />
-          <div className="cxh-brand">
-            <div><strong>cerbyl</strong><span>CONTEXT HUB</span></div>
-            <div className="cxh-brand-actions">
-              <button type="button" onClick={() => navigate('/dashboard-cerbyl')} aria-label="Return to dashboard"><ArrowLeft size={17} /></button>
-              <button className="cxh-sidebar-close" type="button" onClick={() => setSidebarOpen(false)} aria-label="Close navigation"><X size={17} /></button>
-            </div>
-          </div>
-          <button type="button" className="cxh-add-source" onClick={() => switchView('upload')}><Plus size={16} />Add source</button>
-          <section className="cxh-side-block">
-            <p className="cxh-side-label">Workspace</p>
-            <nav aria-label="Context Hub sections">
+      <div className={`cxh-layout ${sidebarCollapsed ? 'cxh-layout--collapsed' : ''}`}>
+        <SidebarShell
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
+          brandKicker="CONTEXT HUB"
+          ariaLabel="Context Hub navigation"
+          collapsedContent={(
+            <>
+              <SidebarStripButton icon={<Plus size={18} />} tip="Add source" onClick={() => { setSidebarCollapsed(false); switchView('upload'); }} />
               {NAV_ITEMS.map((item) => {
                 const Icon = item.icon;
                 return (
-                  <button type="button" key={item.id} className={view === item.id ? 'active' : ''} onClick={() => switchView(item.id)} aria-current={view === item.id ? 'page' : undefined}>
-                    <Icon size={16} /><span>{item.label}</span>
-                    {item.id === 'desk' && deckIds.length > 0 && <small>{deckIds.length}</small>}
-                  </button>
+                  <SidebarStripButton
+                    key={item.id}
+                    icon={<Icon size={18} />}
+                    tip={item.label}
+                    active={view === item.id}
+                    onClick={() => { setSidebarCollapsed(false); switchView(item.id); }}
+                  />
                 );
               })}
-            </nav>
-          </section>
+              <SidebarStripSpacer />
+              <SidebarStripButton icon={<LayoutDashboard size={18} />} tip="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} />
+            </>
+          )}
+        >
+          <SidebarPrimaryButton icon={<Plus size={15} />} label="Add source" onClick={() => switchView('upload')} />
+
+          <SidebarSection heading="Workspace">
+            {NAV_ITEMS.map((item) => {
+              const Icon = item.icon;
+              return (
+                <SidebarMenuItem
+                  key={item.id}
+                  icon={<Icon size={16} />}
+                  label={item.label}
+                  active={view === item.id}
+                  onClick={() => switchView(item.id)}
+                  badge={item.id === 'desk' && deckIds.length > 0 ? <span className="cxh-nav-count">{deckIds.length}</span> : null}
+                />
+              );
+            })}
+          </SidebarSection>
+
           <section className="cxh-side-block cxh-sidebar-stack">
             <div className="cxh-context-head"><p className="cxh-side-label">Active context</p><strong>{deckIds.length}/{DECK_LIMIT}</strong></div>
             <div className="cxh-sidebar-meter">{Array.from({ length: DECK_LIMIT }, (_, index) => <i key={index} className={index < deckIds.length ? 'filled' : ''} />)}</div>
@@ -784,16 +806,17 @@ function ContextHubWorkspace() {
               {deckDocs.length > 3 && <small>+{deckDocs.length - 3} more</small>}
             </div>
           </section>
-          <div className="cxh-sidebar-footer">
-            <button type="button" onClick={() => navigate('/dashboard-cerbyl')}><LayoutDashboard size={15} />Dashboard</button>
-          </div>
-        </aside>
+
+          <SidebarActions>
+            <SidebarAction icon={<LayoutDashboard size={14} />} label="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} />
+          </SidebarActions>
+        </SidebarShell>
 
         <main className="cxh-main">
           <header className="cxh-main-head">
             <div>
               <span>Context Hub / {activeNav?.label}</span>
-              <h1>{view === 'desk' ? 'Work with what matters.' : view === 'library' ? 'Your evidence, organized.' : view === 'upload' ? 'Add a source.' : 'Trusted reference material.'}</h1>
+              <h1>{view === 'desk' ? 'Work with what matters.' : view === 'library' ? 'Your documents, organized.' : 'Add a source.'}</h1>
             </div>
             <div className="cxh-main-meta">
               <span><strong>{userDocs.length}</strong> documents</span>
@@ -807,7 +830,6 @@ function ContextHubWorkspace() {
             {view === 'desk' && renderDesk()}
             {view === 'library' && renderLibrary()}
             {view === 'upload' && renderUpload()}
-            {view === 'curriculum' && renderCurriculum()}
           </div>
         </main>
       </div>

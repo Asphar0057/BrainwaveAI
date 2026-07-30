@@ -744,18 +744,6 @@
   z-index: 2;
 }
 
-.cb-side::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 18px;
-  right: 18px;
-  height: 1px;
-  background: var(--cb-line-strong);
-  pointer-events: none;
-  z-index: 1;
-}
-
 .cb-side > *:not(.cb-tile-texture) {
   z-index: 2;
 }
