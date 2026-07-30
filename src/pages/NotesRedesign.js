@@ -8,7 +8,7 @@ import "./NotesRedesignChatImport.css";
 import "./NotesRedesignConvert.css";
 import "../components/NotesSidebarSystem.css";
 import CustomPopup from "./CustomPopup";
-import NotesLineField from "../components/NotesLineField";
+import SocialHubChrome from "../components/SocialHubChrome";
 import { useTheme } from '../contexts/ThemeContext';
 import { signOutAppSession } from '../utils/authSession';
 import { 
@@ -2995,9 +2995,51 @@ const NotesRedesign = ({ sharedMode = false }) => {
     }
   };
 
+  const editorSideSections = [
+    {
+      label: 'Workspace',
+      items: [
+        { icon: Edit3, label: 'Edit note', active: viewMode === 'edit', onClick: () => setViewMode('edit') },
+        { icon: Eye, label: 'Reading view', active: viewMode === 'preview', onClick: () => setViewMode('preview') },
+        { icon: Layout, label: 'Page setup', active: showPageProperties, onClick: () => setShowPageProperties((value) => !value), disabled: isSharedContent },
+        { icon: Maximize2, label: 'Focus mode', active: isFullscreen, onClick: toggleFullscreen },
+      ],
+    },
+    {
+      label: 'Create & find',
+      items: [
+        { icon: Zap, label: 'Convert', onClick: () => setShowImportExport(true) },
+        { icon: Upload, label: 'Import from chat', onClick: () => setShowChatImport(true), disabled: isSharedContent },
+        { icon: Search, label: 'Search', onClick: () => setShowAdvancedSearch(true), disabled: isSharedContent },
+        { icon: FileText, label: 'Templates', onClick: () => setShowTemplates(true), disabled: isSharedContent },
+        { icon: Palette, label: 'Canvas', onClick: () => setShowCanvasMode(true), disabled: isSharedContent },
+      ],
+    },
+    {
+      label: 'Export',
+      items: [
+        { icon: FileDown, label: 'Export PDF', onClick: exportAsPDF },
+        { icon: Download, label: 'Export text', onClick: exportAsText },
+        { icon: Command, label: 'Shortcuts', onClick: () => setShowKeyboardShortcuts(true) },
+      ],
+    },
+  ];
+
+  const editorSidebarLead = (
+    <button className="nre-side-ai" onClick={() => setShowAIAssistant(true)} type="button" disabled={isSharedContent && !canEdit}>
+      <Sparkles size={15} />
+      <span>AI Assist</span>
+    </button>
+  );
+  const editorSidebarTail = (
+    <div className="nre-context-control">
+      <span>Study context</span>
+      <ContextSelector hsMode={hsMode} docCount={userDocCount} onOpen={() => setContextPanelOpen(true)} />
+    </div>
+  );
+
   return (
     <div className={`notes-redesign ${selectedNote ? "nr-note-selected" : ""} ${viewMode === "preview" ? "preview-mode" : ""} ${isFullscreen ? "fullscreen-mode" : ""}`}>
-      <NotesLineField quiet={viewMode === "edit"} />
       {QuickSwitcherComponent}
       
       {/* Slash Menu */}
@@ -3008,35 +3050,25 @@ const NotesRedesign = ({ sharedMode = false }) => {
         onClose={() => setShowSlashMenu(false)}
       />
 
-      {selectedNote && !isFullscreen && (
-        <div className="nr-qb-topbar">
-          <div className="nr-qb-tagline"><span>LEARNING,</span> UNIFIED</div>
-          <div className="nr-qb-topbar-right">
-            {!isSharedContent && (
-              <button className="nr-qb-top-btn" onClick={() => navigate('/notes/my-notes')} type="button">
-                My Notes
-              </button>
-            )}
-            {!isSharedContent && (
-              <button className="nr-qb-top-btn nr-qb-mobile-sidebar-btn" onClick={() => setSidebarOpen((prev) => !prev)} type="button">
-                {sidebarOpen ? 'Hide tools' : 'Show tools'}
-              </button>
-            )}
-            <button className="nr-qb-top-btn nr-qb-top-btn--accent" onClick={() => setShowImportExport(true)} type="button">
-              Convert
-            </button>
-            <div className="nr-qb-context-control">
-              <ContextSelector hsMode={hsMode} docCount={userDocCount} onOpen={() => setContextPanelOpen(true)} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Body - Sidebar + Content */}
+      <SocialHubChrome
+        brandKicker="Editor"
+        sideSections={editorSideSections}
+        sidebarLead={editorSidebarLead}
+        sidebarTail={editorSidebarTail}
+        noSidebar={isFullscreen || isSharedContent}
+        collapsed={!sidebarOpen}
+        onCollapsedChange={(collapsed) => setSidebarOpen(!collapsed)}
+        topbarAction={isFullscreen ? null : { label: 'Dashboard', path: '/dashboard-cerbyl' }}
+        footerItems={[
+          { icon: FileText, label: 'My Notes', path: '/notes/my-notes' },
+          { icon: Home, label: 'Dashboard', path: '/dashboard-cerbyl' },
+        ]}
+      >
+      {/* Body - Shared sidebar + editor content */}
       <div className="nr-body">
         {selectedNote ? (
           <div className={`nr-qb-shell ${isSharedContent ? "nr-qb-shell--shared" : (!sidebarOpen ? "nr-qb-shell--collapsed" : "")}`}>
-            {!isSharedContent && (
+            {false && (
               <aside className={`nr-qb-sidebar notes-sidebar-system ${sidebarOpen ? '' : 'nr-qb-sidebar--collapsed'}`} aria-label="Notes tools">
                 <div className="notes-sidebar-texture" aria-hidden="true" />
                 <div className="cb-tile-texture" aria-hidden />
@@ -3149,7 +3181,7 @@ const NotesRedesign = ({ sharedMode = false }) => {
                 </div>
               )}
 
-              <section className="nr-document-stage">
+              <section className="nr-document-stage nre-document-card">
               <div className={`title-section ${titleSectionCollapsed ? 'collapsed' : ''}`}>
               <div className="title-section-header">
                 <div className="title-section-content">
@@ -3166,6 +3198,11 @@ const NotesRedesign = ({ sharedMode = false }) => {
                     placeholder="Untitled Note"
                     disabled={viewMode === 'preview' || (isSharedContent && !canEdit)}
                   />
+                  <p className="nre-editor-description">
+                    {viewMode === 'edit'
+                      ? 'Shape the page with focused blocks, formatting tools, and writing assistance.'
+                      : 'Read the note in a calm, distraction-free layout while preserving its original structure.'}
+                  </p>
                   <div className="title-meta">
                     <span className="last-edited">
                       Edited {formatDateTime(selectedNote.updated_at) || 'recently'}
@@ -3175,10 +3212,6 @@ const NotesRedesign = ({ sharedMode = false }) => {
                   </div>
                 </div>
                 <div className="title-actions">
-                  <div className={`nr-document-status ${saveError ? 'is-error' : saving ? 'is-saving' : autoSaved ? 'is-saved' : 'is-unsaved'}`}>
-                    <span aria-hidden="true" />
-                    {saveError ? 'Save interrupted' : saving ? 'Saving' : autoSaved ? 'Saved' : 'Unsaved'}
-                  </div>
                   <button
                     className={`title-action-btn ${isFullscreen ? 'title-action-btn--fullscreen' : ''}`}
                     type="button"
@@ -3195,6 +3228,24 @@ const NotesRedesign = ({ sharedMode = false }) => {
                     )}
                   </button>
                 </div>
+              </div>
+            </div>
+
+            <div className="nre-editor-toolbar" aria-label="Editor view and save status">
+              <div className="nre-view-tabs" role="tablist" aria-label="Editor view">
+                <button className={viewMode === 'edit' ? 'is-selected' : ''} type="button" role="tab" aria-selected={viewMode === 'edit'} onClick={() => setViewMode('edit')}>
+                  <Edit3 size={13} /><span>Edit</span>
+                </button>
+                <button className={viewMode === 'preview' ? 'is-selected' : ''} type="button" role="tab" aria-selected={viewMode === 'preview'} onClick={() => setViewMode('preview')}>
+                  <Eye size={13} /><span>Read</span>
+                </button>
+                <button className={showPageProperties ? 'is-selected' : ''} type="button" role="tab" aria-selected={showPageProperties} onClick={() => setShowPageProperties((value) => !value)} disabled={isSharedContent}>
+                  <Layout size={13} /><span>Page setup</span>
+                </button>
+              </div>
+              <div className={`nr-document-status ${saveError ? 'is-error' : saving ? 'is-saving' : autoSaved ? 'is-saved' : 'is-unsaved'}`}>
+                <span aria-hidden="true" />
+                {saveError ? 'Save interrupted' : saving ? 'Saving' : autoSaved ? 'Saved' : 'Unsaved'}
               </div>
             </div>
 
@@ -3536,6 +3587,7 @@ const NotesRedesign = ({ sharedMode = false }) => {
           </div>
         )}
       </div> {/* Close nr-body */}
+      </SocialHubChrome>
 
       {showAIButton && (
         <div

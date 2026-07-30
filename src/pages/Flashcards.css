@@ -1,10 +1,27 @@
-.flashcards-page *,
-.flashcards-page *::before,
-.flashcards-page *::after {
+/*
+ * THESIS: Flashcards is the Friends learning workspace adapted for repeated recall, not a separate dashboard shell.
+ * OWN-WORLD: warm graphite, one shared geometric field, restrained gold borders, indexed study surfaces.
+ * STORY: choose a practice route, scan the collection, then enter focused review without losing context.
+ * FIRST VIEWPORT: exact SocialHubChrome shell, Friends-scale hero, compact toolbar, equal two-column card library.
+ * FORM: an Operate-mode extension of the established Friends and NotesHub system.
+ */
+.flashcards-page .fc-main *,
+.flashcards-page .fc-main *::before,
+.flashcards-page .fc-main *::after {
   border-radius: 0;
 }
 
-.flashcards-page button,
+.flashcards-page:not(.with-social-chrome) *,
+.flashcards-page:not(.with-social-chrome) *::before,
+.flashcards-page:not(.with-social-chrome) *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+}
+
+.flashcards-page .fc-main button,
+.flashcards-page:not(.with-social-chrome) button,
 .flashcards-page .fc-set-card,
 .flashcards-page .fc-set-card-new,
 .flashcards-page .fc-card,
@@ -102,7 +119,14 @@
   background: var(--bg-primary);
 }
 
-.flashcards-page * {
+.flashcards-page *,
+.flashcards-page *::before,
+.flashcards-page *::after {
+  box-sizing: border-box;
+}
+
+.flashcards-page .fc-main,
+.flashcards-page .fc-main * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -7330,6 +7354,896 @@
   }
 }
 
+/* Study Queue — final view-specific composition. */
+.flashcards-page .fc-sr-panel {
+  display: block;
+  padding-top: 0 !important;
+  scroll-margin-top: 0;
+}
+
+.flashcards-page .fc-sr-panel > .fc-view-header {
+  margin-bottom: 20px;
+  padding-top: 3px;
+}
+
+.flashcards-page .fc-sr-panel .fc-sr-queue-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 12px;
+  margin: 0;
+}
+
+.flashcards-page .fc-sr-panel .fc-sr-summary-item {
+  display: flex;
+  min-width: 0;
+  min-height: 126px;
+  margin: 0;
+  padding: 17px;
+  align-items: flex-start;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.flashcards-page .fc-sr-panel .fc-sr-count {
+  margin-top: auto;
+  color: var(--text-primary);
+  font-size: clamp(26px, 2.7vw, 34px);
+  font-weight: 780;
+  line-height: 1;
+  letter-spacing: -.035em;
+}
+
+.flashcards-page .fc-sr-panel .fc-sr-label,
+.flashcards-page .fc-sr-panel .fc-sr-stat-label {
+  color: var(--text-secondary);
+  font-size: 8px;
+  font-weight: 780;
+  line-height: 1.35;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.flashcards-page .fc-sr-panel .fc-sr-start-btn-inline {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  margin: 2px 0 0;
+  padding: 0 18px !important;
+  border: 1px solid color-mix(in srgb, var(--accent) 70%, white) !important;
+  border-radius: 10px;
+  color: #15120e !important;
+  background: var(--accent) !important;
+  box-shadow: none !important;
+  font-size: 10px !important;
+  font-weight: 820 !important;
+  line-height: 1;
+  letter-spacing: .16em !important;
+  text-transform: uppercase;
+  gap: 9px;
+  transition: border-color 160ms ease, background-color 160ms ease, transform 100ms ease;
+}
+
+.flashcards-page .fc-sr-panel .fc-sr-start-btn-inline svg {
+  width: 16px;
+  height: 16px;
+}
+
+.flashcards-page .fc-sr-panel .fc-sr-stats-panel,
+.flashcards-page .fc-sr-panel .fc-sr-ai-section {
+  --shc-mx: 50%;
+  --shc-my: 50%;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  margin-top: 20px;
+  padding: 22px;
+  border: 1px solid var(--fc-work-border);
+  border-radius: 14px;
+  background: var(--fc-work-wash), var(--fc-work-surface-soft);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .16);
+  backdrop-filter: none;
+  transition: border-color 175ms ease, transform 175ms cubic-bezier(.23, 1, .32, 1);
+}
+
+.flashcards-page .fc-sr-panel .fc-sr-stats-panel {
+  display: grid;
+  grid-template-areas:
+    "heading heading"
+    "metrics metrics"
+    "states ease"
+    "forecast forecast";
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.flashcards-page .fc-sr-panel :is(.fc-sr-stats-panel, .fc-sr-ai-section)::after {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    280px circle at var(--shc-mx, 50%) var(--shc-my, 50%),
+    color-mix(in srgb, var(--accent) 13%, transparent),
+    transparent 72%
+  );
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 175ms ease;
+}
+
+.flashcards-page .fc-sr-panel :is(.fc-sr-stats-panel, .fc-sr-ai-section) > * {
+  position: relative;
+  z-index: 1;
+}
+
+.flashcards-page .fc-sr-panel .fc-sr-stats-heading {
+  grid-area: heading;
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0 0 16px;
+  border-bottom: 1px solid var(--fc-work-border);
+}
+
+.flashcards-page .fc-sr-panel .fc-sr-stats-title {
+  margin: 0;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: clamp(20px, 2.1vw, 28px);
+  font-weight: 760;
+  line-height: 1.08;
+  letter-spacing: -.035em;
+}
+
+.flashcards-page .fc-sr-panel .fc-sr-stats-grid {
+  grid-area: metrics;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 12px;
+  margin: 0;
+}
+
+.flashcards-page .fc-sr-panel .fc-sr-stat-card {
+  display: flex;
+  min-width: 0;
+  min-height: 112px;
+  margin: 0;
+  padding: 15px;
+  align-items: flex-start;
+  flex-direction: column;
+  justify-content: flex-end;
+  border: 1px solid var(--fc-work-border);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, .025);
+  box-shadow: none;
+  backdrop-filter: none;
+  gap: 7px;
+}
+
+.flashcards-page .fc-sr-panel .fc-sr-stat-value {
+  margin: 0;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: clamp(23px, 2.3vw, 30px);
+  font-weight: 770;
+  line-height: 1;
+  letter-spacing: -.035em;
+}
+
+.flashcards-page .fc-sr-panel .fc-sr-state-dist,
+.flashcards-page .fc-sr-panel .fc-sr-ease-dist,
+.flashcards-page .fc-sr-panel .fc-sr-forecast {
+  min-width: 0;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--fc-work-border);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, .02);
+}
+
+.flashcards-page .fc-sr-panel .fc-sr-state-dist { grid-area: states; }
+.flashcards-page .fc-sr-panel .fc-sr-ease-dist { grid-area: ease; }
+.flashcards-page .fc-sr-panel .fc-sr-forecast { grid-area: forecast; }
+
+.flashcards-page .fc-sr-panel :is(.fc-sr-state-dist, .fc-sr-ease-dist, .fc-sr-forecast) h4 {
+  margin: 0 0 14px;
+  color: var(--accent);
+  font: inherit;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.3;
+  letter-spacing: .17em;
+  text-transform: uppercase;
+  opacity: 1;
+}
+
+.flashcards-page .fc-sr-panel :is(.fc-sr-state-bars, .fc-sr-ease-bars) {
+  display: grid;
+  gap: 10px;
+}
+
+.flashcards-page .fc-sr-panel :is(.fc-sr-state-bar-row, .fc-sr-ease-bar-row) {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr) 30px;
+  align-items: center;
+  width: 100%;
+  margin: 0;
+  gap: 10px;
+}
+
+.flashcards-page .fc-sr-panel :is(.fc-sr-state-bar-label, .fc-sr-ease-label) {
+  width: auto;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 10px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.flashcards-page .fc-sr-panel :is(.fc-sr-state-bar-track, .fc-sr-ease-bar-track) {
+  width: 100%;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, .055);
+}
+
+.flashcards-page .fc-sr-panel :is(.fc-sr-state-bar-count, .fc-sr-ease-count) {
+  width: auto;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.flashcards-page .fc-sr-panel .fc-sr-forecast-chart {
+  display: grid;
+  grid-template-columns: repeat(14, minmax(46px, 1fr));
+  align-items: end;
+  width: 100%;
+  height: 156px;
+  margin: 0;
+  padding: 25px 2px 2px;
+  overflow-x: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  gap: 7px;
+}
+
+.flashcards-page .fc-sr-panel .fc-sr-forecast-bar-wrapper {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+  align-items: center;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.flashcards-page .fc-sr-panel .fc-sr-forecast-bar {
+  width: min(100%, 52px);
+  min-height: 4px;
+  border-radius: 4px 4px 1px 1px;
+  background: linear-gradient(180deg, #e3bd91, #95795c);
+  box-shadow: none;
+  transition: filter 150ms ease, transform 150ms ease;
+}
+
+.flashcards-page .fc-sr-panel .fc-sr-forecast-label {
+  margin-top: 7px;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 8px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.flashcards-page .fc-sr-panel .fc-sr-forecast-count {
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.flashcards-page .fc-sr-panel .fc-sr-ai-section > .fc-sr-stats-heading {
+  display: grid;
+  margin-bottom: 16px;
+}
+
+.flashcards-page .fc-sr-panel .fc-sr-ai-btn {
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 16px !important;
+  border-radius: 10px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .flashcards-page .fc-sr-panel .fc-sr-start-btn-inline:hover:not(:disabled) {
+    border-color: #f0cfaa !important;
+    background: color-mix(in srgb, var(--accent) 91%, white) !important;
+    transform: translateY(-2px);
+  }
+
+  .flashcards-page .fc-sr-panel :is(.fc-sr-stats-panel, .fc-sr-ai-section):hover {
+    border-color: var(--fc-work-border-strong);
+    transform: translateY(-2px);
+  }
+
+  .flashcards-page .fc-sr-panel :is(.fc-sr-stats-panel, .fc-sr-ai-section):hover::after {
+    opacity: 1;
+  }
+
+  .flashcards-page .fc-sr-panel .fc-sr-forecast-bar:hover {
+    filter: brightness(1.16);
+    transform: translateY(-2px);
+  }
+}
+
+.flashcards-page .fc-sr-panel .fc-sr-start-btn-inline:active:not(:disabled) {
+  transform: scale(.98);
+}
+
+.flashcards-page .fc-sr-panel :is(button, [tabindex]):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 84%, white);
+  outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+  .flashcards-page .fc-sr-panel .fc-sr-queue-row,
+  .flashcards-page .fc-sr-panel .fc-sr-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .flashcards-page .fc-sr-panel .fc-sr-stats-panel {
+    grid-template-areas:
+      "heading"
+      "metrics"
+      "states"
+      "ease"
+      "forecast";
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .flashcards-page .fc-sr-panel .fc-sr-queue-row,
+  .flashcards-page .fc-sr-panel .fc-sr-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .flashcards-page .fc-sr-panel :is(.fc-sr-stats-panel, .fc-sr-ai-section) {
+    padding: 16px;
+  }
+
+  .flashcards-page .fc-sr-panel :is(.fc-sr-state-bar-row, .fc-sr-ease-bar-row) {
+    grid-template-columns: 70px minmax(0, 1fr) 26px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flashcards-page .fc-sr-panel :is(
+    .fc-sr-start-btn-inline,
+    .fc-sr-stats-panel,
+    .fc-sr-ai-section,
+    .fc-sr-forecast-bar
+  ),
+  .flashcards-page .fc-sr-panel :is(.fc-sr-stats-panel, .fc-sr-ai-section)::after {
+    transition-duration: .01ms !important;
+  }
+
+  .flashcards-page .fc-sr-panel :is(
+    .fc-sr-start-btn-inline,
+    .fc-sr-stats-panel,
+    .fc-sr-ai-section,
+    .fc-sr-forecast-bar
+  ):hover {
+    transform: none !important;
+  }
+}
+
+/* Generator workspace — final scoped cascade override.
+   Legacy Flashcards rules previously collapsed these controls after the shared
+   shell redesign; keep this block last so the generator retains usable rhythm. */
+.flashcards-page .fc-generator-workspace {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  gap: 18px;
+  margin-top: 14px;
+  padding: 20px;
+  overflow: visible;
+  border: 1px solid rgba(222, 184, 135, .2);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 94% 100%, rgba(205, 161, 111, .09), transparent 34%),
+    linear-gradient(145deg, rgba(31, 30, 29, .97), rgba(18, 19, 20, .99));
+  box-shadow: 0 14px 30px rgba(0, 0, 0, .2);
+  transition: border-color 180ms ease, transform 180ms ease;
+}
+
+.flashcards-page .fc-generator-workspace::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    270px circle at var(--shc-mx, 50%) var(--shc-my, 50%),
+    rgba(222, 184, 135, .13),
+    transparent 72%
+  );
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 175ms ease;
+}
+
+.flashcards-page .fc-generator-workspace > * {
+  position: relative;
+  z-index: 1;
+}
+
+.flashcards-page .fc-generator-workspace .fc-form-group {
+  display: flex;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  flex: initial;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.flashcards-page .fc-generator-workspace .fc-label {
+  display: block;
+  margin: 0;
+  color: #d8b48c;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.flashcards-page .fc-generator-workspace .fc-input {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  margin: 0;
+  padding: 0 14px;
+  border: 1px solid rgba(222, 184, 135, .18);
+  border-radius: 10px;
+  outline: none;
+  background: rgba(12, 13, 14, .72);
+  color: rgba(247, 244, 239, .94);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.flashcards-page .fc-generator-workspace textarea.fc-input {
+  min-height: 108px !important;
+  padding: 13px 14px !important;
+  resize: vertical;
+}
+
+.flashcards-page .fc-generator-workspace .fc-input::placeholder {
+  color: rgba(241, 237, 231, .4);
+}
+
+.flashcards-page .fc-generator-workspace .fc-input:focus {
+  border-color: rgba(222, 184, 135, .62);
+  background: rgba(16, 16, 17, .92);
+}
+
+.flashcards-page .fc-generator-workspace .fc-form-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  gap: 12px;
+}
+
+.flashcards-page .fc-generator-workspace .fc-number-input,
+.flashcards-page .fc-generator-workspace .fc-custom-select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  height: 46px;
+  margin: 0;
+  border: 1px solid rgba(222, 184, 135, .18);
+  border-radius: 10px;
+  background: rgba(12, 13, 14, .72);
+  color: rgba(247, 244, 239, .9);
+}
+
+.flashcards-page .fc-generator-workspace .fc-number-input {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.flashcards-page .fc-generator-workspace .fc-number-btn {
+  display: grid;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #d8b48c;
+  font-size: 18px;
+  place-items: center;
+  transition: background-color 150ms ease, transform 150ms ease;
+}
+
+.flashcards-page .fc-generator-workspace .fc-number-input input {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: rgba(247, 244, 239, .94);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  appearance: textfield;
+}
+
+.flashcards-page .fc-generator-workspace .fc-number-input input::-webkit-inner-spin-button,
+.flashcards-page .fc-generator-workspace .fc-number-input input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+.flashcards-page .fc-generator-workspace .fc-custom-select-wrapper {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.flashcards-page .fc-generator-workspace .fc-custom-select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 13px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-align: left;
+  transition: border-color 160ms ease, background-color 160ms ease, transform 150ms ease;
+}
+
+.flashcards-page .fc-generator-workspace .fc-custom-dropdown {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  display: grid;
+  gap: 3px;
+  padding: 5px;
+  overflow: hidden;
+  border: 1px solid rgba(222, 184, 135, .28);
+  border-radius: 10px;
+  background: rgba(19, 19, 19, .99);
+  box-shadow: 0 18px 34px rgba(0, 0, 0, .42);
+}
+
+.flashcards-page .fc-generator-workspace .fc-custom-option {
+  min-height: 40px;
+  margin: 0;
+  padding: 0 11px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: rgba(247, 244, 239, .68);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-align: left;
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+}
+
+.flashcards-page .fc-generator-workspace .fc-custom-option:is(:hover, .active) {
+  border-color: rgba(222, 184, 135, .24);
+  background: rgba(222, 184, 135, .09);
+  color: #f2d0a6;
+}
+
+.flashcards-page .fc-generator-workspace .fc-visibility-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  gap: 10px;
+}
+
+.flashcards-page .fc-generator-workspace .fc-visibility-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 46px;
+  margin: 0;
+  padding: 0 15px;
+  overflow: hidden;
+  border: 1px solid rgba(222, 184, 135, .16);
+  border-radius: 10px;
+  background: rgba(12, 13, 14, .68);
+  color: rgba(247, 244, 239, .52);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  gap: 9px;
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease, transform 150ms ease;
+}
+
+.flashcards-page .fc-generator-workspace .fc-visibility-btn::after {
+  position: absolute;
+  right: 10px;
+  bottom: 0;
+  left: 10px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: #d8b48c;
+  content: "";
+  clip-path: inset(0 50% 0 50%);
+  transition: clip-path 180ms ease;
+}
+
+.flashcards-page .fc-generator-workspace .fc-visibility-btn.active {
+  border-color: rgba(222, 184, 135, .48);
+  background: rgba(222, 184, 135, .1);
+  color: #f2d0a6;
+}
+
+.flashcards-page .fc-generator-workspace .fc-visibility-btn.active::after {
+  clip-path: inset(0);
+}
+
+.flashcards-page .fc-generator-workspace .fc-visibility-hint {
+  min-height: 15px;
+  margin: 0;
+  color: rgba(241, 237, 231, .48);
+  font-size: 10px;
+  font-style: normal;
+  line-height: 1.5;
+}
+
+.flashcards-page .fc-generator-workspace .fc-generate-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  margin: 0;
+  padding: 0 18px;
+  border: 1px solid rgba(242, 208, 166, .72);
+  border-radius: 10px;
+  background: #dcb98f;
+  box-shadow: none;
+  color: #151412;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  transition: border-color 160ms ease, background-color 160ms ease, transform 150ms ease;
+}
+
+.flashcards-page .fc-generator-workspace .fc-generate-btn:disabled {
+  border-color: rgba(222, 184, 135, .12);
+  background: rgba(222, 184, 135, .22);
+  color: rgba(247, 244, 239, .34);
+  cursor: not-allowed;
+}
+
+.flashcards-page .fc-generator-workspace .fc-sessions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  padding: 0 0 12px;
+  border-bottom: 1px solid rgba(222, 184, 135, .13);
+  gap: 12px;
+}
+
+.flashcards-page .fc-generator-workspace .fc-sessions-header h3 {
+  margin: 0;
+  color: rgba(247, 244, 239, .92);
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.flashcards-page .fc-generator-workspace .fc-sessions-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.flashcards-page .fc-generator-workspace .fc-sessions-actions .fc-btn {
+  min-height: 34px;
+  margin: 0;
+  padding: 0 11px;
+  border-radius: 8px;
+  font-size: 8px;
+  letter-spacing: .13em;
+}
+
+.flashcards-page .fc-generator-workspace .fc-sessions-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  max-height: 270px;
+  margin: 0;
+  padding: 0 3px 0 0;
+  overflow-y: auto;
+  gap: 10px;
+}
+
+.flashcards-page .fc-generator-workspace .fc-session-item {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 68px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid rgba(222, 184, 135, .14);
+  border-radius: 10px;
+  background: rgba(11, 12, 13, .58);
+  cursor: pointer;
+  gap: 11px;
+  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+}
+
+.flashcards-page .fc-generator-workspace .fc-session-item.selected {
+  border-color: rgba(222, 184, 135, .46);
+  background: rgba(222, 184, 135, .09);
+}
+
+.flashcards-page .fc-generator-workspace .fc-session-checkbox {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #dcb98f;
+  flex: 0 0 auto;
+}
+
+.flashcards-page .fc-generator-workspace .fc-session-info {
+  min-width: 0;
+}
+
+.flashcards-page .fc-generator-workspace .fc-session-title {
+  overflow: hidden;
+  color: rgba(247, 244, 239, .88);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flashcards-page .fc-generator-workspace .fc-session-date {
+  margin-top: 3px;
+  color: rgba(241, 237, 231, .42);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.flashcards-page .fc-generator-workspace :is(
+  .fc-input,
+  .fc-number-btn,
+  .fc-custom-select,
+  .fc-custom-option,
+  .fc-visibility-btn,
+  .fc-generate-btn,
+  .fc-session-item
+):focus-visible {
+  outline: 2px solid rgba(242, 208, 166, .88);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .flashcards-page .fc-generator-workspace:hover {
+    border-color: rgba(222, 184, 135, .31);
+    transform: translateY(-2px);
+  }
+
+  .flashcards-page .fc-generator-workspace:hover::before {
+    opacity: 1;
+  }
+
+  .flashcards-page .fc-generator-workspace :is(.fc-number-btn, .fc-custom-select, .fc-visibility-btn):hover:not(:disabled) {
+    border-color: rgba(222, 184, 135, .38);
+    background-color: rgba(222, 184, 135, .08);
+    color: #f2d0a6;
+  }
+
+  .flashcards-page .fc-generator-workspace .fc-session-item:hover {
+    border-color: rgba(222, 184, 135, .34);
+    background-color: rgba(222, 184, 135, .075);
+    transform: translateY(-2px);
+  }
+
+  .flashcards-page .fc-generator-workspace .fc-generate-btn:hover:not(:disabled) {
+    border-color: #f0cfaa;
+    background-color: #e5c29a;
+    transform: translateY(-2px);
+  }
+}
+
+.flashcards-page .fc-generator-workspace :is(.fc-number-btn, .fc-custom-select, .fc-visibility-btn, .fc-generate-btn):active:not(:disabled) {
+  transform: scale(.98);
+}
+
+@media (max-width: 900px) {
+  .flashcards-page .fc-generator-workspace .fc-form-row,
+  .flashcards-page .fc-generator-workspace .fc-sessions-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .flashcards-page .fc-generator-workspace {
+    padding: 14px;
+    gap: 15px;
+  }
+
+  .flashcards-page .fc-generator-workspace .fc-sessions-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .flashcards-page .fc-generator-workspace .fc-visibility-toggle {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flashcards-page .fc-generator-workspace,
+  .flashcards-page .fc-generator-workspace::before,
+  .flashcards-page .fc-generator-workspace :is(
+    .fc-number-btn,
+    .fc-custom-select,
+    .fc-custom-option,
+    .fc-visibility-btn,
+    .fc-generate-btn,
+    .fc-session-item
+  ) {
+    transition-duration: .01ms !important;
+  }
+
+  .flashcards-page .fc-generator-workspace:hover,
+  .flashcards-page .fc-generator-workspace :is(.fc-session-item, .fc-generate-btn):hover {
+    transform: none !important;
+  }
+}
+
 .nav-menu-btn {
   background: transparent;
   border: none;
@@ -9196,5 +10110,1645 @@
 
   .flashcards-page .fc-qb-main .fc-content {
     padding: 22px 20px 32px;
+  }
+}
+
+/* Flashcards — native Friends / NotesHub composition */
+.flashcards-page.with-social-chrome {
+  padding: 0 !important;
+  color: var(--text-primary);
+  background:
+    radial-gradient(ellipse 50% 40% at 10% 15%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 65%),
+    radial-gradient(ellipse 45% 38% at 90% 80%, color-mix(in srgb, var(--accent) 5%, transparent), transparent 60%),
+    linear-gradient(150deg, #07070c 0%, #090909 50%, #07090e 100%) !important;
+}
+
+.flashcards-page::after {
+  content: none !important;
+}
+
+.flashcards-page .shc-main > .fc-main {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 28px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: transparent !important;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 28%, transparent) transparent;
+}
+
+.flashcards-page.fc-focus-shell .fc-study-mode {
+  position: relative;
+  inset: auto;
+  z-index: 1;
+  width: 100%;
+  min-height: 100%;
+  border: 1px solid color-mix(in srgb, var(--accent) 13%, transparent);
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse 70% 95% at 100% 100%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 70%),
+    linear-gradient(140deg, #151618, #0d0e10);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .18);
+}
+
+.flashcards-page .fc-main::-webkit-scrollbar { width: 4px; }
+.flashcards-page .fc-main::-webkit-scrollbar-track { background: transparent; }
+.flashcards-page .fc-main::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+.flashcards-page .fc-side-generate {
+  width: 100%;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 65%, white);
+  border-radius: 11px;
+  color: #111;
+  background: var(--accent);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: background-color 150ms ease, transform 90ms ease;
+}
+
+.flashcards-page .fc-side-generate:active {
+  transform: scale(.98);
+}
+
+.flashcards-page .fc-side-context {
+  width: 100%;
+  min-width: 0;
+}
+
+.flashcards-page .fc-side-context > * {
+  width: 100%;
+  min-width: 0;
+}
+
+.flashcards-page .fc-content,
+.flashcards-page .fc-qb-main .fc-content,
+.flashcards-page .fc-cards-panel,
+[data-theme-mode="dark"] .flashcards-page .fc-content,
+[data-theme-mode="light"] .flashcards-page .fc-content {
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  height: auto;
+  padding: 0 !important;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none;
+}
+
+.flashcards-page .fc-content::before,
+.flashcards-page .fc-content::after {
+  content: none !important;
+}
+
+.flashcards-page .fc-content > * {
+  position: relative;
+  z-index: 1;
+}
+
+.flashcards-page .fc-view-header,
+.flashcards-page .fc-cards-panel .fc-view-header {
+  width: 100%;
+  margin: 0 0 20px;
+  padding: 3px 0 27px;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 17%, transparent);
+  text-align: left;
+}
+
+.flashcards-page .fc-view-header::before {
+  content: none;
+}
+
+.flashcards-page .fc-view-kicker {
+  display: block;
+  margin: 0 0 10px;
+  color: var(--accent);
+  font: inherit;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  opacity: 1;
+}
+
+.flashcards-page .fc-view-title {
+  max-width: 760px;
+  margin: 0;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: clamp(32px, 4.2vw, 56px);
+  font-weight: 760;
+  line-height: .98;
+  letter-spacing: -.04em;
+  text-wrap: balance;
+}
+
+.flashcards-page .fc-view-sub {
+  max-width: 670px;
+  margin: 13px 0 0;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+.flashcards-page .fc-grid,
+.flashcards-page .fc-cards-panel .fc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 12px;
+  padding: 0 0 24px;
+}
+
+.flashcards-page .fc-set-card-new {
+  --shc-mx: 50%;
+  --shc-my: 50%;
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-rows: 132px minmax(118px, 1fr) auto;
+  min-width: 0;
+  min-height: 318px;
+  height: 100% !important;
+  overflow: hidden !important;
+  border: 1px solid color-mix(in srgb, var(--accent) 13%, transparent) !important;
+  border-radius: 14px !important;
+  background:
+    radial-gradient(ellipse 70% 95% at 100% 100%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 68%),
+    linear-gradient(140deg, color-mix(in srgb, var(--accent) 8%, #1a1b1d), #121315 52%, #0e0f11 100%) !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .18) !important;
+  cursor: default !important;
+  transform: translateY(0);
+  transition: transform 180ms cubic-bezier(.23, 1, .32, 1), border-color 180ms ease, box-shadow 180ms ease !important;
+}
+
+.flashcards-page .fc-set-card-new::before,
+.flashcards-page .fc-mode-btn::before,
+.flashcards-page .fc-stat-card::before,
+.flashcards-page .fc-sr-summary-item::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    270px circle at var(--shc-mx, 50%) var(--shc-my, 50%),
+    color-mix(in srgb, var(--accent) 13%, transparent),
+    transparent 72%
+  );
+  transition: opacity 175ms ease;
+}
+
+.flashcards-page :is(.fc-set-card-new, .fc-mode-btn, .fc-stat-card, .fc-sr-summary-item) > * {
+  position: relative;
+  z-index: 1;
+}
+
+.flashcards-page .fc-set-thumbnail,
+.flashcards-page .fc-cards-panel .fc-set-thumbnail {
+  width: 100% !important;
+  height: 132px !important;
+  min-height: 132px !important;
+  max-height: 132px !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 13%, transparent);
+  background:
+    radial-gradient(ellipse 70% 110% at 90% 100%, color-mix(in srgb, var(--accent) 15%, transparent), transparent 67%),
+    linear-gradient(145deg, #202022, #151517 58%, #101012) !important;
+}
+
+.flashcards-page .fc-set-thumbnail-content {
+  align-items: flex-start;
+  padding: 22px !important;
+  text-align: left;
+}
+
+.flashcards-page .fc-thumbnail-title {
+  max-width: calc(100% - 34px);
+  color: var(--text-primary) !important;
+  font: inherit !important;
+  font-size: 20px !important;
+  font-weight: 720 !important;
+  line-height: 1.08 !important;
+  letter-spacing: -.025em !important;
+  text-align: left !important;
+  text-transform: none !important;
+}
+
+.flashcards-page .fc-thumbnail-card-count {
+  color: var(--accent) !important;
+  font: inherit !important;
+  font-size: 8px !important;
+  font-weight: 800 !important;
+  letter-spacing: .16em !important;
+}
+
+.flashcards-page .fc-set-content-new,
+.flashcards-page .fc-cards-panel .fc-set-content-new {
+  min-height: 118px !important;
+  padding: 16px 18px 14px !important;
+  gap: 10px !important;
+}
+
+.flashcards-page .fc-set-actions-new,
+.flashcards-page .fc-cards-panel .fc-set-actions-new {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 12px 14px 14px;
+  border-top: 1px solid color-mix(in srgb, var(--accent) 10%, transparent);
+  background: rgba(8, 8, 9, .34);
+}
+
+.flashcards-page .fc-action-btn-new,
+.flashcards-page .fc-cards-panel .fc-action-btn-new {
+  min-height: 44px;
+  padding: 8px 6px;
+  border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
+  border-radius: 9px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, .025);
+  font: inherit;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: .1em;
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease, transform 90ms ease;
+}
+
+.flashcards-page .fc-action-btn-new.fc-action-study {
+  color: #111;
+  border-color: color-mix(in srgb, var(--accent) 65%, white);
+  background: var(--accent);
+}
+
+.flashcards-page .fc-action-btn-new:active:not(:disabled) {
+  transform: scale(.98);
+}
+
+.flashcards-page .fc-delete-btn-thumb {
+  top: 12px;
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent) !important;
+  border-radius: 8px;
+  color: var(--text-secondary) !important;
+  background: rgba(10, 10, 11, .72) !important;
+  backdrop-filter: none;
+  opacity: .55;
+  transition: opacity 150ms ease, color 150ms ease, border-color 150ms ease, transform 90ms ease;
+}
+
+.flashcards-page .fc-mode-selector,
+.flashcards-page .fc-mode-selector-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  align-items: stretch;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.flashcards-page .fc-generator {
+  width: 100%;
+  max-width: none;
+}
+
+.flashcards-page .fc-mode-btn {
+  --shc-mx: 50%;
+  --shc-my: 50%;
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  min-height: 132px;
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 13%, transparent);
+  border-radius: 14px;
+  color: var(--text-primary);
+  background:
+    radial-gradient(ellipse 70% 95% at 100% 100%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 70%),
+    linear-gradient(140deg, #1a1b1d, #111214);
+  text-align: left;
+  transform: translateY(0);
+  transition: transform 180ms cubic-bezier(.23, 1, .32, 1), border-color 180ms ease, background-color 180ms ease;
+}
+
+.flashcards-page .fc-mode-btn.active {
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  background:
+    radial-gradient(ellipse 70% 95% at 100% 100%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%),
+    linear-gradient(140deg, #202022, #151517);
+}
+
+.flashcards-page .fc-mode-btn::after {
+  content: '';
+  position: absolute;
+  right: 14px;
+  bottom: -1px;
+  left: 14px;
+  z-index: 2;
+  height: 2px;
+  pointer-events: none;
+  background: var(--accent);
+  clip-path: inset(0 50% 0 50%);
+  transition: clip-path 180ms cubic-bezier(.23, 1, .32, 1);
+}
+
+.flashcards-page .fc-mode-btn.active::after {
+  clip-path: inset(0 0 0 0);
+}
+
+.flashcards-page .fc-mode-btn:active {
+  transform: scale(.98) !important;
+}
+
+.flashcards-page .fc-mode-icon {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  border-radius: 9px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.flashcards-page .fc-mode-label {
+  margin-bottom: 5px;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .14em;
+}
+
+.flashcards-page .fc-mode-desc {
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.flashcards-page :is(.fc-input, .fc-custom-select, .fc-source-textarea, textarea, select, input[type="text"], input[type="number"]) {
+  border-color: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-radius: 10px;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, .025);
+  box-shadow: none;
+}
+
+.flashcards-page :is(.fc-input, .fc-custom-select, .fc-source-textarea, textarea, select, input[type="text"], input[type="number"]):focus,
+.flashcards-page :is(button, input, textarea, select):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 70%, white);
+  outline-offset: 2px;
+  border-color: color-mix(in srgb, var(--accent) 44%, transparent);
+}
+
+.flashcards-page .fc-source-layout {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 12px;
+}
+
+.flashcards-page :is(.fc-source-upload-card, .fc-source-library, .fc-source-settings, .fc-source-card, .fc-review-card, .fc-review-card-item) {
+  --shc-mx: 50%;
+  --shc-my: 50%;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 13%, transparent);
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse 70% 95% at 100% 100%, color-mix(in srgb, var(--accent) 11%, transparent), transparent 70%),
+    linear-gradient(140deg, #1a1b1d, #111214);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .18);
+  transform: translateY(0);
+  transition: transform 180ms cubic-bezier(.23, 1, .32, 1), border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.flashcards-page :is(.fc-source-upload-card, .fc-source-card, .fc-review-card-item)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    270px circle at var(--shc-mx, 50%) var(--shc-my, 50%),
+    color-mix(in srgb, var(--accent) 13%, transparent),
+    transparent 72%
+  );
+  transition: opacity 175ms ease;
+}
+
+.flashcards-page :is(.fc-source-upload-card, .fc-source-card, .fc-review-card-item) > * {
+  position: relative;
+  z-index: 1;
+}
+
+.flashcards-page .fc-source-upload-card {
+  position: relative;
+  top: 0;
+  min-height: 100%;
+}
+
+.flashcards-page .fc-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 12px;
+}
+
+.flashcards-page .fc-stat-card,
+.flashcards-page .fc-sr-summary-item {
+  --shc-mx: 50%;
+  --shc-my: 50%;
+  position: relative;
+  isolation: isolate;
+  min-height: 150px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 13%, transparent);
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse 70% 95% at 100% 100%, color-mix(in srgb, var(--accent) 11%, transparent), transparent 70%),
+    linear-gradient(140deg, #1a1b1d, #111214);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .18);
+  transform: translateY(0);
+  transition: transform 180ms cubic-bezier(.23, 1, .32, 1), border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.flashcards-page .fc-empty {
+  width: 100%;
+  min-height: 360px;
+  padding: 42px 28px;
+  border: 1px solid color-mix(in srgb, var(--accent) 13%, transparent);
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse 65% 90% at 100% 100%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%),
+    linear-gradient(140deg, #191a1c, #101113);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .18);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .flashcards-page .fc-side-generate:hover {
+    background: color-mix(in srgb, var(--accent) 90%, white);
+  }
+
+  .flashcards-page :is(.fc-set-card-new, .fc-mode-btn, .fc-stat-card, .fc-sr-summary-item):hover {
+    border-color: color-mix(in srgb, var(--accent) 34%, transparent) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 18px 38px rgba(0, 0, 0, .24) !important;
+  }
+
+  .flashcards-page :is(.fc-set-card-new, .fc-mode-btn, .fc-stat-card, .fc-sr-summary-item):hover::before {
+    opacity: 1;
+  }
+
+  .flashcards-page :is(.fc-source-upload-card, .fc-source-card, .fc-review-card-item):hover {
+    border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+    transform: translateY(-2px);
+    box-shadow: 0 18px 38px rgba(0, 0, 0, .24);
+  }
+
+  .flashcards-page :is(.fc-source-upload-card, .fc-source-card, .fc-review-card-item):hover::before {
+    opacity: 1;
+  }
+
+  .flashcards-page .fc-action-btn-new:not(.fc-action-study):hover {
+    color: var(--text-primary);
+    border-color: color-mix(in srgb, var(--accent) 31%, transparent);
+    background: color-mix(in srgb, var(--accent) 7%, #18191a);
+  }
+
+  .flashcards-page .fc-delete-btn-thumb:hover {
+    opacity: 1;
+    color: #f2b5b5 !important;
+    border-color: rgba(239, 68, 68, .28) !important;
+    transform: scale(.98);
+  }
+}
+
+@media (max-width: 1100px) {
+  .flashcards-page .shc-main > .fc-main {
+    padding: 22px;
+  }
+
+  .flashcards-page .fc-source-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .flashcards-page .shc-main > .fc-main {
+    padding: 16px;
+  }
+
+  .flashcards-page .fc-grid,
+  .flashcards-page .fc-cards-panel .fc-grid,
+  .flashcards-page .fc-mode-selector,
+  .flashcards-page .fc-mode-selector-3,
+  .flashcards-page .fc-stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .flashcards-page .fc-view-title {
+    font-size: clamp(31px, 11vw, 44px);
+  }
+
+  .flashcards-page .fc-delete-btn-thumb {
+    opacity: .8;
+  }
+}
+
+[data-theme-mode="light"] .flashcards-page.with-social-chrome {
+  background:
+    radial-gradient(ellipse 50% 40% at 10% 15%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 65%),
+    var(--bg-primary) !important;
+}
+
+[data-theme-mode="light"] .flashcards-page :is(
+  .fc-set-card-new,
+  .fc-mode-btn,
+  .fc-stat-card,
+  .fc-sr-summary-item,
+  .fc-source-upload-card,
+  .fc-source-library,
+  .fc-source-settings,
+  .fc-source-card,
+  .fc-review-card-item,
+  .fc-empty
+) {
+  color: var(--text-primary);
+  background:
+    radial-gradient(ellipse 70% 95% at 100% 100%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 70%),
+    linear-gradient(140deg, color-mix(in srgb, var(--accent) 5%, #fff), #f5f3ef) !important;
+  box-shadow: 0 14px 34px rgba(68, 52, 34, .08) !important;
+}
+
+[data-theme-mode="light"] .flashcards-page .fc-set-thumbnail {
+  background:
+    radial-gradient(ellipse 70% 110% at 90% 100%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 67%),
+    linear-gradient(145deg, #f7f3ed, #ece7df) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flashcards-page :is(.fc-set-card-new, .fc-mode-btn, .fc-stat-card, .fc-sr-summary-item),
+  .flashcards-page :is(.fc-source-upload-card, .fc-source-card, .fc-review-card-item),
+  .flashcards-page :is(.fc-set-card-new, .fc-mode-btn, .fc-stat-card, .fc-sr-summary-item)::before,
+  .flashcards-page :is(.fc-source-upload-card, .fc-source-card, .fc-review-card-item)::before,
+  .flashcards-page .fc-side-generate,
+  .flashcards-page .fc-action-btn-new {
+    transition-duration: .01ms !important;
+  }
+
+  .flashcards-page :is(.fc-set-card-new, .fc-mode-btn, .fc-stat-card, .fc-sr-summary-item):hover,
+  .flashcards-page :is(.fc-source-upload-card, .fc-source-card, .fc-review-card-item):hover,
+  .flashcards-page :is(.fc-side-generate, .fc-action-btn-new):active {
+    transform: none !important;
+  }
+}
+
+/* Final cascade placement for the completed Flashcards workflow system. */
+.flashcards-page.fc-focus-shell .fc-study-title,
+.flashcards-page.fc-focus-shell .fc-create-header .fc-study-title {
+  min-width: 0;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+  overflow: hidden;
+}
+
+.flashcards-page.fc-focus-shell .fc-study-title h2 {
+  max-width: min(600px, 49vw) !important;
+  font-size: clamp(19px, 2vw, 27px) !important;
+  line-height: 1.08 !important;
+  text-align: left !important;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.flashcards-page.fc-focus-shell .fc-edit-title-input,
+.flashcards-page.fc-focus-shell .fc-create-title-input {
+  max-width: min(600px, 49vw) !important;
+  text-align: left !important;
+}
+
+.flashcards-page.fc-focus-shell :is(.fc-study-card, .fc-sr-card):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 76%, white);
+  outline-offset: 4px;
+}
+
+/* Flashcards workflow completion — compact legacy cards + shared workspace system */
+.flashcards-page {
+  --fc-work-border: color-mix(in srgb, var(--accent) 15%, transparent);
+  --fc-work-border-strong: color-mix(in srgb, var(--accent) 34%, transparent);
+  --fc-work-surface: linear-gradient(142deg, #1b1b1d 0%, #141517 56%, #101113 100%);
+  --fc-work-surface-soft: linear-gradient(142deg, #18191b 0%, #111214 100%);
+  --fc-work-wash: radial-gradient(ellipse 72% 100% at 100% 100%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%);
+}
+
+/* Restore the previous compact, portrait collection card anatomy. */
+.flashcards-page .fc-grid,
+.flashcards-page .fc-cards-panel .fc-grid {
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 12px;
+}
+
+.flashcards-page .fc-set-card-new,
+.flashcards-page .fc-cards-panel .fc-set-card-new {
+  display: flex;
+  flex-direction: column;
+  min-height: 326px;
+  max-width: none;
+  height: 100% !important;
+}
+
+.flashcards-page .fc-set-thumbnail,
+.flashcards-page .fc-cards-panel .fc-set-thumbnail {
+  flex: 0 0 142px;
+  height: 142px !important;
+  min-height: 142px !important;
+  max-height: 142px !important;
+}
+
+.flashcards-page .fc-set-thumbnail-content {
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 18px 20px !important;
+}
+
+.flashcards-page .fc-thumbnail-title {
+  max-width: calc(100% - 38px);
+  font-size: clamp(16px, 1.4vw, 19px) !important;
+  line-height: 1.12 !important;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.flashcards-page .fc-set-content-new,
+.flashcards-page .fc-cards-panel .fc-set-content-new {
+  flex: 1 1 auto;
+  min-height: 104px !important;
+  padding: 14px 16px 12px !important;
+}
+
+.flashcards-page .fc-mastery-section {
+  gap: 7px;
+}
+
+.flashcards-page .fc-mastery-info,
+.flashcards-page .fc-set-date-new,
+.flashcards-page .fc-set-uid {
+  font-size: 9px;
+  letter-spacing: .12em;
+}
+
+.flashcards-page .fc-set-actions-new,
+.flashcards-page .fc-cards-panel .fc-set-actions-new {
+  gap: 6px;
+  padding: 10px 12px 12px;
+}
+
+.flashcards-page .fc-action-btn-new,
+.flashcards-page .fc-cards-panel .fc-action-btn-new {
+  min-height: 40px;
+  border-radius: 8px;
+  font-size: 8px;
+}
+
+.flashcards-page .fc-delete-btn-thumb {
+  width: 38px;
+  height: 38px;
+  opacity: .62;
+  background: rgba(10, 10, 11, .76) !important;
+}
+
+/* Needs Review: a consistent set shell with readable question/answer rows. */
+.flashcards-page .fc-review-section {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+
+.flashcards-page .fc-review-summary {
+  margin: 0;
+  padding: 13px 16px;
+  border: 1px solid var(--fc-work-border);
+  border-radius: 11px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, .025);
+  font-size: 11px;
+}
+
+.flashcards-page .fc-review-count {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.flashcards-page .fc-review-set {
+  padding: 16px;
+  border: 1px solid var(--fc-work-border);
+  border-radius: 14px;
+  background: var(--fc-work-wash), var(--fc-work-surface-soft);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .18);
+}
+
+.flashcards-page .fc-review-set-header {
+  min-height: 44px;
+  margin: 0 0 12px;
+  padding: 0 2px 12px;
+  border-bottom: 1px solid var(--fc-work-border);
+}
+
+.flashcards-page .fc-review-set-header h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.flashcards-page .fc-review-set-count {
+  border: 1px solid var(--fc-work-border);
+  border-radius: 999px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  font-size: 8px;
+  letter-spacing: .12em;
+}
+
+.flashcards-page .fc-review-cards-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+
+.flashcards-page .fc-review-card-item {
+  min-height: 176px;
+  padding: 16px;
+}
+
+.flashcards-page .fc-review-card-content {
+  display: grid;
+  gap: 12px;
+}
+
+.flashcards-page .fc-review-card-question,
+.flashcards-page .fc-review-card-answer {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 8px;
+  margin: 0;
+  padding: 0 0 12px;
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.flashcards-page .fc-review-card-question {
+  border-bottom: 1px solid var(--fc-work-border);
+}
+
+.flashcards-page .fc-review-label {
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .12em;
+}
+
+.flashcards-page .fc-review-card-actions {
+  margin-left: 12px;
+}
+
+.flashcards-page .fc-review-card-actions .fc-btn {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  border-radius: 9px;
+}
+
+.flashcards-page .fc-review-study-btn {
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  border-radius: 10px;
+}
+
+/* Study Queue and algorithm panels. */
+.flashcards-page .fc-sr-queue-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+
+.flashcards-page .fc-sr-summary-item {
+  min-width: 0;
+  min-height: 118px;
+  padding: 16px;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.flashcards-page .fc-sr-dot {
+  width: 7px;
+  height: 7px;
+  box-shadow: none;
+}
+
+.flashcards-page .fc-sr-count {
+  color: var(--text-primary);
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: -.04em;
+}
+
+.flashcards-page .fc-sr-label {
+  color: var(--text-secondary);
+  font-size: 8px;
+  letter-spacing: .16em;
+}
+
+.flashcards-page .fc-sr-start-btn-inline {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  border-radius: 10px;
+}
+
+.flashcards-page .fc-sr-empty,
+.flashcards-page .fc-sr-stats-panel,
+.flashcards-page .fc-sr-ai-section {
+  margin-top: 12px;
+  padding: 22px;
+  border: 1px solid var(--fc-work-border);
+  border-radius: 14px;
+  background: var(--fc-work-wash), var(--fc-work-surface-soft);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .16);
+  backdrop-filter: none;
+}
+
+.flashcards-page .fc-sr-empty {
+  min-height: 210px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.flashcards-page .fc-sr-empty-icon {
+  width: 44px;
+  height: 44px;
+  margin-bottom: 12px;
+  border: 1px solid var(--fc-work-border-strong);
+  border-radius: 11px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  box-shadow: none;
+}
+
+.flashcards-page .fc-sr-stats-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.flashcards-page .fc-sr-stat-card,
+.flashcards-page .fc-sr-suggestion-stat,
+.flashcards-page .fc-sr-encouragement,
+.flashcards-page .fc-sr-tips li,
+.flashcards-page .fc-sr-problem-card {
+  border: 1px solid var(--fc-work-border);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, .025);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.flashcards-page .fc-sr-stat-card {
+  min-height: 118px;
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding: 16px;
+}
+
+.flashcards-page .fc-sr-stat-value {
+  color: var(--text-primary);
+  font-size: 26px;
+}
+
+.flashcards-page .fc-sr-state-bar-track,
+.flashcards-page .fc-sr-ease-bar-track {
+  height: 6px;
+  background: rgba(255, 255, 255, .055);
+}
+
+.flashcards-page .fc-sr-forecast-chart {
+  padding: 20px 14px 12px;
+  border: 1px solid var(--fc-work-border);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, .02);
+}
+
+/* Focus workflows: Preview, Edit, Random, Quiz and spaced-repetition study. */
+.flashcards-page.fc-focus-shell .fc-study-mode {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  overflow: hidden;
+}
+
+.flashcards-page.fc-focus-shell .fc-study-header {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 88px;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--fc-work-border) !important;
+  background: rgba(9, 10, 11, .34) !important;
+}
+
+.flashcards-page.fc-focus-shell .fc-study-title {
+  min-width: 0;
+}
+
+.flashcards-page.fc-focus-shell .fc-study-title h2,
+.flashcards-page.fc-focus-shell .fc-edit-title-input {
+  max-width: min(640px, 55vw);
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(20px, 2.5vw, 31px);
+  font-weight: 760;
+  line-height: 1.08;
+  letter-spacing: -.035em;
+}
+
+.flashcards-page.fc-focus-shell .fc-card-counter {
+  margin-top: 7px;
+  color: var(--accent);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .17em;
+}
+
+.flashcards-page.fc-focus-shell .fc-study-header-actions,
+.flashcards-page.fc-focus-shell .fc-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.flashcards-page.fc-focus-shell :is(.fc-ask-ai-toggle-btn, .fc-exit-btn, .fc-header-btn, .fc-btn-ghost) {
+  min-height: 40px !important;
+  padding: 0 13px !important;
+  border: 1px solid var(--fc-work-border) !important;
+  border-radius: 9px !important;
+  color: var(--text-secondary) !important;
+  background: rgba(255, 255, 255, .025) !important;
+  box-shadow: none !important;
+  font-size: 8px !important;
+  font-weight: 780 !important;
+  letter-spacing: .12em !important;
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease, transform 90ms ease !important;
+}
+
+.flashcards-page.fc-focus-shell .fc-done-btn,
+.flashcards-page.fc-focus-shell .fc-save-btn,
+.flashcards-page.fc-focus-shell .fc-save-btn-small {
+  color: #111 !important;
+  border-color: color-mix(in srgb, var(--accent) 66%, white) !important;
+  background: var(--accent) !important;
+}
+
+.flashcards-page.fc-focus-shell .fc-study-progress {
+  width: 100%;
+  height: 3px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: rgba(255, 255, 255, .045);
+}
+
+.flashcards-page.fc-focus-shell .fc-study-progress-fill,
+.flashcards-page.fc-focus-shell .fc-progress-fill {
+  height: 100%;
+  border-radius: 0;
+  background: var(--accent);
+  box-shadow: none;
+  transition: width 240ms cubic-bezier(.23, 1, .32, 1);
+}
+
+.flashcards-page.fc-focus-shell .fc-study-content,
+.flashcards-page.fc-focus-shell .fc-sr-body {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  padding: clamp(20px, 3vw, 38px);
+  background: transparent;
+}
+
+.flashcards-page.fc-focus-shell .fc-preview-card-container,
+.flashcards-page.fc-focus-shell .fc-edit-card-container {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 760px) 44px;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  max-width: none;
+}
+
+.flashcards-page.fc-focus-shell .fc-arrow-btn,
+.flashcards-page.fc-focus-shell .fc-study-nav,
+.flashcards-page.fc-focus-shell .fc-sr-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 44px;
+  margin: 0;
+  border: 1px solid var(--fc-work-border);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, .025);
+  box-shadow: none;
+  opacity: 1;
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease, transform 90ms ease;
+}
+
+.flashcards-page.fc-focus-shell :is(.fc-arrow-btn, .fc-study-nav, .fc-sr-nav-btn):disabled {
+  opacity: .28;
+}
+
+.flashcards-page.fc-focus-shell .fc-study-card {
+  width: 100%;
+  max-width: 760px;
+  height: clamp(330px, 46vh, 470px);
+  min-height: 330px;
+  max-height: 470px;
+  perspective: 1500px;
+}
+
+.flashcards-page.fc-focus-shell .fc-study-card-inner {
+  transition: transform 280ms cubic-bezier(.23, 1, .32, 1);
+}
+
+.flashcards-page.fc-focus-shell .fc-study-card-front,
+.flashcards-page.fc-focus-shell .fc-study-card-back,
+.flashcards-page.fc-focus-shell .fc-edit-card,
+.flashcards-page.fc-focus-shell .fc-study-question-card,
+.flashcards-page.fc-focus-shell .fc-sr-card-front,
+.flashcards-page.fc-focus-shell .fc-sr-card-back {
+  border: 1px solid var(--fc-work-border) !important;
+  border-radius: 14px !important;
+  color: var(--text-primary) !important;
+  background: var(--fc-work-wash), var(--fc-work-surface) !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .2) !important;
+}
+
+.flashcards-page.fc-focus-shell .fc-study-card-front,
+.flashcards-page.fc-focus-shell .fc-study-card-back {
+  padding: clamp(24px, 4vw, 42px);
+}
+
+.flashcards-page.fc-focus-shell .fc-study-badge,
+.flashcards-page.fc-focus-shell .fc-sr-card-badge,
+.flashcards-page.fc-focus-shell .fc-sr-card-label,
+.flashcards-page.fc-focus-shell .fc-edit-label,
+.flashcards-page.fc-focus-shell .fc-edit-card-number {
+  width: fit-content;
+  margin: 0 0 14px;
+  padding: 0;
+  color: var(--accent);
+  background: transparent;
+  font-size: 8px;
+  font-weight: 820;
+  letter-spacing: .17em;
+}
+
+.flashcards-page.fc-focus-shell .fc-study-card-text,
+.flashcards-page.fc-focus-shell .fc-study-question-text,
+.flashcards-page.fc-focus-shell .fc-sr-card-content {
+  color: var(--text-primary) !important;
+  font-size: clamp(17px, 2vw, 24px);
+  line-height: 1.5;
+}
+
+.flashcards-page.fc-focus-shell .fc-study-hint,
+.flashcards-page.fc-focus-shell .fc-sr-tap-hint {
+  color: var(--text-secondary) !important;
+  font-size: 9px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.flashcards-page.fc-focus-shell .fc-knowledge-btns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  width: min(760px, 100%);
+  max-width: 760px;
+  margin: 18px auto 0;
+}
+
+.flashcards-page.fc-focus-shell .fc-knowledge-btn {
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 1px solid var(--fc-work-border);
+  border-radius: 10px;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, .025);
+  box-shadow: none;
+  font-size: 9px;
+  letter-spacing: .12em;
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease, transform 90ms ease;
+}
+
+.flashcards-page.fc-focus-shell .fc-know {
+  border-color: color-mix(in srgb, #78b98b 32%, transparent);
+}
+
+.flashcards-page.fc-focus-shell .fc-dont-know {
+  border-color: color-mix(in srgb, #c77c72 30%, transparent);
+}
+
+/* Edit/create uses the same framed card anatomy as preview. */
+.flashcards-page.fc-focus-shell .fc-edit-content {
+  justify-content: flex-start;
+  gap: 16px;
+}
+
+.flashcards-page.fc-focus-shell .fc-edit-card {
+  min-height: 430px;
+  padding: 20px;
+  gap: 16px;
+}
+
+.flashcards-page.fc-focus-shell .fc-edit-card-header {
+  padding-bottom: 13px;
+  border-bottom: 1px solid var(--fc-work-border);
+}
+
+.flashcards-page.fc-focus-shell .fc-edit-field {
+  gap: 8px;
+}
+
+.flashcards-page.fc-focus-shell .fc-edit-textarea {
+  min-height: 128px;
+  padding: 15px;
+  resize: vertical;
+  border: 1px solid var(--fc-work-border);
+  border-radius: 10px;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, .025);
+  box-shadow: none;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.flashcards-page.fc-focus-shell .fc-edit-bottom-actions {
+  margin-top: 0;
+}
+
+.flashcards-page.fc-focus-shell .fc-add-card-btn {
+  min-height: 44px !important;
+  border-radius: 10px;
+}
+
+.flashcards-page.fc-focus-shell .fc-edit-dot {
+  width: 9px;
+  height: 9px;
+  border: 1px solid var(--fc-work-border);
+  background: rgba(255, 255, 255, .06);
+}
+
+.flashcards-page.fc-focus-shell .fc-edit-dot.active {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+/* Quiz options are equal, readable, and use restrained feedback colors. */
+.flashcards-page.fc-focus-shell .fc-study-mcq-area {
+  display: grid;
+  grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+  align-items: stretch;
+  gap: 12px;
+  width: min(1060px, 100%);
+  margin: 0 auto;
+}
+
+.flashcards-page.fc-focus-shell .fc-mcq-question-container,
+.flashcards-page.fc-focus-shell .fc-mcq-options {
+  min-width: 0;
+  height: auto;
+  max-height: none;
+}
+
+.flashcards-page.fc-focus-shell .fc-study-question-card {
+  min-height: 100%;
+  padding: 24px;
+}
+
+.flashcards-page.fc-focus-shell .fc-mcq-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 12px;
+  overflow: visible;
+}
+
+.flashcards-page.fc-focus-shell .fc-mcq-option {
+  min-height: 132px;
+  margin: 0;
+  padding: 16px;
+  align-items: flex-start;
+  border: 1px solid var(--fc-work-border);
+  border-radius: 12px;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, .025);
+  box-shadow: none;
+  transition: border-color 160ms ease, background-color 160ms ease, transform 90ms ease;
+}
+
+.flashcards-page.fc-focus-shell .fc-mcq-letter {
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--fc-work-border);
+  border-radius: 8px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.flashcards-page.fc-focus-shell .fc-mcq-text {
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.flashcards-page.fc-focus-shell .fc-mcq-option.correct {
+  border-color: color-mix(in srgb, #78b98b 48%, transparent);
+  background: color-mix(in srgb, #78b98b 9%, #151618);
+}
+
+.flashcards-page.fc-focus-shell .fc-mcq-option.incorrect {
+  border-color: color-mix(in srgb, #c77c72 48%, transparent);
+  background: color-mix(in srgb, #c77c72 8%, #151618);
+}
+
+/* Spaced repetition study and results. */
+.flashcards-page.fc-focus-shell .fc-sr-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
+}
+
+.flashcards-page.fc-focus-shell .fc-sr-card-area {
+  width: min(760px, 100%);
+}
+
+.flashcards-page.fc-focus-shell .fc-sr-card {
+  width: 100%;
+  height: clamp(330px, 46vh, 460px);
+  max-width: none;
+}
+
+.flashcards-page.fc-focus-shell .fc-sr-card-inner {
+  transition: transform 280ms cubic-bezier(.23, 1, .32, 1);
+}
+
+.flashcards-page.fc-focus-shell .fc-sr-card-front,
+.flashcards-page.fc-focus-shell .fc-sr-card-back {
+  padding: clamp(24px, 4vw, 42px);
+}
+
+.flashcards-page.fc-focus-shell .fc-sr-grade-buttons {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  width: min(760px, 100%);
+}
+
+.flashcards-page.fc-focus-shell .fc-sr-grade {
+  min-height: 66px;
+  padding: 10px !important;
+  border-radius: 10px;
+  box-shadow: none !important;
+  transition: border-color 150ms ease, background-color 150ms ease, transform 90ms ease;
+}
+
+.flashcards-page.fc-focus-shell .fc-sr-nav-row {
+  width: min(760px, 100%);
+  margin: 0;
+}
+
+.flashcards-page.fc-focus-shell .fc-sr-results,
+.flashcards-page.fc-focus-shell .fc-results {
+  flex: 1;
+  min-height: 0;
+  padding: clamp(24px, 4vw, 48px);
+  color: var(--text-primary);
+  background: transparent;
+}
+
+.flashcards-page.fc-focus-shell .fc-results-card,
+.flashcards-page.fc-focus-shell .fc-sr-results {
+  width: min(760px, 100%);
+  margin: auto;
+  padding: clamp(24px, 4vw, 42px);
+  overflow: hidden;
+  border: 1px solid var(--fc-work-border);
+  border-radius: 14px;
+  background: var(--fc-work-wash), var(--fc-work-surface);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .2);
+}
+
+.flashcards-page.fc-focus-shell .fc-results-card::before,
+.flashcards-page.fc-focus-shell .fc-results-card::after,
+.flashcards-page.fc-focus-shell .fc-results-orb {
+  display: none;
+}
+
+.flashcards-page.fc-focus-shell .fc-results h2,
+.flashcards-page.fc-focus-shell .fc-sr-results-title {
+  color: var(--text-primary);
+  font-size: clamp(28px, 4vw, 44px);
+  letter-spacing: -.04em;
+}
+
+.flashcards-page.fc-focus-shell .fc-results-stats,
+.flashcards-page.fc-focus-shell .fc-sr-results-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  max-width: none;
+}
+
+.flashcards-page.fc-focus-shell .fc-sr-results-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.flashcards-page.fc-focus-shell .fc-result-stat,
+.flashcards-page.fc-focus-shell .fc-sr-result-item {
+  min-height: 118px;
+  padding: 16px;
+  border: 1px solid var(--fc-work-border);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, .025);
+  box-shadow: none;
+  animation: none;
+}
+
+.flashcards-page.fc-focus-shell .fc-results-message {
+  border: 1px solid var(--fc-work-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .02);
+}
+
+.flashcards-page.fc-focus-shell .fc-results-actions,
+.flashcards-page.fc-focus-shell .fc-sr-results-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.flashcards-page :is(.fc-review-set),
+.flashcards-page.fc-focus-shell :is(
+  .fc-study-card-front,
+  .fc-study-card-back,
+  .fc-edit-card,
+  .fc-study-question-card,
+  .fc-mcq-option,
+  .fc-sr-card-front,
+  .fc-sr-card-back,
+  .fc-result-stat,
+  .fc-sr-result-item
+) {
+  --shc-mx: 50%;
+  --shc-my: 50%;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.flashcards-page :is(.fc-review-set),
+.flashcards-page.fc-focus-shell :is(.fc-edit-card, .fc-study-question-card, .fc-mcq-option, .fc-result-stat, .fc-sr-result-item) {
+  position: relative;
+}
+
+.flashcards-page :is(.fc-review-set)::after,
+.flashcards-page.fc-focus-shell :is(
+  .fc-study-card-front,
+  .fc-study-card-back,
+  .fc-edit-card,
+  .fc-study-question-card,
+  .fc-mcq-option,
+  .fc-sr-card-front,
+  .fc-sr-card-back,
+  .fc-result-stat,
+  .fc-sr-result-item
+)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    270px circle at var(--shc-mx, 50%) var(--shc-my, 50%),
+    color-mix(in srgb, var(--accent) 13%, transparent),
+    transparent 72%
+  );
+  transition: opacity 175ms ease;
+}
+
+.flashcards-page :is(.fc-review-set) > *,
+.flashcards-page.fc-focus-shell :is(
+  .fc-study-card-front,
+  .fc-study-card-back,
+  .fc-edit-card,
+  .fc-study-question-card,
+  .fc-mcq-option,
+  .fc-sr-card-front,
+  .fc-sr-card-back,
+  .fc-result-stat,
+  .fc-sr-result-item
+) > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Shared interaction rules for all completed Flashcards workflows. */
+@media (hover: hover) and (pointer: fine) {
+  .flashcards-page.fc-focus-shell :is(.fc-ask-ai-toggle-btn, .fc-exit-btn, .fc-header-btn, .fc-btn-ghost, .fc-arrow-btn, .fc-study-nav, .fc-sr-nav-btn, .fc-knowledge-btn):hover:not(:disabled) {
+    color: var(--text-primary) !important;
+    border-color: var(--fc-work-border-strong) !important;
+    background: color-mix(in srgb, var(--accent) 7%, #17181a) !important;
+  }
+
+  .flashcards-page.fc-focus-shell :is(.fc-arrow-btn, .fc-study-nav, .fc-sr-nav-btn):hover:not(:disabled) {
+    transform: translateY(-2px);
+  }
+
+  .flashcards-page.fc-focus-shell :is(.fc-study-card-front, .fc-study-card-back, .fc-edit-card, .fc-study-question-card, .fc-sr-card-front, .fc-sr-card-back):hover {
+    border-color: var(--fc-work-border-strong) !important;
+  }
+
+  .flashcards-page :is(.fc-review-set):hover::after,
+  .flashcards-page.fc-focus-shell :is(
+    .fc-study-card-front,
+    .fc-study-card-back,
+    .fc-edit-card,
+    .fc-study-question-card,
+    .fc-mcq-option,
+    .fc-sr-card-front,
+    .fc-sr-card-back,
+    .fc-result-stat,
+    .fc-sr-result-item
+  ):hover::after {
+    opacity: 1;
+  }
+
+  .flashcards-page.fc-focus-shell .fc-mcq-option:hover:not(.disabled):not(.correct):not(.incorrect) {
+    border-color: var(--fc-work-border-strong);
+    background: color-mix(in srgb, var(--accent) 6%, #17181a);
+    transform: translateY(-2px);
+  }
+}
+
+.flashcards-page.fc-focus-shell :is(button, .fc-study-card, .fc-sr-card):active:not(:disabled) {
+  transform: scale(.98);
+}
+
+@media (max-width: 1100px) {
+  .flashcards-page .fc-grid,
+  .flashcards-page .fc-cards-panel .fc-grid {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  }
+
+  .flashcards-page .fc-review-cards-list,
+  .flashcards-page.fc-focus-shell .fc-study-mcq-area {
+    grid-template-columns: 1fr;
+  }
+
+  .flashcards-page.fc-focus-shell .fc-mcq-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .flashcards-page .fc-sr-queue-row,
+  .flashcards-page .fc-sr-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .flashcards-page .fc-review-cards-list,
+  .flashcards-page.fc-focus-shell .fc-mcq-options,
+  .flashcards-page.fc-focus-shell .fc-results-stats,
+  .flashcards-page.fc-focus-shell .fc-sr-results-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .flashcards-page.fc-focus-shell .fc-study-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .flashcards-page.fc-focus-shell .fc-study-title h2,
+  .flashcards-page.fc-focus-shell .fc-edit-title-input {
+    max-width: 100%;
+  }
+
+  .flashcards-page.fc-focus-shell .fc-study-header-actions,
+  .flashcards-page.fc-focus-shell .fc-header-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .flashcards-page.fc-focus-shell .fc-preview-card-container,
+  .flashcards-page.fc-focus-shell .fc-edit-card-container {
+    grid-template-columns: 1fr;
+  }
+
+  .flashcards-page.fc-focus-shell .fc-preview-card-container > .fc-arrow-btn,
+  .flashcards-page.fc-focus-shell .fc-edit-card-container > .fc-arrow-btn {
+    display: none;
+  }
+
+  .flashcards-page.fc-focus-shell .fc-knowledge-btns,
+  .flashcards-page.fc-focus-shell .fc-sr-grade-buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flashcards-page.fc-focus-shell :is(
+    .fc-study-card-inner,
+    .fc-sr-card-inner,
+    .fc-study-progress-fill,
+    .fc-progress-fill,
+    .fc-mcq-option,
+    .fc-knowledge-btn,
+    .fc-arrow-btn,
+    .fc-study-nav,
+    .fc-sr-nav-btn
+  ) {
+    transition-duration: .01ms !important;
+  }
+
+  .flashcards-page :is(.fc-review-set)::after,
+  .flashcards-page.fc-focus-shell :is(
+    .fc-study-card-front,
+    .fc-study-card-back,
+    .fc-edit-card,
+    .fc-study-question-card,
+    .fc-mcq-option,
+    .fc-sr-card-front,
+    .fc-sr-card-back,
+    .fc-result-stat,
+    .fc-sr-result-item
+  )::after {
+    transition-duration: .01ms !important;
+  }
+
+  .flashcards-page.fc-focus-shell :is(button, .fc-study-card, .fc-sr-card):active:not(:disabled),
+  .flashcards-page.fc-focus-shell :is(.fc-arrow-btn, .fc-study-nav, .fc-sr-nav-btn):hover:not(:disabled),
+  .flashcards-page.fc-focus-shell .fc-mcq-option:hover:not(.disabled):not(.correct):not(.incorrect) {
+    transform: none !important;
   }
 }

@@ -14,7 +14,7 @@ import { queueLegacyAIEndpoint, queueLegacyAIFileEndpoint, USE_AI_JOB_QUEUE } fr
 import MathRenderer from '../components/MathRenderer';
 import ImportExportModal from '../components/ImportExportModal';
 import PodcastStudio from '../components/media/PodcastStudio';
-import GeometricGrid from '../components/GeometricGrid';
+import SocialHubChrome from '../components/SocialHubChrome';
 
 const asText = (value) => (value === null || value === undefined ? '' : String(value));
 const MEDIA_FILE_ACCEPT = '.pdf,.mp3,.mp4,application/pdf,audio/mpeg,video/mp4';
@@ -54,6 +54,16 @@ const toTranscriptPassages = (value) => {
   }, []);
 };
 
+const isCorrectQuizOption = (correctAnswer, option, optionIndex) => {
+  const normalizedAnswer = asText(correctAnswer).trim();
+  const optionLetter = String.fromCharCode(65 + optionIndex);
+
+  return correctAnswer === optionIndex
+    || (normalizedAnswer !== '' && Number(normalizedAnswer) === optionIndex)
+    || normalizedAnswer.toUpperCase() === optionLetter
+    || normalizedAnswer === asText(option).trim();
+};
+
 const AIMediaNotes = () => {
   const navigate = useNavigate();
   const { noteId } = useParams();
@@ -77,9 +87,9 @@ const AIMediaNotes = () => {
   const [difficulty, setDifficulty] = useState('intermediate');
   const [subject, setSubject] = useState('');
   const [customInstructions, setCustomInstructions] = useState('');
-  const [generateFlashcards, setGenerateFlashcards] = useState(true);
-  const [generateQuiz, setGenerateQuiz] = useState(true);
-  const [showSettings, setShowSettings] = useState(true);
+  const [generateFlashcards, setGenerateFlashcards] = useState(false);
+  const [generateQuiz, setGenerateQuiz] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [showImportExport, setShowImportExport] = useState(false);
 
   
@@ -91,7 +101,7 @@ const AIMediaNotes = () => {
     typeof window === 'undefined' ? true : window.innerWidth > 768
   ));
   const [activeNoteId, setActiveNoteId] = useState(null);
-  const [showTranscriptRail, setShowTranscriptRail] = useState(true);
+  const [showTranscriptRail, setShowTranscriptRail] = useState(false);
   const [transcriptQuery, setTranscriptQuery] = useState('');
 
   useEffect(() => {
@@ -202,6 +212,7 @@ const AIMediaNotes = () => {
       setProgress(100);
       setResults(data);
       setActiveTab('notes');
+      setShowTranscriptRail(false);
 
     } catch (error) {
       
@@ -475,6 +486,7 @@ const AIMediaNotes = () => {
       });
       setActiveNoteId(item.id);
       setActiveTab('notes');
+      setShowTranscriptRail(false);
       navigate(`/notes/ai-media/${item.id}`, { replace: true });
     } catch (error) {
       console.error('Load error:', error);
@@ -513,9 +525,17 @@ const AIMediaNotes = () => {
     setUploadedFile(null);
     setActiveNoteId(null);
     setActiveTab('notes');
+    setShowTranscriptRail(false);
     setTranscriptQuery('');
     if (location.pathname !== '/notes/ai-media') {
       navigate('/notes/ai-media');
+    }
+  };
+
+  const handleWorkflowKeyDown = (event, action) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      action();
     }
   };
 
@@ -534,17 +554,77 @@ const AIMediaNotes = () => {
         ? 'Saved note'
         : 'Media upload';
   const selectedSourceName = uploadedFile?.name || 'No source selected';
+  const mediaOutputItems = [
+    { icon: BookOpen, label: 'Notes', onClick: () => setActiveTab('notes'), active: !isLibraryView && activeTab === 'notes', disabled: !results },
+    { icon: FileText, label: 'Transcript', onClick: () => setActiveTab('transcript'), active: !isLibraryView && activeTab === 'transcript', disabled: !results || !transcriptText },
+    { icon: Mic, label: 'Podcast', onClick: () => setActiveTab('podcast'), active: !isLibraryView && activeTab === 'podcast', disabled: !results },
+    { icon: Zap, label: 'Analysis', onClick: () => setActiveTab('analysis'), active: !isLibraryView && activeTab === 'analysis', disabled: !results },
+    { icon: FileText, label: 'Flashcards', onClick: () => setActiveTab('flashcards'), active: !isLibraryView && activeTab === 'flashcards', disabled: !results, count: flashcardCount },
+    { icon: CheckCircle, label: 'Quiz', onClick: () => setActiveTab('quiz'), active: !isLibraryView && activeTab === 'quiz', disabled: !results, count: quizCount },
+    { icon: Play, label: 'Moments', onClick: () => setActiveTab('moments'), active: !isLibraryView && activeTab === 'moments', disabled: !results || !momentCount, count: momentCount },
+  ];
+  const mediaSideSections = [
+    { label: 'Generated output', items: mediaOutputItems },
+    {
+      label: 'Library',
+      items: [{
+        icon: FileText,
+        label: 'My library',
+        onClick: () => navigate('/notes/ai-media/my-notes'),
+        active: isLibraryView,
+        count: history.length,
+      }],
+    },
+  ];
+  const mediaSidebarLead = (
+    <button className="amn-side-upload" onClick={startNewUpload} type="button">
+      <Upload size={16} />
+      <span>New upload</span>
+    </button>
+  );
+  const mediaSidebarTail = (
+    <div className="amn-side-history">
+      <span className="amn-side-history-label">Recent sources</span>
+      {history.length > 0 ? (
+        <div className="amn-side-history-list">
+          {history.slice(0, 4).map((item, idx) => (
+            <div className={`amn-side-history-row ${activeNoteId === item.id ? 'is-active' : ''}`} key={item.id || idx}>
+              <button type="button" className="amn-side-history-open" onClick={() => loadHistoryItem(item)}>
+                <FileText size={14} />
+                <span>
+                  <strong>{item.title || 'Untitled source'}</strong>
+                  <small>{formatDate(item.created_at)}</small>
+                </span>
+              </button>
+              <button
+                type="button"
+                className="amn-side-history-delete"
+                aria-label={`Delete ${item.title || 'source'}`}
+                onClick={(event) => deleteHistoryItem(event, item)}
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <span className="amn-side-history-empty">Your processed sources will appear here.</span>
+      )}
+    </div>
+  );
 
   return (
-    <div className="ai-media-notes-page">
-      <div className="amn-line-field" aria-hidden="true">
-        <GeometricGrid
-          className="amn-line-grid"
-          linesClassName="amn-line-grid-lines"
-          numsClassName="amn-line-grid-nums"
-        />
-        <div className="amn-line-wash" />
-      </div>
+    <div className="ai-media-notes-page with-social-chrome">
+      <SocialHubChrome
+        brandKicker="Media"
+        sideSections={mediaSideSections}
+        sidebarLead={mediaSidebarLead}
+        sidebarTail={mediaSidebarTail}
+        footerItems={[
+          { icon: BookOpen, label: 'Notes Hub', path: '/notes' },
+          { icon: Home, label: 'Dashboard', path: '/dashboard-cerbyl' },
+        ]}
+      >
       <div className="amn-qb-topbar">
         <div className="amn-qb-tagline">Learning Unified</div>
       </div>
@@ -805,19 +885,53 @@ const AIMediaNotes = () => {
                     <h2 className="view-title">Keep the source.<br />Lose the noise.</h2>
                     <p className="view-sub">A source-aware workspace for turning recordings, video and documents into notes you can trace, review and reuse.</p>
                   </div>
+                </div>
+
+                <section className="mn-intake-stage" aria-label="Build a study edition">
+                  <div className="mn-intake-view-bar">
                   <div className="mn-intake-status" aria-label="Current setup">
                     <span>Source</span>
                     <strong>{selectedSourceName}</strong>
                   </div>
-                </div>
 
-                <div className="mn-workflow-strip" aria-label="Media Notes workflow">
-                  <span className={uploadedFile ? 'is-complete' : 'is-current'}><b>01</b> Source</span>
-                  <i />
-                  <span className={uploadedFile ? 'is-current' : ''}><b>02</b> Study brief</span>
-                  <i />
-                  <span><b>03</b> Study desk</span>
-                </div>
+                    <div className="mn-workflow-strip" aria-label="Media Notes workflow">
+                      <span
+                        className={uploadedFile ? 'is-complete' : 'is-current'}
+                        role="button"
+                        tabIndex={0}
+                        aria-label="Choose source"
+                        onClick={() => fileInputRef.current?.click()}
+                        onKeyDown={(event) => handleWorkflowKeyDown(event, () => fileInputRef.current?.click())}
+                      >
+                        <b>01</b> Source
+                      </span>
+                      <i />
+                      <span
+                        className={uploadedFile || showSettings ? 'is-current' : ''}
+                        role="button"
+                        tabIndex={0}
+                        aria-label="Open study brief"
+                        aria-expanded={showSettings}
+                        onClick={() => setShowSettings(true)}
+                        onKeyDown={(event) => handleWorkflowKeyDown(event, () => setShowSettings(true))}
+                      >
+                        <b>02</b> Study brief
+                      </span>
+                      <i />
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-label={uploadedFile ? 'Generate study edition' : 'Choose a source before generating'}
+                        onClick={() => uploadedFile ? processMedia() : fileInputRef.current?.click()}
+                        onKeyDown={(event) => handleWorkflowKeyDown(
+                          event,
+                          () => uploadedFile ? processMedia() : fileInputRef.current?.click()
+                        )}
+                      >
+                        <b>03</b> Study desk
+                      </span>
+                    </div>
+                  </div>
 
                 <div className="mn-intake-grid">
                   <section className="mn-intake-card mn-source-card">
@@ -867,7 +981,7 @@ const AIMediaNotes = () => {
                     </div>
                   </section>
 
-                  <section className="mn-intake-card mn-brief-card">
+                  <section className={`mn-intake-card mn-brief-card ${showSettings ? 'is-open' : 'is-closed'}`}>
                     <button className="mn-intake-card-head mn-brief-toggle" type="button" onClick={() => setShowSettings(!showSettings)} aria-expanded={showSettings}>
                       <span className="mn-step-index">02</span>
                       <span>
@@ -887,21 +1001,27 @@ const AIMediaNotes = () => {
                             type="button"
                             onClick={() => { setNoteStyle('detailed'); setDifficulty('intermediate'); setGenerateFlashcards(true); setGenerateQuiz(true); }}
                           >
-                            <strong>Lecture</strong><small>Detailed + recall tools</small>
+                            <span className="mn-recipe-icon"><BookOpen size={15} /></span>
+                            <span className="mn-recipe-copy"><strong>Lecture</strong><small>Detailed + recall tools</small></span>
+                            <span className="mn-recipe-signal" aria-hidden="true"><i /><i /><i /><i /></span>
                           </button>
                           <button
                             className={noteStyle === 'bullet_points' && difficulty === 'beginner' ? 'is-selected' : ''}
                             type="button"
                             onClick={() => { setNoteStyle('bullet_points'); setDifficulty('beginner'); setGenerateFlashcards(true); setGenerateQuiz(false); }}
                           >
-                            <strong>Quick review</strong><small>Key points + cards</small>
+                            <span className="mn-recipe-icon"><Zap size={15} /></span>
+                            <span className="mn-recipe-copy"><strong>Quick review</strong><small>Key points + cards</small></span>
+                            <span className="mn-recipe-signal" aria-hidden="true"><i /><i /><i /><i /></span>
                           </button>
                           <button
                             className={noteStyle === 'cornell' && difficulty === 'advanced' ? 'is-selected' : ''}
                             type="button"
                             onClick={() => { setNoteStyle('cornell'); setDifficulty('advanced'); setGenerateFlashcards(false); setGenerateQuiz(true); }}
                           >
-                            <strong>Deep study</strong><small>Cornell + challenge</small>
+                            <span className="mn-recipe-icon"><Brain size={15} /></span>
+                            <span className="mn-recipe-copy"><strong>Deep study</strong><small>Cornell + challenge</small></span>
+                            <span className="mn-recipe-signal" aria-hidden="true"><i /><i /><i /><i /></span>
                           </button>
                         </div>
                       </div>
@@ -1017,55 +1137,56 @@ const AIMediaNotes = () => {
                     )}
                   </section>
                 </div>
+                </section>
               </div>
             ) : (
               <div className="mn-results">
                 <div className="mn-results-header">
-                  <div className="mn-results-identity">
-                    <div className="mn-result-source-mark">
-                      {results.source_type === 'pdf' ? <FileText size={24} /> : <Mic size={24} />}
-                    </div>
-                    <div>
-                      <span className="mn-result-eyebrow">{sourceLabel} · study edition</span>
-                      <h2 className="mn-results-title">{results.filename}</h2>
-                      <div className="mn-results-meta">
-                        {results.language_name && <span><Globe size={13} />{results.language_name}</span>}
-                        {results.duration > 0 && <span><Clock size={13} />{formatTime(results.duration)}</span>}
-                        {results.pdf_info?.page_count > 0 && <span><FileText size={13} />{results.pdf_info.page_count} {results.pdf_info.page_count === 1 ? 'page' : 'pages'}</span>}
-                        {results.analysis?.difficulty_level && <span><Zap size={13} />{results.analysis.difficulty_level}</span>}
+                  <div className="mn-results-copy">
+                    <div className="mn-results-kicker-row">
+                      <div className="mn-result-source-mark" aria-hidden="true">
+                        {results.source_type === 'pdf' ? <FileText size={18} /> : <Mic size={18} />}
                       </div>
+                      <span className="mn-result-eyebrow">{sourceLabel} · saved study edition</span>
+                    </div>
+                    <h2 className="mn-results-title">{results.filename}</h2>
+                    <p className="mn-results-description">
+                      Study the generated notes alongside their original source, then turn the strongest ideas into recall material.
+                    </p>
+                    <div className="mn-results-meta">
+                      {results.language_name && <span><Globe size={13} />{results.language_name}</span>}
+                      {results.duration > 0 && <span><Clock size={13} />{formatTime(results.duration)}</span>}
+                      {results.pdf_info?.page_count > 0 && <span><FileText size={13} />{results.pdf_info.page_count} {results.pdf_info.page_count === 1 ? 'page' : 'pages'}</span>}
+                      {results.analysis?.difficulty_level && <span><Zap size={13} />{results.analysis.difficulty_level}</span>}
                     </div>
                   </div>
                   <button className="mn-new-source-btn" type="button" onClick={startNewUpload}><Upload size={15} /> New source</button>
                 </div>
 
-                <div className="mn-tabs-bar">
-                  <div className="mn-tabs">
-                    <button
-                      className={`mn-tab ${activeTab === 'notes' ? 'active' : ''}`}
-                      onClick={() => setActiveTab('notes')}
-                    >
-                      <BookOpen size={15} />
-                      <span>Notes</span>
-                    </button>
-                    <button
-                      className={`mn-tab ${activeTab === 'transcript' ? 'active' : ''}`}
-                      onClick={() => setActiveTab('transcript')}
-                      disabled={!transcriptText}
-                    >
-                      <FileText size={15} />
-                      <span>Transcript</span>
-                    </button>
-                    <button
-                      className={`mn-tab ${activeTab === 'podcast' ? 'active' : ''}`}
-                      onClick={() => setActiveTab('podcast')}
-                    >
-                      <Mic size={15} />
-                      <span>Podcast</span>
-                    </button>
+                <div className="mn-results-navigation">
+                  <div className="mn-tabs-bar">
+                    <div className="mn-tabs" role="tablist" aria-label="Study edition output">
+                      {mediaOutputItems.map(({ icon: Icon, label, onClick, active, disabled, count }, index) => (
+                        <button
+                          key={label}
+                          className={`mn-tab ${active ? 'active' : ''}`}
+                          onClick={onClick}
+                          disabled={disabled}
+                          type="button"
+                          role="tab"
+                          aria-selected={active}
+                        >
+                          <span className="mn-tab-index">{String(index + 1).padStart(2, '0')}</span>
+                          <Icon size={15} />
+                          <span className="mn-tab-label">{label}</span>
+                          {typeof count === 'number' && count > 0 && <span className="mn-tab-count">{count}</span>}
+                        </button>
+                      ))}
+                    </div>
                   </div>
+
                   {activeTab === 'notes' && results.notes && (
-                    <div className="mn-tabs-actions">
+                    <div className="mn-tabs-actions" aria-label="Note actions">
                       {transcriptText && (
                         <button
                           onClick={() => setShowTranscriptRail((visible) => !visible)}
@@ -1094,45 +1215,47 @@ const AIMediaNotes = () => {
 
                 <div className="mn-tab-content">
                   {activeTab === 'notes' && results.notes && (
-                    <div className={`mn-study-workspace ${showTranscriptRail && transcriptText ? 'has-transcript' : ''}`}>
-                      <div className="mn-notes-panel">
-                        <div className="mn-document-label">
-                          <span>Generated notes</span>
-                          <span>{noteStyle.replace('_', ' ')}</span>
+                    <section className="mn-output-view mn-output-view--notes">
+                      <div className={`mn-study-workspace ${showTranscriptRail && transcriptText ? 'has-transcript' : ''}`}>
+                        <div className="mn-notes-panel">
+                          <div className="mn-document-label">
+                            <span>Generated notes</span>
+                            <span>{noteStyle.replace('_', ' ')}</span>
+                          </div>
+                          <MathRenderer
+                            content={results.notes.content || ''}
+                            className="mn-notes-output"
+                          />
                         </div>
-                        <MathRenderer
-                          content={results.notes.content || ''}
-                          className="mn-notes-output"
-                        />
-                      </div>
-                      {showTranscriptRail && transcriptText && (
-                        <aside className="mn-transcript-rail" aria-label="Source transcript">
-                          <div className="mn-transcript-rail-head">
-                            <div>
-                              <span>Source context</span>
-                              <strong>Transcript</strong>
+                        {showTranscriptRail && transcriptText && (
+                          <aside className="mn-transcript-rail" aria-label="Source transcript">
+                            <div className="mn-transcript-rail-head">
+                              <div>
+                                <span>Source context</span>
+                                <strong>Transcript</strong>
+                              </div>
+                              <button type="button" aria-label="Close transcript panel" onClick={() => setShowTranscriptRail(false)}><X size={15} /></button>
                             </div>
-                            <button type="button" aria-label="Close transcript panel" onClick={() => setShowTranscriptRail(false)}><X size={15} /></button>
-                          </div>
-                          <label className="mn-transcript-search">
-                            <Search size={15} />
-                            <input value={transcriptQuery} onChange={(event) => setTranscriptQuery(event.target.value)} placeholder="Find in transcript" />
-                            {transcriptQuery && <button type="button" aria-label="Clear transcript search" onClick={() => setTranscriptQuery('')}><X size={13} /></button>}
-                          </label>
-                          <div className="mn-transcript-count">
-                            {normalizedTranscriptQuery ? `${visibleTranscriptParagraphs.length} matching passages` : `${transcriptText.split(/\s+/).length.toLocaleString()} words`}
-                          </div>
-                          <div className="mn-transcript-copy">
-                            {visibleTranscriptParagraphs.length > 0 ? visibleTranscriptParagraphs.map((paragraph, index) => <p key={`${paragraph.slice(0, 24)}-${index}`}>{paragraph}</p>) : <div className="mn-transcript-empty">No passage contains “{transcriptQuery}”.</div>}
-                          </div>
-                          <button className="mn-copy-transcript" type="button" onClick={() => copyToClipboard(transcriptText)}><Copy size={14} /> Copy transcript</button>
-                        </aside>
-                      )}
-                    </div>
+                            <label className="mn-transcript-search">
+                              <Search size={15} />
+                              <input value={transcriptQuery} onChange={(event) => setTranscriptQuery(event.target.value)} placeholder="Find in transcript" />
+                              {transcriptQuery && <button type="button" aria-label="Clear transcript search" onClick={() => setTranscriptQuery('')}><X size={13} /></button>}
+                            </label>
+                            <div className="mn-transcript-count">
+                              {normalizedTranscriptQuery ? `${visibleTranscriptParagraphs.length} matching passages` : `${transcriptText.split(/\s+/).length.toLocaleString()} words`}
+                            </div>
+                            <div className="mn-transcript-copy">
+                              {visibleTranscriptParagraphs.length > 0 ? visibleTranscriptParagraphs.map((paragraph, index) => <p key={`${paragraph.slice(0, 24)}-${index}`}>{paragraph}</p>) : <div className="mn-transcript-empty">No passage contains “{transcriptQuery}”.</div>}
+                            </div>
+                            <button className="mn-copy-transcript" type="button" onClick={() => copyToClipboard(transcriptText)}><Copy size={14} /> Copy transcript</button>
+                          </aside>
+                        )}
+                      </div>
+                    </section>
                   )}
 
                   {activeTab === 'transcript' && (
-                    <div className="mn-transcript-view">
+                    <div className="mn-transcript-view mn-output-view">
                       <div className="mn-transcript-view-head">
                         <div>
                           <span className="mn-card-kicker">Original source</span>
@@ -1158,7 +1281,14 @@ const AIMediaNotes = () => {
                   )}
 
                   {activeTab === 'analysis' && (
-                    <div className="mn-notes-panel">
+                    <section className="mn-notes-panel mn-output-view mn-output-view--analysis">
+                      <div className="mn-output-view-head">
+                        <div>
+                          <span className="mn-card-kicker">Study intelligence</span>
+                          <h3>Analysis</h3>
+                          <p>A structured reading of the source, its core concepts, and study demands.</p>
+                        </div>
+                      </div>
                       {!results.analysis || Object.keys(results.analysis).length === 0 ? (
                         <div className="mn-empty-state">
                           <AlertCircle size={48} />
@@ -1209,19 +1339,18 @@ const AIMediaNotes = () => {
                           )}
                         </>
                       )}
-                    </div>
+                    </section>
                   )}
 
                   {activeTab === 'flashcards' && (
-                    <>
-                      {!results.flashcards || results.flashcards.length === 0 ? (
-                        <div className="mn-empty-state">
-                          <AlertCircle size={48} />
-                          <p>No flashcards generated</p>
-                          <p className="mn-empty-hint">Enable "Generate Flashcards" in settings before processing</p>
+                    <section className="mn-output-view mn-output-view--flashcards">
+                      <div className="mn-output-view-head">
+                        <div>
+                          <span className="mn-card-kicker">Recall deck</span>
+                          <h3>Flashcards</h3>
+                          <p>Review the source as focused prompts and answers.</p>
                         </div>
-                      ) : (
-                        <>
+                        {results.flashcards?.length > 0 && (
                           <div className="mn-content-actions">
                             <button onClick={saveFlashcards} className="mn-btn mn-btn-primary">
                               <Save size={16} />
@@ -1232,6 +1361,15 @@ const AIMediaNotes = () => {
                               Copy JSON
                             </button>
                           </div>
+                        )}
+                      </div>
+                      {!results.flashcards || results.flashcards.length === 0 ? (
+                        <div className="mn-empty-state">
+                          <AlertCircle size={48} />
+                          <p>No flashcards generated</p>
+                          <p className="mn-empty-hint">Enable "Generate Flashcards" in settings before processing</p>
+                        </div>
+                      ) : (
                           <div className="mn-flashcards-grid">
                             {results.flashcards.map((card, idx) => (
                               <div key={idx} className="mn-flashcard">
@@ -1244,22 +1382,32 @@ const AIMediaNotes = () => {
                               </div>
                             ))}
                           </div>
-                        </>
                       )}
-                    </>
+                    </section>
                   )}
 
                   {activeTab === 'podcast' && (
-                    <PodcastStudio
-                      results={results}
-                      userName={userName}
-                      onExit={() => setActiveTab('notes')}
-                      onSettingsDrawerChange={setPodcastSettingsOpen}
-                    />
+                    <section className="mn-output-view mn-output-view--podcast">
+                      <PodcastStudio
+                        results={results}
+                        userName={userName}
+                        onExit={() => setActiveTab('notes')}
+                        onSettingsDrawerChange={setPodcastSettingsOpen}
+                        embedded
+                      />
+                    </section>
                   )}
 
                   {activeTab === 'quiz' && (
-                    <>
+                    <section className="mn-output-view mn-output-view--quiz">
+                      <div className="mn-output-view-head">
+                        <div>
+                          <span className="mn-card-kicker">Knowledge check</span>
+                          <h3>Quiz</h3>
+                          <p>Test your understanding with answers and reasoning kept together.</p>
+                        </div>
+                        {results.quiz_questions?.length > 0 && <span className="mn-output-count">{results.quiz_questions.length} questions</span>}
+                      </div>
                       {!results.quiz_questions || results.quiz_questions.length === 0 ? (
                         <div className="mn-empty-state">
                           <AlertCircle size={48} />
@@ -1270,51 +1418,100 @@ const AIMediaNotes = () => {
                         <div className="mn-quiz-list">
                           {results.quiz_questions.map((q, idx) => (
                             <div key={idx} className="mn-quiz-question">
-                              <h4>Question {idx + 1}</h4>
-                              <MathRenderer content={q.question} className="mn-question-text" />
+                              <div className="mn-quiz-question-head">
+                                <span className="mn-quiz-number">{String(idx + 1).padStart(2, '0')}</span>
+                                <div>
+                                  <span className="mn-card-kicker">Knowledge check</span>
+                                  <h4>Question {idx + 1}</h4>
+                                </div>
+                                <span className="mn-quiz-status"><CheckCircle size={13} /> Answer revealed</span>
+                              </div>
+                              <div className="mn-quiz-prompt">
+                                <MathRenderer content={q.question} className="mn-question-text" />
+                              </div>
                               <div className="mn-quiz-options">
-                                {(Array.isArray(q.options) ? q.options : []).map((option, optIdx) => (
-                                  <div
-                                    key={optIdx}
-                                    className={`mn-quiz-option ${optIdx === q.correct_answer ? 'correct' : ''}`}
-                                  >
-                                    <span className="mn-option-letter">{String.fromCharCode(65 + optIdx)}</span>
-                                    <MathRenderer content={String(option)} />
-                                  </div>
-                                ))}
+                                {(Array.isArray(q.options) ? q.options : []).map((option, optIdx) => {
+                                  const isCorrect = isCorrectQuizOption(q.correct_answer, option, optIdx);
+                                  return (
+                                    <div
+                                      key={optIdx}
+                                      className={`mn-quiz-option ${isCorrect ? 'correct' : ''}`}
+                                      aria-label={`${String.fromCharCode(65 + optIdx)}. ${asText(option)}${isCorrect ? ', correct answer' : ''}`}
+                                    >
+                                      <span className="mn-option-letter">{String.fromCharCode(65 + optIdx)}</span>
+                                      <MathRenderer content={String(option)} />
+                                      {isCorrect && <CheckCircle className="mn-option-check" size={17} aria-hidden="true" />}
+                                    </div>
+                                  );
+                                })}
                               </div>
                               {q.explanation && (
                                 <div className="mn-explanation">
-                                  <strong>Explanation:</strong> <MathRenderer content={q.explanation} />
+                                  <div className="mn-explanation-label">
+                                    <Zap size={14} />
+                                    <strong>Why this is correct</strong>
+                                  </div>
+                                  <MathRenderer content={q.explanation} />
                                 </div>
                               )}
                             </div>
                           ))}
                         </div>
                       )}
-                    </>
+                    </section>
                   )}
 
                   {activeTab === 'moments' && results.key_moments && (
-                    <div className="mn-moments-list">
-                      {results.key_moments.map((moment, idx) => (
-                        <div key={idx} className="mn-moment-item">
-                          <div className="mn-moment-time">
-                            <Play size={14} />
-                            {formatTime(moment.timestamp)}
-                          </div>
-                          <div className="mn-moment-content">
-                            <p className="mn-moment-text">{moment.text}</p>
-                            <div className="mn-importance-bar">
-                              <div
-                                className="mn-importance-fill"
-                                style={{ width: `${(moment.importance / 5) * 100}%` }}
-                              />
-                            </div>
-                          </div>
+                    <section className="mn-output-view mn-output-view--moments">
+                      <div className="mn-output-view-head">
+                        <div>
+                          <span className="mn-card-kicker">Source highlights</span>
+                          <h3>Key moments</h3>
+                          <p>Return to the strongest passages without losing their place in the source.</p>
                         </div>
-                      ))}
-                    </div>
+                        <span className="mn-output-count">{momentCount} moments</span>
+                      </div>
+                      <div className="mn-moments-list">
+                        {results.key_moments.map((moment, idx) => {
+                          const importance = Math.max(0, Math.min(5, Number(moment.importance) || 0));
+                          return (
+                          <article key={idx} className="mn-moment-item">
+                            <div className="mn-moment-index" aria-hidden="true">
+                              <span>Moment</span>
+                              <strong>{String(idx + 1).padStart(2, '0')}</strong>
+                            </div>
+                            <div className="mn-moment-body">
+                              <div className="mn-moment-meta">
+                                <div className="mn-moment-time">
+                                  <Play size={13} />
+                                  <span>Source timestamp</span>
+                                  <strong>{formatTime(moment.timestamp)}</strong>
+                                </div>
+                                <div className="mn-moment-importance">
+                                  <span>Importance</span>
+                                  <strong>{importance}/5</strong>
+                                </div>
+                              </div>
+                              <p className="mn-moment-text">{moment.text}</p>
+                              <div
+                                className="mn-importance-bar"
+                                role="meter"
+                                aria-label={`Importance ${importance} out of 5`}
+                                aria-valuemin="0"
+                                aria-valuemax="5"
+                                aria-valuenow={importance}
+                              >
+                                <div
+                                  className="mn-importance-fill"
+                                  style={{ width: `${(importance / 5) * 100}%` }}
+                                />
+                              </div>
+                            </div>
+                          </article>
+                          );
+                        })}
+                      </div>
+                    </section>
                   )}
                 </div>
               </div>
@@ -1323,6 +1520,7 @@ const AIMediaNotes = () => {
           </main>
         </div>
       </div>
+      </SocialHubChrome>
       
       <ImportExportModal
         isOpen={showImportExport}
