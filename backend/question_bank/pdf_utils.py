@@ -257,6 +257,13 @@ def process_latex_for_pdf(text: str) -> str:
     if not text:
         return ""
 
+    # Escape raw markup characters from the source text *before* any of the
+    # substitutions below introduce real reportlab tags (<b>, <i>, <super>,
+    # ...) -- otherwise a literal "<" or ">" in the question text (e.g. "if
+    # x < 5") corrupts reportlab's Paragraph markup parser and the PDF export
+    # throws on any question containing an inequality or angle bracket.
+    text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
     text = re.sub(r'\$([^$]+)\$', r'<i>\1</i>', text)
 
     text = re.sub(r'\$\$([^$]+)\$\$', r'<br/><i>\1</i><br/>', text)
@@ -314,7 +321,5 @@ def process_latex_for_pdf(text: str) -> str:
 
     text = text.replace('\\\\', '<br/>')
     text = re.sub(r'\\([a-zA-Z]+)', r'\1', text)
-
-    text = text.replace('&', '&amp;')
 
     return text

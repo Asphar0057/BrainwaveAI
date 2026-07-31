@@ -259,6 +259,9 @@ async def get_playlist_detail(
     try:
         playlist = _resolve_playlist(db, playlist_id)
 
+        if not playlist.is_public and playlist.creator_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+
         items = db.query(models.PlaylistItem).filter(
             models.PlaylistItem.playlist_id == playlist.id
         ).order_by(models.PlaylistItem.order_index).all()
@@ -485,6 +488,9 @@ async def fork_playlist(
 ):
     try:
         original = _resolve_playlist(db, playlist_id)
+
+        if not original.is_public and original.creator_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
 
         forked = models.LearningPlaylist(
             creator_id=current_user.id,

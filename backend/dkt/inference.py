@@ -59,7 +59,7 @@ def get_mastery(user_id: int, db_session_factory, apply_decay: bool = True) -> d
             "detail":            "Model not trained yet. Call POST /api/kt/train first.",
         }
 
-    sequences  = get_user_sequences(db_session_factory, vocab)
+    sequences  = get_user_sequences(db_session_factory, vocab, user_id=user_id)
     user_seq   = sequences.get(user_id, [])
     n_concepts = model.n_concepts
     id_to_topic = {v: k for k, v in vocab.items()}
@@ -150,7 +150,7 @@ def predict_next(user_id: int, concept: str, db_session_factory) -> dict:
     if concept_id is None:
         return {"model_available": True, "probability": 0.5, "detail": "Concept not in vocabulary."}
 
-    sequences = get_user_sequences(db_session_factory, vocab)
+    sequences = get_user_sequences(db_session_factory, vocab, user_id=user_id)
     user_seq  = sequences.get(user_id, [])
 
     if not user_seq:
@@ -178,7 +178,7 @@ def get_akt_context_vector(
     if model is None or vocab is None:
         return None
 
-    sequences = get_user_sequences(db_session_factory, vocab)
+    sequences = get_user_sequences(db_session_factory, vocab, user_id=user_id)
     user_seq  = sequences.get(user_id, [])
     if not user_seq:
         return None

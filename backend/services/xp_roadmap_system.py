@@ -10,6 +10,7 @@ import time
 from services.suggestion_engine import get_related_topic_recommendations
 
 _ROADMAP_CACHE: Dict[int, Tuple[float, Dict[str, Any]]] = {}
+_ROADMAP_CACHE_MAX = 500
 
 def _topic_from_text(text: str) -> str:
     cleaned = re.sub(r"\s+", " ", text or "").strip()
@@ -320,5 +321,8 @@ def get_personalized_roadmap(
         'topic_milestones': topic_milestones,
         'total_topics': len(topics)
     }
+    if len(_ROADMAP_CACHE) >= _ROADMAP_CACHE_MAX and user_id not in _ROADMAP_CACHE:
+        oldest = next(iter(_ROADMAP_CACHE))
+        _ROADMAP_CACHE.pop(oldest, None)
     _ROADMAP_CACHE[user_id] = (time.time(), deepcopy(roadmap))
     return roadmap

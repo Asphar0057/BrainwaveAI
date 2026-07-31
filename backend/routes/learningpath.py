@@ -1032,7 +1032,10 @@ async def complete_node(
     if not node:
         raise HTTPException(status_code=404, detail="Node not found")
 
-    path = db.query(models.LearningPath).filter(models.LearningPath.id == path_id).first()
+    path = db.query(models.LearningPath).filter(
+        models.LearningPath.id == path_id,
+        models.LearningPath.user_id == user.id,
+    ).first()
     if not path:
         raise HTTPException(status_code=404, detail="Path not found")
 

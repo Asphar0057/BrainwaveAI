@@ -22,6 +22,16 @@ router = APIRouter(
 _training_lock  = threading.Lock()
 _training_active = False
 
+def _admin_emails() -> set[str]:
+    raw = os.getenv("AI_JOB_ADMIN_EMAILS") or os.getenv("ADMIN_EMAILS") or ""
+    return {email.strip().lower() for email in raw.split(",") if email.strip()}
+
+def _require_kt_admin(current_user: models.User = Depends(get_current_user)) -> models.User:
+    allowed = _admin_emails()
+    if not allowed or (current_user.email or "").lower() not in allowed:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
+
 def _run_training_bg(db_session_factory, kwargs: dict):
     global _training_active
     try:
@@ -38,7 +48,7 @@ def _run_training_bg(db_session_factory, kwargs: dict):
 @router.post("/train")
 def train_dkt(
     epochs: int = Query(30, ge=1, le=200),
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(_require_kt_admin),
 ):
     global _training_active
     with _training_lock:

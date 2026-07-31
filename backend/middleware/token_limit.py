@@ -64,12 +64,11 @@ def _jwt_subject(request: Request) -> Optional[str]:
 
 
 def _request_subject(request: Request) -> Optional[str]:
-    return (
-        _jwt_subject(request)
-        or request.headers.get("X-User-Id")
-        or request.query_params.get("user_id")
-        or request.query_params.get("username")
-    )
+    # Only a verified JWT subject may be used here -- X-User-Id and query
+    # params are client-controlled and would let a caller with no (or an
+    # invalid/expired) token get token-limit-checked against a different,
+    # spoofed identity instead of being treated as anonymous/untracked.
+    return _jwt_subject(request)
 
 
 def _find_user(db: Session, subject: str) -> Optional[models.User]:

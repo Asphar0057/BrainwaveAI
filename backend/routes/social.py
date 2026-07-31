@@ -231,6 +231,9 @@ async def complete_solo_quiz(
         score = payload.get("score")
         answers = payload.get("answers", [])
 
+        if not isinstance(score, (int, float)) or isinstance(score, bool):
+            raise HTTPException(status_code=422, detail="score is required and must be a number")
+
         quiz = resolve_by_id_or_uid(
             db.query(models.SoloQuiz).filter(models.SoloQuiz.user_id == current_user.id),
             models.SoloQuiz,

@@ -11,7 +11,7 @@ from sqlalchemy import func, and_, or_
 
 import models
 from database import get_db
-from deps import call_ai, call_ai_async, get_current_user, get_user_by_username, get_user_by_email
+from deps import call_ai, call_ai_async, get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["search"])
@@ -261,33 +261,40 @@ def _clean_prompt_topic(text: str) -> str:
 
 @router.post("/search_content")
 async def search_content(
-    user_id: str = Form(...),
     query: str = Form(...),
     content_types: str = Form("all"),
     sort_by: str = Form("relevance"),
     date_from: Optional[str] = Form(None),
     date_to: Optional[str] = Form(None),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:
-        logger.info(f"Search request - user_id: {user_id}, query: {query}, filters: types={content_types}, sort={sort_by}")
+        logger.info(f"Search request - user_id: {current_user.id}, query: {query}, filters: types={content_types}, sort={sort_by}")
 
-        user = get_user_by_username(db, user_id) or get_user_by_email(db, user_id)
-        if not user:
-            return {"results": [], "total": 0, "message": "User not found"}
-
+        user = current_user
         actual_user_id = user.id
         results = []
 
         expanded_terms = await get_expanded_search_terms(query)
         logger.info(f"Expanded search terms: {expanded_terms}")
 
+        _CONTENT_TYPE_ALIASES = {
+            "flashcards": "flashcard_set",
+            "flashcard": "flashcard_set",
+            "notes": "note",
+            "chats": "chat",
+            "questions": "question_set",
+            "quizzes": "question_set",
+            "question_sets": "question_set",
+        }
         if content_types == "all":
             enabled_types = ["flashcard_set", "note", "chat", "question_set"]
         else:
-            enabled_types = [t.strip() for t in content_types.split(",")]
-            if "flashcard" in enabled_types:
-                enabled_types.remove("flashcard")
+            enabled_types = [
+                _CONTENT_TYPE_ALIASES.get(t.strip(), t.strip())
+                for t in content_types.split(",")
+            ]
 
         date_from_obj = None
         date_to_obj = None
@@ -579,14 +586,12 @@ async def search_content(
 
 @router.post("/autocomplete")
 async def autocomplete(
-    user_id: str = Form(...),
     query: str = Form(...),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:
-        user = get_user_by_username(db, user_id) or get_user_by_email(db, user_id)
-        if not user:
-            return {"suggestions": []}
+        user = current_user
 
         suggestions = []
         query_lower = query.lower().strip()
@@ -744,14 +749,12 @@ async def autocomplete(
 
 @router.post("/natural_language_search")
 async def natural_language_search(
-    user_id: str = Form(...),
     query: str = Form(...),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:
-        user = get_user_by_username(db, user_id) or get_user_by_email(db, user_id)
-        if not user:
-            return {"results": [], "total_results": 0, "parsed_filters": {}}
+        user = current_user
 
         ai_prompt = f"""Parse this natural language search query into structured filters.
 
@@ -960,8 +963,8 @@ NOW PARSE: "{query}"
 
 @router.post("/detect_search_intent")
 async def detect_search_intent(
-    user_id: str = Form(...),
     query: str = Form(...),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:
@@ -1489,14 +1492,12 @@ NOW ANALYZE THIS QUERY AND RETURN ONLY THE JSON:
 
 @router.post("/generate_topic_description")
 async def generate_topic_description(
-    user_id: str = Form(...),
     topic: str = Form(...),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:
-        logger.info(f"Generating topic description for: '{topic}' (user: {user_id})")
-
-        user = get_user_by_username(db, user_id) or get_user_by_email(db, user_id)
+        logger.info(f"Generating topic description for: '{topic}' (user: {current_user.id})")
 
         ai_prompt = f"""You are an educational AI assistant. Provide a brief, clear, and engaging description of the following topic.
 
@@ -1562,14 +1563,12 @@ Return ONLY the description text, no labels or extra formatting."""
 
 @router.post("/get_personalized_prompts")
 async def get_personalized_prompts(
-    user_id: str = Form(...),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:
         import re as _re
-        user = get_user_by_username(db, user_id) or get_user_by_email(db, user_id)
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+        user = current_user
 
         topic_prompts = _build_chroma_prompts(str(user.id))
 
@@ -1689,13 +1688,11 @@ async def get_personalized_prompts(
 
 @router.post("/get_weak_areas")
 async def get_weak_areas(
-    user_id: str = Form(...),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:
-        user = get_user_by_username(db, user_id) or get_user_by_email(db, user_id)
-        if not user:
-            return {"weak_areas": []}
+        user = current_user
 
         comprehensive_profile = db.query(models.ComprehensiveUserProfile).filter(
             models.ComprehensiveUserProfile.user_id == user.id
@@ -1866,13 +1863,11 @@ async def get_weak_areas(
 
 @router.post("/suggest_study_next")
 async def suggest_study_next(
-    user_id: str = Form(...),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:
-        user = get_user_by_username(db, user_id) or get_user_by_email(db, user_id)
-        if not user:
-            return {"suggestions": []}
+        user = current_user
 
         suggestions = []
         profile = db.query(models.ComprehensiveUserProfile).filter(
@@ -1898,14 +1893,12 @@ async def suggest_study_next(
 
 @router.post("/summarize_notes")
 async def summarize_notes(
-    user_id: str = Form(...),
     topic: str = Form(None),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:
-        user = get_user_by_username(db, user_id) or get_user_by_email(db, user_id)
-        if not user:
-            return {"summary": "User not found"}
+        user = current_user
 
         notes_query = db.query(models.Note).filter(models.Note.user_id == user.id)
         if topic:
@@ -1928,9 +1921,9 @@ async def summarize_notes(
 
 @router.post("/create_study_plan")
 async def create_study_plan(
-    user_id: str = Form(...),
     topic: str = Form(...),
     duration: int = Form(30),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:
@@ -1942,14 +1935,12 @@ async def create_study_plan(
 
 @router.post("/search_recent_content")
 async def search_recent_content(
-    user_id: str = Form(...),
     timeframe: str = Form("recent"),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:
-        user = get_user_by_username(db, user_id) or get_user_by_email(db, user_id)
-        if not user:
-            return {"results": []}
+        user = current_user
 
         now = datetime.now(timezone.utc)
         start_date = now - timedelta(days={"yesterday": 1, "last_week": 7, "last_month": 30}.get(timeframe, 3))
@@ -1969,8 +1960,8 @@ async def search_recent_content(
 
 @router.post("/get_search_suggestion")
 async def get_search_suggestion(
-    user_id: str = Form(...),
     query: str = Form(...),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:

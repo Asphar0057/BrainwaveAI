@@ -30,6 +30,7 @@ from deps import (
     get_password_hash,
     get_user_by_email,
     get_user_by_username,
+    invalidate_cached_auth_user,
     unified_ai,
     verify_password,
     verify_google_token,
@@ -459,6 +460,13 @@ def _delete_user_graph(db: Session, user: models.User) -> dict:
                 and referred_table in primary_keys
                 and referred[0] == primary_keys[referred_table]
             ):
+                ondelete = ((fk.get("options") or {}).get("ondelete") or "").upper()
+                if ondelete == "SET NULL":
+                    # The DB constraint itself nulls this column out when the parent
+                    # row is deleted (e.g. Course.created_by, ClassSection.instructor_id) --
+                    # it must not be treated as a delete-cascade edge, or an educator
+                    # deleting their own account would wipe the whole class they taught.
+                    continue
                 foreign_keys.append({
                     "child_table": table,
                     "child_column": constrained[0],
@@ -1412,8 +1420,11 @@ async def change_username(
     if existing and existing.id != current_user.id:
         raise HTTPException(status_code=400, detail="Username already taken")
 
+    old_username = current_user.username
+    current_user = db.merge(current_user)
     current_user.username = new_username
     db.commit()
+    invalidate_cached_auth_user(current_user, extra_subjects=(old_username,))
 
     # The JWT subject is the username, so a stale token would 404 on the next
     # request — issue a fresh one for the renamed account right away.
@@ -1440,9 +1451,11 @@ async def change_password(
 
     _validate_password(payload.new_password)
 
+    current_user = db.merge(current_user)
     current_user.hashed_password = get_password_hash(payload.new_password)
     current_user.google_user = False
     db.commit()
+    invalidate_cached_auth_user(current_user)
 
     return {"status": "success", "message": "Password updated"}
 

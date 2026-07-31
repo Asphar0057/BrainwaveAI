@@ -77,5 +77,6 @@ class RelatedPDFGenerationRequest(BaseModel):
     question_count: int = 10
     difficulty_mix: Dict[str, int] = {"easy": 3, "medium": 5, "hard": 2}
     question_types: List[str] = ["multiple_choice", "true_false", "short_answer"]
+    topics: Optional[List[str]] = None
     title: Optional[str] = None
     session_id: Optional[str] = None

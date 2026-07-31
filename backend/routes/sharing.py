@@ -3,21 +3,17 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
-from jose import JWTError, jwt
 
 import models
 from database import get_db
-from deps import get_current_user, get_user_by_email, SECRET_KEY, ALGORITHM
+from deps import get_current_user
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["sharing"])
-
-security = HTTPBearer()
 
 
 class ShareContentRequest(BaseModel):
@@ -437,22 +433,10 @@ def remove_shared_access(
 def update_shared_note(
     note_id: int,
     note_data: dict,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:
-        payload = jwt.decode(
-            credentials.credentials,
-            SECRET_KEY,
-            algorithms=[ALGORITHM],
-            audience="brainwave-client",
-            issuer="brainwave-backend",
-        )
-        user_email = payload.get("sub")
-        user = get_user_by_username(db, user_email) or get_user_by_email(db, user_email)
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-
         note = db.query(models.Note).filter(models.Note.id == note_id).first()
         if not note:
             raise HTTPException(status_code=404, detail="Note not found")
@@ -490,8 +474,6 @@ def update_shared_note(
             }
         }
 
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
     except HTTPException:
         raise
     except Exception as e:

@@ -65,12 +65,13 @@ def _to_unix(ts) -> float:
 def get_user_sequences(
     db_session_factory,
     vocab: dict[str, int],
+    user_id: int | None = None,
 ) -> dict[int, list[tuple[int, float, float]]]:
     from models import QuestionAttempt, QuestionResult, Question, ChatConceptSignal
 
     db = db_session_factory()
     try:
-        quiz_rows = (
+        quiz_query = (
             db.query(
                 QuestionAttempt.user_id,
                 Question.topic,
@@ -80,11 +81,8 @@ def get_user_sequences(
             .join(QuestionResult, QuestionResult.attempt_id == QuestionAttempt.id)
             .join(Question, QuestionResult.question_id == Question.id)
             .filter(Question.topic != None, Question.topic != "")
-            .order_by(QuestionAttempt.user_id, QuestionAttempt.submitted_at, QuestionResult.id)
-            .all()
         )
-
-        chat_rows = (
+        chat_query = (
             db.query(
                 ChatConceptSignal.user_id,
                 ChatConceptSignal.concept,
@@ -92,9 +90,17 @@ def get_user_sequences(
                 ChatConceptSignal.created_at,
             )
             .filter(ChatConceptSignal.concept != None, ChatConceptSignal.concept != "")
-            .order_by(ChatConceptSignal.user_id, ChatConceptSignal.created_at)
-            .all()
         )
+        if user_id is not None:
+            quiz_query = quiz_query.filter(QuestionAttempt.user_id == user_id)
+            chat_query = chat_query.filter(ChatConceptSignal.user_id == user_id)
+
+        quiz_rows = quiz_query.order_by(
+            QuestionAttempt.user_id, QuestionAttempt.submitted_at, QuestionResult.id
+        ).all()
+        chat_rows = chat_query.order_by(
+            ChatConceptSignal.user_id, ChatConceptSignal.created_at
+        ).all()
     finally:
         db.close()
 
