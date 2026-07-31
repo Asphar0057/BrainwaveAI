@@ -820,8 +820,9 @@ def get_learning_analytics(user_id: str = Query(...), period: str = Query("week"
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    period_days = {"week": 7, "month": 30, "year": 365}.get(period, 7)
     end_date = datetime.now(timezone.utc).date()
-    start_date = end_date - timedelta(days=7)
+    start_date = end_date - timedelta(days=period_days)
 
     daily_metrics = db.query(models.DailyLearningMetrics).filter(
         models.DailyLearningMetrics.user_id == user.id,
@@ -834,7 +835,7 @@ def get_learning_analytics(user_id: str = Query(...), period: str = Query("week"
     total_questions = sum(m.questions_answered for m in daily_metrics)
 
     return {
-        "period": "week",
+        "period": period if period in {"week", "month", "year"} else "week",
         "start_date": start_date.isoformat() + 'Z',
         "end_date": end_date.isoformat() + 'Z',
         "total_sessions": total_sessions,

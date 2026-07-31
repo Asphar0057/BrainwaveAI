@@ -317,11 +317,17 @@ class CerbylMemoryService:
                 scored.append((mem_hash, final_score, days, sim))
 
             scored.sort(key=lambda x: x[1], reverse=True)
+            top_scored = scored[:top_k]
 
-            for mem_hash, _, days, sim in scored[:top_k]:
-                row = db.query(models.StudentMemory).filter_by(
-                    memory_hash=mem_hash
-                ).first()
+            rows_by_hash = {
+                row.memory_hash: row
+                for row in db.query(models.StudentMemory).filter(
+                    models.StudentMemory.memory_hash.in_([h for h, _, _, _ in top_scored])
+                ).all()
+            }
+
+            for mem_hash, _, days, sim in top_scored:
+                row = rows_by_hash.get(mem_hash)
                 if row:
                     row.access_count += 1
                     row.last_accessed = now

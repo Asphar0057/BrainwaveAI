@@ -937,8 +937,9 @@ async def submit_question_answers(
                             user_answer.strip().lower() == question.correct_answer.strip().lower()
                         )
                     else:
-                        is_correct = (
-                            user_answer.strip().lower() in question.correct_answer.strip().lower()
+                        is_correct = any(
+                            keyword in user_answer.strip().lower()
+                            for keyword in question.correct_answer.strip().lower().split()[:3]
                         )
 
             if is_correct:

@@ -82,16 +82,22 @@ class BehavioralRule:
         return self.current_strength > 0.05
 
 class InstructionMemory:
+    """Per-user store of behavioral rules ('don't use bullet points', etc).
+
+    Keyed by user_id so one student's chat instructions never leak into
+    another student's prompts -- this was previously a single shared dict.
+    """
 
     def __init__(self):
-        self._rules: Dict[str, BehavioralRule] = {}
+        self._rules: Dict[int, Dict[str, BehavioralRule]] = {}
 
-    def extract_and_store(self, text: str) -> List[BehavioralRule]:
+    def extract_and_store(self, user_id: int, text: str) -> List[BehavioralRule]:
+        user_rules = self._rules.setdefault(user_id, {})
         new_rules: List[BehavioralRule] = []
         for pattern, negated, domain in _IP:
             if pattern.search(text):
                 existing = next(
-                    (r for r in self._rules.values()
+                    (r for r in user_rules.values()
                      if r.domain == domain and r.negated == negated),
                     None,
                 )
@@ -108,15 +114,15 @@ class InstructionMemory:
                         strength=1.0,
                         created_at=time.time(),
                     )
-                    self._rules[rule.rule_id] = rule
+                    user_rules[rule.rule_id] = rule
                     new_rules.append(rule)
         return new_rules
 
-    def active_rules(self) -> List[BehavioralRule]:
-        return [r for r in self._rules.values() if r.is_active]
+    def active_rules(self, user_id: int) -> List[BehavioralRule]:
+        return [r for r in self._rules.get(user_id, {}).values() if r.is_active]
 
-    def to_prompt_addendum(self) -> str:
-        active = self.active_rules()
+    def to_prompt_addendum(self, user_id: int) -> str:
+        active = self.active_rules(user_id)
         if not active:
             return ""
         lines = []
@@ -125,13 +131,27 @@ class InstructionMemory:
             lines.append(f"  [{verb} {r.domain}] strength={r.current_strength:.2f}")
         return "⚠ Behavioral rules (user-set, enforce strictly):\n" + "\n".join(lines)
 
-    def serialize(self) -> List[dict]:
-        return [asdict(r) for r in self._rules.values()]
+    def serialize(self) -> Dict[str, List[dict]]:
+        return {
+            str(user_id): [asdict(r) for r in rules.values()]
+            for user_id, rules in self._rules.items()
+        }
 
-    def deserialize(self, data: List[dict]) -> None:
-        for d in data:
-            r = BehavioralRule(**d)
-            self._rules[r.rule_id] = r
+    def deserialize(self, data) -> None:
+        if not isinstance(data, dict):
+            # Discard the old pre-fix format (a single flat list shared by
+            # every user) -- there's no way to attribute those rules to the
+            # right user, so starting empty is safer than misattributing them.
+            return
+        for user_id_str, rules in data.items():
+            try:
+                user_id = int(user_id_str)
+            except (TypeError, ValueError):
+                continue
+            user_rules = self._rules.setdefault(user_id, {})
+            for d in rules:
+                r = BehavioralRule(**d)
+                user_rules[r.rule_id] = r
 
 class NaiveBayesClassifier:
 
@@ -347,7 +367,7 @@ class CerbylIntentEngine:
         except Exception as e:
             logger.warning("[IntentEngine] State save failed: %s", e)
 
-    def classify(self, text: str) -> IntentResult:
+    def classify(self, text: str, user_id: int) -> IntentResult:
         proba = self.classifier.predict_proba(text)
         label = max(proba, key=proba.__getitem__)
         H     = -sum(p * math.log(p + 1e-12) for p in proba.values())
@@ -367,7 +387,7 @@ class CerbylIntentEngine:
 
         new_rules: List[BehavioralRule] = []
         if label == "INSTRUCTION" or proba.get("INSTRUCTION", 0) > 0.28:
-            new_rules = self.instruction_memory.extract_and_store(text)
+            new_rules = self.instruction_memory.extract_and_store(user_id, text)
             if new_rules:
                 logger.info(
                     "[IntentEngine] Instruction captured: %s",
@@ -380,7 +400,7 @@ class CerbylIntentEngine:
             proba=proba,
             entropy=H,
             new_rules=new_rules,
-            active_rules=self.instruction_memory.active_rules(),
+            active_rules=self.instruction_memory.active_rules(user_id),
         )
 
     def estimate_response_confidence(
@@ -411,14 +431,20 @@ class CerbylIntentEngine:
             self._train_count, text[:40], label, weight,
         )
 
-    def to_prompt_addendum(self) -> str:
-        return self.instruction_memory.to_prompt_addendum()
+    def to_prompt_addendum(self, user_id: int) -> str:
+        return self.instruction_memory.to_prompt_addendum(user_id)
 
     def status(self) -> dict:
+        total_active_rules = sum(
+            1
+            for rules in self.instruction_memory._rules.values()
+            for r in rules.values()
+            if r.is_active
+        )
         return {
             "ready":        self._ready,
             "train_count":  self._train_count,
             "vocab_size":   len(self.classifier.vocab),
-            "active_rules": len(self.instruction_memory.active_rules()),
+            "active_rules": total_active_rules,
             "classes":      CLASSES,
         }

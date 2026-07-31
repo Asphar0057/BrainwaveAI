@@ -852,8 +852,14 @@ async def mark_flashcard_for_review(
     card_id: int = Form(...),
     marked: bool = Form(True),
     db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
 ):
-    card = db.query(models.Flashcard).filter(models.Flashcard.id == card_id).first()
+    card = db.query(models.Flashcard).join(
+        models.FlashcardSet, models.Flashcard.set_id == models.FlashcardSet.id
+    ).filter(
+        models.Flashcard.id == card_id,
+        models.FlashcardSet.user_id == current_user.id,
+    ).first()
     if not card:
         raise HTTPException(status_code=404, detail="Flashcard not found")
 
@@ -891,7 +897,16 @@ async def mark_flashcard_for_review(
 
 @router.post("/flashcards/review")
 async def update_flashcard_review(request: FlashcardReviewRequest, db: Session = Depends(get_db)):
-    card = db.query(models.Flashcard).filter(models.Flashcard.id == int(request.card_id)).first()
+    owner = get_user_by_username(db, request.user_id) or get_user_by_email(db, request.user_id)
+    if not owner:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    card = db.query(models.Flashcard).join(
+        models.FlashcardSet, models.Flashcard.set_id == models.FlashcardSet.id
+    ).filter(
+        models.Flashcard.id == int(request.card_id),
+        models.FlashcardSet.user_id == owner.id,
+    ).first()
     if not card:
         raise HTTPException(status_code=404, detail="Flashcard not found")
 
@@ -1059,7 +1074,12 @@ async def sr_review(request: SRReviewRequest, db: Session = Depends(get_db)):
     if grade_str not in GRADE_TO_RATING:
         raise HTTPException(status_code=400, detail=f"Invalid grade. Must be one of: {list(GRADE_TO_RATING)}")
 
-    card = db.query(models.Flashcard).filter(models.Flashcard.id == request.card_id).first()
+    card = db.query(models.Flashcard).join(
+        models.FlashcardSet, models.Flashcard.set_id == models.FlashcardSet.id
+    ).filter(
+        models.Flashcard.id == request.card_id,
+        models.FlashcardSet.user_id == user.id,
+    ).first()
     if not card:
         raise HTTPException(status_code=404, detail="Flashcard not found")
 

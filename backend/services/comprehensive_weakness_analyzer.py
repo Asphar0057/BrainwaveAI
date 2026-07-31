@@ -470,8 +470,11 @@ def find_similar_questions(db: Session, user_id: int, topic: str, models, limit:
 
     remaining = max(limit - len(similar_questions), 0)
     if remaining > 0:
-        question_query = db.query(models.Question).filter(
-            func.lower(models.Question.topic).like(f"%{_normalize_topic(topic)}%")
+        question_query = db.query(models.Question).join(
+            models.QuestionSet, models.Question.question_set_id == models.QuestionSet.id
+        ).filter(
+            models.QuestionSet.user_id == user_id,
+            func.lower(models.Question.topic).like(f"%{_normalize_topic(topic)}%"),
         )
 
         if wrong_logs:

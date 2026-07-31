@@ -271,8 +271,10 @@ async def get_next_practice_question(
     token: str = Depends(verify_token),
 ):
     try:
+        caller_id = _resolve_user_id(db, token)
         session = db.query(models.PracticeSession).filter(
-            models.PracticeSession.id == int(session_id)
+            models.PracticeSession.id == int(session_id),
+            models.PracticeSession.user_id == caller_id,
         ).first()
 
         if not session:
@@ -318,8 +320,10 @@ async def submit_practice_answer(
     token: str = Depends(verify_token),
 ):
     try:
+        caller_id = _resolve_user_id(db, token)
         session = db.query(models.PracticeSession).filter(
-            models.PracticeSession.id == int(session_id)
+            models.PracticeSession.id == int(session_id),
+            models.PracticeSession.user_id == caller_id,
         ).first()
 
         if not session:
@@ -412,8 +416,10 @@ async def end_weakness_practice_session(
     token: str = Depends(verify_token),
 ):
     try:
+        caller_id = _resolve_user_id(db, token)
         session = db.query(models.PracticeSession).filter(
-            models.PracticeSession.id == int(session_id)
+            models.PracticeSession.id == int(session_id),
+            models.PracticeSession.user_id == caller_id,
         ).first()
 
         if not session:

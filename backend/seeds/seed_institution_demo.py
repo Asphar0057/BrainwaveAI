@@ -1,9 +1,3 @@
-"""Create an isolated local Cerbyl institution demo.
-
-Run from the backend directory:
-    python3 seeds/seed_institution_demo.py
-"""
-
 import os
 import sys
 from datetime import date, datetime, timedelta, timezone
@@ -336,7 +330,6 @@ def seed() -> tuple[models.User, models.User, models.Organization]:
             assignments.append(assignment)
 
         db.flush()
-        # The test student has completed two items; the rest remain actionable.
         for assignment, score in [(assignments[0], 78), (assignments[4], 86)]:
             submission = get_or_create(
                 db,
@@ -357,7 +350,6 @@ def seed() -> tuple[models.User, models.User, models.Organization]:
             submission.graded_at = utc_now() - timedelta(hours=12)
             submission.graded_by = educator.id
 
-        # Populate an educator review queue without exposing extra login credentials.
         for student_index, support in enumerate(supporting_students):
             for assignment_index, assignment in enumerate(assignments[:4]):
                 if (student_index + assignment_index) % 3 == 0:

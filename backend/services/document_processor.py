@@ -775,7 +775,10 @@ def _chunk_normalized_text(
                 else:
                     current = para
             else:
-                current = para
+                # current is too short to stand alone as a chunk -- merge it
+                # forward instead of overwriting it with para, or this text
+                # is silently dropped from the document's embedded chunks.
+                current = f"{current}\n\n{para}"
 
     if current and len(current) >= min_length:
         chunks.append(current.strip())

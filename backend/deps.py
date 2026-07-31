@@ -219,6 +219,18 @@ def _find_user_for_subject(db: Session, subject: str) -> models.User | None:
         user = db.query(models.User).filter(models.User.email == subject).first()
     return user
 
+def invalidate_cached_auth_user(user: models.User, extra_subjects: tuple[str, ...] = ()) -> None:
+    keys = {
+        _user_cache_key(str(getattr(user, "id", ""))),
+        _user_cache_key(getattr(user, "username", "")),
+        _user_cache_key(getattr(user, "email", "")),
+    }
+    keys.update(_user_cache_key(subject) for subject in extra_subjects)
+    with _auth_user_cache_lock:
+        for key in keys:
+            if key:
+                _auth_user_cache.pop(key, None)
+
 def _get_or_query_user_for_subject(db: Session, subject: str) -> models.User | None:
     user = _get_cached_auth_user(subject)
     if user:

@@ -1246,7 +1246,7 @@ async def ask_ai(
         try:
             from services.intent_engine import CerbylIntentEngine
             _engine = CerbylIntentEngine.get()
-            _intent_result = _engine.classify(question)
+            _intent_result = _engine.classify(question, user.id)
             _computed_confidence = _engine.estimate_response_confidence(
                 result=_intent_result,
                 response_text=response_text,
@@ -1447,7 +1447,7 @@ async def ask_simple(
         try:
             from services.intent_engine import CerbylIntentEngine
             _engine = CerbylIntentEngine.get()
-            _intent_result = _engine.classify(user_question or model_question)
+            _intent_result = _engine.classify(user_question or model_question, user.id)
             _computed_confidence = _engine.estimate_response_confidence(
                 result=_intent_result,
                 response_text=response_text,
@@ -1851,7 +1851,7 @@ async def ask_with_files(
         try:
             from services.intent_engine import CerbylIntentEngine
             _engine = CerbylIntentEngine.get()
-            _intent_result = _engine.classify(user_question or model_question)
+            _intent_result = _engine.classify(user_question or model_question, user.id)
             _computed_confidence = _engine.estimate_response_confidence(
                 result=_intent_result,
                 response_text=response_text,
@@ -2571,7 +2571,7 @@ async def ai_group_notes(
     try:
         result = await call_ai_async(prompt, max_tokens=500, temperature=0.5)
         import json
-        groups = json.loads(result.strip().strip("```json").strip("```"))
+        groups = json.loads(_strip_json_code_fence(result.strip()))
         return {"groups": groups, "status": "success"}
     except Exception:
         return {"groups": [], "status": "error"}

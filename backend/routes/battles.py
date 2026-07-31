@@ -263,6 +263,9 @@ async def complete_quiz_battle(
         if not battle:
             raise HTTPException(status_code=404, detail="Battle not found")
 
+        if current_user.id not in (battle.challenger_id, battle.opponent_id):
+            raise HTTPException(status_code=403, detail="You are not a participant in this battle")
+
         existing_question = db.query(models.BattleQuestion).filter(
             models.BattleQuestion.battle_id == battle_id
         ).first()
@@ -290,50 +293,66 @@ async def complete_quiz_battle(
 
         opponent_id = battle.opponent_id if is_challenger else battle.challenger_id
 
+        is_tie = False
+        winner_id = None
         if battle.challenger_completed and battle.opponent_completed:
             battle.status = "completed"
             battle.completed_at = datetime.now(timezone.utc)
-
-            winner_id = battle.challenger_id if battle.challenger_score > battle.opponent_score else battle.opponent_id
-            winner = battle.challenger if winner_id == battle.challenger_id else battle.opponent
-            loser = battle.opponent if winner_id == battle.challenger_id else battle.challenger
-
-            winner_score = battle.challenger_score if winner_id == battle.challenger_id else battle.opponent_score
-            loser_score = battle.opponent_score if winner_id == battle.challenger_id else battle.challenger_score
-
-            activity = models.FriendActivity(
-                user_id=winner_id,
-                activity_type="quiz_battle_won",
-                title="Won Quiz Battle!",
-                description=f"Defeated {loser.username} in {battle.subject}",
-                icon="Swords",
-                activity_data=json.dumps({
-                    "winner_score": winner_score,
-                    "loser_score": loser_score,
-                    "subject": battle.subject
-                })
-            )
-            db.add(activity)
-
+            is_tie = battle.challenger_score == battle.opponent_score
             total_questions = battle.question_count or 10
-            winner_percentage = round((winner_score / total_questions) * 100) if total_questions > 0 else 0
-            loser_percentage = round((loser_score / total_questions) * 100) if total_questions > 0 else 0
 
-            winner_notification = models.Notification(
-                user_id=winner_id,
-                title="Battle Victory",
-                message=f"You won the quiz battle against {loser.username}! Score: {winner_score}/{total_questions} ({winner_percentage}%)",
-                notification_type="battle_won"
-            )
-            db.add(winner_notification)
+            if is_tie:
+                tie_percentage = round((battle.challenger_score / total_questions) * 100) if total_questions > 0 else 0
+                for participant, opponent in (
+                    (battle.challenger, battle.opponent),
+                    (battle.opponent, battle.challenger),
+                ):
+                    db.add(models.Notification(
+                        user_id=participant.id,
+                        title="Battle Tied",
+                        message=f"It's a tie against {opponent.username}! You both scored {battle.challenger_score}/{total_questions} ({tie_percentage}%).",
+                        notification_type="battle_tied"
+                    ))
+            else:
+                winner_id = battle.challenger_id if battle.challenger_score > battle.opponent_score else battle.opponent_id
+                winner = battle.challenger if winner_id == battle.challenger_id else battle.opponent
+                loser = battle.opponent if winner_id == battle.challenger_id else battle.challenger
 
-            loser_notification = models.Notification(
-                user_id=loser.id,
-                title="Battle Complete",
-                message=f"Good effort! You scored {loser_score}/{total_questions} ({loser_percentage}%) against {winner.username}. Practice and challenge them again!",
-                notification_type="battle_lost"
-            )
-            db.add(loser_notification)
+                winner_score = battle.challenger_score if winner_id == battle.challenger_id else battle.opponent_score
+                loser_score = battle.opponent_score if winner_id == battle.challenger_id else battle.challenger_score
+
+                activity = models.FriendActivity(
+                    user_id=winner_id,
+                    activity_type="quiz_battle_won",
+                    title="Won Quiz Battle!",
+                    description=f"Defeated {loser.username} in {battle.subject}",
+                    icon="Swords",
+                    activity_data=json.dumps({
+                        "winner_score": winner_score,
+                        "loser_score": loser_score,
+                        "subject": battle.subject
+                    })
+                )
+                db.add(activity)
+
+                winner_percentage = round((winner_score / total_questions) * 100) if total_questions > 0 else 0
+                loser_percentage = round((loser_score / total_questions) * 100) if total_questions > 0 else 0
+
+                winner_notification = models.Notification(
+                    user_id=winner_id,
+                    title="Battle Victory",
+                    message=f"You won the quiz battle against {loser.username}! Score: {winner_score}/{total_questions} ({winner_percentage}%)",
+                    notification_type="battle_won"
+                )
+                db.add(winner_notification)
+
+                loser_notification = models.Notification(
+                    user_id=loser.id,
+                    title="Battle Complete",
+                    message=f"Good effort! You scored {loser_score}/{total_questions} ({loser_percentage}%) against {winner.username}. Practice and challenge them again!",
+                    notification_type="battle_lost"
+                )
+                db.add(loser_notification)
         elif battle.status == "pending":
             battle.status = "active"
             battle.started_at = datetime.now(timezone.utc)
@@ -350,7 +369,7 @@ async def complete_quiz_battle(
             await notify_battle_completed(
                 [battle.challenger_id, battle.opponent_id],
                 battle.id,
-                battle.challenger_id if battle.challenger_score > battle.opponent_score else battle.opponent_id
+                winner_id
             )
 
         return {
@@ -1271,6 +1290,9 @@ async def submit_battle_answer(
 
         if not battle:
             raise HTTPException(status_code=404, detail="Battle not found")
+
+        if current_user.id not in (battle.challenger_id, battle.opponent_id):
+            raise HTTPException(status_code=403, detail="You are not a participant in this battle")
 
         is_challenger = battle.challenger_id == current_user.id
         opponent_id = battle.opponent_id if is_challenger else battle.challenger_id

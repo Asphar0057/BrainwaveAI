@@ -1979,6 +1979,8 @@ async def update_concept_mastery(
         node_id = payload.get("node_id")
         mastery_level = payload.get("mastery_level")
 
+        if not isinstance(mastery_level, (int, float)) or isinstance(mastery_level, bool):
+            raise HTTPException(status_code=422, detail="mastery_level is required and must be a number")
         if mastery_level < 0 or mastery_level > 1:
             raise HTTPException(status_code=400, detail="Mastery level must be between 0 and 1")
 

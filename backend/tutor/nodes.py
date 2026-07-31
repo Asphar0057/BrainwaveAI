@@ -2260,7 +2260,7 @@ async def persist_updates(state: TutorState) -> dict:
             db  = db_factory()
             try:
                 pending = get_pending_update(uid, db)
-                if pending and knowledge_signal != 0.0:
+                if pending:
                     bandit = load_bandit(uid, db)
                     reward = float(np.clip(knowledge_signal, -1.0, 1.0))
                     bandit.update(pending["style"], pending["context"], reward)
