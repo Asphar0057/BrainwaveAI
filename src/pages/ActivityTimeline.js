@@ -8,7 +8,6 @@ import {
   Bell,
   BookOpen,
   CalendarDays,
-  CalendarClock,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -16,7 +15,6 @@ import {
   Clock,
   Edit3,
   FileText,
-  Filter,
   Flag,
   Flame,
   ListChecks,
@@ -33,7 +31,16 @@ import {
 import { API_URL } from '../config';
 import { useNotifications } from '../contexts/NotificationContext';
 import { sanitizeUrl } from '../utils/sanitize';
+import SocialHubChrome from '../components/SocialHubChrome';
 import './ActivityTimeline.css';
+
+/*
+ * THESIS: Activity Timeline is the chronological ledger inside the Friends/Notes workspace.
+ * OWN-WORLD: one warm graphite field, shared SocialHubChrome, indexed records and restrained gold rails.
+ * STORY: scan the learning record, inspect a day, then act on the next reminder without changing worlds.
+ * FIRST VIEWPORT: shared 280px sidebar, Friends-scale hero, three equal modes and a dense chronology.
+ * FORM: an Operate-mode extension of SocialHubChrome; chronology provides the page-specific motion language.
+ */
 
 const ACTIVITY_TYPES = ['note', 'flashcard', 'quiz', 'chat'];
 const DEFAULT_ACCENT_COLOR = '#D7B38C';
@@ -140,6 +147,8 @@ const ActivityTimeline = () => {
   const [editingReminder, setEditingReminder] = useState(null);
   const [reminderForm, setReminderForm] = useState(emptyReminderForm());
   const searchInputRef = useRef(null);
+  const mainScrollRef = useRef(null);
+  const modalReturnFocusRef = useRef(null);
 
   const authHeaders = useMemo(() => (
     token ? { Authorization: `Bearer ${token}` } : {}
@@ -325,13 +334,44 @@ const ActivityTimeline = () => {
 
   useEffect(() => {
     if (!showDayModal && !showReminderModal) return undefined;
+    const focusFrame = window.requestAnimationFrame(() => {
+      const dialog = document.querySelector('.atl-modal[role="dialog"]');
+      if (!dialog || dialog.contains(document.activeElement)) return;
+      const firstFocusable = dialog.querySelector('button, input, textarea, select, a[href], [tabindex]:not([tabindex="-1"])');
+      (firstFocusable || dialog).focus();
+    });
     const onKeyDown = (event) => {
-      if (event.key !== 'Escape') return;
-      setShowDayModal(false);
-      setShowReminderModal(false);
+      if (event.key === 'Escape') {
+        setShowDayModal(false);
+        setShowReminderModal(false);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const dialog = document.querySelector('.atl-modal[role="dialog"]');
+      if (!dialog) return;
+      const focusable = [...dialog.querySelectorAll('button, input, textarea, select, a[href], [tabindex]:not([tabindex="-1"])')]
+        .filter((element) => !element.disabled && element.getAttribute('aria-hidden') !== 'true');
+      if (!focusable.length) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      window.removeEventListener('keydown', onKeyDown);
+      modalReturnFocusRef.current?.focus?.();
+    };
   }, [showDayModal, showReminderModal]);
 
   useEffect(() => {
@@ -521,6 +561,7 @@ const ActivityTimeline = () => {
   const switchViewMode = (nextMode) => {
     if (nextMode === viewMode) return;
     setViewMode(nextMode);
+    if (mainScrollRef.current) mainScrollRef.current.scrollTop = 0;
   };
 
   const refreshAll = async () => {
@@ -570,12 +611,14 @@ const ActivityTimeline = () => {
   };
 
   const openReminderCreate = () => {
+    modalReturnFocusRef.current = document.activeElement;
     setEditingReminder(null);
     setReminderForm(emptyReminderForm(selectedListId));
     setShowReminderModal(true);
   };
 
   const openReminderEdit = (reminder) => {
+    modalReturnFocusRef.current = document.activeElement;
     setEditingReminder(reminder);
     setReminderForm({
       title: reminder.title || '',
@@ -850,6 +893,7 @@ const ActivityTimeline = () => {
                 style={{ '--atl-day-density': density }}
                 type="button"
                 onClick={() => {
+                  modalReturnFocusRef.current = document.activeElement;
                   setActiveDay(day);
                   setShowDayModal(true);
                 }}
@@ -985,319 +1029,146 @@ const ActivityTimeline = () => {
     </section>
   );
 
+  const logout = () => {
+    void signOutAppSession();
+    localStorage.removeItem('token');
+    localStorage.removeItem('username');
+    navigate('/');
+  };
+
+  const sidebarSections = [
+    {
+      label: 'Workspace',
+      items: [
+        { label: 'Timeline', icon: Sparkles, count: timelineItemCount, active: viewMode === 'timeline', onClick: () => switchViewMode('timeline') },
+        { label: 'Calendar', icon: CalendarDays, count: activitiesByDay.size, active: viewMode === 'calendar', onClick: () => switchViewMode('calendar') },
+        { label: 'Reminders', icon: Bell, count: filteredReminders.length, active: viewMode === 'reminders', onClick: () => switchViewMode('reminders') },
+      ],
+    },
+    {
+      label: 'Activity filters',
+      items: ACTIVITY_TYPES.map((type) => ({
+        label: TYPE_META[type].label,
+        icon: TYPE_META[type].icon,
+        count: stats[type],
+        active: selectedFilters.includes(type),
+        pressed: selectedFilters.includes(type),
+        onClick: () => toggleFilter(type),
+      })),
+    },
+  ];
+
   return (
-    <div className="atl-page">
-      <div className="atl-qb-topbar">
-        <div className="atl-qb-tagline"><span>Learning,</span> unified</div>
-        <div className="atl-qb-topbar-right">
-          <button className="atl-qb-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>
-            Dashboard
+    <div className="atl-page with-social-chrome">
+      <SocialHubChrome
+        brandKicker="Timeline"
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+        sideSections={sidebarSections}
+        footerItems={[{ icon: ListChecks, label: 'Dashboard', path: '/dashboard-cerbyl' }]}
+        collapsedLeadItems={[{ icon: Plus, label: 'New reminder', onClick: openReminderCreate }]}
+        collapsedTailItems={[{ icon: LogOut, label: 'Log out', onClick: logout }]}
+        sidebarLead={(
+          <button className="atl-side-create" type="button" onClick={openReminderCreate}>
+            <Plus size={15} />
+            <span>New reminder</span>
           </button>
-          <button className="atl-qb-top-btn" type="button" onClick={refreshAll}>
-            <RefreshCw size={13} /> Refresh
-          </button>
-          <button className="atl-qb-top-btn" type="button" onClick={exportData}>
-            Export
-          </button>
-          <button className="atl-qb-top-btn" type="button" onClick={() => setSidebarCollapsed(prev => !prev)}>
-            {sidebarCollapsed ? 'Show Sidebar' : 'Hide Sidebar'}
-          </button>
-          <button className="atl-qb-top-btn atl-qb-top-btn--accent" type="button" onClick={openReminderCreate}>
-            New Reminder
-          </button>
-        </div>
-      </div>
+        )}
+        sidebarTail={(
+          <div className="atl-sidebar-tail">
+            <div className="atl-side-snapshot" aria-label="Timeline snapshot">
+              <span><strong>{stats.streak}</strong><small>day streak</small></span>
+              <span><strong>{stats.reminders}</strong><small>reminders</small></span>
+            </div>
+            <button className="atl-side-logout" type="button" onClick={logout}>
+              <LogOut size={14} />
+              <span>Log out</span>
+            </button>
+          </div>
+        )}
+      >
+        <main ref={mainScrollRef} className="atl-main">
+          <section className="atl-hero">
+            <div>
+              <span className="atl-kicker">Your learning record</span>
+              <h1>Activity Timeline</h1>
+              <p>Trace what you studied, return to unfinished work, and place reminders where they belong in time.</p>
+            </div>
+          </section>
 
-      <div className="atl-layout atl-qb-body">
-        <div className={`atl-qb-shell ${sidebarCollapsed ? 'atl-qb-shell--collapsed' : ''}`}>
-          <aside className={`atl-qb-sidebar ${sidebarCollapsed ? 'atl-qb-sidebar--collapsed' : ''}`} aria-label="Activity timeline navigation">
-            <div className="atl-material-texture" aria-hidden="true" />
-            {sidebarCollapsed ? (
-              <div className="atl-qb-collapsed-strip">
-                <button className="atl-qb-strip-btn" data-tip="Open sidebar" onClick={() => setSidebarCollapsed(false)} type="button">
-                  <ChevronRight size={18} />
-                </button>
-                <button className="atl-qb-strip-btn" data-tip="New Reminder" onClick={openReminderCreate} type="button">
-                  <Plus size={18} />
-                </button>
+          <nav className="atl-mode-tabs" aria-label="Activity timeline modes">
+            {[
+              ['timeline', Sparkles, 'Timeline', 'A chronological learning ledger'],
+              ['calendar', CalendarDays, 'Calendar', 'See activity across each month'],
+              ['reminders', Bell, 'Reminders', 'Plan the work that comes next'],
+            ].map(([mode, Icon, label, description], index) => (
+              <button
+                key={mode}
+                className={viewMode === mode ? 'active' : ''}
+                type="button"
+                onClick={() => switchViewMode(mode)}
+                aria-current={viewMode === mode ? 'page' : undefined}
+              >
+                <span className="atl-mode-index">0{index + 1}</span>
+                <Icon size={15} />
+                <span className="atl-mode-copy"><strong>{label}</strong><small>{description}</small></span>
+              </button>
+            ))}
+          </nav>
 
-                <div className="atl-qb-strip-divider"></div>
-
-                <button
-                  className={`atl-qb-strip-btn ${viewMode === 'timeline' ? 'active' : ''}`}
-                  data-tip="Timeline"
-                  onClick={() => switchViewMode('timeline')}
-                  type="button"
-                >
-                  <Sparkles size={18} />
-                </button>
-                <button
-                  className={`atl-qb-strip-btn ${viewMode === 'calendar' ? 'active' : ''}`}
-                  data-tip="Calendar"
-                  onClick={() => switchViewMode('calendar')}
-                  type="button"
-                >
-                  <CalendarDays size={18} />
-                </button>
-                <button
-                  className={`atl-qb-strip-btn ${viewMode === 'reminders' ? 'active' : ''}`}
-                  data-tip="Reminders"
-                  onClick={() => switchViewMode('reminders')}
-                  type="button"
-                >
-                  <Bell size={18} />
-                </button>
-
-                <div className="atl-qb-strip-spacer"></div>
-
-                <button className="atl-qb-strip-btn" data-tip="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} type="button">
-                  <ListChecks size={18} />
-                </button>
-                <button
-                  className="atl-qb-strip-btn"
-                  data-tip="Logout"
-                  type="button"
-                  onClick={() => {
-                    void signOutAppSession();
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('username');
-                    navigate('/');
-                  }}
-                >
-                  <LogOut size={18} />
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className="atl-qb-side-brand">
-                  <div className="atl-qb-brand-wrap">
-                    <div className="atl-qb-brand">cerbyl</div>
-                    <div className="atl-qb-current-title">Activity timeline</div>
-                  </div>
-                  <button
-                    className="atl-qb-side-close-btn"
-                    type="button"
-                    title="Collapse sidebar"
-                    aria-label="Collapse activity timeline sidebar"
-                    onClick={() => setSidebarCollapsed(true)}
-                  >
-                    <ChevronLeft size={14} />
-                  </button>
-                </div>
-
-                <button className="atl-qb-new-reminder-btn" type="button" onClick={openReminderCreate}>
-                  <Plus size={16} />
-                  <span>New Reminder</span>
-                </button>
-
-                <div className="atl-qb-side-block">
-                  <div className="atl-qb-side-label">Modes</div>
-                  <nav className="atl-qb-view-nav" aria-label="Activity timeline modes">
-                    <button className={`atl-qb-view-link ${viewMode === 'timeline' ? 'atl-qb-view-link--active' : ''}`} type="button" onClick={() => switchViewMode('timeline')}>
-                      <Sparkles size={16} />
-                      <span>Timeline</span>
-                      <span className="atl-qb-nav-count">{timelineItemCount}</span>
-                    </button>
-                    <button className={`atl-qb-view-link ${viewMode === 'calendar' ? 'atl-qb-view-link--active' : ''}`} type="button" onClick={() => switchViewMode('calendar')}>
-                      <CalendarDays size={16} />
-                      <span>Calendar</span>
-                      <span className="atl-qb-nav-count">{activitiesByDay.size}</span>
-                    </button>
-                    <button className={`atl-qb-view-link ${viewMode === 'reminders' ? 'atl-qb-view-link--active' : ''}`} type="button" onClick={() => switchViewMode('reminders')}>
-                      <Bell size={16} />
-                      <span>Reminders</span>
-                      <span className="atl-qb-nav-count">{filteredReminders.length}</span>
-                    </button>
-                  </nav>
-                </div>
-
-                <div className="atl-qb-side-block atl-qb-side-block--grow">
-                  <div className="atl-qb-side-label">Activity Filters</div>
-                  <nav className="atl-qb-view-nav" aria-label="Activity filters">
-                    {ACTIVITY_TYPES.map((type) => {
-                      const meta = TYPE_META[type];
-                      const Icon = meta.icon;
-                      return (
-                        <button
-                          key={type}
-                          className={`atl-qb-view-link ${selectedFilters.includes(type) ? 'atl-qb-view-link--active' : ''}`}
-                          type="button"
-                          onClick={() => toggleFilter(type)}
-                        >
-                          <Icon size={16} style={{ color: meta.color }} />
-                          <span>{meta.label}</span>
-                          <span className="atl-qb-nav-count">{stats[type]}</span>
-                        </button>
-                      );
-                    })}
-                  </nav>
-                </div>
-
-                <div className="atl-qb-side-block">
-                  <div className="atl-qb-side-label">Reminder Lists</div>
-                  <nav className="atl-qb-view-nav" aria-label="Reminder smart lists">
-                    {['today', 'scheduled', 'flagged', 'all', 'completed'].map((smartKey) => (
-                      <button
-                        key={smartKey}
-                        className={`atl-qb-view-link ${selectedSmartList === smartKey && !selectedListId ? 'atl-qb-view-link--active' : ''}`}
-                        type="button"
-                        onClick={() => {
-                          setSmartList(smartKey);
-                          switchViewMode('reminders');
-                        }}
-                      >
-                        <Bell size={16} />
-                        <span>{smartKey}</span>
-                        <span className="atl-qb-nav-count">{smartListCounts?.[smartKey] || 0}</span>
-                      </button>
-                    ))}
-                  </nav>
-                </div>
-
-                <div className="atl-qb-side-block">
-                  <div className="atl-qb-side-label">Quick Stats</div>
-                  <div className="atl-qb-stat-grid">
-                    <div className="atl-qb-stat-card">
-                      <span>{stats.total}</span>
-                      <small>Activities</small>
-                    </div>
-                    <div className="atl-qb-stat-card">
-                      <span>{stats.reminders}</span>
-                      <small>Reminders</small>
-                    </div>
-                    <div className="atl-qb-stat-card">
-                      <span>{stats.streak}</span>
-                      <small>Streak</small>
-                    </div>
-                    <div className="atl-qb-stat-card">
-                      <span>{activitiesByDay.size}</span>
-                      <small>Days</small>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="atl-qb-side-actions">
-                  <button className="atl-qb-action-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>
-                    <ListChecks size={14} />
-                    <span>Dashboard</span>
-                  </button>
-                  <button
-                    className="atl-qb-action-btn"
-                    type="button"
-                    onClick={() => {
-                      void signOutAppSession();
-                      localStorage.removeItem('token');
-                      localStorage.removeItem('username');
-                      navigate('/');
-                    }}
-                  >
-                    <LogOut size={14} />
-                    <span>Logout</span>
-                  </button>
-                </div>
-              </>
-            )}
-          </aside>
-
-          <main className="atl-main atl-qb-main">
-            <div className="atl-material-texture" aria-hidden="true" />
-            <section className="atl-command-bar">
-              <div className="atl-command-copy">
-                <p className="atl-eyebrow">Your learning record</p>
-                <h1>Activity Timeline</h1>
-                <p>Trace what you studied, return to unfinished work, and place reminders where they belong in time.</p>
-              </div>
-              <div className="atl-command-stats" aria-label="Timeline summary">
-                <div>
-                  <span><Flame size={14} /> Current streak</span>
-                  <strong>{stats.streak}<small> {stats.streak === 1 ? 'day' : 'days'}</small></strong>
-                </div>
-                <div>
-                  <span><CalendarClock size={14} /> Active days</span>
-                  <strong>{activitiesByDay.size}</strong>
-                </div>
-                <div>
-                  <span><Bell size={14} /> Reminders</span>
-                  <strong>{stats.reminders}</strong>
-                </div>
-              </div>
-            </section>
-
-            <nav className="atl-mobile-modes" aria-label="Activity timeline mobile modes">
+          <section className="atl-toolbar" aria-label="Timeline controls">
+            <div className="atl-search">
+              <Search size={15} />
+              <input
+                ref={searchInputRef}
+                type="text"
+                aria-label="Search activities and reminders"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search activities and reminders"
+              />
+              {searchQuery ? (
+                <button type="button" aria-label="Clear search" onClick={() => setSearchQuery('')}><X size={14} /></button>
+              ) : <kbd>/</kbd>}
+            </div>
+            <div className="atl-range-control" aria-label="Timeline date range">
               {[
-                ['timeline', Sparkles, 'Timeline'],
-                ['calendar', CalendarDays, 'Calendar'],
-                ['reminders', Bell, 'Reminders'],
-              ].map(([mode, Icon, label]) => (
-                <button
-                  key={mode}
-                  className={viewMode === mode ? 'active' : ''}
-                  type="button"
-                  onClick={() => switchViewMode(mode)}
-                >
-                  <Icon size={14} />
-                  <span>{label}</span>
+                ['7', '7 days'],
+                ['30', '30 days'],
+                ['all', 'All time'],
+              ].map(([value, label]) => (
+                <button key={value} type="button" className={dateRange === value ? 'active' : ''} aria-pressed={dateRange === value} onClick={() => setDateRange(value)}>
+                  {label}
                 </button>
               ))}
-            </nav>
+            </div>
+            <div className="atl-toolbar-actions">
+              <span className="atl-toolbar-stat"><Flame size={13} /> {stats.streak}d</span>
+              <span className="atl-toolbar-stat"><BarChart3 size={13} /> {timelineItemCount}</span>
+              <button type="button" onClick={refreshAll} aria-label="Refresh timeline"><RefreshCw size={14} /></button>
+              <button type="button" onClick={exportData}>Export</button>
+            </div>
+          </section>
 
-            <section className="atl-toolbar">
-              <div className="atl-search">
-                <Search size={15} />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  aria-label="Search activities and reminders"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search activities and reminders"
-                />
-                {searchQuery ? (
-                  <button type="button" aria-label="Clear search" onClick={() => setSearchQuery('')}><X size={14} /></button>
-                ) : <kbd>/</kbd>}
-              </div>
-              <div className="atl-range-control" aria-label="Timeline date range">
-                {[
-                  ['7', '7 days'],
-                  ['30', '30 days'],
-                  ['all', 'All time'],
-                ].map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className={dateRange === value ? 'active' : ''}
-                    onClick={() => setDateRange(value)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <div className="atl-toolbar-meta">
-                <span><Filter size={14} /> {selectedFilters.length}/{ACTIVITY_TYPES.length}</span>
-                <span><BarChart3 size={14} /> {timelineItemCount}</span>
-              </div>
-            </section>
+          {error && <div className="atl-error" role="alert">{error}</div>}
 
-            {error && <div className="atl-error">{error}</div>}
-
-            {loading ? (
-              <div className="atl-loading">Loading timeline...</div>
-            ) : (
-              <div key={viewMode} className="atl-view-shell">
-                {viewMode === 'timeline' && renderTimeline()}
-                {viewMode === 'calendar' && renderCalendar()}
-                {viewMode === 'reminders' && renderReminders()}
-              </div>
-            )}
-          </main>
-        </div>
-      </div>
+          {loading ? (
+            <div className="atl-loading"><span />Loading timeline</div>
+          ) : (
+            <div key={viewMode} className="atl-view-shell">
+              {viewMode === 'timeline' && renderTimeline()}
+              {viewMode === 'calendar' && renderCalendar()}
+              {viewMode === 'reminders' && renderReminders()}
+            </div>
+          )}
+        </main>
+      </SocialHubChrome>
 
       {showDayModal && calendarDayPayload && (
         <div className="atl-modal-overlay" onClick={() => setShowDayModal(false)}>
-          <div className="atl-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="atl-modal" role="dialog" aria-modal="true" aria-labelledby="atl-day-dialog-title" tabIndex={-1} onClick={(e) => e.stopPropagation()}>
             <div className="atl-modal-head">
-              <h3>{calendarDayPayload.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</h3>
+              <h3 id="atl-day-dialog-title">{calendarDayPayload.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</h3>
               <button className="atl-icon-btn" type="button" aria-label="Close day details" onClick={() => setShowDayModal(false)}>
                 <X size={16} />
               </button>
@@ -1351,9 +1222,9 @@ const ActivityTimeline = () => {
 
       {showReminderModal && (
         <div className="atl-modal-overlay" onClick={() => setShowReminderModal(false)}>
-          <div className="atl-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="atl-modal" role="dialog" aria-modal="true" aria-labelledby="atl-reminder-dialog-title" tabIndex={-1} onClick={(e) => e.stopPropagation()}>
             <div className="atl-modal-head">
-              <h3>{editingReminder ? 'Edit Reminder' : 'Create Reminder'}</h3>
+              <h3 id="atl-reminder-dialog-title">{editingReminder ? 'Edit Reminder' : 'Create Reminder'}</h3>
               <button className="atl-icon-btn" type="button" aria-label="Close reminder editor" onClick={() => setShowReminderModal(false)}>
                 <X size={16} />
               </button>
@@ -1363,6 +1234,7 @@ const ActivityTimeline = () => {
               <label>
                 Title
                 <input
+                  autoFocus
                   type="text"
                   value={reminderForm.title}
                   onChange={(e) => setReminderForm((prev) => ({ ...prev, title: e.target.value }))}

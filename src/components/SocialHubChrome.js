@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, LayoutGrid, Users } from 'lucide-react';
 import './SocialHubChrome.css';
 import GeometricGrid from './GeometricGrid';
 
-const StripBtn = ({ icon: Icon, label, onClick, active, disabled = false }) => (
+const StripBtn = ({ icon: Icon, label, onClick, active, pressed, disabled = false }) => (
   <button
     className={`shc-strip-btn ${active ? 'shc-strip-btn--active' : ''}`}
     type="button"
@@ -12,7 +12,8 @@ const StripBtn = ({ icon: Icon, label, onClick, active, disabled = false }) => (
     data-tip={label}
     disabled={disabled}
     aria-label={label}
-    aria-current={active ? 'page' : undefined}
+    aria-current={active && pressed === undefined ? 'page' : undefined}
+    aria-pressed={pressed}
   >
     {Icon ? <Icon size={15} /> : null}
   </button>
@@ -67,6 +68,14 @@ const REACTIVE_SURFACE_SELECTOR = [
   '.flashcards-page.fc-focus-shell .fc-sr-card-front',
   '.flashcards-page.fc-focus-shell .fc-sr-card-back',
   '.flashcards-page.fc-focus-shell .fc-result-stat',
+  '.lp-resume-path',
+  '.lp-route-row',
+  '.lpd-overview-card',
+  '.lpd-toolkit-card',
+  '.lpd-activity',
+  '.lpd-resource-card',
+  '.lpd-application-item',
+  '.lpd-connection-section',
   '.flashcards-page.fc-focus-shell .fc-sr-result-item',
   '.se-page .se-deck-card',
   '.se-page .se-upload-stage',
@@ -106,6 +115,14 @@ const REACTIVE_SURFACE_SELECTOR = [
   '.wa-root .wa-topic-row',
   '.wa-root .wa-component-panel',
   '.wa-root .wa-activity-row',
+  '.atl-activity-card',
+  '.atl-reminder-card',
+  '.xpv-quest-row',
+  '.xpv-power-grid button',
+  '.xpv-topic-arc',
+  '.xpv-badge-grid button',
+  '.xpv-reward-ledger > button',
+  '.xpv-route-brief',
   '.wt-page .wt-rec-card',
   '.wt-page .wt-gen-card',
   '.wt-page .wt-tip-item',
@@ -123,6 +140,8 @@ const SocialHubChrome = ({
   topbarAction = { label: 'Dashboard', path: '/dashboard-cerbyl' },
   sidebarLead = null,
   sidebarTail = null,
+  collapsedLeadItems = [],
+  collapsedTailItems = [],
   noSidebar = false,
   collapsed: controlledCollapsed,
   onCollapsedChange,
@@ -156,6 +175,7 @@ const SocialHubChrome = ({
   const clearReactiveSurface = useCallback(() => {
     const surface = activeSurfaceRef.current;
     if (!surface) return;
+    surface.classList.remove('shc-reactive-active');
     surface.style.removeProperty('--shc-mx');
     surface.style.removeProperty('--shc-my');
     surface.style.removeProperty('--shc-rx');
@@ -174,6 +194,7 @@ const SocialHubChrome = ({
     if (activeSurfaceRef.current !== surface) {
       clearReactiveSurface();
       activeSurfaceRef.current = surface;
+      surface.classList.add('shc-reactive-active');
     }
 
     const rect = surface.getBoundingClientRect();
@@ -188,11 +209,16 @@ const SocialHubChrome = ({
     surface.style.setProperty('--shc-ry', `${rotateY.toFixed(2)}deg`);
   }, [clearReactiveSurface]);
 
+  const handleSurfaceScroll = useCallback(() => {
+    clearReactiveSurface();
+  }, [clearReactiveSurface]);
+
   return (
     <div
       className="shc-shell"
       onPointerMove={handleSurfacePointerMove}
       onPointerLeave={clearReactiveSurface}
+      onScrollCapture={handleSurfaceScroll}
     >
         <div className="shc-bg-fx" aria-hidden="true">
           <div className="shc-bg-wash" />
@@ -238,6 +264,20 @@ const SocialHubChrome = ({
 
                 <div className="shc-strip-rule" />
 
+                {collapsedLeadItems.map(item => (
+                  <StripBtn
+                    key={item.label}
+                    icon={item.icon}
+                    label={item.label}
+                    onClick={item.onClick}
+                    active={item.active}
+                    pressed={item.pressed}
+                    disabled={item.disabled}
+                  />
+                ))}
+
+                {collapsedLeadItems.length > 0 && <div className="shc-strip-rule" />}
+
                 {sideSections.flatMap(s => s.items).map(item => (
                   <StripBtn
                     key={item.label}
@@ -245,12 +285,25 @@ const SocialHubChrome = ({
                     label={item.label}
                     onClick={item.onClick}
                     active={item.active}
+                    pressed={item.pressed}
                     disabled={item.disabled}
                   />
                 ))}
 
                 <div className="shc-strip-spacer" />
                 <div className="shc-strip-rule" />
+
+                {collapsedTailItems.map(item => (
+                  <StripBtn
+                    key={item.label}
+                    icon={item.icon}
+                    label={item.label}
+                    onClick={item.onClick}
+                    active={item.active}
+                    pressed={item.pressed}
+                    disabled={item.disabled}
+                  />
+                ))}
 
                 {footerItems.map(fi => (
                   <StripBtn key={fi.label} icon={fi.icon} label={fi.label} onClick={() => navigate(fi.path)} />
@@ -293,7 +346,8 @@ const SocialHubChrome = ({
                               type="button"
                               onClick={item.onClick}
                               disabled={item.disabled}
-                              aria-current={item.active ? 'page' : undefined}
+                              aria-current={item.active && item.pressed === undefined ? 'page' : undefined}
+                              aria-pressed={item.pressed}
                             >
                               {Icon ? <Icon size={15} /> : null}
                               <span>{item.label}</span>

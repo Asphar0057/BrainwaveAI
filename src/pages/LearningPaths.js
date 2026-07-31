@@ -21,21 +21,8 @@ import {
   Trash2,
 } from 'lucide-react';
 import learningPathService from '../services/learningPathService';
-import GeoBackground from '../components/GeoBackground';
 import { API_URL } from '../config';
-import {
-  SidebarAction,
-  SidebarActions,
-  SidebarMenuItem,
-  SidebarPrimaryButton,
-  SidebarSection,
-  SidebarShell,
-  SidebarStatBox,
-  SidebarStats,
-  SidebarStripButton,
-  SidebarStripDivider,
-  SidebarStripSpacer,
-} from '../components/Sidebar';
+import SocialHubChrome from '../components/SocialHubChrome';
 import './LearningPaths.css';
 
 const FALLBACK_TOPICS = [
@@ -265,52 +252,49 @@ const LearningPaths = () => {
     if (window.innerWidth <= 900) setSidebarCollapsed(true);
   };
 
+  const navigationSections = [
+    {
+      label: 'Workspace',
+      items: [
+        { label: 'My paths', icon: Route, active: activePanel === 'paths', count: summary.total, onClick: () => { setStatusFilter('all'); openPanel('paths'); } },
+        { label: 'Path builder', icon: Milestone, active: activePanel === 'generator', onClick: () => openPanel('generator') },
+      ],
+    },
+    {
+      label: 'Your map',
+      items: [
+        { label: 'Notes', icon: Library, onClick: () => navigate('/notes') },
+        { label: 'Flashcards', icon: BookOpen, onClick: () => navigate('/flashcards') },
+      ],
+    },
+  ];
+
   return (
-    <div className="lp-page">
-      <GeoBackground />
-      <header className="lp-topbar">
-        <div className="lp-topbar-brand">learning, <span>unified</span></div>
-        <div className="lp-topbar-state">
-          <span className="lp-status-dot" />
-          {summary.active} active route{summary.active === 1 ? '' : 's'}
-        </div>
-      </header>
-
-      <div className={`lp-shell ${sidebarCollapsed ? 'lp-shell--collapsed' : ''}`}>
-        <SidebarShell
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed((value) => !value)}
-          brandKicker="LEARNING PATHS"
-          ariaLabel="Learning paths navigation"
-          collapsedContent={(
-            <>
-              <SidebarStripButton icon={<Plus size={18} />} tip="Create a path" active={activePanel === 'generator'} onClick={() => openPanel('generator')} />
-              <SidebarStripButton icon={<Route size={18} />} tip="My paths" active={activePanel === 'paths'} onClick={() => openPanel('paths')} />
-              <SidebarStripDivider />
-              <SidebarStripSpacer />
-              <SidebarStripButton icon={<Home size={18} />} tip="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} />
-            </>
-          )}
-        >
-          <SidebarPrimaryButton icon={<Sparkles size={18} />} label="Create a path" onClick={() => openPanel('generator')} />
-          <SidebarSection heading="Workspace">
-            <SidebarMenuItem icon={<Route size={18} />} label="My paths" active={activePanel === 'paths' && statusFilter === 'all'} badge={summary.total || null} onClick={() => { setStatusFilter('all'); openPanel('paths'); }} />
-            <SidebarMenuItem icon={<Milestone size={18} />} label="Path builder" active={activePanel === 'generator'} onClick={() => openPanel('generator')} />
-          </SidebarSection>
-          <SidebarSection heading="Your map">
-            <SidebarMenuItem icon={<Library size={18} />} label="Notes" onClick={() => navigate('/notes')} />
-            <SidebarMenuItem icon={<BookOpen size={18} />} label="Flashcards" onClick={() => navigate('/flashcards')} />
-          </SidebarSection>
-          <SidebarStats>
-            <SidebarStatBox value={summary.avgProgress + '%'} label="Active progress" />
-            <SidebarStatBox value={summary.total} label="Mapped paths" />
-          </SidebarStats>
-          <SidebarActions>
-            <SidebarAction icon={<Home size={18} />} label="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} />
-          </SidebarActions>
-        </SidebarShell>
-
-        <main className="lp-main">
+    <div className="lp-page with-social-chrome">
+      <SocialHubChrome
+        brandKicker="Learning Paths"
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+        sideSections={navigationSections}
+        collapsedLeadItems={[{ icon: Plus, label: 'Create a path', active: activePanel === 'generator', onClick: () => openPanel('generator') }]}
+        footerItems={[{ icon: Home, label: 'Dashboard', path: '/dashboard-cerbyl' }]}
+        sidebarLead={(
+          <button className="lp-side-primary" type="button" onClick={() => openPanel('generator')}>
+            <Sparkles size={15} />
+            <span>Create a path</span>
+          </button>
+        )}
+        sidebarTail={(
+          <div className="lp-sidebar-summary">
+            <div><span>Active progress</span><strong>{summary.avgProgress}%</strong></div>
+            <div className="lp-summary-track" role="progressbar" aria-label="Average active path progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={summary.avgProgress}>
+              <i style={{ width: `${summary.avgProgress}%` }} />
+            </div>
+            <small>{summary.total} mapped path{summary.total === 1 ? '' : 's'}</small>
+          </div>
+        )}
+      >
+        <div className="lp-main">
           {activePanel === 'generator' ? (
             <section className="lp-builder" aria-labelledby="lp-builder-title">
               <div className="lp-builder-copy">
@@ -505,7 +489,7 @@ const LearningPaths = () => {
 
                     <div className="lp-filter-row" aria-label="Filter learning paths">
                       {FILTERS.map(({ key, label }) => (
-                        <button type="button" key={key} className={statusFilter === key ? 'active' : ''} onClick={() => setStatusFilter(key)}>
+                        <button type="button" key={key} aria-pressed={statusFilter === key} className={statusFilter === key ? 'active' : ''} onClick={() => setStatusFilter(key)}>
                           {label}
                           <span>{key === 'all' ? summary.total : key === 'active' ? summary.active : summary.completed}</span>
                         </button>
@@ -555,8 +539,8 @@ const LearningPaths = () => {
               )}
             </section>
           )}
-        </main>
-      </div>
+        </div>
+      </SocialHubChrome>
     </div>
   );
 };

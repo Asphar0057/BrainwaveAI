@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Loader as LoaderIcon,
@@ -37,14 +37,7 @@ import {
 } from 'lucide-react';
 import learningPathService from '../services/learningPathService';
 import MathRenderer from '../components/MathRenderer';
-import {
-  SidebarAction,
-  SidebarActions,
-  SidebarPrimaryButton,
-  SidebarShell,
-  SidebarStripButton,
-  SidebarStripSpacer,
-} from '../components/Sidebar';
+import SocialHubChrome from '../components/SocialHubChrome';
 import { sanitizeUrl } from '../utils/sanitize';
 import './LearningPathDetail.css';
 
@@ -141,29 +134,27 @@ const LearningPathDetail = () => {
   });
   const [isResizingPathPanel, setIsResizingPathPanel] = useState(false);
   const pathMainRef = useRef(null);
+  const workspaceScrollRef = useRef(null);
   const resizeFrameRef = useRef(null);
-
-  const handleTileMove = useCallback((e) => {
-    const card = e.currentTarget;
-    const rect = card.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const cx = x / rect.width - 0.5;
-    const cy = y / rect.height - 0.5;
-    card.style.setProperty('--mx', `${x}px`);
-    card.style.setProperty('--my', `${y}px`);
-    card.style.setProperty('--rx', `${(-cy * 7).toFixed(2)}deg`);
-    card.style.setProperty('--ry', `${(cx * 9).toFixed(2)}deg`);
-  }, []);
-  const handleTileLeave = useCallback((e) => {
-    const card = e.currentTarget;
-    card.style.setProperty('--rx', '0deg');
-    card.style.setProperty('--ry', '0deg');
-  }, []);
 
   useEffect(() => {
     loadPathDetails();
   }, [pathId]);
+
+  useEffect(() => {
+    if (!path?.id || !workspaceScrollRef.current) return undefined;
+
+    const resetWorkspaceScroll = () => {
+      const workspace = workspaceScrollRef.current;
+      if (!workspace) return;
+      workspace.scrollTop = 0;
+      workspace.closest('.shc-main')?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    };
+
+    resetWorkspaceScroll();
+    const frame = window.requestAnimationFrame(resetWorkspaceScroll);
+    return () => window.cancelAnimationFrame(frame);
+  }, [path?.id]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -221,6 +212,22 @@ const LearningPathDetail = () => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleRovingTabKey = (event, ids, activeId, setActiveId, elementPrefix) => {
+    const currentIndex = ids.indexOf(activeId);
+    let nextIndex = currentIndex;
+
+    if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % ids.length;
+    else if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + ids.length) % ids.length;
+    else if (event.key === 'Home') nextIndex = 0;
+    else if (event.key === 'End') nextIndex = ids.length - 1;
+    else return;
+
+    event.preventDefault();
+    const nextId = ids[nextIndex];
+    setActiveId(nextId);
+    window.requestAnimationFrame(() => document.getElementById(`${elementPrefix}${nextId}`)?.focus());
   };
 
   const clampPathPanelWidth = (value, maxWidth = PATH_PANEL_MAX_WIDTH) => (
@@ -1012,11 +1019,28 @@ const LearningPathDetail = () => {
 
   if (loading) {
     return (
-      <div className="lpd-container">
-        <div className="lpd-loading">
-          <Loader className="lpd-spinner" size={40} />
-          <p>Loading learning path...</p>
-        </div>
+      <div className="lpd-shell with-social-chrome">
+        <SocialHubChrome
+          brandKicker="Learning Path"
+          collapsed={sidebarCollapsed}
+          onCollapsedChange={setSidebarCollapsed}
+          sideSections={[{ label: 'Current route', items: [{ label: 'Loading path', icon: Loader, active: true, disabled: true }] }]}
+          footerItems={[{ icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard-cerbyl' }]}
+          sidebarLead={(
+            <button className="lpd-side-primary" type="button" onClick={() => navigate('/learning-paths')}>
+              <ChevronLeft size={15} /> All learning paths
+            </button>
+          )}
+        >
+          <div className="lpd-main-wrap lpd-status-wrap">
+            <div className="lpd-loading">
+              <Loader className="lpd-spinner" size={32} />
+              <span className="lpd-hero-kicker">Preparing workspace</span>
+              <strong>Loading learning path</strong>
+              <p>Bringing your sequence, progress, and study materials into focus.</p>
+            </div>
+          </div>
+        </SocialHubChrome>
       </div>
     );
   }
@@ -1025,21 +1049,31 @@ const LearningPathDetail = () => {
     return null;
   }
 
-  return (
-    <div className={`lpd-shell ${sidebarCollapsed ? 'lpd-shell--collapsed' : ''}`}>
-      {/* Geo background */}
-      <svg className="lpd-geo-bg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-        <circle cx="1200" cy="150" r="420" fill="none" stroke="currentColor" strokeWidth="1"/>
-        <circle cx="1200" cy="150" r="280" fill="none" stroke="currentColor" strokeWidth="0.6"/>
-        <circle cx="1200" cy="150" r="150" fill="none" stroke="currentColor" strokeWidth="0.4"/>
-        <circle cx="150" cy="750" r="260" fill="none" stroke="currentColor" strokeWidth="0.6"/>
-        <circle cx="150" cy="750" r="140" fill="none" stroke="currentColor" strokeWidth="0.4"/>
-        <line x1="0" y1="0" x2="1400" y2="900" stroke="currentColor" strokeWidth="0.3"/>
-        <line x1="0" y1="900" x2="700" y2="0" stroke="currentColor" strokeWidth="0.25"/>
-        <circle cx="1200" cy="150" r="4" fill="currentColor" opacity="0.5"/>
-        <circle cx="150" cy="750" r="3" fill="currentColor" opacity="0.4"/>
-      </svg>
+  const detailSections = [{
+    label: 'Path nodes',
+    items: nodes.map((node, index) => {
+      const isActive = selectedNode?.id === node.id;
+      const isLocked = node.progress.status === 'locked';
+      const NodeIcon = node.progress.status === 'completed'
+        ? CheckCircle
+        : node.progress.status === 'in_progress'
+        ? Play
+        : isLocked
+        ? Lock
+        : Circle;
+      return {
+        label: `${String(index + 1).padStart(2, '0')} · ${node.title}`,
+        icon: NodeIcon,
+        active: isActive,
+        disabled: isLocked,
+        count: !isLocked && node.progress.progress_pct ? `${Math.round(node.progress.progress_pct)}%` : undefined,
+        onClick: () => setSelectedNode(node),
+      };
+    }),
+  }];
 
+  return (
+    <div className="lpd-shell with-social-chrome">
       {actionLoading && (
         <div className="lpd-loading-overlay">
           <div className="lpd-loading-content">
@@ -1049,103 +1083,32 @@ const LearningPathDetail = () => {
         </div>
       )}
 
-      {/* ── Standard learning workspace sidebar ── */}
-      <SidebarShell
+      <SocialHubChrome
+        brandKicker="Learning Path"
         collapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed((value) => !value)}
-        brandKicker="LEARNING PATH"
-        ariaLabel="Learning path navigation"
-        collapsedContent={(
-          <>
-            {nodes.map((node, index) => {
-              const isActive = selectedNode?.id === node.id;
-              const isLocked = node.progress.status === 'locked';
-              return (
-                <SidebarStripButton
-                  key={node.id}
-                  icon={node.progress.status === 'completed'
-                    ? <CheckCircle size={16} />
-                    : isLocked
-                    ? <Lock size={16} />
-                    : <span className="lpd-strip-node-number">{index + 1}</span>}
-                  tip={node.title}
-                  active={isActive}
-                  disabled={isLocked}
-                  onClick={() => {
-                    setSelectedNode(node);
-                    setSidebarCollapsed(false);
-                  }}
-                />
-              );
-            })}
-            <SidebarStripSpacer />
-            <SidebarStripButton icon={<LayoutDashboard size={17} />} tip="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} />
-          </>
+        onCollapsedChange={setSidebarCollapsed}
+        sideSections={detailSections}
+        collapsedLeadItems={[{ icon: ChevronLeft, label: 'All learning paths', onClick: () => navigate('/learning-paths') }]}
+        footerItems={[{ icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard-cerbyl' }]}
+        sidebarLead={(
+          <button className="lpd-side-primary" type="button" onClick={() => navigate('/learning-paths')}>
+            <ChevronLeft size={15} />
+            <span>All learning paths</span>
+          </button>
+        )}
+        sidebarTail={(
+          <div className="lpd-sidebar-summary">
+            <span>Current route</span>
+            <strong>{path.title}</strong>
+            <div className="lpd-summary-track" role="progressbar" aria-label="Learning path completion" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(path.progress.completion_percentage)}>
+              <i style={{ width: `${path.progress.completion_percentage}%` }} />
+            </div>
+            <small>{Math.round(path.progress.completion_percentage)}% complete</small>
+          </div>
         )}
       >
-        <SidebarPrimaryButton
-          icon={<ChevronLeft size={17} />}
-          label="All learning paths"
-          onClick={() => navigate('/learning-paths')}
-        />
-
-        <div className="lpd-sb-head">
-          <div className="lpd-sb-path-label">Current route</div>
-          <div className="lpd-sb-path-name">{path.title}</div>
-          <div className="lpd-sb-overall">
-            <div className="lpd-sb-overall-bar">
-              <div className="lpd-sb-overall-fill" style={{ width: `${path.progress.completion_percentage}%` }} />
-            </div>
-            <span>{Math.round(path.progress.completion_percentage)}%</span>
-          </div>
-        </div>
-
-        <nav className="lpd-sb-nodes" aria-label="Path nodes">
-          {nodes.map((node, index) => {
-            const isActive = selectedNode?.id === node.id;
-            const isLocked = node.progress.status === 'locked';
-            const pct = node.progress.progress_pct || 0;
-            return (
-              <button
-                type="button"
-                key={node.id}
-                className={`lpd-sb-node ${isActive ? 'active' : ''} ${isLocked ? 'locked' : ''}`}
-                onClick={() => !isLocked && setSelectedNode(node)}
-                disabled={isLocked}
-                aria-current={isActive ? 'step' : undefined}
-              >
-                <div className="lpd-sb-node-icon">
-                  {node.progress.status === 'completed'
-                    ? <CheckCircle size={14} />
-                    : node.progress.status === 'in_progress'
-                    ? <Play size={14} />
-                    : isLocked
-                    ? <Lock size={14} />
-                    : <Circle size={14} />}
-                </div>
-                <div className="lpd-sb-node-body">
-                  <span className="lpd-sb-node-num">
-                    {String(index + 1).padStart(2, '0')}
-                  </span>
-                  <span className="lpd-sb-node-title">{node.title}</span>
-                  {!isLocked && pct > 0 && (
-                    <div className="lpd-sb-node-bar">
-                      <div style={{ width: `${pct}%` }} />
-                    </div>
-                  )}
-                </div>
-              </button>
-            );
-          })}
-        </nav>
-
-        <SidebarActions>
-          <SidebarAction icon={<LayoutDashboard size={16} />} label="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} />
-        </SidebarActions>
-      </SidebarShell>
-
-      {/* ── Main content ── */}
-      <div className="lpd-main-wrap">
+      <div className="lpd-main-wrap" ref={workspaceScrollRef}>
+        <div className="cb-tile-texture lpd-page-texture" aria-hidden />
         {/* Hero header */}
         <div className="lpd-hero">
           <div className="lpd-hero-left">
@@ -1195,6 +1158,13 @@ const LearningPathDetail = () => {
                     tabIndex={workspaceSection === section.id ? 0 : -1}
                     className={workspaceSection === section.id ? 'active' : ''}
                     onClick={() => setWorkspaceSection(section.id)}
+                    onKeyDown={(event) => handleRovingTabKey(
+                      event,
+                      ['overview', 'learn', 'resources', 'notes'],
+                      workspaceSection,
+                      setWorkspaceSection,
+                      'lpd-tab-',
+                    )}
                   >
                     <span className="lpd-tab-icon">{section.icon}</span>
                     <span>{section.label}</span>
@@ -1206,7 +1176,7 @@ const LearningPathDetail = () => {
               {workspaceSection === 'overview' && (
               <section id="lpd-panel-overview" className="lpd-section-panel lpd-section-panel--overview" aria-labelledby="lpd-tab-overview" role="tabpanel">
               <div className="lpd-overview">
-                <div className="lpd-overview-card lpd-overview-next" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+                <div className="lpd-overview-card lpd-overview-next">
                   <div className="cb-tile-texture" />
                   <div className="lpd-overview-label">
                     {nextActivity ? getActivityIcon(nextActivity.type) : <CheckCircle size={14} />}
@@ -1227,7 +1197,7 @@ const LearningPathDetail = () => {
                     {nextActivity ? 'Launch Activity' : 'All Done'}
                   </button>
                 </div>
-                <div className="lpd-overview-card lpd-overview-focus" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+                <div className="lpd-overview-card lpd-overview-focus">
                   <div className="cb-tile-texture" />
                   <div className="lpd-overview-label">
                     <Timer size={14} />
@@ -1267,7 +1237,7 @@ const LearningPathDetail = () => {
                     <div className="lpd-focus-toast">Logged {sessionLoggedMinutes} min</div>
                   ) : null}
                 </div>
-                <div className="lpd-overview-card lpd-overview-progress" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
+                <div className="lpd-overview-card lpd-overview-progress">
                   <div className="cb-tile-texture" />
                   <div className="lpd-overview-label">
                     <BarChart3 size={14} />
@@ -1306,8 +1276,6 @@ const LearningPathDetail = () => {
                       key={item.type}
                       className={`lpd-toolkit-card ${item.completed ? 'is-complete' : ''}`}
                       onClick={() => handleActivityClick(item.activity)}
-                      onMouseMove={handleTileMove}
-                      onMouseLeave={handleTileLeave}
                       disabled={actionLoading}
                       type="button"
                     >
@@ -1442,6 +1410,13 @@ const LearningPathDetail = () => {
                     tabIndex={learnSection === section.id ? 0 : -1}
                     className={learnSection === section.id ? 'active' : ''}
                     onClick={() => setLearnSection(section.id)}
+                    onKeyDown={(event) => handleRovingTabKey(
+                      event,
+                      ['content', 'connections', 'practice'],
+                      learnSection,
+                      setLearnSection,
+                      'lpd-learn-tab-',
+                    )}
                   >
                     <span>{section.label}</span>
                     <small>{section.meta}</small>
@@ -1459,18 +1434,21 @@ const LearningPathDetail = () => {
                 <div className="lpd-difficulty-buttons">
                   <button
                     className={`lpd-difficulty-btn ${difficultyView === 'beginner' ? 'active' : ''}`}
+                    aria-pressed={difficultyView === 'beginner'}
                     onClick={() => handleDifficultyChange('beginner')}
                   >
                     Beginner
                   </button>
                   <button
                     className={`lpd-difficulty-btn ${difficultyView === 'intermediate' ? 'active' : ''}`}
+                    aria-pressed={difficultyView === 'intermediate'}
                     onClick={() => handleDifficultyChange('intermediate')}
                   >
                     Intermediate
                   </button>
                   <button
                     className={`lpd-difficulty-btn ${difficultyView === 'advanced' ? 'active' : ''}`}
+                    aria-pressed={difficultyView === 'advanced'}
                     onClick={() => handleDifficultyChange('advanced')}
                   >
                     Advanced
@@ -1816,6 +1794,7 @@ const LearningPathDetail = () => {
         </div>
         </div>
       </div>
+      </SocialHubChrome>
 
       {showCompletionQuiz && (
         <div className="lpd-quiz-overlay">
