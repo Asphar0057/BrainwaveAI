@@ -23,6 +23,12 @@ from services.intent_engine import (
     NaiveBayesClassifier,
 )
 
+# InstructionMemory/CerbylIntentEngine.classify are keyed per-user (see
+# services/intent_engine.py) -- any fixed id works here since each test gets
+# its own fresh engine/memory fixture instance, so there is no cross-test
+# leakage to worry about.
+TEST_USER_ID = 1
+
 @pytest.fixture()
 def fresh_nb() -> NaiveBayesClassifier:
     return NaiveBayesClassifier(CLASSES)
@@ -211,117 +217,117 @@ class TestNaiveBayesClassifier:
 class TestInstructionMemory:
 
     def test_extract_no_questions_rule(self, mem):
-        rules = mem.extract_and_store("don't ask me questions anymore")
+        rules = mem.extract_and_store(TEST_USER_ID, "don't ask me questions anymore")
         assert any(r.domain == "questions" and r.negated for r in rules)
 
     def test_extract_no_questions_variant(self, mem):
-        rules = mem.extract_and_store("stop asking me questions")
+        rules = mem.extract_and_store(TEST_USER_ID, "stop asking me questions")
         assert any(r.domain == "questions" and r.negated for r in rules)
 
     def test_extract_no_bullets_rule(self, mem):
-        rules = mem.extract_and_store("stop using bullet points")
+        rules = mem.extract_and_store(TEST_USER_ID, "stop using bullet points")
         assert any(r.domain == "bullets" and r.negated for r in rules)
 
     def test_extract_length_rule(self, mem):
-        rules = mem.extract_and_store("keep it short")
+        rules = mem.extract_and_store(TEST_USER_ID, "keep it short")
         assert any(r.domain == "length" and r.negated for r in rules)
 
     def test_extract_examples_positive_rule(self, mem):
-        rules = mem.extract_and_store("always use examples when explaining")
+        rules = mem.extract_and_store(TEST_USER_ID, "always use examples when explaining")
         assert any(r.domain == "examples" and not r.negated for r in rules)
 
     def test_extract_emoji_rule(self, mem):
-        rules = mem.extract_and_store("please don't use emojis")
+        rules = mem.extract_and_store(TEST_USER_ID, "please don't use emojis")
         assert any(r.domain == "emojis" and r.negated for r in rules)
 
     def test_extract_no_summary_rule(self, mem):
-        rules = mem.extract_and_store("don't summarize at the end")
+        rules = mem.extract_and_store(TEST_USER_ID, "don't summarize at the end")
         assert any(r.domain == "summary" and r.negated for r in rules)
 
     def test_extract_comprehension_check_variant(self, mem):
-        rules = mem.extract_and_store("no comprehension checks please")
+        rules = mem.extract_and_store(TEST_USER_ID, "no comprehension checks please")
         assert any(r.domain == "questions" and r.negated for r in rules)
 
     def test_no_rules_for_casual_message(self, mem):
-        rules = mem.extract_and_store("hi how are you")
+        rules = mem.extract_and_store(TEST_USER_ID, "hi how are you")
         assert rules == []
 
     def test_no_rules_for_educational_message(self, mem):
-        rules = mem.extract_and_store("explain gradient descent to me")
+        rules = mem.extract_and_store(TEST_USER_ID, "explain gradient descent to me")
         assert rules == []
 
     def test_rule_initial_strength_is_one(self, mem):
-        rules = mem.extract_and_store("don't ask me questions")
+        rules = mem.extract_and_store(TEST_USER_ID, "don't ask me questions")
         assert rules[0].strength == pytest.approx(1.0)
 
     def test_rule_reinforcement_increases_strength(self, mem):
-        mem.extract_and_store("don't ask me questions")
-        rules = mem.extract_and_store("stop asking me questions again")
+        mem.extract_and_store(TEST_USER_ID, "don't ask me questions")
+        rules = mem.extract_and_store(TEST_USER_ID, "stop asking me questions again")
         assert rules[0].strength > 1.0
 
     def test_rule_strength_capped_at_two(self, mem):
         for _ in range(20):
-            mem.extract_and_store("don't ask me questions")
-        active = mem.active_rules()
+            mem.extract_and_store(TEST_USER_ID, "don't ask me questions")
+        active = mem.active_rules(TEST_USER_ID)
         q_rule = next(r for r in active if r.domain == "questions")
         assert q_rule.strength <= 2.0
 
     def test_rule_is_active_immediately(self, mem):
-        mem.extract_and_store("keep it short")
-        assert len(mem.active_rules()) == 1
+        mem.extract_and_store(TEST_USER_ID, "keep it short")
+        assert len(mem.active_rules(TEST_USER_ID)) == 1
 
     def test_rule_decay_with_mocked_time(self, mem):
-        mem.extract_and_store("don't ask me questions")
-        rule = mem.active_rules()[0]
+        mem.extract_and_store(TEST_USER_ID, "don't ask me questions")
+        rule = mem.active_rules(TEST_USER_ID)[0]
         rule.created_at -= 7 * 86400
         assert rule.current_strength == pytest.approx(0.5, abs=0.01)
 
     def test_rule_becomes_inactive_after_decay(self, mem):
-        mem.extract_and_store("don't ask me questions")
-        rule = mem.active_rules()[0]
+        mem.extract_and_store(TEST_USER_ID, "don't ask me questions")
+        rule = mem.active_rules(TEST_USER_ID)[0]
         rule.created_at -= 50 * 86400
         assert not rule.is_active
 
     def test_active_rules_filters_expired(self, mem):
-        mem.extract_and_store("don't ask me questions")
-        rule = list(mem._rules.values())[0]
+        mem.extract_and_store(TEST_USER_ID, "don't ask me questions")
+        rule = list(mem._rules[TEST_USER_ID].values())[0]
         rule.created_at -= 50 * 86400
-        assert len(mem.active_rules()) == 0
+        assert len(mem.active_rules(TEST_USER_ID)) == 0
 
     def test_multiple_distinct_rules(self, mem):
-        mem.extract_and_store("don't ask me questions")
-        mem.extract_and_store("stop using bullet points")
-        mem.extract_and_store("keep it short")
-        active = mem.active_rules()
+        mem.extract_and_store(TEST_USER_ID, "don't ask me questions")
+        mem.extract_and_store(TEST_USER_ID, "stop using bullet points")
+        mem.extract_and_store(TEST_USER_ID, "keep it short")
+        active = mem.active_rules(TEST_USER_ID)
         domains = {r.domain for r in active}
         assert "questions" in domains
         assert "bullets" in domains
         assert "length" in domains
 
     def test_prompt_addendum_includes_active_rules(self, mem):
-        mem.extract_and_store("don't ask me questions")
-        addendum = mem.to_prompt_addendum()
+        mem.extract_and_store(TEST_USER_ID, "don't ask me questions")
+        addendum = mem.to_prompt_addendum(TEST_USER_ID)
         assert "questions" in addendum
         assert "NEVER" in addendum
 
     def test_prompt_addendum_empty_when_no_rules(self, mem):
-        assert mem.to_prompt_addendum() == ""
+        assert mem.to_prompt_addendum(TEST_USER_ID) == ""
 
     def test_serialise_deserialise_roundtrip(self, mem):
-        mem.extract_and_store("don't ask me questions")
-        mem.extract_and_store("keep it short")
+        mem.extract_and_store(TEST_USER_ID, "don't ask me questions")
+        mem.extract_and_store(TEST_USER_ID, "keep it short")
         data = mem.serialize()
 
         mem2 = InstructionMemory()
         mem2.deserialize(data)
-        domains = {r.domain for r in mem2.active_rules()}
+        domains = {r.domain for r in mem2.active_rules(TEST_USER_ID)}
         assert "questions" in domains
         assert "length" in domains
 
     def test_rule_id_is_unique(self, mem):
-        mem.extract_and_store("don't ask me questions")
-        mem.extract_and_store("stop using bullets")
-        ids = [r.rule_id for r in mem.active_rules()]
+        mem.extract_and_store(TEST_USER_ID, "don't ask me questions")
+        mem.extract_and_store(TEST_USER_ID, "stop using bullets")
+        ids = [r.rule_id for r in mem.active_rules(TEST_USER_ID)]
         assert len(ids) == len(set(ids))
 
 class TestConfidenceEstimator:
@@ -503,7 +509,7 @@ class TestCerbylIntentEngineClassify:
         "what does eigenvalue mean intuitively",
     ])
     def test_learn_concept_messages(self, engine_with_seed, msg):
-        result = engine_with_seed.classify(msg)
+        result = engine_with_seed.classify(msg, TEST_USER_ID)
         assert result.label == "LEARN_CONCEPT", \
             f"'{msg}' → got {result.label} (conf={result.confidence:.3f})"
 
@@ -521,7 +527,7 @@ class TestCerbylIntentEngineClassify:
         "no comprehension checks ever",
     ])
     def test_instruction_messages(self, engine_with_seed, msg):
-        result = engine_with_seed.classify(msg)
+        result = engine_with_seed.classify(msg, TEST_USER_ID)
         assert result.is_instruction(), \
             f"'{msg}' → got {result.label} (conf={result.confidence:.3f}), " \
             f"INSTRUCTION prob={result.proba.get('INSTRUCTION', 0):.3f}"
@@ -534,7 +540,7 @@ class TestCerbylIntentEngineClassify:
         "what have we learned so far in this session",
     ])
     def test_meta_messages(self, engine_with_seed, msg):
-        result = engine_with_seed.classify(msg)
+        result = engine_with_seed.classify(msg, TEST_USER_ID)
         assert result.label == "META", \
             f"'{msg}' → got {result.label} (conf={result.confidence:.3f})"
 
@@ -543,7 +549,7 @@ class TestCerbylIntentEngineClassify:
         "cool got it", "sounds good", "yo", "bruh", "lol ok",
     ])
     def test_casual_messages(self, engine_with_seed, msg):
-        result = engine_with_seed.classify(msg)
+        result = engine_with_seed.classify(msg, TEST_USER_ID)
         assert result.label == "CASUAL", \
             f"'{msg}' → got {result.label} (conf={result.confidence:.3f})"
 
@@ -556,7 +562,7 @@ class TestCerbylIntentEngineClassify:
         "i'm stressed about my exam",
     ])
     def test_emotional_messages(self, engine_with_seed, msg):
-        result = engine_with_seed.classify(msg)
+        result = engine_with_seed.classify(msg, TEST_USER_ID)
         assert result.label == "EMOTIONAL", \
             f"'{msg}' → got {result.label} (conf={result.confidence:.3f})"
 
@@ -569,7 +575,7 @@ class TestCerbylIntentEngineClassify:
         "give me 5 questions on this",
     ])
     def test_assess_messages(self, engine_with_seed, msg):
-        result = engine_with_seed.classify(msg)
+        result = engine_with_seed.classify(msg, TEST_USER_ID)
         assert result.label == "ASSESS", \
             f"'{msg}' → got {result.label} (conf={result.confidence:.3f})"
 
@@ -581,37 +587,37 @@ class TestCerbylIntentEngineClassify:
         "give me a summary of everything so far",
     ])
     def test_review_messages(self, engine_with_seed, msg):
-        result = engine_with_seed.classify(msg)
+        result = engine_with_seed.classify(msg, TEST_USER_ID)
         assert result.label == "REVIEW", \
             f"'{msg}' → got {result.label} (conf={result.confidence:.3f})"
 
     def test_result_has_all_class_probabilities(self, engine_with_seed):
-        result = engine_with_seed.classify("explain backprop")
+        result = engine_with_seed.classify("explain backprop", TEST_USER_ID)
         assert set(result.proba.keys()) == set(CLASSES)
 
     def test_result_probabilities_sum_to_one(self, engine_with_seed):
-        result = engine_with_seed.classify("explain backprop")
+        result = engine_with_seed.classify("explain backprop", TEST_USER_ID)
         assert abs(sum(result.proba.values()) - 1.0) < 1e-9
 
     def test_result_confidence_matches_label_proba(self, engine_with_seed):
-        result = engine_with_seed.classify("explain backprop")
+        result = engine_with_seed.classify("explain backprop", TEST_USER_ID)
         assert result.confidence == pytest.approx(result.proba[result.label], abs=1e-6)
 
     def test_result_entropy_is_positive(self, engine_with_seed):
-        result = engine_with_seed.classify("explain gradient descent")
+        result = engine_with_seed.classify("explain gradient descent", TEST_USER_ID)
         assert result.entropy > 0
 
     def test_instruction_result_captures_rules(self, engine_with_seed):
-        result = engine_with_seed.classify("don't ask me questions anymore")
+        result = engine_with_seed.classify("don't ask me questions anymore", TEST_USER_ID)
         assert any(r.domain == "questions" for r in result.new_rules)
 
     def test_non_instruction_has_empty_new_rules(self, engine_with_seed):
-        result = engine_with_seed.classify("explain gradient descent to me")
+        result = engine_with_seed.classify("explain gradient descent to me", TEST_USER_ID)
         assert result.new_rules == []
 
     def test_active_rules_populated_after_instruction(self, engine_with_seed):
-        engine_with_seed.classify("don't ask me questions anymore")
-        result2 = engine_with_seed.classify("explain backprop")
+        engine_with_seed.classify("don't ask me questions anymore", TEST_USER_ID)
+        result2 = engine_with_seed.classify("explain backprop", TEST_USER_ID)
         assert any(r.domain == "questions" for r in result2.active_rules)
 
 class TestOnlineLearning:
@@ -630,7 +636,7 @@ class TestOnlineLearning:
         unique_phrase = "zorgblatt frimble wumbo quux"
         for _ in range(15):
             engine_with_seed.record_signal(unique_phrase, "ASSESS", weight=2.0)
-        result = engine_with_seed.classify(unique_phrase)
+        result = engine_with_seed.classify(unique_phrase, TEST_USER_ID)
         assert result.label == "ASSESS"
 
     def test_instruction_online_update_strengthens_class(self, engine_with_seed):
@@ -641,8 +647,8 @@ class TestOnlineLearning:
 
     def test_repeated_instructions_reinforce_memory(self, engine_with_seed):
         for _ in range(3):
-            engine_with_seed.classify("don't ask me questions")
-        rules = engine_with_seed.instruction_memory.active_rules()
+            engine_with_seed.classify("don't ask me questions", TEST_USER_ID)
+        rules = engine_with_seed.instruction_memory.active_rules(TEST_USER_ID)
         q_rule = next((r for r in rules if r.domain == "questions"), None)
         assert q_rule is not None
         assert q_rule.strength > 1.0
@@ -670,13 +676,13 @@ class TestConfidenceIntegration:
         ]
         confidences = []
         for user_msg, response in inputs:
-            result = engine_with_seed.classify(user_msg)
+            result = engine_with_seed.classify(user_msg, TEST_USER_ID)
             conf = engine_with_seed.estimate_response_confidence(result, response)
             confidences.append(conf)
         assert len(set(confidences)) > 1, f"All confidences identical: {confidences}"
 
     def test_educational_query_gets_higher_confidence(self, engine_with_seed):
-        learn_result = engine_with_seed.classify("explain the transformer architecture")
+        learn_result = engine_with_seed.classify("explain the transformer architecture", TEST_USER_ID)
         learn_conf = engine_with_seed.estimate_response_confidence(
             learn_result,
             "The transformer uses self-attention to process sequences in parallel.",
@@ -684,7 +690,7 @@ class TestConfidenceIntegration:
             frustration_score=0.1,
             p_mastery=0.35,
         )
-        casual_result = engine_with_seed.classify("hi")
+        casual_result = engine_with_seed.classify("hi", TEST_USER_ID)
         casual_conf = engine_with_seed.estimate_response_confidence(
             casual_result,
             "Hello! Great to see you.",
@@ -695,7 +701,7 @@ class TestConfidenceIntegration:
         assert learn_conf > casual_conf
 
     def test_frustrated_user_lowers_confidence(self, engine_with_seed):
-        result = engine_with_seed.classify("i don't get this at all")
+        result = engine_with_seed.classify("i don't get this at all", TEST_USER_ID)
         high_fru = engine_with_seed.estimate_response_confidence(
             result, "Here is an explanation.", frustration_score=0.9
         )
@@ -705,7 +711,7 @@ class TestConfidenceIntegration:
         assert low_fru > high_fru
 
     def test_hedged_response_lower_confidence(self, engine_with_seed):
-        result = engine_with_seed.classify("explain backprop")
+        result = engine_with_seed.classify("explain backprop", TEST_USER_ID)
         hedged = "It might possibly be roughly accurate, perhaps approximately correct."
         direct = "Backpropagation computes gradients via the chain rule applied layer by layer."
         c_hedged = engine_with_seed.estimate_response_confidence(result, hedged)
@@ -721,7 +727,7 @@ class TestConfidenceIntegration:
             ("summarize", "Key points: ...", 0.6, 0.3, 0.7),
         ]
         for user_msg, response, eng, fru, mastery in test_cases:
-            result = engine_with_seed.classify(user_msg)
+            result = engine_with_seed.classify(user_msg, TEST_USER_ID)
             conf = engine_with_seed.estimate_response_confidence(
                 result, response,
                 engagement_score=eng, frustration_score=fru, p_mastery=mastery
@@ -733,21 +739,21 @@ class TestPromptAddendum:
 
     def test_addendum_empty_with_no_rules(self, engine_with_seed):
         engine_with_seed.instruction_memory = InstructionMemory()
-        assert engine_with_seed.to_prompt_addendum() == ""
+        assert engine_with_seed.to_prompt_addendum(TEST_USER_ID) == ""
 
     def test_addendum_contains_rule_domain(self, engine_with_seed):
-        engine_with_seed.classify("don't ask me questions")
-        addendum = engine_with_seed.to_prompt_addendum()
+        engine_with_seed.classify("don't ask me questions", TEST_USER_ID)
+        addendum = engine_with_seed.to_prompt_addendum(TEST_USER_ID)
         assert "questions" in addendum
 
     def test_addendum_contains_never(self, engine_with_seed):
-        engine_with_seed.classify("don't ask me questions")
-        addendum = engine_with_seed.to_prompt_addendum()
+        engine_with_seed.classify("don't ask me questions", TEST_USER_ID)
+        addendum = engine_with_seed.to_prompt_addendum(TEST_USER_ID)
         assert "NEVER" in addendum
 
     def test_addendum_contains_always_for_positive_rule(self, engine_with_seed):
-        engine_with_seed.classify("always use examples when explaining")
-        addendum = engine_with_seed.to_prompt_addendum()
+        engine_with_seed.classify("always use examples when explaining", TEST_USER_ID)
+        addendum = engine_with_seed.to_prompt_addendum(TEST_USER_ID)
         if addendum:
             assert "ALWAYS" in addendum
 
@@ -830,51 +836,51 @@ class TestPersistence:
 class TestEdgeCases:
 
     def test_empty_string(self, engine_with_seed):
-        result = engine_with_seed.classify("")
+        result = engine_with_seed.classify("", TEST_USER_ID)
         assert result.label in CLASSES
         assert abs(sum(result.proba.values()) - 1.0) < 1e-9
 
     def test_very_long_message(self, engine_with_seed):
         msg = "explain gradient descent " * 200
-        result = engine_with_seed.classify(msg)
+        result = engine_with_seed.classify(msg, TEST_USER_ID)
         assert result.label in CLASSES
 
     def test_all_numbers(self, engine_with_seed):
-        result = engine_with_seed.classify("12345 67890 11111")
+        result = engine_with_seed.classify("12345 67890 11111", TEST_USER_ID)
         assert result.label in CLASSES
 
     def test_special_characters(self, engine_with_seed):
-        result = engine_with_seed.classify("!!! ??? ### @@@")
+        result = engine_with_seed.classify("!!! ??? ### @@@", TEST_USER_ID)
         assert result.label in CLASSES
 
     def test_repeated_word(self, engine_with_seed):
-        result = engine_with_seed.classify("explain explain explain explain explain")
+        result = engine_with_seed.classify("explain explain explain explain explain", TEST_USER_ID)
         assert result.label == "LEARN_CONCEPT"
 
     def test_mixed_case_instruction(self, engine_with_seed):
-        result = engine_with_seed.classify("DON'T ASK ME QUESTIONS")
+        result = engine_with_seed.classify("DON'T ASK ME QUESTIONS", TEST_USER_ID)
         assert result.is_instruction()
 
     def test_unicode_message(self, engine_with_seed):
-        result = engine_with_seed.classify("αβγδ explain 神经网络 gradient descent")
+        result = engine_with_seed.classify("αβγδ explain 神经网络 gradient descent", TEST_USER_ID)
         assert result.label in CLASSES
 
     def test_instruction_with_embedded_educational_content(self, engine_with_seed):
         result = engine_with_seed.classify(
-            "don't ask me any more questions about gradient descent please"
+            "don't ask me any more questions about gradient descent please", TEST_USER_ID
         )
         assert result.is_instruction()
 
     def test_message_starting_with_please(self, engine_with_seed):
-        result = engine_with_seed.classify("please explain how transformers work")
+        result = engine_with_seed.classify("please explain how transformers work", TEST_USER_ID)
         assert result.label == "LEARN_CONCEPT"
 
     def test_casual_with_question_mark(self, engine_with_seed):
-        result = engine_with_seed.classify("ok?")
+        result = engine_with_seed.classify("ok?", TEST_USER_ID)
         assert result.label == "CASUAL"
 
     def test_confidence_estimate_with_zero_length_response(self, engine_with_seed):
-        result = engine_with_seed.classify("explain backprop")
+        result = engine_with_seed.classify("explain backprop", TEST_USER_ID)
         conf = engine_with_seed.estimate_response_confidence(result, "")
         assert 0.05 <= conf <= 0.95
 
@@ -922,7 +928,7 @@ class TestAccuracyBenchmark:
         correct = 0
         failures = []
         for msg, expected in self.HELD_OUT:
-            result = engine_with_seed.classify(msg)
+            result = engine_with_seed.classify(msg, TEST_USER_ID)
             predicted = result.label if not result.is_instruction() else "INSTRUCTION"
             if predicted == expected:
                 correct += 1
@@ -950,7 +956,7 @@ class TestAccuracyBenchmark:
         ]
         detected = sum(
             1 for msg in instruction_cases
-            if engine_with_seed.classify(msg).is_instruction()
+            if engine_with_seed.classify(msg, TEST_USER_ID).is_instruction()
         )
         recall = detected / len(instruction_cases)
         assert recall >= 0.83, f"Instruction recall {recall:.1%} below 83%"
@@ -966,7 +972,7 @@ class TestAccuracyBenchmark:
         ]
         false_positives = [
             msg for msg in educational
-            if engine_with_seed.classify(msg).label == "INSTRUCTION"
+            if engine_with_seed.classify(msg, TEST_USER_ID).label == "INSTRUCTION"
         ]
         assert len(false_positives) == 0, \
             f"False instruction detections: {false_positives}"
