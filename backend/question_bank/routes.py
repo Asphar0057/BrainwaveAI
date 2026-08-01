@@ -2208,21 +2208,20 @@ def register_question_bank_api(app, unified_ai, get_db_func):
 
             performance_data = []
             for quiz in quizzes:
-                questions = db.query(models.SoloQuizQuestion).filter(
-                    models.SoloQuizQuestion.quiz_id == quiz.id
-                ).all()
+                try:
+                    answers = json.loads(quiz.answers) if quiz.answers else []
+                except Exception:
+                    answers = []
 
-                for question in questions:
-                    if question.user_answer is None:
+                for answer in answers:
+                    if not isinstance(answer, dict):
                         continue
-
                     performance_data.append({
-                        "topic": quiz.topic or "General",
+                        "topic": quiz.subject or "General",
                         "difficulty": quiz.difficulty or "medium",
-                            "question_type": question.question_type,
-                            "is_correct": answer.is_correct,
-                            "time_taken": answer.time_taken_seconds
-                        })
+                        "question_text": answer.get("question_text"),
+                        "is_correct": answer.get("is_correct"),
+                    })
 
             if not performance_data:
                 return {
@@ -2271,19 +2270,19 @@ def register_question_bank_api(app, unified_ai, get_db_func):
 
             performance_data = []
             for quiz in quizzes:
-                questions = db.query(models.SoloQuizQuestion).filter(
-                    models.SoloQuizQuestion.quiz_id == quiz.id
-                ).all()
+                try:
+                    answers = json.loads(quiz.answers) if quiz.answers else []
+                except Exception:
+                    answers = []
 
-                for question in questions:
-                    if question.user_answer is None:
+                for answer in answers:
+                    if not isinstance(answer, dict):
                         continue
-
                     performance_data.append({
-                        'topic': quiz.topic or 'General',
+                        'topic': quiz.subject or 'General',
                         'difficulty': quiz.difficulty or 'medium',
-                        'correct': question.is_correct,
-                        'question_text': question.question_text
+                        'correct': answer.get('is_correct'),
+                        'question_text': answer.get('question_text')
                     })
 
             weakness_analysis = await agents["adaptive_generator"].analyze_weaknesses(performance_data) if performance_data else {}
@@ -2752,21 +2751,21 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             if not user:
                 raise HTTPException(status_code=404, detail="User not found")
 
-            deleted_count = 0
-            for set_id in set_ids:
-                question_set = db.query(models.QuestionSet).filter(
-                    models.QuestionSet.id == set_id,
-                    models.QuestionSet.user_id == user.id
-                ).first()
+            owned_sets = db.query(models.QuestionSet).filter(
+                models.QuestionSet.id.in_(set_ids),
+                models.QuestionSet.user_id == user.id
+            ).all()
+            owned_set_ids = [qs.id for qs in owned_sets]
 
-                if question_set:
-                    db.query(models.Question).filter(
-                        models.Question.question_set_id == set_id
-                    ).delete()
+            if owned_set_ids:
+                db.query(models.Question).filter(
+                    models.Question.question_set_id.in_(owned_set_ids)
+                ).delete(synchronize_session=False)
+                db.query(models.QuestionSet).filter(
+                    models.QuestionSet.id.in_(owned_set_ids)
+                ).delete(synchronize_session=False)
 
-                    db.delete(question_set)
-                    deleted_count += 1
-
+            deleted_count = len(owned_set_ids)
             db.commit()
 
             return {
@@ -2807,17 +2806,26 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             all_questions = []
             source_titles = []
 
+            owned_sets = db.query(models.QuestionSet).filter(
+                models.QuestionSet.id.in_(set_ids),
+                models.QuestionSet.user_id == user.id
+            ).all()
+            owned_sets_by_id = {qs.id: qs for qs in owned_sets}
+            owned_set_ids = [qs.id for qs in owned_sets]
+
+            all_source_questions = db.query(models.Question).filter(
+                models.Question.question_set_id.in_(owned_set_ids)
+            ).all() if owned_set_ids else []
+            questions_by_set: dict = {}
+            for q in all_source_questions:
+                questions_by_set.setdefault(q.question_set_id, []).append(q)
+
             for set_id in set_ids:
-                question_set = db.query(models.QuestionSet).filter(
-                    models.QuestionSet.id == set_id,
-                    models.QuestionSet.user_id == user.id
-                ).first()
+                question_set = owned_sets_by_id.get(set_id)
 
                 if question_set:
                     source_titles.append(question_set.title)
-                    questions = db.query(models.Question).filter(
-                        models.Question.question_set_id == set_id
-                    ).all()
+                    questions = questions_by_set.get(set_id, [])
 
                     for q in questions:
                         all_questions.append({
@@ -2861,14 +2869,13 @@ def register_question_bank_api(app, unified_ai, get_db_func):
                 )
                 db.add(question)
 
-            if delete_originals:
-                for set_id in set_ids:
-                    db.query(models.Question).filter(
-                        models.Question.question_set_id == set_id
-                    ).delete()
-                    db.query(models.QuestionSet).filter(
-                        models.QuestionSet.id == set_id
-                    ).delete()
+            if delete_originals and owned_set_ids:
+                db.query(models.Question).filter(
+                    models.Question.question_set_id.in_(owned_set_ids)
+                ).delete(synchronize_session=False)
+                db.query(models.QuestionSet).filter(
+                    models.QuestionSet.id.in_(owned_set_ids)
+                ).delete(synchronize_session=False)
 
             db.commit()
             db.refresh(merged_set)
@@ -3080,10 +3087,13 @@ def register_question_bank_api(app, unified_ai, get_db_func):
                     models.WrongAnswerLog.answered_at.desc()
                 ).limit(question_count // 2).all()
 
+                questions_by_id = {
+                    q.id: q for q in db.query(models.Question).filter(
+                        models.Question.id.in_([wl.question_id for wl in wrong_logs])
+                    ).all()
+                }
                 for wl in wrong_logs:
-                    question = db.query(models.Question).filter(
-                        models.Question.id == wl.question_id
-                    ).first()
+                    question = questions_by_id.get(wl.question_id)
                     if question:
                         review_questions.append({
                             "question_text": question.question_text,
