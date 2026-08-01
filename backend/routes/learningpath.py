@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import hashlib
 import os
@@ -676,7 +677,7 @@ async def generate_learning_path(
     outline = (
         _default_outline(topic_prompt, difficulty, length, goals)
         if load_test_fallback
-        else _generate_outline(user.id, topic_prompt, difficulty, length, goals)
+        else await asyncio.to_thread(_generate_outline, user.id, topic_prompt, difficulty, length, goals)
     )
     nodes_data = outline.get("nodes", []) if isinstance(outline, dict) else []
 
@@ -759,7 +760,7 @@ async def generate_learning_path(
                 difficulty=difficulty,
             )
             auto_resources = (
-                _auto_discover_node_resources(topic_prompt, node_data)
+                await asyncio.to_thread(_auto_discover_node_resources, topic_prompt, node_data)
                 if idx < max(0, auto_resource_node_limit)
                 else []
             )
