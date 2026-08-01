@@ -132,8 +132,10 @@ async def get_weakness_profile(
                     "evidence": wc.evidence,
                 })
         else:
-            from services.context_agent import _get_evidence_snippet
-            for s in bkt_states[:10]:
+            from services.context_agent import _get_evidence_snippets_bulk
+            top_states = bkt_states[:10]
+            evidence_by_concept = _get_evidence_snippets_bulk(db, student_id, [s.concept_name for s in top_states])
+            for s in top_states:
                 hist = s.mastery_history or []
                 trend = (hist[-1] - hist[-2]) if len(hist) >= 2 else 0.0
                 trend_label = "improving" if trend > 0.02 else ("declining" if trend < -0.02 else "stable")
@@ -147,7 +149,7 @@ async def get_weakness_profile(
                     "interaction_count": s.interaction_count,
                     "last_seen": _safe_isoformat(s.last_updated),
                     "recommended_action": "review_flashcards" if s.p_mastery < 0.4 else "try_a_quiz",
-                    "evidence": _get_evidence_snippet(db, student_id, s.concept_name),
+                    "evidence": evidence_by_concept.get((s.concept_name or "").lower()),
                 })
 
         total_pts = gstats.total_points if gstats else 0

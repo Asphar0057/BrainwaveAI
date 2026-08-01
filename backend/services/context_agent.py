@@ -289,6 +289,9 @@ class CentralContextAgent:
                 .limit(30)
                 .all()
             )
+            sources_by_concept = _get_struggle_sources_bulk(db, user_id, [s.concept_id for s in states])
+            evidence_by_concept = _get_evidence_snippets_bulk(db, user_id, [s.concept_name for s in states])
+
             for s in states:
                 hist = s.mastery_history or []
                 trend = 0.0
@@ -297,9 +300,9 @@ class CentralContextAgent:
                     trend = hist[-1] - hist[-2]
                     trend_label = "improving" if trend > 0.02 else ("declining" if trend < -0.02 else "stable")
 
-                sources = _get_struggle_sources(db, user_id, s.concept_id)
+                sources = sources_by_concept.get(s.concept_id, [])
                 action = _recommend_action(s.p_mastery, sources)
-                evidence = _get_evidence_snippet(db, user_id, s.concept_name)
+                evidence = evidence_by_concept.get((s.concept_name or "").lower())
 
                 wc = WeakConcept(
                     concept_id=s.concept_id,
@@ -416,53 +419,58 @@ def _today_start() -> datetime:
     today = date.today()
     return datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
 
-def _get_struggle_sources(db, user_id: int, concept_id: str) -> List[str]:
+def _get_struggle_sources_bulk(db, user_id: int, concept_ids: List[str]) -> Dict[str, List[str]]:
     import models
 
-    sources: List[str] = []
+    sources_by_concept: Dict[str, List[str]] = {cid: [] for cid in concept_ids}
+    if not concept_ids:
+        return sources_by_concept
     try:
         events = (
             db.query(models.AgentEvent)
-            .filter_by(user_id=user_id, concept_id=concept_id)
-            .filter(models.AgentEvent.correct == False)
-            .distinct(models.AgentEvent.source)
+            .filter(
+                models.AgentEvent.user_id == user_id,
+                models.AgentEvent.concept_id.in_(concept_ids),
+                models.AgentEvent.correct == False,
+            )
             .all()
         )
-        seen = set()
+        seen: Dict[str, set] = {}
         for e in events:
-            if e.source not in seen:
-                sources.append(e.source)
-                seen.add(e.source)
+            concept_seen = seen.setdefault(e.concept_id, set())
+            if e.source not in concept_seen:
+                sources_by_concept.setdefault(e.concept_id, []).append(e.source)
+                concept_seen.add(e.source)
     except Exception:
         pass
-    return sources
+    return sources_by_concept
 
-def _get_evidence_snippet(db, user_id: int, concept_name: str) -> Optional[str]:
-    """A real quoted moment behind a weak-area label, not just a source-type tag.
-
-    AgentEvent (the source of struggle_sources above) never persisted the
-    actual message text -- only source/event_type/correctness -- so
-    struggle_sources could say "chat" but never show what the student
-    actually said. ChatConceptSignal stores that snippet already
-    (tutor/nodes.py::persist_updates), so pull the most recent one here.
-    """
+def _get_evidence_snippets_bulk(db, user_id: int, concept_names: List[str]) -> Dict[str, str]:
     import models
 
-    if not concept_name:
-        return None
+    snippet_by_concept: Dict[str, str] = {}
+    names = [name for name in concept_names if name]
+    if not names:
+        return snippet_by_concept
     try:
-        sig = (
+        from sqlalchemy import func as _func
+        lowered_names = [n.lower() for n in names]
+        signals = (
             db.query(models.ChatConceptSignal)
             .filter(
                 models.ChatConceptSignal.user_id == user_id,
-                models.ChatConceptSignal.concept.ilike(concept_name),
+                _func.lower(models.ChatConceptSignal.concept).in_(lowered_names),
             )
             .order_by(models.ChatConceptSignal.created_at.desc())
-            .first()
+            .all()
         )
-        return sig.message_snippet if sig else None
+        for sig in signals:
+            key = (sig.concept or "").lower()
+            if key and key not in snippet_by_concept:
+                snippet_by_concept[key] = sig.message_snippet
     except Exception:
-        return None
+        pass
+    return snippet_by_concept
 
 def _recommend_action(p_mastery: float, sources: List[str]) -> str:
     if p_mastery < 0.3:

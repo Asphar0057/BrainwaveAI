@@ -707,21 +707,31 @@ class MessageMLPipeline:
                 .all()
             )
 
-            weak_concepts = []
-            for wa in weak_areas:
-                evidence_row = (
+            from sqlalchemy import func as _func
+            topics = [wa.topic for wa in weak_areas if wa.topic]
+            evidence_by_topic: Dict[str, str] = {}
+            if topics:
+                signals = (
                     db.query(models.ChatConceptSignal)
                     .filter(
                         models.ChatConceptSignal.user_id == user_id,
-                        models.ChatConceptSignal.concept.ilike(wa.topic),
+                        _func.lower(models.ChatConceptSignal.concept).in_([t.lower() for t in topics]),
                     )
                     .order_by(models.ChatConceptSignal.created_at.desc())
-                    .first()
+                    .all()
                 )
+                for sig in signals:
+                    key = (sig.concept or "").lower()
+                    if key and key not in evidence_by_topic:
+                        evidence_by_topic[key] = sig.message_snippet
+
+            weak_concepts = []
+            for wa in weak_areas:
+                evidence_snippet = evidence_by_topic.get((wa.topic or "").lower())
                 weak_concepts.append({
                     "concept_name": wa.topic,
                     "weakness_score": round(wa.weakness_score or 0.0, 2),
-                    "evidence": evidence_row.message_snippet if evidence_row else None,
+                    "evidence": evidence_snippet,
                     "last_updated": wa.last_updated,
                 })
 

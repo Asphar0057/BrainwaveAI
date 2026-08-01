@@ -845,10 +845,30 @@ def use_xp_powerup(db: Session, user_id: int, powerup_id: str) -> dict:
 def recalculate_all_stats(db: Session):
     users = db.query(models.User).all()
     week_start_datetime = datetime.combine(get_week_start(), datetime.min.time()).replace(tzinfo=timezone.utc)
-    
+
+    def _counts_by_user(model, user_col, date_col):
+        total_rows = db.query(user_col, func.count(model.id)).group_by(user_col).all()
+        weekly_rows = (
+            db.query(user_col, func.count(model.id))
+            .filter(date_col >= week_start_datetime)
+            .group_by(user_col)
+            .all()
+        )
+        return dict(total_rows), dict(weekly_rows)
+
+    total_chats_by_user, weekly_chats_by_user = _counts_by_user(
+        models.ChatMessage, models.ChatMessage.user_id, models.ChatMessage.timestamp
+    )
+    total_notes_by_user, weekly_notes_by_user = _counts_by_user(
+        models.Note, models.Note.user_id, models.Note.created_at
+    )
+    total_flashcards_by_user, weekly_flashcards_by_user = _counts_by_user(
+        models.FlashcardSet, models.FlashcardSet.user_id, models.FlashcardSet.created_at
+    )
+
     for user in users:
         stats = get_or_create_stats(db, user.id)
-        
+
         stats.total_points = 0
         stats.weekly_points = 0
         stats.total_ai_chats = 0
@@ -865,50 +885,35 @@ def recalculate_all_stats(db: Session):
         stats.weekly_study_minutes = 0
         stats.total_battles_won = 0
         stats.weekly_battles_won = 0
-        
-        total_chats = db.query(func.count(models.ChatMessage.id)).filter(
-            models.ChatMessage.user_id == user.id
-        ).scalar() or 0
-        weekly_chats = db.query(func.count(models.ChatMessage.id)).filter(
-            models.ChatMessage.user_id == user.id,
-            models.ChatMessage.timestamp >= week_start_datetime
-        ).scalar() or 0
-        
+
+        total_chats = total_chats_by_user.get(user.id, 0)
+        weekly_chats = weekly_chats_by_user.get(user.id, 0)
+
         stats.total_ai_chats = total_chats
         stats.weekly_ai_chats = weekly_chats
         stats.total_points += total_chats * POINT_VALUES["ai_chat"]
         stats.weekly_points += weekly_chats * POINT_VALUES["ai_chat"]
-        
-        total_notes = db.query(func.count(models.Note.id)).filter(
-            models.Note.user_id == user.id
-        ).scalar() or 0
-        weekly_notes = db.query(func.count(models.Note.id)).filter(
-            models.Note.user_id == user.id,
-            models.Note.created_at >= week_start_datetime
-        ).scalar() or 0
-        
+
+        total_notes = total_notes_by_user.get(user.id, 0)
+        weekly_notes = weekly_notes_by_user.get(user.id, 0)
+
         stats.total_notes_created = total_notes
         stats.weekly_notes_created = weekly_notes
         stats.total_points += total_notes * POINT_VALUES["note_created"]
         stats.weekly_points += weekly_notes * POINT_VALUES["note_created"]
-        
-        total_flashcards = db.query(func.count(models.FlashcardSet.id)).filter(
-            models.FlashcardSet.user_id == user.id
-        ).scalar() or 0
-        weekly_flashcards = db.query(func.count(models.FlashcardSet.id)).filter(
-            models.FlashcardSet.user_id == user.id,
-            models.FlashcardSet.created_at >= week_start_datetime
-        ).scalar() or 0
-        
+
+        total_flashcards = total_flashcards_by_user.get(user.id, 0)
+        weekly_flashcards = weekly_flashcards_by_user.get(user.id, 0)
+
         stats.total_flashcards_created = total_flashcards
         stats.weekly_flashcards_created = weekly_flashcards
         stats.total_points += total_flashcards * POINT_VALUES["flashcard_set"]
         stats.weekly_points += weekly_flashcards * POINT_VALUES["flashcard_set"]
-        
+
         stats.experience = stats.total_points
         stats.level = calculate_level_from_xp(stats.experience)
         stats.week_start_date = week_start_datetime
         stats.last_activity_date = datetime.now(timezone.utc)
-    
+
     db.commit()
     return len(users)
