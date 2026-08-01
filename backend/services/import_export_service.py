@@ -1,4 +1,5 @@
 
+import asyncio
 import json
 import logging
 import html
@@ -199,7 +200,8 @@ Notes:
 Return ONLY a JSON array of flashcards with this exact format:
 [{{"question": "...", "answer": "..."}}]"""
 
-            response = groq_client.chat.completions.create(
+            response = await asyncio.to_thread(
+                groq_client.chat.completions.create,
                 model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
@@ -286,7 +288,8 @@ Return ONLY a JSON array with this exact format:
   "explanation": "..."
 }}]"""
 
-            response = groq_client.chat.completions.create(
+            response = await asyncio.to_thread(
+                groq_client.chat.completions.create,
                 model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
@@ -454,13 +457,17 @@ Return ONLY a JSON array with this exact format:
             if not flashcard_sets:
                 return {"success": False, "error": "No flashcard sets found"}
             
-            all_cards = []
-            for fset in flashcard_sets:
-                cards = self.db.query(Flashcard).filter(
-                    Flashcard.set_id == fset.id
-                ).all()
-                all_cards.extend([(fset.title, card) for card in cards])
-            
+            titles_by_set_id = {fset.id: fset.title for fset in flashcard_sets}
+            cards_by_set_id: Dict[int, list] = {fset.id: [] for fset in flashcard_sets}
+            for card in self.db.query(Flashcard).filter(Flashcard.set_id.in_(set_ids)).all():
+                cards_by_set_id.setdefault(card.set_id, []).append(card)
+
+            all_cards = [
+                (titles_by_set_id[fset.id], card)
+                for fset in flashcard_sets
+                for card in cards_by_set_id.get(fset.id, [])
+            ]
+
             if format_style == "structured":
                 content = self._format_flashcards_structured(all_cards)
             elif format_style == "qa":
@@ -564,7 +571,8 @@ Return ONLY a JSON array:
   "explanation": "..."
 }}]"""
 
-            response = groq_client.chat.completions.create(
+            response = await asyncio.to_thread(
+                groq_client.chat.completions.create,
                 model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
@@ -644,35 +652,34 @@ Return ONLY a JSON array:
             self.db.add(flashcard_set)
             self.db.flush()
             
+            all_questions = self.db.query(Question).filter(
+                Question.question_set_id.in_(set_ids)
+            ).all()
+
             card_count = 0
-            for qset in question_sets:
-                questions = self.db.query(Question).filter(
-                    Question.question_set_id == qset.id
-                ).all()
-                
-                for question in questions:
-                    try:
-                        options = json.loads(question.options)
-                        correct_letter = question.correct_answer
-                        correct_option = next(
-                            (opt for opt in options if opt.startswith(correct_letter)),
-                            options[0]
-                        )
-                        answer_text = correct_option.split(") ", 1)[1] if ") " in correct_option else correct_option
-                        
-                        if question.explanation:
-                            answer_text += f"\n\nExplanation: {question.explanation}"
-                        
-                    except:
-                        answer_text = f"Correct answer: {question.correct_answer}"
-                    
-                    flashcard = Flashcard(
-                        set_id=flashcard_set.id,
-                        question=question.question_text,
-                        answer=answer_text
+            for question in all_questions:
+                try:
+                    options = json.loads(question.options)
+                    correct_letter = question.correct_answer
+                    correct_option = next(
+                        (opt for opt in options if opt.startswith(correct_letter)),
+                        options[0]
                     )
-                    self.db.add(flashcard)
-                    card_count += 1
+                    answer_text = correct_option.split(") ", 1)[1] if ") " in correct_option else correct_option
+
+                    if question.explanation:
+                        answer_text += f"\n\nExplanation: {question.explanation}"
+
+                except:
+                    answer_text = f"Correct answer: {question.correct_answer}"
+
+                flashcard = Flashcard(
+                    set_id=flashcard_set.id,
+                    question=question.question_text,
+                    answer=answer_text
+                )
+                self.db.add(flashcard)
+                card_count += 1
             
             flashcard_set.card_count = card_count
             self.db.commit()
@@ -707,14 +714,19 @@ Return ONLY a JSON array:
                 return {"success": False, "error": "No question sets found"}
             
             content = "<h1>Study Guide from Questions</h1>\n\n"
-            
+
+            all_questions = self.db.query(Question).filter(
+                Question.question_set_id.in_(set_ids)
+            ).order_by(Question.question_set_id, Question.order_index).all()
+            questions_by_set: Dict[int, list] = {}
+            for question in all_questions:
+                questions_by_set.setdefault(question.question_set_id, []).append(question)
+
             for qset in question_sets:
                 content += f"<h2>{qset.title}</h2>\n\n"
-                
-                questions = self.db.query(Question).filter(
-                    Question.question_set_id == qset.id
-                ).order_by(Question.order_index).all()
-                
+
+                questions = questions_by_set.get(qset.id, [])
+
                 for idx, question in enumerate(questions, 1):
                     content += f"<h3>Question {idx}</h3>\n"
                     content += f"<p><strong>{question.question_text}</strong></p>\n"
@@ -797,7 +809,8 @@ Return ONLY a JSON array:
   "explanation": "..."
 }}]"""
 
-            response = groq_client.chat.completions.create(
+            response = await asyncio.to_thread(
+                groq_client.chat.completions.create,
                 model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
@@ -876,12 +889,7 @@ Return ONLY a JSON array:
             ).order_by(PlaylistItem.order_index).all()
             
             logger.info(f"Query returned {len(items)} items for playlist_id={playlist_id}")
-            
-            all_items = self.db.query(PlaylistItem).all()
-            logger.info(f"Total PlaylistItems in database: {len(all_items)}")
-            for item in all_items[:5]:
-                logger.info(f"  Item {item.id}: playlist_id={item.playlist_id}, title={item.title}")
-            
+
             if not items:
                 return {"success": False, "error": f"Playlist has no items (checked playlist_id={playlist_id})"}
             
@@ -918,7 +926,8 @@ Output ONLY HTML content with these tags: <h1>, <h2>, <h3>, <p>, <ul>, <li>, <st
 Start with <h1>{playlist.title}</h1> then write comprehensive content for each topic.
 Write at least 500 words of educational content."""
 
-            response = groq_client.chat.completions.create(
+            response = await asyncio.to_thread(
+                groq_client.chat.completions.create,
                 model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
@@ -1035,7 +1044,8 @@ Content:
 Return ONLY a JSON array:
 [{{"question": "...", "answer": "..."}}]"""
 
-            response = groq_client.chat.completions.create(
+            response = await asyncio.to_thread(
+                groq_client.chat.completions.create,
                 model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
@@ -1177,13 +1187,12 @@ Return ONLY a JSON array:
             writer = csv.writer(output)
             writer.writerow(["Set", "Question", "Answer"])
             
-            for fset in flashcard_sets:
-                cards = self.db.query(Flashcard).filter(
-                    Flashcard.set_id == fset.id
-                ).all()
-                
-                for card in cards:
-                    writer.writerow([fset.title, card.question, card.answer])
+            titles_by_set_id = {fset.id: fset.title for fset in flashcard_sets}
+            all_cards = self.db.query(Flashcard).filter(
+                Flashcard.set_id.in_(set_ids)
+            ).order_by(Flashcard.set_id).all()
+            for card in all_cards:
+                writer.writerow([titles_by_set_id.get(card.set_id, ""), card.question, card.answer])
             
             csv_content = output.getvalue()
             output.close()
@@ -1233,13 +1242,18 @@ Return ONLY a JSON array:
                 <h1>Question Bank Export</h1>
             """
             
+            all_questions = self.db.query(Question).filter(
+                Question.question_set_id.in_(set_ids)
+            ).order_by(Question.question_set_id, Question.order_index).all()
+            questions_by_set: Dict[int, list] = {}
+            for question in all_questions:
+                questions_by_set.setdefault(question.question_set_id, []).append(question)
+
             for qset in question_sets:
                 html_content += f"<h2>{qset.title}</h2>"
-                
-                questions = self.db.query(Question).filter(
-                    Question.question_set_id == qset.id
-                ).order_by(Question.order_index).all()
-                
+
+                questions = questions_by_set.get(qset.id, [])
+
                 for idx, question in enumerate(questions, 1):
                     html_content += f'<div class="question">'
                     html_content += f'<strong>Question {idx}:</strong> {question.question_text}'
