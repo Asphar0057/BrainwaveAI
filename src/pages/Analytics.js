@@ -1,30 +1,19 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Download, Zap, BookOpen, MessageSquare, Plus,
-  Trophy, Target, Flame, Clock, Brain, Cpu, Database, LayoutDashboard,
-  Network, Sparkles, TrendingUp, TrendingDown, CheckCircle,
-  Layers, GitBranch, Info, AlertCircle, BarChart3, Activity
+  Download, Zap, BookOpen, MessageSquare,
+  Trophy, Target, Flame, Clock, Brain, Cpu,
+  Network, Sparkles, TrendingUp, CheckCircle,
+  GitBranch, Info, AlertCircle, BarChart3, Activity,
+  Search, CircleHelp, Presentation, TriangleAlert, History
 } from 'lucide-react';
 import './Analytics.css';
-import '../components/SocialHubChrome.css';
+import SocialHubChrome from '../components/SocialHubChrome';
 import { API_URL } from '../config';
 import ThemeSwitcher from '../components/ThemeSwitcher';
 
 const CACHE_TTL = 5 * 1000;
 const CLIENT_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata';
-
-const SIDE_LINKS = [
-  { label: 'Search Hub', route: '/search-hub' },
-  { label: 'Knowledge Map', route: '/knowledge-map' },
-  { label: 'Questions', route: '/question-bank' },
-  { label: 'Slides', route: '/slide-explorer' },
-  { label: 'Weak Areas', route: '/weaknesses' },
-  { label: 'Social Hub', route: '/social' },
-  { label: 'Activity Timeline', route: '/activity-timeline' },
-  { label: 'Learning Path', route: '/learning-paths' },
-  { label: 'XP Roadmap', route: '/xp-roadmap' }
-];
 
 const readCache = (key) => {
   try {
@@ -196,100 +185,148 @@ const Analytics = () => {
     a.href = url;
     a.download = `analytics_${timeRange}_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
+    URL.revokeObjectURL(url);
   };
 
+  const analyticsViews = [
+    { value: 'overview', label: 'OVERVIEW', sidebarLabel: 'Overview', description: 'Momentum and activity', icon: Activity },
+    { value: 'deep', label: 'DEEP STATS', sidebarLabel: 'Deep stats', description: 'Chat and recall detail', icon: BarChart3 },
+    { value: 'ml', label: 'ML INSIGHTS', sidebarLabel: 'ML insights', description: 'Adaptive model signals', icon: Cpu },
+  ];
+  const handleViewKeyDown = (event, index) => {
+    const navigationKeys = ['ArrowLeft', 'ArrowRight', 'Home', 'End'];
+    if (!navigationKeys.includes(event.key)) return;
+
+    event.preventDefault();
+    let nextIndex = index;
+    if (event.key === 'ArrowRight') nextIndex = (index + 1) % analyticsViews.length;
+    if (event.key === 'ArrowLeft') nextIndex = (index - 1 + analyticsViews.length) % analyticsViews.length;
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = analyticsViews.length - 1;
+
+    const nextView = analyticsViews[nextIndex].value;
+    setActiveTab(nextView);
+    requestAnimationFrame(() => document.getElementById(`analytics-tab-${nextView}`)?.focus());
+  };
+  const sidebarSections = [
+    {
+      label: 'Analytics',
+      items: analyticsViews.map(view => ({
+        icon: view.icon,
+        label: view.sidebarLabel,
+        active: activeTab === view.value,
+        onClick: () => setActiveTab(view.value),
+      })),
+    },
+    {
+      label: 'Create & study',
+      items: [
+        { icon: MessageSquare, label: 'AI Chat', onClick: () => navigate('/ai-chat') },
+        { icon: Brain, label: 'Flashcards', onClick: () => navigate('/flashcards') },
+        { icon: BookOpen, label: 'Notes', onClick: () => navigate('/notes') },
+      ],
+    },
+    {
+      label: 'Explore',
+      items: [
+        { icon: Search, label: 'Search Hub', onClick: () => navigate('/search-hub') },
+        { icon: CircleHelp, label: 'Questions', onClick: () => navigate('/question-bank') },
+        { icon: Presentation, label: 'Slides', onClick: () => navigate('/slide-explorer') },
+        { icon: TriangleAlert, label: 'Weak Areas', onClick: () => navigate('/weaknesses') },
+        { icon: History, label: 'Activity Timeline', onClick: () => navigate('/activity-timeline') },
+      ],
+    },
+    {
+      label: 'Learning system',
+      items: [
+        { icon: Trophy, label: 'XP Roadmap', onClick: () => navigate('/xp-roadmap') },
+        { icon: Network, label: 'Knowledge Map', onClick: () => navigate('/knowledge-map') },
+        { icon: GitBranch, label: 'Learning Paths', onClick: () => navigate('/learning-paths') },
+      ],
+    },
+  ];
+  const sidebarLead = (
+    <button className="an-side-primary" type="button" onClick={exportData}>
+      <Download size={15} />
+      <span>Export report</span>
+    </button>
+  );
+  const sidebarTail = (
+    <button className="an-profile-card" type="button" onClick={() => navigate('/profile')}>
+      <span className="an-profile-avatar">
+        {profilePhoto ? <img src={profilePhoto} alt="" referrerPolicy="no-referrer" /> : initial}
+      </span>
+      <span className="an-profile-copy">
+        <strong>{displayName}</strong>
+        <small>Level {level} · {xp.toLocaleString()} XP</small>
+      </span>
+    </button>
+  );
+
   if (loading) return (
-    <div className="an-root">
-      <div className="shc-topbar">
-        <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-        <div className="shc-topbar-right">
-          <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
+    <div className="an-root with-social-chrome">
+      <div className="an-bg" aria-hidden="true" />
+      <SocialHubChrome brandKicker="Analytics" sideSections={sidebarSections} sidebarLead={sidebarLead} sidebarTail={sidebarTail}>
+        <div className="an-loading" role="status" aria-live="polite">
+          <div className="an-spin" /><p>Reading your learning signals</p>
         </div>
-      </div>
-      <div className="an-loading">
-        <div className="an-spin" /><p>LOADING</p>
-      </div>
+      </SocialHubChrome>
     </div>
   );
 
   return (
-    <div className="an-root">
-      {}
-      <div className="an-bg" aria-hidden>
-        <div className="an-orb an-orb-1" />
-        <div className="an-orb an-orb-2" />
-        <div className="an-orb an-orb-3" />
-        <div className="an-grid-texture" />
-      </div>
-
-      <div className="shc-topbar">
-        <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-        <div className="shc-topbar-right">
-          <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-        </div>
-      </div>
-
-      <div className="an-shell">
-        <aside className="an-side" aria-label="Activity navigation">
-          <div className="an-side-brand">cerbyl</div>
-
-          <button className="an-side-avatar" onClick={() => navigate('/profile')} aria-label="Open profile">
-            {profilePhoto ? (
-              <img src={profilePhoto} alt={`${displayName} profile`} referrerPolicy="no-referrer" />
-            ) : (
-              <span>{initial}</span>
-            )}
-          </button>
-
-          <div className="an-side-sections">
-            {[
-              { label: 'AI Chat', route: '/ai-chat' },
-              { label: 'Flashcards', route: '/flashcards' },
-              { label: 'Notes', route: '/notes' }
-            ].map((item) => (
-              <button key={item.label} className="an-side-section" onClick={() => navigate(item.route)}>
-                <span className="an-side-dot" />
-                <span>{item.label}</span>
-                <Plus size={13} strokeWidth={2.4} />
-              </button>
-            ))}
-          </div>
-
-          <nav className="an-side-nav" aria-label="Learning hub links">
-            {SIDE_LINKS.map((link) => (
-              <button key={link.label} className="an-side-link" onClick={() => navigate(link.route)}>
-                <span className="an-side-link-dot" />
-                {link.label}
-              </button>
-            ))}
-          </nav>
-
-          <button className="an-side-user" onClick={() => navigate('/profile')}>
-            <span className="an-side-user-name">{displayName}</span>
-            <span className="an-side-user-sub">Level {level} &middot; {xp.toLocaleString()} XP</span>
-          </button>
-        </aside>
-
+    <div className="an-root with-social-chrome">
+      <div className="an-bg" aria-hidden="true" />
+      <SocialHubChrome brandKicker="Analytics" sideSections={sidebarSections} sidebarLead={sidebarLead} sidebarTail={sidebarTail}>
       <main className="an-main">
-        {}
-        <div className="an-mobile-tabs">
-          {[['overview','OVERVIEW'],['deep','DEEP STATS'],['ml','ML INSIGHTS']].map(([v,l]) => (
-            <button key={v} className={`an-topbar-tab ${activeTab===v?'active':''}`} onClick={() => setActiveTab(v)}>{l}</button>
+        <header className="an-hero">
+          <span className="an-hero-kicker">Learning intelligence</span>
+          <h1>See the shape of your learning.</h1>
+          <p>Follow momentum, find the habits that compound, and understand how Cerbyl adapts around you.</p>
+        </header>
+
+        <div className="an-mobile-tabs" role="tablist" aria-label="Analytics views">
+          {analyticsViews.map(({ value, label, description, icon: Icon }, index) => (
+            <button
+              key={value}
+              id={`analytics-tab-${value}`}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === value}
+              aria-controls={`analytics-panel-${value}`}
+              tabIndex={activeTab === value ? 0 : -1}
+              className={`an-topbar-tab ${activeTab === value ? 'active' : ''}`}
+              onClick={() => setActiveTab(value)}
+              onKeyDown={(event) => handleViewKeyDown(event, index)}
+            >
+              <span className="an-tab-index">0{index + 1}</span>
+              <Icon size={15} />
+              <span className="an-tab-copy"><strong>{label}</strong><small>{description}</small></span>
+            </button>
           ))}
         </div>
-        <div className="an-topbar-actions" style={{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:'8px',marginBottom:'12px'}}>
-          <button className="an-action-btn an-action-btn--text" onClick={() => navigate('/dashboard-cerbyl')} aria-label="Open dashboard" title="Open dashboard">
-            <LayoutDashboard size={13}/>
-            <span>Dashboard</span>
-          </button>
+        <div className="an-toolbar">
+          <div className="an-range-pills" aria-label="Analytics time range">
+            {[['week','WEEK'],['month','MONTH'],['year','YEAR'],['all','ALL']].map(([v,l]) => (
+              <button key={v} className={`an-pill ${timeRange===v?'active':''}`} aria-pressed={timeRange === v} onClick={() => setTimeRange(v)}>{l}</button>
+            ))}
+          </div>
+          <span className="an-period-meta">{periodStats.totalActivities} activities · {periodStats.totalPoints.toLocaleString()} pts</span>
+          <div className="an-topbar-actions">
           <button className="an-action-btn" onClick={exportData} aria-label="Export analytics data" title="Export analytics data"><Download size={13}/></button>
           <button className="an-action-btn" onClick={() => navigate('/xp-roadmap')} aria-label="Open XP roadmap" title="Open XP roadmap"><Trophy size={13}/></button>
           <ThemeSwitcher />
+          </div>
         </div>
 
         {}
         {activeTab === 'overview' && (
-          <div className="an-overview">
+          <div
+            id="analytics-panel-overview"
+            className="an-overview"
+            role="tabpanel"
+            aria-labelledby="analytics-tab-overview"
+          >
 
             {}
             <div className="an-mega">
@@ -331,17 +368,6 @@ const Analytics = () => {
             </div>
 
             {}
-            <div className="an-controls">
-              <div className="an-range-pills">
-                {[['week','WEEK'],['month','MONTH'],['year','YEAR'],['all','ALL']].map(([v,l]) => (
-                  <button key={v} className={`an-pill ${timeRange===v?'active':''}`} onClick={() => setTimeRange(v)}>{l}</button>
-                ))}
-              </div>
-              <span className="an-period-meta">
-                {periodStats.totalActivities} activities · {periodStats.totalPoints.toLocaleString()} pts
-              </span>
-            </div>
-
             {}
             <div className="an-section-label">
               <span className="an-sec-num">01</span>
@@ -382,10 +408,6 @@ const Analytics = () => {
                         <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.28"/>
                         <stop offset="100%" stopColor="var(--accent)" stopOpacity="0"/>
                       </linearGradient>
-                      <filter id="an-glow">
-                        <feGaussianBlur stdDeviation="2.5" result="blur"/>
-                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-                      </filter>
                     </defs>
                     {}
                     {[0.25, 0.5, 0.75, 1].map((f, i) => (
@@ -397,7 +419,7 @@ const Analytics = () => {
                     ))}
                     <path d={lineSvg.area} fill="url(#an-area-grad)"/>
                     <path d={lineSvg.path} fill="none" stroke="var(--accent)" strokeWidth="2.5"
-                      strokeLinecap="round" strokeLinejoin="round" filter="url(#an-glow)"/>
+                      strokeLinecap="round" strokeLinejoin="round"/>
                     {}
                     {lineSvg.pts.map((p, i) => {
                       const isHov = chartHover && chartHover.x === p.x;
@@ -476,18 +498,11 @@ const Analytics = () => {
                   <div key={r.label} className="an-ring-card">
                     <div className="an-ring-deco" style={{ color: r.col }}>{r.icon}</div>
                     <svg viewBox="0 0 128 128" className="an-ring-svg">
-                      <defs>
-                        <filter id={`glow-${r.label}`}>
-                          <feGaussianBlur stdDeviation="3" result="blur"/>
-                          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-                        </filter>
-                      </defs>
                       <circle cx="64" cy="64" r="52" stroke="rgba(255,255,255,0.05)" strokeWidth="8" fill="none"/>
                       <circle cx="64" cy="64" r="52"
                         stroke={r.col} strokeWidth="8" fill="none"
                         strokeDasharray={`${dash.toFixed(2)} ${C.toFixed(2)}`}
                         strokeLinecap="round" transform="rotate(-90 64 64)"
-                        filter={`url(#glow-${r.label})`}
                       />
                     </svg>
                     <div className="an-ring-num">{r.val.toLocaleString()}</div>
@@ -612,7 +627,12 @@ const Analytics = () => {
 
         {}
         {activeTab === 'deep' && (
-          <div className="an-deep">
+          <div
+            id="analytics-panel-deep"
+            className="an-deep"
+            role="tabpanel"
+            aria-labelledby="analytics-tab-deep"
+          >
             {}
             <div className="an-section-label an-section-label--top">
               <span className="an-sec-num">01</span>
@@ -720,7 +740,12 @@ const Analytics = () => {
 
         {}
         {activeTab === 'ml' && (
-          <div className="an-ml">
+          <div
+            id="analytics-panel-ml"
+            className="an-ml"
+            role="tabpanel"
+            aria-labelledby="analytics-tab-ml"
+          >
             <div className="an-ml-hero">
               <Cpu size={36}/>
               <div>
@@ -840,7 +865,7 @@ const Analytics = () => {
         )}
 
       </main>
-      </div>
+      </SocialHubChrome>
     </div>
   );
 };

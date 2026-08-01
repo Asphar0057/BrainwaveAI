@@ -10,9 +10,9 @@ import ReactFlow, {
   Position,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { Plus, Loader, MapPin, Book, Sparkles, Trash2, FileDown, Info, ChevronRight, X, Edit3, Save, StickyNote, MessageCircle } from 'lucide-react';
+import { Plus, Loader, MapPin, Book, Sparkles, Trash2, FileDown, Info, X, Edit3, Save, StickyNote, MessageCircle, LayoutGrid, ArrowLeft, Network } from 'lucide-react';
 import './KnowledgeMap.css';
-import '../components/SocialHubChrome.css';
+import SocialHubChrome from '../components/SocialHubChrome';
 import { API_URL } from '../config';
 import { queueChatCompletion, queuedAIJsonFetch, USE_AI_JOB_QUEUE } from '../services/aiJobService';
 import MathRenderer from '../components/MathRenderer';
@@ -292,9 +292,59 @@ const KnowledgeMap = () => {
       localStorage.setItem(`roadmap_state_${currentRoadmap.id}`, JSON.stringify(roadmapState));
           }
   }, [expandedNodes, exploredNodesCache, manualNotes, currentRoadmap, nodes]);
-  const [showChatSelectModal, setShowChatSelectModal] = useState(false);
+const [showChatSelectModal, setShowChatSelectModal] = useState(false);
 const [chatSessions, setChatSessions] = useState([]);
 const [selectedChatId, setSelectedChatId] = useState(null);
+
+useEffect(() => {
+  const modalOpen = showCreateModal || showChatSelectModal || showAddNodeModal || showExportSuccessModal;
+  if (!modalOpen) return undefined;
+
+  const previouslyFocused = document.activeElement;
+  const modal = document.querySelector('.kr-page .kr-modal');
+  const focusableSelector = 'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [href], [tabindex]:not([tabindex="-1"])';
+  const focusFirstControl = window.requestAnimationFrame(() => {
+    modal?.querySelector(focusableSelector)?.focus();
+  });
+
+  const closeActiveModal = () => {
+    if (showExportSuccessModal) setShowExportSuccessModal(false);
+    else if (showAddNodeModal) setShowAddNodeModal(false);
+    else if (showChatSelectModal) setShowChatSelectModal(false);
+    else if (showCreateModal) setShowCreateModal(false);
+  };
+
+  const handleModalKeyDown = (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeActiveModal();
+      return;
+    }
+
+    if (event.key !== 'Tab' || !modal) return;
+    const focusable = Array.from(modal.querySelectorAll(focusableSelector));
+    if (focusable.length === 0) {
+      event.preventDefault();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
+  document.addEventListener('keydown', handleModalKeyDown);
+  return () => {
+    window.cancelAnimationFrame(focusFirstControl);
+    document.removeEventListener('keydown', handleModalKeyDown);
+    if (previouslyFocused instanceof HTMLElement) previouslyFocused.focus();
+  };
+}, [showCreateModal, showChatSelectModal, showAddNodeModal, showExportSuccessModal]);
 
 const fetchChatSessions = async () => {
   try {
@@ -1965,123 +2015,111 @@ ${answeringComprehensionCheck ? `- The student is answering this previous compre
     : 0;
   const hasActiveNotes = activeNodeNotes.trim().length > 0;
 
-  return (
-    <div className="kr-page">
-      <div className="shc-topbar">
-        <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-        <div className="shc-topbar-right">
-          <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-        </div>
-      </div>
-      <svg className="geo-bg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
-        <circle cx="600" cy="400" r="360" fill="none" stroke="currentColor" strokeWidth="1"/>
-        <circle cx="600" cy="400" r="260" fill="none" stroke="currentColor" strokeWidth="0.8"/>
-        <circle cx="600" cy="400" r="168" fill="none" stroke="currentColor" strokeWidth="0.7"/>
-        <circle cx="600" cy="400" r="90" fill="none" stroke="currentColor" strokeWidth="0.6"/>
-        <line x1="600" y1="0" x2="600" y2="800" stroke="currentColor" strokeWidth="0.5"/>
-        <line x1="0" y1="400" x2="1200" y2="400" stroke="currentColor" strokeWidth="0.5"/>
-        <line x1="0" y1="800" x2="500" y2="0" stroke="currentColor" strokeWidth="0.4"/>
-        <line x1="1200" y1="0" x2="700" y2="800" stroke="currentColor" strokeWidth="0.4"/>
-        <circle cx="600" cy="40" r="5" fill="currentColor"/>
-        <circle cx="600" cy="760" r="5" fill="currentColor"/>
-        <circle cx="240" cy="400" r="5" fill="currentColor"/>
-        <circle cx="960" cy="400" r="5" fill="currentColor"/>
-        <circle cx="345" cy="146" r="3.5" fill="currentColor"/>
-        <circle cx="855" cy="654" r="3.5" fill="currentColor"/>
-        <circle cx="855" cy="146" r="3.5" fill="currentColor"/>
-        <circle cx="345" cy="654" r="3.5" fill="currentColor"/>
-        <rect x="24" y="24" width="72" height="72" fill="none" stroke="currentColor" strokeWidth="0.8"/>
-        <rect x="44" y="44" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="0.5"/>
-        <circle cx="60" cy="60" r="3" fill="currentColor"/>
-        <rect x="1104" y="704" width="72" height="72" fill="none" stroke="currentColor" strokeWidth="0.8"/>
-        <rect x="1124" y="724" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="0.5"/>
-        <circle cx="1140" cy="740" r="3" fill="currentColor"/>
-        <circle cx="120" cy="200" r="2" fill="currentColor"/>
-        <circle cx="160" cy="160" r="1.5" fill="currentColor"/>
-        <circle cx="200" cy="200" r="2" fill="currentColor"/>
-        <circle cx="160" cy="240" r="1.5" fill="currentColor"/>
-        <circle cx="1080" cy="600" r="2" fill="currentColor"/>
-        <circle cx="1040" cy="640" r="1.5" fill="currentColor"/>
-        <circle cx="1000" cy="600" r="2" fill="currentColor"/>
-        <circle cx="1040" cy="560" r="1.5" fill="currentColor"/>
-      </svg>
-      {/* Floating toolbar for knowledge map actions */}
-      <div style={{position:'fixed',top:'10px',right:'16px',zIndex:8000,display:'flex',alignItems:'center',gap:'8px'}}>
-        {currentRoadmap ? (
-          <>
-            <button className="kr-nav-btn" onClick={() => {
-              navigate('/knowledge-map');
-              setCurrentRoadmap(null);
-              setNodes([]);
-              setEdges([]);
-              setNodeExplanation(null);
-            }}>
-              Back to Maps
-            </button>
-            {selectedNodeId && (
-              <button
-                className="kr-delete-node-btn"
-                onClick={deleteSelectedNode}
-                title="Delete selected node"
-              >
-                <Trash2 size={16} />
-                <span>Delete Node</span>
-              </button>
-            )}
-            <button
-              className="kr-export-btn"
-              onClick={exportRoadmapToNotes}
-              disabled={exporting}
-              title="Export explored nodes to Notes"
-            >
-              {exporting ? (
-                <>
-                  <Loader size={16} className="kr-spinner" />
-                  <span>Exporting...</span>
-                </>
-              ) : (
-                <>
-                  <FileDown size={16} />
-                  <span>Export</span>
-                </>
-              )}
-            </button>
-          </>
-        ) : (
-          <button className="kr-nav-btn" onClick={() => navigate('/dashboard-cerbyl')}>
-            Dashboard
-            <ChevronRight size={14} />
-          </button>
-        )}
-      </div>
+  const returnToMaps = () => {
+    navigate('/knowledge-map');
+    setCurrentRoadmap(null);
+    setNodes([]);
+    setEdges([]);
+    setNodeExplanation(null);
+    setSelectedNodeId(null);
+  };
 
-      <div className="kr-content">
+  const openChatMapPicker = () => {
+    setShowChatSelectModal(true);
+    fetchChatSessions();
+  };
+
+  const handleSidebarTabKeyDown = (event) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const views = ['learn', 'notes', 'chat'];
+    const activeIndex = views.indexOf(sidebarView);
+    let nextIndex = activeIndex;
+    if (event.key === 'ArrowRight') nextIndex = (activeIndex + 1) % views.length;
+    if (event.key === 'ArrowLeft') nextIndex = (activeIndex - 1 + views.length) % views.length;
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = views.length - 1;
+    const nextView = views[nextIndex];
+    setSidebarView(nextView);
+    window.requestAnimationFrame(() => document.getElementById(`kr-tab-${nextView}`)?.focus());
+  };
+
+  const mapSidebarSections = currentRoadmap
+    ? [{
+        label: 'Map workspace',
+        items: [
+          { icon: Network, label: 'Map canvas', active: true, onClick: () => setNodeExplanation(null) },
+          { icon: FileDown, label: exporting ? 'Exporting…' : 'Export to Notes', onClick: exportRoadmapToNotes, disabled: exporting },
+          { icon: Trash2, label: 'Delete selected node', onClick: deleteSelectedNode, disabled: !selectedNodeId },
+        ],
+      }]
+    : [{
+        label: 'Workspace',
+        items: [
+          { icon: MapPin, label: 'My Maps', active: true, count: roadmaps.length, onClick: () => undefined },
+          { icon: Book, label: 'Create from Chat', onClick: openChatMapPicker },
+        ],
+      }];
+
+  const sidebarLead = (
+    <button
+      className="kr-side-primary"
+      type="button"
+      onClick={currentRoadmap ? returnToMaps : () => setShowCreateModal(true)}
+    >
+      {currentRoadmap ? <ArrowLeft size={15} /> : <Plus size={15} />}
+      <span>{currentRoadmap ? 'All knowledge maps' : 'Create map'}</span>
+    </button>
+  );
+
+  return (
+    <div className="kr-page with-social-chrome">
+      <SocialHubChrome
+        brandKicker="Knowledge Map"
+        sideSections={mapSidebarSections}
+        sidebarLead={sidebarLead}
+        collapsedLeadItems={[
+          {
+            icon: currentRoadmap ? ArrowLeft : Plus,
+            label: currentRoadmap ? 'All knowledge maps' : 'Create map',
+            onClick: currentRoadmap ? returnToMaps : () => setShowCreateModal(true),
+          },
+        ]}
+        footerItems={[{ icon: LayoutGrid, label: 'Dashboard', path: '/dashboard-cerbyl' }]}
+      >
+      <div className={`kr-content ${currentRoadmap ? 'kr-content--viewer' : 'kr-content--library'}`}>
         {!currentRoadmap ? (
           <>
-            <div className="kr-section-header">
+            <header className="kr-section-header">
               <div className="kr-header-content">
                 <div>
-                  <span className="view-kicker">Knowledge Maps</span>
-                  <h2 className="view-title" style={{ marginTop: '6px' }}>My Knowledge Maps</h2>
-                  <p className="view-sub">Build interactive learning maps with expandable topics</p>
+                  <span className="view-kicker">Knowledge workspace</span>
+                  <h1 className="view-title">See how every idea connects.</h1>
+                  <p className="view-sub">Build interactive learning maps, explore related topics, and keep the context behind every connection.</p>
                 </div>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <button className="kr-create-btn" onClick={() => setShowCreateModal(true)}>
+                <div className="kr-header-actions">
+                  <button className="kr-create-btn" type="button" onClick={() => setShowCreateModal(true)}>
                     <Plus size={18} />
                     <span>Create Map</span>
                   </button>
                   <button 
                     className="kr-create-btn" 
-                    onClick={() => {
-                      setShowChatSelectModal(true);
-                      fetchChatSessions();
-                    }}
+                    type="button"
+                    onClick={openChatMapPicker}
                   >
                     <Book size={18} />
                     <span>From Chat</span>
                   </button>
                 </div>
               </div>
+            </header>
+
+            <div className="kr-library-toolbar" aria-label="Knowledge map summary">
+              <div>
+                <span className="kr-toolbar-kicker">Map library</span>
+                <strong>{roadmaps.length} {roadmaps.length === 1 ? 'map' : 'maps'}</strong>
+              </div>
+              <span className="kr-toolbar-status"><i aria-hidden="true" /> Ready to explore</span>
             </div>
 
             <div className="kr-main">
@@ -2098,7 +2136,7 @@ ${answeringComprehensionCheck ? `- The student is answering this previous compre
               ) : (
                 <div className="kr-grid">
                   {roadmaps.map(roadmap => (
-                    <div key={roadmap.id} className="kr-card">
+                    <article key={roadmap.id} className="kr-card">
                       <div className="kr-card-header">
                         <div className="kr-card-icon">
                           <MapPin size={24} />
@@ -2114,7 +2152,7 @@ ${answeringComprehensionCheck ? `- The student is answering this previous compre
                           <Trash2 size={16} />
                         </button>
                       </div>
-                      <div className="kr-card-content" onClick={() => viewRoadmap(roadmap.id)}>
+                      <button className="kr-card-content" type="button" onClick={() => viewRoadmap(roadmap.id)}>
                         <h3 className="kr-card-title">{roadmap.title}</h3>
                         <p className="kr-card-topic">{roadmap.root_topic}</p>
                         <div className="kr-card-stats">
@@ -2127,13 +2165,13 @@ ${answeringComprehensionCheck ? `- The student is answering this previous compre
                             <span className="kr-stat-label">Depth</span>
                           </div>
                         </div>
-                      </div>
+                      </button>
                       <div className="kr-card-footer">
                         <span className="kr-card-date">
                           Last accessed: {new Date(roadmap.last_accessed).toLocaleDateString()}
                         </span>
                       </div>
-                    </div>
+                    </article>
                   ))}
                 </div>
               )}
@@ -2141,6 +2179,18 @@ ${answeringComprehensionCheck ? `- The student is answering this previous compre
           </>
         ) : (
           <div className="kr-viewer-fullscreen">
+            <header className="kr-map-toolbar">
+              <div className="kr-map-toolbar-copy">
+                <span className="kr-toolbar-kicker">Active knowledge map</span>
+                <strong>{currentRoadmap.title || currentRoadmap.root_topic}</strong>
+                <p>{currentRoadmap.root_topic}</p>
+              </div>
+              <div className="kr-map-toolbar-metrics" aria-label="Map status">
+                <span><b>{nodes.length}</b> nodes</span>
+                <span><b>{expandedNodes.size}</b> expanded</span>
+                <span className={selectedNodeId ? 'is-active' : ''}><b>{selectedNodeId ? '1' : '0'}</b> selected</span>
+              </div>
+            </header>
             <div className="kr-flow-wrapper">
               <div className="kr-flow-container-fullscreen">
                 {loading && nodes.length === 0 ? (
@@ -2213,34 +2263,43 @@ ${answeringComprehensionCheck ? `- The student is answering this previous compre
                         <span>Notes</span>
                       </div>
                     </div>
-                    <div className="kr-sidebar-tabs" role="tablist" aria-label="Topic panel sections">
+                    <div className="kr-sidebar-tabs" role="tablist" aria-label="Topic panel sections" onKeyDown={handleSidebarTabKeyDown}>
                       <button
+                        id="kr-tab-learn"
                         className={`kr-sidebar-tab ${sidebarView === 'learn' ? 'active' : ''}`}
                         onClick={() => setSidebarView('learn')}
                         type="button"
                         role="tab"
                         aria-selected={sidebarView === 'learn'}
+                        aria-controls="kr-panel-learn"
+                        tabIndex={sidebarView === 'learn' ? 0 : -1}
                       >
                         <Info size={15} />
                         <span>Learn</span>
                       </button>
                       <button
+                        id="kr-tab-notes"
                         className={`kr-sidebar-tab ${sidebarView === 'notes' ? 'active' : ''}`}
                         onClick={() => setSidebarView('notes')}
                         type="button"
                         role="tab"
                         aria-selected={sidebarView === 'notes'}
+                        aria-controls="kr-panel-notes"
+                        tabIndex={sidebarView === 'notes' ? 0 : -1}
                       >
                         <StickyNote size={15} />
                         <span>Notes</span>
                         {hasActiveNotes && <i aria-hidden="true" />}
                       </button>
                       <button
+                        id="kr-tab-chat"
                         className={`kr-sidebar-tab ${sidebarView === 'chat' ? 'active' : ''}`}
                         onClick={() => setSidebarView('chat')}
                         type="button"
                         role="tab"
                         aria-selected={sidebarView === 'chat'}
+                        aria-controls="kr-panel-chat"
+                        tabIndex={sidebarView === 'chat' ? 0 : -1}
                       >
                         <MessageCircle size={15} />
                         <span>Chat</span>
@@ -2250,7 +2309,7 @@ ${answeringComprehensionCheck ? `- The student is answering this previous compre
                   <div className="kr-sidebar-body">
                     <div className="kr-sidebar-content">
                       {sidebarView === 'learn' && (
-                        <div className="kr-sidebar-pane">
+                        <div className="kr-sidebar-pane" id="kr-panel-learn" role="tabpanel" aria-labelledby="kr-tab-learn" tabIndex={0}>
                           {cleanNodeExplanation.ai_explanation && (
                             <div className="kr-explanation-section kr-section-card kr-section-card--overview">
                               <div className="kr-section-card-head">
@@ -2321,7 +2380,7 @@ ${answeringComprehensionCheck ? `- The student is answering this previous compre
                       )}
 
                       {sidebarView === 'notes' && (
-                        <div className="kr-manual-notes-section kr-sidebar-pane">
+                        <div className="kr-manual-notes-section kr-sidebar-pane" id="kr-panel-notes" role="tabpanel" aria-labelledby="kr-tab-notes" tabIndex={0}>
                           <div className="kr-notes-panel-head">
                             <div>
                               <span>Personal Notes</span>
@@ -2376,7 +2435,7 @@ ${answeringComprehensionCheck ? `- The student is answering this previous compre
                       )}
 
                       {sidebarView === 'chat' && (
-                        <div className="kr-chat-section kr-sidebar-pane">
+                        <div className="kr-chat-section kr-sidebar-pane" id="kr-panel-chat" role="tabpanel" aria-labelledby="kr-tab-chat" tabIndex={0}>
                           <div className="kr-chat-section-header">
                             <div>
                               <span className="kr-chat-kicker">Topic Chat</span>
@@ -2459,13 +2518,14 @@ ${answeringComprehensionCheck ? `- The student is answering this previous compre
           </div>
         )}
       </div>
+      </SocialHubChrome>
 
 {showCreateModal && (
   <div className="kr-modal-overlay" onClick={() => setShowCreateModal(false)}>
-    <div className="kr-modal" onClick={e => e.stopPropagation()}>
+    <div className="kr-modal" role="dialog" aria-modal="true" aria-labelledby="kr-create-title" onClick={e => e.stopPropagation()}>
       <div className="kr-modal-header">
-        <h3>Create Knowledge Map</h3>
-        <button className="kr-modal-close" onClick={() => setShowCreateModal(false)}>×</button>
+        <h3 id="kr-create-title">Create Knowledge Map</h3>
+        <button className="kr-modal-close" type="button" aria-label="Close create map dialog" onClick={() => setShowCreateModal(false)}>×</button>
       </div>
 
       <div className="kr-modal-content">
@@ -2503,53 +2563,36 @@ ${answeringComprehensionCheck ? `- The student is answering this previous compre
 {/* CHAT SELECT MODAL - SEPARATE */}
 {showChatSelectModal && (
   <div className="kr-modal-overlay" onClick={() => setShowChatSelectModal(false)}>
-    <div className="kr-modal" onClick={e => e.stopPropagation()}>
+    <div className="kr-modal" role="dialog" aria-modal="true" aria-labelledby="kr-chat-map-title" onClick={e => e.stopPropagation()}>
       <div className="kr-modal-header">
-        <h3>Create Map from Chat</h3>
-        <button className="kr-modal-close" onClick={() => setShowChatSelectModal(false)}>×</button>
+        <h3 id="kr-chat-map-title">Create Map from Chat</h3>
+        <button className="kr-modal-close" type="button" aria-label="Close chat map dialog" onClick={() => setShowChatSelectModal(false)}>×</button>
       </div>
 
       <div className="kr-modal-content">
         <div className="kr-form-group">
           <label>Select a chat session</label>
-          <p className="kr-input-hint" style={{ marginBottom: '16px' }}>
+          <p className="kr-input-hint kr-chat-picker-hint">
             AI will analyze the conversation and create a knowledge map based on the main topic discussed.
           </p>
-          <div style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid var(--border)', padding: '12px' }}>
+          <div className="kr-chat-session-list">
             {chatSessions.length === 0 ? (
-              <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '20px' }}>
+              <p className="kr-chat-session-empty">
                 No chat sessions found
               </p>
             ) : (
               chatSessions.map(session => (
-                <div
+                <button
                   key={session.id}
+                  type="button"
+                  className={`kr-chat-session ${selectedChatId === session.id ? 'is-selected' : ''}`}
                   onClick={() => setSelectedChatId(session.id)}
-                  style={{
-                    padding: '12px',
-                    marginBottom: '8px',
-                    background: selectedChatId === session.id ? 'var(--accent)' : 'var(--bg-bottom)',
-                    border: `2px solid ${selectedChatId === session.id ? 'var(--accent)' : 'var(--border)'}`,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    color: selectedChatId === session.id ? 'var(--bg-bottom)' : 'var(--text-primary)'
-                  }}
-                  onMouseEnter={e => {
-                    if (selectedChatId !== session.id) {
-                      e.currentTarget.style.borderColor = 'var(--accent)';
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    if (selectedChatId !== session.id) {
-                      e.currentTarget.style.borderColor = 'var(--border)';
-                    }
-                  }}
                 >
-                  <div style={{ fontWeight: '600', marginBottom: '4px' }}>{session.title}</div>
-                  <div style={{ fontSize: '12px', opacity: 0.7 }}>
+                  <strong>{session.title}</strong>
+                  <span>
                     {new Date(session.updated_at).toLocaleDateString()}
-                  </div>
-                </div>
+                  </span>
+                </button>
               ))
             )}
           </div>
@@ -2573,10 +2616,10 @@ ${answeringComprehensionCheck ? `- The student is answering this previous compre
 {/* ADD MANUAL NODE MODAL */}
 {showAddNodeModal && (
   <div className="kr-modal-overlay" onClick={() => setShowAddNodeModal(false)}>
-    <div className="kr-modal" onClick={e => e.stopPropagation()}>
+    <div className="kr-modal" role="dialog" aria-modal="true" aria-labelledby="kr-add-node-title" onClick={e => e.stopPropagation()}>
       <div className="kr-modal-header">
-        <h3>Add Custom Node</h3>
-        <button className="kr-modal-close" onClick={() => setShowAddNodeModal(false)}>×</button>
+        <h3 id="kr-add-node-title">Add Custom Node</h3>
+        <button className="kr-modal-close" type="button" aria-label="Close add node dialog" onClick={() => setShowAddNodeModal(false)}>×</button>
       </div>
 
       <div className="kr-modal-content">
@@ -2624,11 +2667,11 @@ ${answeringComprehensionCheck ? `- The student is answering this previous compre
 {/* EXPORT SUCCESS MODAL */}
 {showExportSuccessModal && (
   <div className="kr-modal-overlay">
-    <div className="kr-modal kr-export-modal">
+    <div className="kr-modal kr-export-modal" role="dialog" aria-modal="true" aria-labelledby="kr-export-title">
       <div className="kr-export-modal-icon">
         <FileDown size={32} />
       </div>
-      <h3>Export Successful!</h3>
+      <h3 id="kr-export-title">Export Successful!</h3>
       <p>
         Successfully exported {exportedNodeCount} explored node{exportedNodeCount !== 1 ? 's' : ''} to Notes.
         {manualNotes.size > 0 && ' Your personal notes were included.'}
