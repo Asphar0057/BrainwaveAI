@@ -793,21 +793,22 @@ def get_analytics_history(
 @router.get("/get_global_leaderboard")
 def get_global_leaderboard(limit: int = Query(10), db: Session = Depends(get_db)):
     try:
-        top_users = db.query(models.UserGamificationStats).order_by(
+        rows = db.query(models.UserGamificationStats, models.User).join(
+            models.User, models.User.id == models.UserGamificationStats.user_id
+        ).order_by(
             models.UserGamificationStats.total_points.desc(),
             models.UserGamificationStats.user_id.asc(),
         ).limit(limit).all()
 
-        leaderboard = []
-        for stats in top_users:
-            user = db.query(models.User).filter(models.User.id == stats.user_id).first()
-            if user:
-                leaderboard.append({
-                    "user_id": user.id,
-                    "username": user.username,
-                    "total_points": stats.total_points,
-                    "level": stats.level
-                })
+        leaderboard = [
+            {
+                "user_id": user.id,
+                "username": user.username,
+                "total_points": stats.total_points,
+                "level": stats.level
+            }
+            for stats, user in rows
+        ]
 
         return {"leaderboard": leaderboard}
     except Exception as e:

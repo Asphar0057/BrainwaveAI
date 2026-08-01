@@ -1050,44 +1050,46 @@ async def get_knowledge_roadmap(
             models.KnowledgeNode.user_id == current_user.id,
         ).first()
 
+        # All nodes for this roadmap fetched in a single query; the tree walk
+        # below (root reachability + expanded-node collection) happens in
+        # memory instead of one query per node, which used to make this
+        # endpoint O(node_count) round-trips on large knowledge maps.
+        roadmap_nodes = db.query(models.KnowledgeNode).filter(
+            models.KnowledgeNode.roadmap_id == roadmap_id,
+            models.KnowledgeNode.user_id == current_user.id,
+        ).all()
+        node_map = {node.id: node for node in roadmap_nodes}
+        children_by_parent = {}
+        for node in roadmap_nodes:
+            children_by_parent.setdefault(node.parent_node_id, []).append(node)
+
         roadmap_node_ids = set()
 
         def collect_node_ids(node_id):
+            if node_id in roadmap_node_ids or node_id not in node_map:
+                return
             roadmap_node_ids.add(node_id)
-            children = db.query(models.KnowledgeNode).filter(
-                models.KnowledgeNode.parent_node_id == node_id,
-                models.KnowledgeNode.user_id == current_user.id,
-            ).all()
-            for child in children:
+            for child in children_by_parent.get(node_id, []):
                 collect_node_ids(child.id)
 
         if root_node:
             collect_node_ids(root_node.id)
 
-        all_nodes = db.query(models.KnowledgeNode).filter(
-            models.KnowledgeNode.id.in_(roadmap_node_ids),
-            models.KnowledgeNode.user_id == current_user.id,
-        ).all()
+        all_nodes = [node_map[node_id] for node_id in roadmap_node_ids]
 
-        node_map = {node.id: node for node in all_nodes}
+        expanded_nodes = set()
 
-        def build_expansion_hierarchy(node_id, expanded_nodes, path=[]):
+        def build_expansion_hierarchy(node_id):
             node = node_map.get(node_id)
             if not node:
                 return
-            current_path = path + [node_id]
             if node.expansion_status == "expanded":
                 expanded_nodes.add(node_id)
-                children = db.query(models.KnowledgeNode).filter(
-                    models.KnowledgeNode.parent_node_id == node_id,
-                    models.KnowledgeNode.user_id == current_user.id,
-                ).all()
-                for child in children:
-                    build_expansion_hierarchy(child.id, expanded_nodes, current_path)
+                for child in children_by_parent.get(node_id, []):
+                    build_expansion_hierarchy(child.id)
 
-        expanded_nodes = set()
         if root_node:
-            build_expansion_hierarchy(root_node.id, expanded_nodes)
+            build_expansion_hierarchy(root_node.id)
 
         nodes_flat = [
             {
@@ -1261,17 +1263,15 @@ async def delete_roadmap(
 
         pending_node_ids = list(node_ids)
         while pending_node_ids:
-            parent_id = pending_node_ids.pop()
-            child_ids = [
-                row.id for row in db.query(models.KnowledgeNode.id).filter(
-                    models.KnowledgeNode.parent_node_id == parent_id,
-                    models.KnowledgeNode.user_id == current_user.id,
-                ).all()
-            ]
-            for child_id in child_ids:
-                if child_id not in node_ids:
-                    node_ids.add(child_id)
-                    pending_node_ids.append(child_id)
+            child_rows = db.query(models.KnowledgeNode.id).filter(
+                models.KnowledgeNode.parent_node_id.in_(pending_node_ids),
+                models.KnowledgeNode.user_id == current_user.id,
+            ).all()
+            pending_node_ids = []
+            for row in child_rows:
+                if row.id not in node_ids:
+                    node_ids.add(row.id)
+                    pending_node_ids.append(row.id)
 
         if node_ids:
             roadmap_nodes = db.query(models.KnowledgeNode).filter(
@@ -1800,15 +1800,17 @@ async def generate_concept_web(
                         connections_created += 1
                         break
 
-            same_category_nodes = [n for n in all_nodes if n.id != node_id and n.category == current_node.category]
-            for other_node in same_category_nodes[:2]:
-                existing = db.query(models.ConceptConnection).filter(
+            same_category_nodes = [n for n in all_nodes if n.id != node_id and n.category == current_node.category][:2]
+            existing_targets = {
+                row.target_concept_id for row in db.query(models.ConceptConnection.target_concept_id).filter(
                     models.ConceptConnection.user_id == user.id,
                     models.ConceptConnection.source_concept_id == node_id,
-                    models.ConceptConnection.target_concept_id == other_node.id,
-                ).first()
+                    models.ConceptConnection.target_concept_id.in_([n.id for n in same_category_nodes]),
+                ).all()
+            } if same_category_nodes else set()
 
-                if not existing:
+            for other_node in same_category_nodes:
+                if other_node.id not in existing_targets:
                     conn = models.ConceptConnection(
                         user_id=user.id,
                         source_concept_id=node_id,

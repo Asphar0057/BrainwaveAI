@@ -86,6 +86,21 @@ def _note_folder_ids(db: Session, note: models.Note) -> list[int]:
         folder_ids.add(legacy_folder_id)
     return sorted(folder_ids)
 
+def _note_folder_ids_bulk(db: Session, note_ids: list[int]) -> dict[int, list[int]]:
+    folder_ids_by_note: dict[int, set[int]] = {note_id: set() for note_id in note_ids}
+    if note_ids:
+        for note_id, folder_id in (
+            db.query(models.NoteFolder.note_id, models.NoteFolder.folder_id)
+            .filter(models.NoteFolder.note_id.in_(note_ids))
+            .all()
+        ):
+            if folder_id is not None:
+                folder_ids_by_note.setdefault(note_id, set()).add(folder_id)
+        for note in db.query(models.Note.id, models.Note.folder_id).filter(models.Note.id.in_(note_ids)).all():
+            if note.folder_id is not None:
+                folder_ids_by_note.setdefault(note.id, set()).add(note.folder_id)
+    return {note_id: sorted(ids) for note_id, ids in folder_ids_by_note.items()}
+
 def _ensure_note_folder_membership(db: Session, note: models.Note, folder_id: Optional[int]) -> None:
     if folder_id is None:
         return
@@ -101,23 +116,29 @@ def _ensure_note_folder_membership(db: Session, note: models.Note, folder_id: Op
         db.add(models.NoteFolder(note_id=note.id, folder_id=folder_id))
 
 def _folder_note_count(db: Session, folder_id: int) -> int:
-    note_ids = {
-        note_id
-        for (note_id,) in db.query(models.NoteFolder.note_id)
+    return _folder_note_counts_bulk(db, [folder_id]).get(folder_id, 0)
+
+def _folder_note_counts_bulk(db: Session, folder_ids: list[int]) -> dict[int, int]:
+    note_ids_by_folder: dict[int, set[int]] = {folder_id: set() for folder_id in folder_ids}
+    if not folder_ids:
+        return {}
+    for folder_id, note_id in (
+        db.query(models.NoteFolder.folder_id, models.NoteFolder.note_id)
         .join(models.Note, models.Note.id == models.NoteFolder.note_id)
         .filter(
-            models.NoteFolder.folder_id == folder_id,
+            models.NoteFolder.folder_id.in_(folder_ids),
             models.Note.is_deleted == False,
         )
         .all()
-    }
-    note_ids.update(
-        note_id
-        for (note_id,) in db.query(models.Note.id)
-        .filter(models.Note.folder_id == folder_id, models.Note.is_deleted == False)
+    ):
+        note_ids_by_folder.setdefault(folder_id, set()).add(note_id)
+    for note in (
+        db.query(models.Note.id, models.Note.folder_id)
+        .filter(models.Note.folder_id.in_(folder_ids), models.Note.is_deleted == False)
         .all()
-    )
-    return len(note_ids)
+    ):
+        note_ids_by_folder.setdefault(note.folder_id, set()).add(note.id)
+    return {folder_id: len(ids) for folder_id, ids in note_ids_by_folder.items()}
 
 class ContextNotesCreateRequest(BaseModel):
     user_id: str
@@ -504,6 +525,8 @@ def get_notes(
             if not n.is_deleted
         ]
 
+    folder_ids_by_note = _note_folder_ids_bulk(db, [n.id for n in notes])
+
     return [
         {
             "id": n.id,
@@ -514,7 +537,7 @@ def get_notes(
             "updated_at": n.updated_at.isoformat() + "Z" if n.updated_at else None,
             "is_favorite": getattr(n, "is_favorite", False),
             "folder_id": getattr(n, "folder_id", None),
-            "folder_ids": _note_folder_ids(db, n),
+            "folder_ids": folder_ids_by_note.get(n.id, []),
             "custom_font": getattr(n, "custom_font", "Inter"),
             "canvas_data": getattr(n, "canvas_data", None) or "",
             "is_deleted": False,
@@ -878,6 +901,8 @@ def get_folders(user_id: str = Query(...), db: Session = Depends(get_db)):
         .all()
     )
 
+    note_counts_by_folder = _folder_note_counts_bulk(db, [f.id for f in folders])
+
     return {
         "folders": [
             {
@@ -885,7 +910,7 @@ def get_folders(user_id: str = Query(...), db: Session = Depends(get_db)):
                 "name": f.name,
                 "color": f.color,
                 "parent_id": f.parent_id,
-                "note_count": _folder_note_count(db, f.id),
+                "note_count": note_counts_by_folder.get(f.id, 0),
                 "created_at": f.created_at.isoformat() + "Z",
             }
             for f in folders
@@ -1013,6 +1038,8 @@ def get_favorite_notes(user_id: str = Query(...), db: Session = Depends(get_db))
         .all()
     )
 
+    folder_ids_by_note = _note_folder_ids_bulk(db, [n.id for n in notes])
+
     return [
         {
             "id": n.id,
@@ -1022,7 +1049,7 @@ def get_favorite_notes(user_id: str = Query(...), db: Session = Depends(get_db))
             "updated_at": n.updated_at.isoformat() + "Z" if n.updated_at else None,
             "is_favorite": True,
             "folder_id": getattr(n, "folder_id", None),
-            "folder_ids": _note_folder_ids(db, n),
+            "folder_ids": folder_ids_by_note.get(n.id, []),
         }
         for n in notes
     ]

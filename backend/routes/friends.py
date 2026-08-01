@@ -3,8 +3,8 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
-from sqlalchemy import and_
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, func
+from sqlalchemy.orm import Session, joinedload
 
 import models
 from database import get_db
@@ -35,38 +35,52 @@ async def search_users(
             )
         ).limit(20).all()
 
-        result = []
-        for user in users:
-            comp_profile = db.query(models.ComprehensiveUserProfile).filter(
-                models.ComprehensiveUserProfile.user_id == user.id
-            ).first()
+        user_ids = [user.id for user in users]
 
-            gam_stats = db.query(models.UserGamificationStats).filter(
-                models.UserGamificationStats.user_id == user.id
-            ).first()
-
-            friendship = db.query(models.Friendship).filter(
+        comp_profiles_by_user = {
+            row.user_id: row for row in db.query(models.ComprehensiveUserProfile).filter(
+                models.ComprehensiveUserProfile.user_id.in_(user_ids)
+            ).all()
+        }
+        gam_stats_by_user = {
+            row.user_id: row for row in db.query(models.UserGamificationStats).filter(
+                models.UserGamificationStats.user_id.in_(user_ids)
+            ).all()
+        }
+        friendships_by_user = {
+            row.friend_id: row for row in db.query(models.Friendship).filter(
                 and_(
                     models.Friendship.user_id == current_user.id,
-                    models.Friendship.friend_id == user.id
+                    models.Friendship.friend_id.in_(user_ids)
                 )
-            ).first()
-
-            pending_request_sent = db.query(models.FriendRequest).filter(
+            ).all()
+        }
+        pending_sent_by_user = {
+            row.receiver_id: row for row in db.query(models.FriendRequest).filter(
                 and_(
                     models.FriendRequest.sender_id == current_user.id,
-                    models.FriendRequest.receiver_id == user.id,
+                    models.FriendRequest.receiver_id.in_(user_ids),
                     models.FriendRequest.status == "pending"
                 )
-            ).first()
-
-            pending_request_received = db.query(models.FriendRequest).filter(
+            ).all()
+        }
+        pending_received_by_user = {
+            row.sender_id: row for row in db.query(models.FriendRequest).filter(
                 and_(
-                    models.FriendRequest.sender_id == user.id,
+                    models.FriendRequest.sender_id.in_(user_ids),
                     models.FriendRequest.receiver_id == current_user.id,
                     models.FriendRequest.status == "pending"
                 )
-            ).first()
+            ).all()
+        }
+
+        result = []
+        for user in users:
+            comp_profile = comp_profiles_by_user.get(user.id)
+            gam_stats = gam_stats_by_user.get(user.id)
+            friendship = friendships_by_user.get(user.id)
+            pending_request_sent = pending_sent_by_user.get(user.id)
+            pending_request_received = pending_received_by_user.get(user.id)
 
             preferred_subjects = []
             if comp_profile and comp_profile.preferred_subjects:
@@ -336,17 +350,24 @@ async def get_friends(
             models.Friendship.user_id == current_user.id
         ).all()
 
+        friend_ids = [friendship.friend_id for friendship in friendships]
+        comp_profiles_by_user = {
+            row.user_id: row for row in db.query(models.ComprehensiveUserProfile).filter(
+                models.ComprehensiveUserProfile.user_id.in_(friend_ids)
+            ).all()
+        }
+        gam_stats_by_user = {
+            row.user_id: row for row in db.query(models.UserGamificationStats).filter(
+                models.UserGamificationStats.user_id.in_(friend_ids)
+            ).all()
+        }
+
         result = []
         for friendship in friendships:
             friend = friendship.friend
 
-            comp_profile = db.query(models.ComprehensiveUserProfile).filter(
-                models.ComprehensiveUserProfile.user_id == friend.id
-            ).first()
-
-            gam_stats = db.query(models.UserGamificationStats).filter(
-                models.UserGamificationStats.user_id == friend.id
-            ).first()
+            comp_profile = comp_profiles_by_user.get(friend.id)
+            gam_stats = gam_stats_by_user.get(friend.id)
 
             preferred_subjects = []
             if comp_profile and comp_profile.preferred_subjects:
@@ -450,22 +471,32 @@ async def get_friend_activity_feed(
         if not friend_ids:
             return {"activities": []}
 
-        activities = db.query(models.FriendActivity).filter(
+        activities = db.query(models.FriendActivity).options(
+            joinedload(models.FriendActivity.user)
+        ).filter(
             models.FriendActivity.user_id.in_(friend_ids)
         ).order_by(models.FriendActivity.created_at.desc()).limit(limit).all()
 
-        result = []
-        for activity in activities:
-            kudos_count = db.query(models.Kudos).filter(
-                models.Kudos.activity_id == activity.id
-            ).count()
-
-            user_gave_kudos = db.query(models.Kudos).filter(
+        activity_ids = [activity.id for activity in activities]
+        kudos_counts_by_activity = dict(
+            db.query(models.Kudos.activity_id, func.count(models.Kudos.id))
+            .filter(models.Kudos.activity_id.in_(activity_ids))
+            .group_by(models.Kudos.activity_id)
+            .all()
+        )
+        user_kudos_activity_ids = {
+            row.activity_id for row in db.query(models.Kudos.activity_id).filter(
                 and_(
-                    models.Kudos.activity_id == activity.id,
+                    models.Kudos.activity_id.in_(activity_ids),
                     models.Kudos.user_id == current_user.id
                 )
-            ).first() is not None
+            ).all()
+        }
+
+        result = []
+        for activity in activities:
+            kudos_count = kudos_counts_by_activity.get(activity.id, 0)
+            user_gave_kudos = activity.id in user_kudos_activity_ids
 
             result.append({
                 "id": activity.id,

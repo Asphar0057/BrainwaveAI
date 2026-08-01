@@ -15,7 +15,7 @@ from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import func, text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 import models
 from services import context_store
@@ -933,6 +933,7 @@ def list_documents(
     """
     user_docs_db = (
         db.query(models.ContextDocument)
+        .options(joinedload(models.ContextDocument.folder))
         .filter(models.ContextDocument.user_id == current_user.id)
         .order_by(models.ContextDocument.created_at.desc())
         .all()

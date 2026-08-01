@@ -35,30 +35,50 @@ def get_learning_reviews(user_id: str = Query(...), db: Session = Depends(get_db
             models.LearningReview.user_id == user.id
         ).order_by(models.LearningReview.created_at.desc()).all()
 
-        result = []
-        for review in reviews:
-            session_titles = []
-            slide_filenames = []
+        review_session_ids: dict[int, list] = {}
+        review_slide_ids: dict[int, list] = {}
+        all_session_ids: set = set()
+        all_slide_ids: set = set()
 
+        for review in reviews:
             try:
                 if review.source_sessions:
                     session_ids = json.loads(review.source_sessions)
-                    sessions = db.query(models.ChatSession).filter(
-                        models.ChatSession.id.in_(session_ids)
-                    ).all()
-                    session_titles = [s.title for s in sessions]
+                    review_session_ids[review.id] = session_ids
+                    all_session_ids.update(session_ids)
             except Exception:
                 pass
-
             try:
                 if review.source_slides:
                     slide_ids = json.loads(review.source_slides)
-                    slides = db.query(models.UploadedSlide).filter(
-                        models.UploadedSlide.id.in_(slide_ids)
-                    ).all()
-                    slide_filenames = [s.original_filename for s in slides]
+                    review_slide_ids[review.id] = slide_ids
+                    all_slide_ids.update(slide_ids)
             except Exception:
                 pass
+
+        session_titles_by_id = {
+            s.id: s.title for s in (
+                db.query(models.ChatSession).filter(models.ChatSession.id.in_(all_session_ids)).all()
+                if all_session_ids else []
+            )
+        }
+        slide_filenames_by_id = {
+            s.id: s.original_filename for s in (
+                db.query(models.UploadedSlide).filter(models.UploadedSlide.id.in_(all_slide_ids)).all()
+                if all_slide_ids else []
+            )
+        }
+
+        result = []
+        for review in reviews:
+            session_titles = [
+                session_titles_by_id[sid] for sid in review_session_ids.get(review.id, [])
+                if sid in session_titles_by_id
+            ]
+            slide_filenames = [
+                slide_filenames_by_id[sid] for sid in review_slide_ids.get(review.id, [])
+                if sid in slide_filenames_by_id
+            ]
 
             result.append({
                 "id": review.id,
