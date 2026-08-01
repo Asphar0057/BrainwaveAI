@@ -799,8 +799,8 @@
   overflow: hidden;
   border-radius: 14px;
   background:
-    linear-gradient(120deg, color-mix(in srgb, var(--accent) 5%, transparent), transparent 40%),
-    linear-gradient(155deg, rgba(16, 17, 19, .96), rgba(7, 8, 9, .98));
+    radial-gradient(ellipse 70% 95% at 100% 100%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 68%),
+    linear-gradient(140deg, color-mix(in srgb, var(--accent) 8%, #1a1b1d), #121315 52%, #0e0f11 100%);
   box-shadow: 0 14px 34px rgba(0, 0, 0, .18);
 }
 
@@ -907,7 +907,7 @@
   align-items: center;
   gap: 2px 7px;
   padding: 10px;
-  background: rgba(255,255,255,.012);
+  background: color-mix(in srgb, var(--accent) 3%, rgba(255,255,255,.025));
   text-align: left;
 }
 
@@ -968,7 +968,8 @@
   padding: 9px;
   border: 1px solid color-mix(in srgb, var(--accent) 17%, transparent);
   border-radius: 13px;
-  background: color-mix(in srgb, #070809 92%, transparent);
+  background:
+    linear-gradient(115deg, color-mix(in srgb, var(--accent) 6%, #17181a), #101113 72%);
   box-shadow: 0 12px 28px rgba(0,0,0,.2);
   backdrop-filter: blur(16px);
 }
@@ -977,7 +978,7 @@
   max-width: none;
   min-height: 42px;
   border-color: transparent;
-  background: rgba(255,255,255,.022);
+  background: linear-gradient(105deg, color-mix(in srgb, var(--accent) 5%, #191a1c), #121315);
 }
 
 .fd-search-box > button {
@@ -1028,7 +1029,9 @@
   padding: 12px 13px;
   overflow: hidden;
   border-radius: 11px;
-  background: linear-gradient(105deg, rgba(255,255,255,.022), rgba(255,255,255,.008));
+  background:
+    radial-gradient(ellipse 55% 140% at 100% 100%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 72%),
+    linear-gradient(105deg, color-mix(in srgb, var(--accent) 6%, #191a1c), #111214);
 }
 
 .fd-user-row::before {
@@ -1442,7 +1445,7 @@
   padding: 8px;
   border: 1px solid color-mix(in srgb, var(--accent) 15%, transparent);
   border-radius: 12px;
-  background: rgba(255, 255, 255, .012);
+  background: linear-gradient(110deg, color-mix(in srgb, var(--accent) 4%, #161719), #101113);
 }
 
 .fd-roster-search,
@@ -1457,7 +1460,7 @@
 
 .fd-roster-search {
   padding: 0 11px;
-  background: rgba(255, 255, 255, .022);
+  background: color-mix(in srgb, var(--accent) 4%, #18191b);
   transition: background-color 150ms ease, box-shadow 150ms ease;
 }
 
@@ -1496,7 +1499,7 @@
 .fd-sort-control {
   padding: 0 10px;
   border: 1px solid color-mix(in srgb, var(--accent) 15%, transparent);
-  background: #0b0c0e;
+  background: color-mix(in srgb, var(--accent) 4%, #17181a);
 }
 
 .fd-sort-control > span {
@@ -1510,7 +1513,7 @@
 .fd-sort-control select {
   border: 0;
   outline: 0;
-  background: #0b0c0e;
+  background: transparent;
   color: var(--text-primary);
   font: inherit;
   font-size: 10px;

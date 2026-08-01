@@ -5,9 +5,9 @@ import {
   Trophy, Clock, AlertCircle, Zap, TrendingUp
 } from 'lucide-react';
 import './WeaknessTips.css';
-import '../components/SocialHubChrome.css';
 import MathRenderer from '../components/MathRenderer';
 import { queuedAIJsonFetch } from '../services/aiJobService';
+import SocialHubChrome from '../components/SocialHubChrome';
 
 const AccuracyMeter = ({ accuracy }) => {
   const radius = 54;
@@ -159,64 +159,42 @@ const WeaknessTips = () => {
   const badge = getStatusBadge(accuracy, attempts);
   const decodedTopic = decodeURIComponent(topic);
 
-  const GeoBg = () => (
-    <svg className="wt-geo-bg" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="12%" cy="18%" r="220" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.5" />
-      <circle cx="12%" cy="18%" r="140" fill="none" stroke="currentColor" strokeWidth="0.5" opacity="0.4" />
-      <circle cx="88%" cy="78%" r="280" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.4" />
-      <circle cx="88%" cy="78%" r="180" fill="none" stroke="currentColor" strokeWidth="0.5" opacity="0.3" />
-      <circle cx="55%" cy="50%" r="380" fill="none" stroke="currentColor" strokeWidth="0.5" opacity="0.2" />
-      <line x1="0" y1="28%" x2="100%" y2="18%" stroke="currentColor" strokeWidth="0.5" opacity="0.35" />
-      <line x1="0" y1="65%" x2="100%" y2="55%" stroke="currentColor" strokeWidth="0.5" opacity="0.25" />
-      <line x1="20%" y1="0" x2="30%" y2="100%" stroke="currentColor" strokeWidth="0.5" opacity="0.3" />
-      <line x1="72%" y1="0" x2="65%" y2="100%" stroke="currentColor" strokeWidth="0.5" opacity="0.2" />
-      <circle cx="25%" cy="42%" r="3" fill="currentColor" opacity="0.5" />
-      <circle cx="70%" cy="22%" r="2" fill="currentColor" opacity="0.4" />
-      <circle cx="45%" cy="75%" r="4" fill="currentColor" opacity="0.35" />
-      <circle cx="82%" cy="40%" r="2.5" fill="currentColor" opacity="0.4" />
-      <circle cx="15%" cy="70%" r="2" fill="currentColor" opacity="0.3" />
-      <circle cx="60%" cy="10%" r="3" fill="currentColor" opacity="0.45" />
-    </svg>
+  const sidebarLead = (
+    <button className="wt-side-practice" type="button" onClick={generatePracticeQuestions} disabled={generatingPractice}>
+      {generatingPractice ? <Clock size={15} className="wt-spin" /> : <Zap size={15} />}
+      <span>{generatingPractice ? 'Preparing practice…' : 'Generate practice'}</span>
+    </button>
   );
+
+  const sideSections = [{
+    label: 'Recovery path',
+    items: [
+      { icon: Activity, label: 'Topic diagnosis', active: true, onClick: () => {} },
+      { icon: Brain, label: 'All weak areas', onClick: () => navigate('/weaknesses') },
+      { icon: Trophy, label: 'Question Hub', onClick: () => navigate('/question-bank') },
+    ],
+  }];
 
   if (loading) {
     return (
-      <div className="wt-page">
-        <GeoBg />
-        <div className="wt-orb wt-orb-1" />
-        <div className="wt-orb wt-orb-2" />
-        <div className="shc-topbar">
-          <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-          <div className="shc-topbar-right">
-            <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-          </div>
-        </div>
-        <div className="wt-loading">
-          <div className="wt-loading-dots">
-            <span /><span /><span />
-          </div>
-          <p className="wt-loading-text">ANALYSING WEAKNESS</p>
-        </div>
+      <div className="wt-page with-social-chrome">
+        <SocialHubChrome brandKicker="Weak Areas" sidebarLead={sidebarLead} sideSections={sideSections}>
+          <main className="wt-main">
+            <div className="wt-loading">
+              <div className="wt-loading-dots"><span /><span /><span /></div>
+              <p className="wt-loading-text">Analysing weakness</p>
+            </div>
+          </main>
+        </SocialHubChrome>
       </div>
     );
   }
 
   return (
-    <div className="wt-page">
-      <GeoBg />
-      <div className="wt-orb wt-orb-1" />
-      <div className="wt-orb wt-orb-2" />
-      <div className="wt-orb wt-orb-3" />
-
-      <div className="shc-topbar">
-        <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-        <div className="shc-topbar-right">
-          <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-        </div>
-      </div>
-
-      <div className="wt-body">
-        <div className="wt-content">
+    <div className="wt-page with-social-chrome">
+      <SocialHubChrome brandKicker="Weak Areas" sidebarLead={sidebarLead} sideSections={sideSections}>
+        <main className="wt-main">
+          <div className="wt-content">
 
           <button className="wt-back-btn" onClick={() => navigate('/weaknesses')}>
             <ChevronLeft size={15} />
@@ -224,7 +202,6 @@ const WeaknessTips = () => {
           </button>
 
           <div className="wt-hero">
-            <div className="wt-hero-grid-overlay" aria-hidden="true" />
             <div className="wt-hero-left">
               <span className="wt-hero-kicker">WEAKNESS ANALYSIS</span>
               <h1 className="wt-hero-topic">{decodedTopic}</h1>
@@ -420,8 +397,9 @@ const WeaknessTips = () => {
             </div>
           )}
 
-        </div>
-      </div>
+          </div>
+        </main>
+      </SocialHubChrome>
     </div>
   );
 };

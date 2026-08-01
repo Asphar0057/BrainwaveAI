@@ -1,15 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Loader, FileText, Trash2, ChevronLeft, ChevronRight, Home, BookOpen, Tag, Lightbulb, UploadCloud, MessageSquare, Brain, Zap, Maximize2, Minimize2 } from 'lucide-react';
+import { Upload, Loader, FileText, Trash2, ChevronLeft, ChevronRight, BookOpen, Tag, Lightbulb, UploadCloud, MessageSquare, Brain, Zap, Maximize2, Minimize2, ArrowUpRight, Layers3 } from 'lucide-react';
 import './SlideExplorer.css';
 import { API_URL } from '../config';
 import slideExplorerAgentService from '../services/slideExplorerAgentService';
 import { sanitizeHtml } from '../utils/sanitize';
+import SocialHubChrome from '../components/SocialHubChrome';
 
-const CARD_COLORS = [
-  '#e8a598', '#7ecdc8', '#f0c274', '#a8d8a8', '#c3a8d8',
-  '#f4a67a', '#82c5d4', '#e8c5a0', '#a8c5e8', '#d4a8c5',
-];
+const getDeckTitle = (filename = 'Untitled presentation') => filename.replace(/\.(pdf|pptx|ppt)$/i, '');
+
+const formatDeckDate = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Recently added';
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
 
 const renderMarkdown = (text) => {
   if (!text) return '';
@@ -132,6 +136,17 @@ const SlideExplorer = () => {
   useEffect(() => {
     fetchUploadedSlides();
   }, [fetchUploadedSlides]);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined;
+    const narrowViewport = window.matchMedia('(max-width: 1100px)');
+    const syncSidebar = (event) => {
+      if (event.matches) setSidebarCollapsed(true);
+    };
+    syncSidebar(narrowViewport);
+    narrowViewport.addEventListener?.('change', syncSidebar);
+    return () => narrowViewport.removeEventListener?.('change', syncSidebar);
+  }, []);
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -259,74 +274,166 @@ const SlideExplorer = () => {
 
   const currentSlide = analyzedSlides[currentSlideIndex];
 
+  useEffect(() => {
+    if (!selectedSlide || analyzedSlides.length === 0) return undefined;
+    const handleSlideKeys = (event) => {
+      const target = event.target;
+      const isTyping = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || target?.isContentEditable;
+      if (isTyping) return;
+      if (event.key === 'ArrowLeft' && currentSlideIndex > 0) {
+        event.preventDefault();
+        setCurrentSlideIndex(currentSlideIndex - 1);
+      }
+      if (event.key === 'ArrowRight' && currentSlideIndex < analyzedSlides.length - 1) {
+        event.preventDefault();
+        setCurrentSlideIndex(currentSlideIndex + 1);
+      }
+      if (event.key === 'Escape' && focusMode) {
+        event.preventDefault();
+        setFocusMode(false);
+      }
+    };
+    window.addEventListener('keydown', handleSlideKeys);
+    return () => window.removeEventListener('keydown', handleSlideKeys);
+  }, [selectedSlide, analyzedSlides.length, currentSlideIndex, focusMode]);
+
+  const leaveAnalysis = () => {
+    setSelectedSlide(null);
+    setAnalyzedSlides([]);
+    setFocusMode(false);
+  };
+
+  const sidebarLead = (
+    <button className="se-side-primary" type="button" onClick={() => setActiveView('upload')} disabled={uploading}>
+      {uploading ? <Loader className="se-spinner" size={15} /> : <Upload size={15} />}
+      <span>{uploading ? 'Uploading…' : 'Upload new'}</span>
+    </button>
+  );
+
+  const librarySections = [
+    {
+      label: 'Slide library',
+      items: [
+        {
+          icon: Layers3,
+          label: 'My Slides',
+          count: uploadedSlides.length,
+          active: activeView === 'grid',
+          onClick: () => setActiveView('grid'),
+        },
+        {
+          icon: UploadCloud,
+          label: 'Upload Slides',
+          active: activeView === 'upload',
+          disabled: uploading,
+          onClick: () => setActiveView('upload'),
+        },
+      ],
+    },
+    ...(uploadedSlides.length > 0 ? [{
+      label: 'Recent decks',
+      items: uploadedSlides.slice(0, 5).map(slide => ({
+        icon: FileText,
+        label: getDeckTitle(slide.filename),
+        count: slide.page_count,
+        onClick: () => analyzeSlide(slide.id),
+      })),
+    }] : []),
+  ];
+
   // ─── ANALYSIS VIEW ────────────────────────────────────────────────
   if (selectedSlide && analyzedSlides.length > 0) {
+    const analysisSections = [{
+      label: 'Presentation',
+      items: analyzedSlides.map((slide, idx) => ({
+        icon: FileText,
+        label: slide.title || `Slide ${slide.slide_number}`,
+        count: idx + 1,
+        active: idx === currentSlideIndex,
+        onClick: () => goToSlide(idx),
+      })),
+    }];
+
     return (
-      <div className={`se-page se-analysis-page ${focusMode ? 'se-focus-mode' : ''}`}>
-        <div style={{position:'fixed',top:'10px',right:'16px',zIndex:8000,display:'flex',alignItems:'center',gap:'8px'}}>
-          <button className="se-focus-btn" onClick={() => setFocusMode(f => !f)} title={focusMode ? 'Exit Focus' : 'Focus Mode'}>
-            {focusMode ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-            <span>{focusMode ? 'Exit Focus' : 'Focus'}</span>
-          </button>
-          <button className="se-back-btn" onClick={() => { setSelectedSlide(null); setAnalyzedSlides([]); setFocusMode(false); }}>
-            <ChevronLeft size={18} />
-            <span>Back</span>
-          </button>
-        </div>
-
-        <div className="se-analysis-layout">
-          {!focusMode && (
-            <aside className="se-analysis-sidebar">
-              <div className="se-analysis-slide-block">
-                <div className="se-analysis-sidebar-title">{selectedSlide.filename}</div>
-                <div className="se-analysis-slide-list">
-                  {analyzedSlides.map((slide, idx) => (
-                    <button
-                      key={idx}
-                      className={`se-analysis-slide-thumb ${idx === currentSlideIndex ? 'active' : ''}`}
-                      onClick={() => goToSlide(idx)}
-                    >
-                      <div className="se-thumb-num">{idx + 1}</div>
-                      <div className="se-thumb-title">{slide.title || `Slide ${slide.slide_number}`}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </aside>
+      <div className={`se-page with-social-chrome se-analysis-page ${focusMode ? 'se-focus-mode' : ''}`}>
+        <SocialHubChrome
+          brandKicker="Slides"
+          noSidebar={focusMode}
+          collapsed={sidebarCollapsed}
+          onCollapsedChange={(nextCollapsed) => setSidebarCollapsed(nextCollapsed)}
+          sidebarLead={(
+            <button className="se-side-primary se-side-primary--quiet" type="button" onClick={leaveAnalysis}>
+              <ChevronLeft size={15} />
+              <span>Back to library</span>
+            </button>
           )}
+          sideSections={analysisSections}
+        >
+          <main className="se-workspace se-analysis-workspace">
+            <header className="se-hero se-analysis-hero">
+              <div>
+                <span className="se-kicker">Presentation study desk</span>
+                <h1>{getDeckTitle(selectedSlide.filename)}</h1>
+                <p>Review the source slide beside its explanation, then reveal concepts and practice prompts when you need them.</p>
+              </div>
+              <div className="se-hero-actions">
+                <button className="se-compact-btn" type="button" onClick={() => setFocusMode(value => !value)}>
+                  {focusMode ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+                  <span>{focusMode ? 'Exit focus' : 'Focus mode'}</span>
+                </button>
+                <button className="se-compact-btn" type="button" onClick={leaveAnalysis}>
+                  <ChevronLeft size={15} />
+                  <span>Library</span>
+                </button>
+              </div>
+            </header>
 
-          <main className="se-analysis-main">
-            <div className="se-analysis-nav-bar">
-              <button className="se-nav-arrow" onClick={() => goToSlide(currentSlideIndex - 1)} disabled={currentSlideIndex === 0}>
-                <ChevronLeft size={20} />
+            <nav className="se-slide-stepper" aria-label="Slide navigation">
+              <button type="button" onClick={() => goToSlide(currentSlideIndex - 1)} disabled={currentSlideIndex === 0}>
+                <ChevronLeft size={16} />
+                <span>Previous</span>
               </button>
-              <span className="se-slide-counter">Slide {currentSlideIndex + 1} of {analyzedSlides.length}</span>
-              <button className="se-nav-arrow" onClick={() => goToSlide(currentSlideIndex + 1)} disabled={currentSlideIndex === analyzedSlides.length - 1}>
-                <ChevronRight size={20} />
+              <div className="se-slide-position" aria-current="step">
+                <span>Slide {currentSlideIndex + 1}</span>
+                <strong>{currentSlide?.title || `Slide ${currentSlide?.slide_number}`}</strong>
+                <small>{currentSlideIndex + 1} of {analyzedSlides.length}</small>
+              </div>
+              <button type="button" onClick={() => goToSlide(currentSlideIndex + 1)} disabled={currentSlideIndex === analyzedSlides.length - 1}>
+                <span>Next</span>
+                <ChevronRight size={16} />
               </button>
-            </div>
+            </nav>
 
             {currentSlide && (
-              <div className="se-slide-content-area">
-                <div className="se-slide-image-panel">
-                  <img
-                    src={`${API_URL}/slide_image/${selectedSlide.id}/${currentSlide.slide_number}?token=${encodeURIComponent(token)}`}
-                    alt={`Slide ${currentSlide.slide_number}`}
-                    className="se-slide-img"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'flex';
-                    }}
-                  />
-                  <div className="se-slide-img-fallback" style={{ display: 'none' }}>
-                    <FileText size={56} />
-                    <span>Slide {currentSlide.slide_number}</span>
+              <section className="se-analysis-grid" key={`${selectedSlide.id}-${currentSlide.slide_number}`}>
+                <article className="se-slide-frame">
+                  <div className="se-card-heading">
+                    <div><span>Source frame</span><strong>Original slide</strong></div>
+                    <small>{String(currentSlideIndex + 1).padStart(2, '0')}</small>
                   </div>
-                </div>
+                  <div className="se-slide-canvas">
+                    <span className="se-scan-line" aria-hidden="true" />
+                    <img
+                      src={`${API_URL}/slide_image/${selectedSlide.id}/${currentSlide.slide_number}?token=${encodeURIComponent(token)}`}
+                      alt={`Slide ${currentSlide.slide_number}: ${currentSlide.title || 'Untitled'}`}
+                      className="se-slide-img"
+                      onError={(event) => {
+                        event.currentTarget.style.display = 'none';
+                        event.currentTarget.nextElementSibling.style.display = 'flex';
+                      }}
+                    />
+                    <div className="se-slide-img-fallback" style={{ display: 'none' }}>
+                      <FileText size={42} />
+                      <span>Slide preview unavailable</span>
+                    </div>
+                  </div>
+                  <div className="se-card-support">Source preserved at presentation quality</div>
+                </article>
 
-                <div className="se-slide-explanation-panel">
-                  <div className="se-explanation-header">
-                    <h2 className="se-explanation-title">{currentSlide.title || `Slide ${currentSlide.slide_number}`}</h2>
+                <article className="se-explanation-panel">
+                  <div className="se-card-heading">
+                    <div><span>Study explanation</span><strong>{currentSlide.title || `Slide ${currentSlide.slide_number}`}</strong></div>
+                    <Zap size={17} />
                   </div>
 
                   {currentSlide.detailed_explanation ? (
@@ -339,13 +446,16 @@ const SlideExplorer = () => {
                       <div className="se-slide-actions">
                         <button
                           className={`se-action-btn se-action-insights ${showInsights[currentSlide.slide_number] ? 'active' : ''}`}
+                          type="button"
+                          aria-expanded={Boolean(showInsights[currentSlide.slide_number])}
                           onClick={() => setShowInsights(prev => ({ ...prev, [currentSlide.slide_number]: !prev[currentSlide.slide_number] }))}
                         >
-                          <Zap size={15} />
-                          {showInsights[currentSlide.slide_number] ? 'Hide Insights' : 'Show Insights'}
+                          <Lightbulb size={15} />
+                          {showInsights[currentSlide.slide_number] ? 'Hide insights' : 'Show insights'}
                         </button>
                         <button
                           className="se-action-btn se-action-discuss"
+                          type="button"
                           onClick={() => navigate(`/ai-chat?slideRef=${encodeURIComponent(`${selectedSlide.filename} — Slide ${currentSlide.slide_number}: ${currentSlide.title || ''}`)}`)}
                         >
                           <MessageSquare size={15} />
@@ -356,68 +466,68 @@ const SlideExplorer = () => {
                       {showInsights[currentSlide.slide_number] && (
                         <div className="se-insights-panel">
                           {currentSlide.key_concepts && currentSlide.key_concepts.length > 0 && (
-                            <div className="se-insight-section">
-                              <div className="se-insight-header"><Lightbulb size={15} /><span>Key Concepts</span></div>
+                            <section className="se-insight-section">
+                              <div className="se-insight-header"><Lightbulb size={15} /><span>Key concepts</span></div>
                               <div className="se-concept-tags">
-                                {currentSlide.key_concepts.map((c, i) => <span key={i} className="se-concept-tag">{c}</span>)}
+                                {currentSlide.key_concepts.map((concept, index) => <span key={index} className="se-concept-tag">{concept}</span>)}
                               </div>
-                            </div>
+                            </section>
                           )}
                           {currentSlide.definitions && Object.keys(currentSlide.definitions).length > 0 && (
-                            <div className="se-insight-section">
+                            <section className="se-insight-section">
                               <div className="se-insight-header"><Tag size={15} /><span>Definitions</span></div>
                               <div className="se-definitions-grid">
-                                {Object.entries(currentSlide.definitions).map(([term, def], i) => (
-                                  <div key={i} className="se-definition-card">
+                                {Object.entries(currentSlide.definitions).map(([term, definition], index) => (
+                                  <div key={index} className="se-definition-card">
                                     <h4 className="se-definition-term">{term}</h4>
-                                    <p className="se-definition-text">{def}</p>
+                                    <p className="se-definition-text">{definition}</p>
                                   </div>
                                 ))}
                               </div>
-                            </div>
+                            </section>
                           )}
                           {currentSlide.exam_questions && currentSlide.exam_questions.length > 0 && (
-                            <div className="se-insight-section">
-                              <div className="se-insight-header"><Brain size={15} /><span>Practice Questions</span></div>
+                            <section className="se-insight-section">
+                              <div className="se-insight-header"><Brain size={15} /><span>Practice questions</span></div>
                               <div className="se-exam-questions">
-                                {currentSlide.exam_questions.map((q, idx) => (
-                                  <div key={idx} className="se-exam-question-card">
+                                {currentSlide.exam_questions.map((question, index) => (
+                                  <div key={index} className="se-exam-question-card">
                                     <div className="se-question-header">
-                                      <span className="se-question-number">Q{idx + 1}</span>
-                                      <span className={`se-question-difficulty ${q.difficulty}`}>{q.difficulty}</span>
+                                      <span className="se-question-number">Q{index + 1}</span>
+                                      <span className={`se-question-difficulty ${question.difficulty}`}>{question.difficulty}</span>
                                     </div>
-                                    <p className="se-question-text">{q.question}</p>
-                                    {q.answer_hint && <div className="se-answer-hint"><strong>Hint:</strong> {q.answer_hint}</div>}
+                                    <p className="se-question-text">{question.question}</p>
+                                    {question.answer_hint && <div className="se-answer-hint"><strong>Hint:</strong> {question.answer_hint}</div>}
                                   </div>
                                 ))}
                               </div>
-                            </div>
+                            </section>
                           )}
                           {currentSlide.study_tips && currentSlide.study_tips.length > 0 && (
-                            <div className="se-insight-section">
-                              <div className="se-insight-header"><BookOpen size={15} /><span>Study Tips</span></div>
+                            <section className="se-insight-section">
+                              <div className="se-insight-header"><BookOpen size={15} /><span>Study tips</span></div>
                               <ul className="se-study-tips-list">
-                                {currentSlide.study_tips.map((tip, i) => <li key={i}>{tip}</li>)}
+                                {currentSlide.study_tips.map((tip, index) => <li key={index}>{tip}</li>)}
                               </ul>
-                            </div>
+                            </section>
                           )}
                         </div>
                       )}
                     </div>
                   ) : (
                     <div className="se-no-explanation">
-                      <Loader size={36} className="se-spinner" />
-                      <p>Loading analysis...</p>
+                      <Loader size={30} className="se-spinner" />
+                      <p>Loading slide analysis…</p>
                     </div>
                   )}
-                </div>
-              </div>
+                </article>
+              </section>
             )}
           </main>
-        </div>
+        </SocialHubChrome>
 
         {analyzing && (
-          <div className="se-analyzing-overlay">
+          <div className="se-analyzing-overlay" role="status" aria-live="polite">
             <div className="se-analyzing-content">
               <div className="se-pulse-squares">
                 <div className="se-pulse-sq" /><div className="se-pulse-sq" /><div className="se-pulse-sq" />
@@ -432,192 +542,138 @@ const SlideExplorer = () => {
   }
 
   // ─── MAIN CARD GRID ────────────────────────────────────────────────
+  const totalSlideCount = uploadedSlides.reduce((total, slide) => total + (slide.page_count || 0), 0);
+  const viewCopy = activeView === 'upload'
+    ? {
+      kicker: 'New presentation',
+      title: 'Bring a deck into focus.',
+      description: 'Upload a PDF or PowerPoint and Cerbyl will preserve every slide before building its study layer.',
+    }
+    : {
+      kicker: 'Your slide library',
+      title: 'Presentations worth revisiting.',
+      description: 'Open a deck to study each source frame beside explanations, concepts and practice prompts.',
+    };
+
   return (
-    <div className="se-page">
-      <div className="se-topbar">
-        <div className="se-topbar-tagline"><span>LEARNING,</span> UNIFIED</div>
-      </div>
-
-      <div className="se-main-layout">
-        <aside className={`se-sidebar ${sidebarCollapsed ? 'se-sidebar--collapsed' : ''}`} aria-label="Slides navigation">
-          {sidebarCollapsed ? (
-            <div className="se-collapsed-strip">
-              <button className="se-strip-btn se-strip-logo" data-tip="Open sidebar" onClick={() => setSidebarCollapsed(false)} type="button">
-                <ChevronRight size={18} />
-              </button>
-              <button className={`se-strip-btn ${activeView === 'upload' ? 'active' : ''}`} data-tip="Upload New" onClick={() => { setSidebarCollapsed(false); setActiveView('upload'); }} type="button" disabled={uploading}>
-                <Upload size={18} />
-              </button>
-              <button className={`se-strip-btn ${activeView === 'grid' ? 'active' : ''}`} data-tip="My Slides" onClick={() => { setSidebarCollapsed(false); setActiveView('grid'); }} type="button">
-                <FileText size={18} />
-              </button>
-              <div className="se-strip-spacer" />
-              <button className="se-strip-btn" data-tip="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} type="button">
-                <Home size={18} />
-              </button>
+    <div className="se-page with-social-chrome">
+      <SocialHubChrome
+        brandKicker="Slides"
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={(nextCollapsed) => setSidebarCollapsed(nextCollapsed)}
+        sidebarLead={sidebarLead}
+        sideSections={librarySections}
+      >
+        <main className="se-workspace">
+          <header className="se-hero">
+            <div>
+              <span className="se-kicker">{viewCopy.kicker}</span>
+              <h1>{viewCopy.title}</h1>
+              <p>{viewCopy.description}</p>
             </div>
-          ) : (
-          <>
-            <div className="se-side-brand">
-              <div className="se-brand-wrap">
-                <div className="se-brand">cerbyl</div>
-                <div className="se-brand-kicker">Slides</div>
-              </div>
-              <button
-                className="se-side-close-btn"
-                onClick={() => setSidebarCollapsed(true)}
-                aria-label="Close slides sidebar"
-                type="button"
-              >
-                <ChevronLeft size={14} />
-              </button>
-            </div>
+          </header>
 
-            <button className="se-new-btn" onClick={() => setActiveView('upload')} type="button" disabled={uploading}>
-              <Upload size={16} />
-              <span>Upload New</span>
+          <div className="se-content-toolbar">
+            <div>
+              <span>Library inventory</span>
+              <strong>{uploadedSlides.length} presentation{uploadedSlides.length !== 1 ? 's' : ''} · {totalSlideCount} slides</strong>
+            </div>
+            <button type="button" onClick={() => setActiveView(activeView === 'upload' ? 'grid' : 'upload')} disabled={uploading}>
+              {activeView === 'upload' ? <ChevronLeft size={14} /> : <Upload size={14} />}
+              {activeView === 'upload' ? 'Back to library' : 'Upload presentation'}
             </button>
+          </div>
 
-            <div className="se-side-block se-side-block--grow">
-              <div className="se-side-label">Slide Library</div>
-              <nav className="se-view-nav">
-                <button
-                  className={`se-view-link ${activeView === 'grid' ? 'se-view-link--active' : ''}`}
-                  onClick={() => setActiveView('grid')}
-                  type="button"
-                >
-                  <FileText size={16} />
-                  <span>My Slides</span>
-                  {uploadedSlides.length > 0 && <span className="se-slide-count">{uploadedSlides.length}</span>}
-                </button>
-              </nav>
-
-              {uploadedSlides.length > 0 && (
-                <>
-                  <div className="se-nav-section-title">Recents</div>
-                  <div className="se-slides-list">
-                    {uploadedSlides.slice(0, 6).map(slide => (
-                      <div key={slide.id} className="se-slide-item" onClick={() => analyzeSlide(slide.id)}>
-                        <span className="se-nav-icon"><FileText size={16} /></span>
-                        <div className="se-slide-info">
-                          <div className="se-slide-title">{slide.filename || 'Untitled'}</div>
-                          <div className="se-slide-meta">{slide.page_count || 0} pages</div>
-                        </div>
-                        <button className="se-slide-delete-btn" onClick={(e) => deleteSlide(slide.id, e)} title="Delete">
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="se-side-actions">
-              <button className="se-side-action-btn" onClick={() => navigate('/dashboard-cerbyl')} type="button">
-                <Home size={14} />
-                <span>Dashboard</span>
-              </button>
-            </div>
-          </>
-          )}
-        </aside>
-
-        <main className="se-main-content">
+          <section className="se-view" aria-live="polite">
           {activeView === 'upload' ? (
             <div className="se-upload-view">
-              <div className="se-view-header">
-                <span className="se-view-kicker">Add Content</span>
-                <h2 className="se-view-title">Upload Slides</h2>
-                <p className="se-view-sub">PDF or PowerPoint (.pptx, .ppt)</p>
-              </div>
               <div
-                className={`se-upload-area ${dragActive ? 'active' : ''} ${uploading ? 'disabled' : ''}`}
+                className={`se-upload-stage ${dragActive ? 'is-dragging' : ''} ${uploading ? 'is-disabled' : ''}`}
+                role="button"
+                tabIndex={uploading ? -1 : 0}
+                aria-disabled={uploading}
                 onDragEnter={handleDrag}
                 onDragLeave={handleDrag}
                 onDragOver={handleDrag}
                 onDrop={handleDrop}
                 onClick={() => !uploading && document.getElementById('se-file-input').click()}
+                onKeyDown={(event) => {
+                  if (!uploading && (event.key === 'Enter' || event.key === ' ')) {
+                    event.preventDefault();
+                    document.getElementById('se-file-input').click();
+                  }
+                }}
               >
+                <div className="se-upload-orbit" aria-hidden="true"><span /><span /><span /></div>
                 <div className="se-upload-icon">
-                  {uploading ? <Loader size={56} className="se-spinner" /> : <UploadCloud size={56} />}
+                  {uploading ? <Loader size={30} className="se-spinner" /> : <UploadCloud size={30} />}
                 </div>
-                <p className="se-upload-title">{uploading ? 'Uploading...' : 'Drag files here or click to upload'}</p>
-                <p className="se-upload-subtitle">Supports PDF and PowerPoint files</p>
+                <span className="se-upload-kicker">Source intake</span>
+                <h2>{uploading ? 'Uploading presentation…' : 'Drop a deck into the workspace'}</h2>
+                <p>PDF, PPTX or PPT · multiple files supported</p>
+                <span className="se-upload-cta">{uploading ? 'Keeping the source intact' : 'Choose files'} <ArrowUpRight size={14} /></span>
                 <input type="file" id="se-file-input" accept=".pdf,.pptx,.ppt" onChange={handleFileSelect} disabled={uploading} className="se-file-input" multiple />
               </div>
-              {!uploading && (
-                <button className="se-cancel-upload-btn" onClick={() => setActiveView('grid')}>
-                  <ChevronLeft size={16} /> Back to My Slides
-                </button>
-              )}
+              <div className="se-upload-support">
+                <div><span>01</span><strong>Original frames preserved</strong><small>Every slide remains traceable to the uploaded source.</small></div>
+                <div><span>02</span><strong>Study layer generated</strong><small>Explanations, concepts and prompts stay beside the deck.</small></div>
+              </div>
             </div>
           ) : (
-            <>
-          <div className="se-view-header">
-            <span className="se-view-kicker">Your Library</span>
-            <h2 className="se-view-title">My Slides</h2>
-            <p className="se-view-sub">{uploadedSlides.length} presentation{uploadedSlides.length !== 1 ? 's' : ''} · {uploadedSlides.reduce((acc, s) => acc + (s.page_count || 0), 0)} slides total</p>
-          </div>
-
-          {loading ? (
-            <div className="se-loading"><div className="se-pulse-loader"><div className="se-pulse-sq se-pulse-1" /><div className="se-pulse-sq se-pulse-2" /><div className="se-pulse-sq se-pulse-3" /></div></div>
-          ) : uploadedSlides.length === 0 ? (
-            <div className="se-empty-state">
-              <div className="se-empty-icon-wrap"><FileText size={64} /></div>
-              <h3>No presentations yet</h3>
-              <p>Upload a PDF or PowerPoint to get started</p>
-              <button className="se-empty-upload-btn" onClick={() => setActiveView('upload')}>
-                <UploadCloud size={20} />
-                Upload Presentation
-              </button>
-            </div>
-          ) : (
-            <div className="se-card-grid">
-              {uploadedSlides.map((slide, index) => {
-                const color = CARD_COLORS[index % CARD_COLORS.length];
-                const date = new Date(slide.uploaded_at).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
-                return (
-                  <div key={slide.id} className="se-set-card">
-                    {/* Thumbnail — image on top */}
-                    <div className="se-set-thumbnail" style={{ background: `linear-gradient(135deg, ${color} 0%, ${color}dd 100%)` }}>
+            loading ? (
+              <div className="se-loading" role="status"><div className="se-pulse-loader"><div className="se-pulse-sq" /><div className="se-pulse-sq" /><div className="se-pulse-sq" /></div><span>Arranging your slide library…</span></div>
+            ) : uploadedSlides.length === 0 ? (
+              <div className="se-empty-state">
+                <div className="se-empty-icon-wrap"><Layers3 size={26} /></div>
+                <span>Library ready</span>
+                <h2>Your presentations will live here.</h2>
+                <p>Upload a PDF or PowerPoint to create a source-aware study deck.</p>
+                <button type="button" onClick={() => setActiveView('upload')}><UploadCloud size={16} />Upload presentation</button>
+              </div>
+            ) : (
+              <div className="se-card-grid">
+                {uploadedSlides.map((slide, index) => (
+                  <article key={slide.id} className="se-deck-card" style={{ '--se-deck-index': index }}>
+                    <div className="se-deck-preview">
+                      <span className="se-preview-index">{String(index + 1).padStart(2, '0')}</span>
                       <img
-                        src={`${API_URL}/slide_image/${slide.id}/1`}
-                        alt={slide.filename}
-                        className="se-set-thumb-img"
-                        onError={(e) => { e.target.style.display = 'none'; }}
+                        src={`${API_URL}/slide_image/${slide.id}/1?token=${encodeURIComponent(token)}`}
+                        alt={`First slide of ${getDeckTitle(slide.filename)}`}
+                        className="se-deck-image"
+                        onError={(event) => { event.currentTarget.style.display = 'none'; }}
                       />
-                      <button className="se-delete-btn-thumb" onClick={(e) => deleteSlide(slide.id, e)}>
+                      <div className="se-deck-fallback"><FileText size={30} /><span>Presentation preview</span></div>
+                      <button
+                        className="se-delete-deck"
+                        type="button"
+                        aria-label={`Delete ${getDeckTitle(slide.filename)}`}
+                        onClick={(event) => deleteSlide(slide.id, event)}
+                      >
                         <Trash2 size={14} />
                       </button>
                     </div>
-
-                    {/* Content below */}
-                    <div className="se-set-content">
-                      <p className="se-set-date">Created: {date}</p>
-                      <h3 className="se-set-title">
-                        {(slide.filename || 'Untitled').replace(/\.(pdf|pptx|ppt)$/i, '')}
-                      </h3>
-                      <p className="se-set-count">{slide.page_count || 0} SLIDES</p>
+                    <div className="se-deck-copy">
+                      <span>Presentation · {slide.page_count || 0} slides</span>
+                      <h2>{getDeckTitle(slide.filename)}</h2>
+                      <p>Added {formatDeckDate(slide.uploaded_at)}</p>
                     </div>
-
-                    <div className="se-set-actions">
-                      <button className="se-action-btn-view" onClick={() => analyzeSlide(slide.id)} disabled={analyzing}>
-                        <span>VIEW</span>
+                    <div className="se-deck-footer">
+                      <div><span>Study state</span><strong>Ready to explore</strong></div>
+                      <button type="button" onClick={() => analyzeSlide(slide.id)} disabled={analyzing}>
+                        Open deck <ArrowUpRight size={15} />
                       </button>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  </article>
+                ))}
+              </div>
+            )
           )}
-            </>
-          )}
+          </section>
         </main>
-      </div>
+      </SocialHubChrome>
 
       {analyzing && (
-        <div className="se-analyzing-overlay">
+        <div className="se-analyzing-overlay" role="status" aria-live="polite">
           <div className="se-analyzing-content">
             <div className="se-pulse-squares">
               <div className="se-pulse-sq" /><div className="se-pulse-sq" /><div className="se-pulse-sq" />

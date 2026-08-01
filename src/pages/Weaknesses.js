@@ -14,14 +14,11 @@ import {
   BookOpen,
   Brain,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   CircleGauge,
   Clock3,
   Cpu,
   FileText,
   Layers3,
-  LayoutDashboard,
   MessageCircle,
   Play,
   RefreshCw,
@@ -35,6 +32,7 @@ import { API_URL } from '../config';
 import { queuedAIJsonFetch } from '../services/aiJobService';
 import WeaknessTracker from '../components/WeaknessTracker/WeaknessTracker';
 import RLInsights from '../components/RLInsights/RLInsights';
+import SocialHubChrome from '../components/SocialHubChrome';
 
 const VIEWS = [
   { id: 'weak-areas', label: 'Priority diagnosis', icon: Target },
@@ -158,86 +156,64 @@ const Weaknesses = () => {
     'how-i-learn': 'Tune the way Cerbyl teaches you.',
     activity: 'Trace what changed your learning.',
   }[activeView];
+  const pageDescription = {
+    'weak-areas': 'Rank the strongest learning signals, inspect their evidence, and move directly into targeted practice.',
+    'topics-hub': 'See every tracked topic by mastery, recency, and the next action that will make a difference.',
+    intelligence: 'Understand how long-term mastery, study frequency, and repeated mistakes shaped this diagnosis.',
+    'how-i-learn': 'Review the teaching patterns Cerbyl uses to adapt explanations and recovery sessions to you.',
+    activity: 'Follow the recent study events that are changing your diagnosis and learning trajectory.',
+  }[activeView];
 
-  const renderSidebar = () => {
-    if (sidebarCollapsed) {
-      return (
-        <aside className="wa-rail" aria-label="Collapsed Weak Areas navigation">
-          <div className="wa-side-texture" aria-hidden="true" />
-          <button type="button" onClick={() => setSidebarCollapsed(false)} aria-label="Expand Weak Areas sidebar"><ChevronRight size={16} /></button>
-          {VIEWS.map(({ id, label, icon: Icon }) => (
-            <button key={id} type="button" className={activeView === id ? 'active' : ''} onClick={() => { setSidebarCollapsed(false); switchView(id); }} aria-label={label} aria-current={activeView === id ? 'page' : undefined}>
-              <Icon size={17} />
-            </button>
-          ))}
-          <button type="button" onClick={() => navigate('/dashboard-cerbyl')} aria-label="Dashboard"><LayoutDashboard size={17} /></button>
-        </aside>
-      );
-    }
+  const sidebarLead = (
+    <button type="button" className="wa-practice-now" onClick={() => navigate('/weakness-practice')}>
+      <Play size={15} fill="currentColor" />
+      <span>Practice now</span>
+    </button>
+  );
 
-    return (
-      <aside className="wa-sidebar">
-        <div className="wa-side-texture" aria-hidden="true" />
-        <header className="wa-brand">
-          <div><strong>cerbyl</strong><span>WEAK AREAS</span></div>
-          <button type="button" onClick={() => setSidebarCollapsed(true)} aria-label="Collapse Weak Areas sidebar"><ChevronLeft size={16} /></button>
-        </header>
-
-        <button type="button" className="wa-practice-now" onClick={() => navigate('/weakness-practice')}>
-          <Play size={16} fill="currentColor" /> Practice now
-        </button>
-
-        <section className="wa-side-block">
-          <p className="wa-side-label">Learning focus</p>
-          <nav aria-label="Weak Areas sections">
-            {VIEWS.map(({ id, label, icon: Icon }) => (
-              <button key={id} type="button" className={activeView === id ? 'active' : ''} onClick={() => switchView(id)} aria-current={activeView === id ? 'page' : undefined}>
-                <Icon size={17} /><span>{label}</span>
-                {id === 'weak-areas' && totalCount > 0 ? <small>{totalCount}</small> : null}
-                {id === 'topics-hub' && topicsHub?.total_topics > 0 ? <small>{topicsHub.total_topics}</small> : null}
-              </button>
-            ))}
-          </nav>
-        </section>
-
-        <section className="wa-side-block wa-sidebar-signal" aria-label="Current diagnosis">
-          <div><p className="wa-side-label">Current diagnosis</p><strong>{totalCount}</strong></div>
-          <div className="wa-signal-track" aria-hidden>
-            <i className="critical" style={{ flex: criticalCount || 0.001 }} />
-            <i className="practice" style={{ flex: needsPracticeCount || 0.001 }} />
-            <i className="improving" style={{ flex: improvingCount || 0.001 }} />
-          </div>
-          <dl>
-            <div><dt>Critical</dt><dd>{criticalCount}</dd></div>
-            <div><dt>Practice</dt><dd>{needsPracticeCount}</dd></div>
-            <div><dt>Improving</dt><dd>{improvingCount}</dd></div>
-          </dl>
-        </section>
-
-        <footer>
-          <button type="button" onClick={() => navigate('/dashboard-cerbyl')}><LayoutDashboard size={16} />Dashboard</button>
-        </footer>
-      </aside>
-    );
-  };
+  const sidebarTail = totalCount > 0 ? (
+    <section className="wa-sidebar-signal" aria-label="Current diagnosis">
+      <div><span>Current diagnosis</span><strong>{totalCount}</strong></div>
+      <div className="wa-signal-track" aria-hidden="true">
+        <i className="critical" style={{ flex: criticalCount || 0.001 }} />
+        <i className="practice" style={{ flex: needsPracticeCount || 0.001 }} />
+        <i className="improving" style={{ flex: improvingCount || 0.001 }} />
+      </div>
+      <dl>
+        <div><dt>Critical</dt><dd>{criticalCount}</dd></div>
+        <div><dt>Practice</dt><dd>{needsPracticeCount}</dd></div>
+        <div><dt>Improving</dt><dd>{improvingCount}</dd></div>
+      </dl>
+    </section>
+  ) : null;
 
   return (
-    <div className="wa-root" data-view={activeView}>
-      <div className="wa-line-field" aria-hidden />
-      <header className="wa-topbar">
-        <span><b>LEARNING,</b> UNIFIED</span>
-        <button type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-      </header>
-
-      <div className={`wa-layout ${sidebarCollapsed ? 'is-collapsed' : ''}`}>
-        {renderSidebar()}
-
+    <div className="wa-root with-social-chrome" data-view={activeView}>
+      <SocialHubChrome
+        brandKicker="Weak Areas"
+        sidebarLead={sidebarLead}
+        sidebarTail={sidebarTail}
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+        sideSections={[{
+          label: 'Learning focus',
+          items: VIEWS.map(({ id, label, icon }) => ({
+            icon,
+            label,
+            active: activeView === id,
+            onClick: () => switchView(id),
+            count: id === 'weak-areas' ? totalCount : id === 'topics-hub' ? topicsHub?.total_topics : null,
+          })),
+        }]}
+      >
         <main className="wa-main">
-          <header className="wa-main-head">
-            <div>
-              <span>Weak Areas / {activeNav?.label}</span>
-              <h1>{pageTitle}</h1>
-            </div>
+          <header className="wa-hero">
+            <span className="wa-hero-kicker">Weak Areas / {activeNav?.label}</span>
+            <h1>{pageTitle}</h1>
+            <p>{pageDescription}</p>
+          </header>
+
+          <section className="wa-content-toolbar" aria-label="Diagnosis status">
             <div className="wa-main-meta">
               <span><strong>{totalCount}</strong>signals</span>
               <span><strong>{allAreas.reduce((sum, area) => sum + (area.total_attempts || 0), 0)}</strong>attempts</span>
@@ -247,7 +223,7 @@ const Weaknesses = () => {
                 </button>
               ) : null}
             </div>
-          </header>
+          </section>
 
           {error ? <div className="wa-error" role="alert"><AlertTriangle size={16} /><span>{error}</span><button type="button" onClick={() => setError('')} aria-label="Dismiss error"><X size={15} /></button></div> : null}
 
@@ -311,7 +287,7 @@ const Weaknesses = () => {
             )}
           </div>
         </main>
-      </div>
+      </SocialHubChrome>
     </div>
   );
 };

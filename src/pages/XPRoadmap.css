@@ -1,3 +1,9 @@
+/*
+ * Direction contract — XP ROADMAP
+ * Warm graphite learning atlas: editorial hierarchy, compact measurements, and
+ * restrained gold route signals. One shared chrome texture only; no nested grids,
+ * neon halos, oversized dashboard tiles, or decorative motion without feedback.
+ */
 .xpv-shell {
   --accent: #d8b38d;
   --bg-primary: #080807;
@@ -2276,5 +2282,666 @@
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: .01ms !important;
+  }
+}
+
+/* Friends / NotesHub parity layer ------------------------------------------------ */
+.xpv-shell.with-social-chrome {
+  background:
+    radial-gradient(ellipse at 9% 5%, rgba(216, 179, 141, .105), transparent 34%),
+    radial-gradient(ellipse at 89% 91%, rgba(216, 179, 141, .045), transparent 30%),
+    linear-gradient(150deg, #09090d 0%, #090908 46%, #07090d 100%);
+}
+
+.xpv-shell.with-social-chrome .shc-main {
+  overflow: hidden;
+}
+
+.xpv-content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 28px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+.xpv-content button,
+.xpv-drawer button {
+  font-family: inherit;
+}
+
+.xpv-side-primary {
+  width: 100%;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 0 14px;
+  border: 1px solid rgba(248, 226, 201, .74);
+  border-radius: 11px;
+  background: #dfb98f;
+  color: #21180f;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 160ms var(--xpv-ease), background-color 175ms ease, border-color 175ms ease;
+}
+
+.xpv-side-primary:disabled {
+  opacity: .48;
+  cursor: wait;
+}
+
+.xpv-sidebar-progress {
+  margin-top: 2px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(216, 179, 141, .06), rgba(6, 6, 6, .72));
+  box-shadow: 0 10px 24px rgba(0, 0, 0, .17);
+}
+
+.xpv-hero {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 250px;
+  align-items: end;
+  gap: 32px;
+  padding: 3px 0 27px;
+  border: 0;
+  border-bottom: 1px solid rgba(216, 179, 141, .2);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.xpv-hero::before,
+.xpv-hero::after,
+.xpv-xp-instrument::before,
+.xpv-xp-instrument::after {
+  display: none;
+}
+
+.xpv-kicker,
+.xpv-section-head > div > span,
+.xpv-panel-label > span {
+  font-size: 9px;
+  line-height: 1.2;
+  letter-spacing: .18em;
+}
+
+.xpv-hero h1 {
+  max-width: 15ch;
+  margin: 12px 0 0;
+  font-size: clamp(32px, 4.2vw, 56px);
+  line-height: .98;
+  letter-spacing: -.045em;
+}
+
+.xpv-hero-copy p {
+  max-width: 62ch;
+  margin: 16px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.xpv-hero-action {
+  min-height: 38px;
+  margin-top: 18px;
+  padding: 0 13px;
+  border-color: rgba(216, 179, 141, .34);
+  border-radius: 10px;
+  background: rgba(216, 179, 141, .075);
+  color: var(--xpv-ink);
+  font-size: 9px;
+  letter-spacing: .07em;
+}
+
+.xpv-xp-instrument {
+  min-height: 158px;
+  padding: 15px;
+  border: 1px solid rgba(216, 179, 141, .22);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 88% 100%, rgba(216, 179, 141, .1), transparent 46%),
+    linear-gradient(145deg, #151412, #0e0f10);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, .22);
+  perspective: none;
+}
+
+.xpv-instrument-coordinate {
+  inset: 14px 14px auto auto;
+  gap: 4px;
+  font-size: 7px;
+}
+
+.xpv-level-stack {
+  left: 46px;
+  top: 48px;
+  width: 68px;
+  height: 68px;
+  transform: rotateX(55deg) rotateZ(-36deg);
+}
+
+.xpv-level-stack > span {
+  inset: 12px;
+  border-radius: 8px 2px 8px 2px;
+  box-shadow: 6px 8px 15px rgba(0, 0, 0, .28);
+  transform: translate3d(calc(var(--plate) * -4px), calc(var(--plate) * 3px), calc(var(--plate) * 6px));
+}
+
+.xpv-level-stack > span::before {
+  inset: 5px;
+}
+
+.xpv-level-stack > span::after {
+  width: 4px;
+  height: 4px;
+  right: 5px;
+  top: 5px;
+}
+
+.xpv-level-stack > i {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px 1px 4px 1px;
+  box-shadow: inset 0 0 0 3px #0d0b09;
+  transform: translate3d(-50%, -50%, 34px);
+}
+
+.xpv-instrument-readout {
+  left: 15px;
+  bottom: 15px;
+}
+
+.xpv-instrument-readout strong {
+  font-size: 34px;
+}
+
+.xpv-xp-instrument > button {
+  right: 14px;
+  bottom: 14px;
+  min-width: 136px;
+  padding: 10px 11px;
+  border-radius: 10px;
+  background: rgba(7, 7, 7, .58);
+  box-shadow: none;
+}
+
+.xpv-xp-instrument > button strong {
+  max-width: 18ch;
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xpv-run-strip {
+  margin-top: 12px;
+  border-radius: 13px;
+  background: linear-gradient(145deg, rgba(19, 18, 16, .94), rgba(12, 12, 12, .96));
+  box-shadow: 0 12px 26px rgba(0, 0, 0, .18);
+}
+
+.xpv-run-strip > div {
+  min-height: 66px;
+  padding: 11px 14px;
+}
+
+.xpv-run-strip span {
+  font-size: 8px;
+}
+
+.xpv-run-strip strong {
+  font-size: 13px;
+}
+
+.xpv-map-panel,
+.xpv-current-mission,
+.xpv-weekly-board,
+.xpv-streak-panel,
+.xpv-power-panel,
+.xpv-rewards-panel,
+.xpv-topic-panel,
+.xpv-badge-panel {
+  border: 1px solid rgba(216, 179, 141, .18);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 96% 100%, rgba(216, 179, 141, .075), transparent 31%),
+    linear-gradient(145deg, rgba(21, 20, 18, .96), rgba(12, 13, 14, .98));
+  box-shadow: 0 17px 34px rgba(0, 0, 0, .22);
+}
+
+.xpv-map-panel,
+.xpv-rewards-panel,
+.xpv-topic-panel,
+.xpv-badge-panel {
+  margin-top: 12px;
+  padding: 22px;
+}
+
+.xpv-section-head {
+  align-items: end;
+  gap: 16px;
+}
+
+.xpv-section-head h2 {
+  max-width: 25ch;
+  margin-top: 8px;
+  font-size: clamp(24px, 2.4vw, 34px);
+  line-height: 1;
+}
+
+.xpv-route-layout {
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.xpv-route-field {
+  min-height: 410px;
+  border: 1px solid rgba(216, 179, 141, .14);
+  border-radius: 13px;
+  background: linear-gradient(150deg, rgba(4, 4, 4, .38), rgba(18, 16, 14, .46));
+}
+
+.xpv-route-field::before {
+  inset: 9% 5%;
+  border-color: rgba(216, 179, 141, .065);
+}
+
+.xpv-route-contours {
+  opacity: .58;
+}
+
+.xpv-route-segment::after {
+  transition-duration: 260ms;
+}
+
+.xpv-route-core,
+.xpv-node-core {
+  box-shadow: 0 9px 19px rgba(0, 0, 0, .28);
+}
+
+.xpv-route-node.active .xpv-route-core,
+.xpv-mission-node.active .xpv-node-core {
+  outline: 0;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, .32);
+}
+
+.xpv-route-brief {
+  padding: 18px;
+  border: 1px solid rgba(216, 179, 141, .16);
+  border-radius: 13px;
+  background: rgba(5, 5, 5, .3);
+}
+
+.xpv-route-brief-mark {
+  width: 42px;
+  height: 42px;
+  margin-bottom: 22px;
+  border-radius: 10px;
+}
+
+.xpv-route-brief > span {
+  margin-top: 0;
+}
+
+.xpv-route-brief h3 {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.xpv-route-brief dl {
+  margin-top: 18px;
+}
+
+.xpv-route-brief > button {
+  margin-top: auto;
+  border-radius: 10px;
+}
+
+.xpv-focus-grid,
+.xpv-tools-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.xpv-focus-grid {
+  grid-template-columns: 1fr;
+}
+
+.xpv-current-mission,
+.xpv-weekly-board,
+.xpv-streak-panel,
+.xpv-power-panel {
+  min-height: 0;
+  padding: 22px;
+}
+
+.xpv-current-mission {
+  background:
+    radial-gradient(circle at 96% 100%, rgba(216, 179, 141, .075), transparent 31%),
+    linear-gradient(145deg, rgba(21, 20, 18, .96), rgba(12, 13, 14, .98));
+}
+
+.xpv-current-copy {
+  margin: 38px 0;
+}
+
+.xpv-current-copy h2,
+.xpv-streak-panel h2 {
+  max-width: 15ch;
+  font-size: clamp(27px, 3vw, 40px);
+  line-height: .98;
+}
+
+.xpv-weekly-board {
+  min-height: 360px;
+}
+
+.xpv-quest-list {
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.xpv-quest-row {
+  min-height: 62px;
+  padding: 10px 11px 13px;
+  border: 1px solid rgba(216, 179, 141, .12);
+  border-radius: 11px;
+  background: rgba(4, 4, 4, .23);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.xpv-quest-row > i {
+  inset: auto 11px 8px 45px;
+}
+
+.xpv-boss-row {
+  margin-top: 10px;
+  background: rgba(216, 179, 141, .055);
+}
+
+.xpv-streak-panel h2 {
+  margin-top: 24px;
+}
+
+.xpv-chain {
+  margin-top: 24px;
+}
+
+.xpv-power-grid {
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.xpv-power-grid button,
+.xpv-topic-arc,
+.xpv-badge-grid button,
+.xpv-reward-ledger > button,
+.xpv-route-brief {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.xpv-power-grid button {
+  min-height: 104px;
+  border-radius: 12px;
+  background: rgba(5, 5, 5, .24);
+}
+
+.xpv-reward-layout {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.xpv-reward-ledger {
+  padding: 14px;
+  border: 1px solid rgba(216, 179, 141, .14);
+  border-radius: 13px;
+  background: rgba(5, 5, 5, .24);
+}
+
+.xpv-reward-ledger > button {
+  min-height: 58px;
+  padding-inline: 8px;
+}
+
+.xpv-topic-arcs {
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.xpv-topic-arc {
+  min-height: 148px;
+  border-radius: 12px;
+  background: rgba(5, 5, 5, .24);
+}
+
+.xpv-badge-grid {
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.xpv-badge-grid button {
+  border-radius: 12px;
+  background: rgba(5, 5, 5, .24);
+}
+
+.xpv-status-content {
+  display: grid;
+  place-items: center;
+}
+
+.xpv-status-panel {
+  width: min(520px, 100%);
+  min-height: 300px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 11px;
+  padding: 32px;
+  border: 1px solid rgba(216, 179, 141, .18);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 90% 100%, rgba(216, 179, 141, .08), transparent 35%),
+    linear-gradient(145deg, #151412, #0e0f10);
+  text-align: center;
+  box-shadow: 0 17px 34px rgba(0, 0, 0, .22);
+}
+
+.xpv-status-panel > strong {
+  font-size: clamp(26px, 3vw, 38px);
+  line-height: 1;
+  letter-spacing: -.035em;
+}
+
+.xpv-status-panel > p {
+  max-width: 42ch;
+  margin: 0;
+  color: var(--xpv-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.xpv-status-panel > button {
+  min-height: 38px;
+  margin-top: 5px;
+  padding: 0 14px;
+  border: 1px solid rgba(248, 226, 201, .74);
+  border-radius: 10px;
+  background: #dfb98f;
+  color: #21180f;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.xpv-drawer {
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 100% 100%, rgba(216, 179, 141, .08), transparent 34%),
+    linear-gradient(145deg, #151412, #0d0e0f);
+  box-shadow: -18px 20px 48px rgba(0, 0, 0, .42);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .xpv-side-primary:not(:disabled):hover,
+  .xpv-hero-action:hover,
+  .xpv-xp-instrument > button:hover,
+  .xpv-route-brief > button:hover,
+  .xpv-current-mission > button:hover,
+  .xpv-topic-empty > button:hover,
+  .xpv-drawer-cta:hover:not(:disabled) {
+    transform: translateY(-2px);
+    border-color: rgba(239, 204, 169, .72);
+  }
+
+  .xpv-side-primary:not(:disabled):active,
+  .xpv-hero-action:active,
+  .xpv-xp-instrument > button:active,
+  .xpv-route-brief > button:active,
+  .xpv-current-mission > button:active,
+  .xpv-topic-empty > button:active,
+  .xpv-drawer-cta:active:not(:disabled),
+  .xpv-power-grid button:active:not(:disabled),
+  .xpv-badge-grid button:active,
+  .xpv-reward-ledger > button:active {
+    transform: scale(.98);
+  }
+
+  .xpv-route-node:hover .xpv-route-core,
+  .xpv-mission-node:hover .xpv-node-core {
+    transform: translateY(-2px) rotate(-2deg);
+    border-color: rgba(216, 179, 141, .58);
+  }
+
+  .xpv-power-grid button:hover:not(:disabled),
+  .xpv-topic-arc:hover,
+  .xpv-badge-grid button:hover,
+  .xpv-reward-ledger > button:hover,
+  .xpv-route-brief:hover,
+  .xpv-quest-row:hover {
+    border-color: rgba(216, 179, 141, .34);
+    transform: translateY(-2px);
+  }
+
+  .xpv-quest-row::before,
+  .xpv-power-grid button::before,
+  .xpv-topic-arc::before,
+  .xpv-badge-grid button::before,
+  .xpv-reward-ledger > button::before,
+  .xpv-route-brief::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(270px circle at var(--shc-mx, -999px) var(--shc-my, -999px), rgba(216, 179, 141, .13), transparent 68%);
+    transition: opacity 175ms ease;
+  }
+
+  .xpv-quest-row:hover::before,
+  .xpv-power-grid button:hover::before,
+  .xpv-topic-arc:hover::before,
+  .xpv-badge-grid button:hover::before,
+  .xpv-reward-ledger > button:hover::before,
+  .xpv-route-brief:hover::before {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .xpv-level-stack > span {
+    animation-duration: 280ms;
+    animation-delay: calc(var(--plate) * 22ms);
+  }
+
+  .xpv-route-node {
+    animation: xpv-route-arrive 260ms var(--xpv-ease) both;
+  }
+
+  .xpv-route-node:nth-of-type(2n) { animation-delay: 35ms; }
+  .xpv-route-node:nth-of-type(3n) { animation-delay: 70ms; }
+}
+
+@keyframes xpv-route-arrive {
+  from { opacity: 0; transform: translate(-21px, -16px); }
+}
+
+@media (max-width: 900px) {
+  .xpv-hero {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .xpv-xp-instrument {
+    width: min(100%, 420px);
+  }
+
+  .xpv-route-layout,
+  .xpv-focus-grid,
+  .xpv-tools-grid,
+  .xpv-reward-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .xpv-route-field {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .xpv-content {
+    padding: 16px;
+  }
+
+  .xpv-hero {
+    min-height: 0;
+    padding: 2px 0 22px;
+  }
+
+  .xpv-hero h1 {
+    max-width: 16ch;
+    font-size: clamp(32px, 12vw, 48px);
+  }
+
+  .xpv-map-panel,
+  .xpv-rewards-panel,
+  .xpv-topic-panel,
+  .xpv-badge-panel,
+  .xpv-current-mission,
+  .xpv-weekly-board,
+  .xpv-streak-panel,
+  .xpv-power-panel {
+    padding: 18px;
+  }
+
+  .xpv-route-field {
+    min-height: 0;
+  }
+
+  .xpv-route-node {
+    animation: none;
+  }
+
+  .xpv-topic-arcs,
+  .xpv-power-grid,
+  .xpv-badge-grid {
+    grid-template-columns: 1fr;
   }
 }

@@ -11,8 +11,17 @@ import MathRenderer from '../components/MathRenderer';
 import ContextSelector from '../components/ContextSelector';
 import ContextPanel from '../components/ContextPanel';
 import contextService from '../services/contextService';
-import AbstractFx from '../components/AbstractFx';
-import GeoBackground from '../components/GeoBackground';
+import SocialHubChrome from '../components/SocialHubChrome';
+import {
+  BarChart3,
+  FileText,
+  Layers3,
+  RefreshCcw,
+  Search,
+  Shuffle,
+  Sparkles,
+  Target,
+} from 'lucide-react';
 
 const CONTEXT_SELECTION_KEY = 'ctx_selected_doc_ids';
 const FLASHCARD_HISTORY_LIMIT = 100;
@@ -92,6 +101,25 @@ const Flashcards = () => {
   const [hsMode, setHsMode] = useState(() => localStorage.getItem('hs_mode_enabled') === 'true');
   const [userDocCount, setUserDocCount] = useState(0);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const mainContentRef = useRef(null);
+
+  useEffect(() => {
+    const mainContent = mainContentRef.current;
+    if (!mainContent) return;
+    mainContent.scrollTop = 0;
+    mainContent.scrollLeft = 0;
+  }, [activePanel]);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined;
+    const narrowViewport = window.matchMedia('(max-width: 1100px)');
+    const syncSidebar = (event) => {
+      if (event.matches) setSidebarCollapsed(true);
+    };
+    syncSidebar(narrowViewport);
+    narrowViewport.addEventListener?.('change', syncSidebar);
+    return () => narrowViewport.removeEventListener?.('change', syncSidebar);
+  }, []);
   
   
   const [flashcards, setFlashcards] = useState([]);
@@ -1491,25 +1519,6 @@ const Flashcards = () => {
     setHasMoreSets(currentLength + SETS_PER_PAGE < allSets.length);
   }, [displayedSets, flashcardHistory, searchQuery, sortBy]);
 
-  const handleTileMove = useCallback((e) => {
-    const card = e.currentTarget;
-    const rect = card.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const cx = x / rect.width - 0.5;
-    const cy = y / rect.height - 0.5;
-    card.style.setProperty('--mx', `${x}px`);
-    card.style.setProperty('--my', `${y}px`);
-    card.style.setProperty('--rx', `${(-cy * 7).toFixed(2)}deg`);
-    card.style.setProperty('--ry', `${(cx * 9).toFixed(2)}deg`);
-  }, []);
-  const handleTileLeave = useCallback((e) => {
-    const card = e.currentTarget;
-    card.style.setProperty('--rx', '0deg');
-    card.style.setProperty('--ry', '0deg');
-  }, []);
-
-
   useEffect(() => {
     if (activePanel !== 'cards') return;
     
@@ -2119,6 +2128,44 @@ const Flashcards = () => {
 
   const currentStudyCards = studySettings.shuffle ? shuffledCards : flashcards;
 
+  const returnToFlashcardLibrary = () => {
+    if (customCreateMode) exitCustomCreateMode();
+    else if (editMode) cancelEditMode();
+    else if (srStudyMode) exitSrStudy();
+    else exitStudyMode();
+    setActivePanel('cards');
+  };
+
+  const renderFocusChrome = (content) => (
+    <div className="flashcards-page with-social-chrome fc-focus-shell">
+      <SocialHubChrome
+        brandKicker="Flashcards"
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+        sidebarLead={(
+          <button className="fc-side-generate" onClick={() => setActivePanel('generator')} type="button">
+            <Sparkles size={15} />
+            <span>Generate cards</span>
+          </button>
+        )}
+        sideSections={[
+          {
+            label: 'Practice',
+            items: [
+              { icon: Layers3, label: 'My Flashcards', count: flashcardHistory.length, onClick: returnToFlashcardLibrary },
+              { icon: Target, label: 'Study Queue', active: srStudyMode, count: dueCards.due_count, onClick: () => { if (studyMode || previewMode) exitStudyMode(); setActivePanel('sr_study'); } },
+              { icon: RefreshCcw, label: 'Needs Review', count: reviewCards.total_cards, onClick: () => { if (studyMode || previewMode) exitStudyMode(); setActivePanel('review'); } },
+            ],
+          },
+        ]}
+      >
+        <main className="fc-main fc-qb-main fc-focus-main">
+          {content}
+        </main>
+      </SocialHubChrome>
+    </div>
+  );
+
   
   if (customCreateMode) {
     const currentCustomCard = customCards[currentCard] || customCards[0];
@@ -2175,8 +2222,7 @@ const Flashcards = () => {
     const hasValidCard = customCards.some(c => c.question.trim() && c.answer.trim());
     const canSave = !generating && customSetTitle.trim() && hasValidCard;
     
-    return (
-      <div className="flashcards-page">
+    return renderFocusChrome(
         <div className="fc-study-mode fc-edit-mode">
           <div className="fc-study-header fc-create-header">
             <div className="fc-header-actions fc-header-left">
@@ -2315,7 +2361,6 @@ const Flashcards = () => {
             </div>
           </div>
         </div>
-      </div>
     );
   }
 
@@ -2325,9 +2370,7 @@ const Flashcards = () => {
     const currentEditCard = activeCards[currentCard] || activeCards[0];
     const currentEditIndex = editingCards.findIndex(c => c === currentEditCard);
     
-    return (
-      <div className="flashcards-page">
-        <AbstractFx variant="circles" />
+    return renderFocusChrome(
         <div className="fc-study-mode fc-edit-mode">
           <div className="fc-study-header fc-create-header">
             <div className="fc-study-title">
@@ -2472,7 +2515,6 @@ const Flashcards = () => {
             </div>
           </div>
         </div>
-      </div>
     );
   }
 
@@ -2506,9 +2548,7 @@ const Flashcards = () => {
         : knownPercentage >= 50 ? { label: 'Good', color: '#f59e0b' }
         : { label: 'Keep Going', color: 'var(--fc-danger)' };
 
-      return (
-        <div className="flashcards-page">
-          <AbstractFx variant="circles" />
+      return renderFocusChrome(
           <div className="fc-study-mode">
             <div className="fc-results">
               <div className="fc-results-card">
@@ -2603,13 +2643,10 @@ const Flashcards = () => {
               </div>
             </div>
           </div>
-        </div>
       );
     }
     
-    return (
-      <div className="flashcards-page">
-        <AbstractFx variant="circles" />
+    return renderFocusChrome(
         <div className="fc-study-mode">
           <div className="fc-study-header fc-create-header">
             <div className="fc-study-title">
@@ -2674,6 +2711,15 @@ const Flashcards = () => {
               <div 
                 className={`fc-study-card ${isFlipped ? 'flipped' : ''}`}
                 onClick={handleCardClick}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    handleCardClick(event);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label={isFlipped ? 'Show flashcard question' : 'Show flashcard answer'}
               >
                 <div className="fc-study-card-inner">
                   <div className="fc-study-card-front">
@@ -2769,7 +2815,6 @@ const Flashcards = () => {
           </div>
           {renderAskAiPanel(previewCards[currentCard])}
         </div>
-      </div>
     );
   }
 
@@ -2784,8 +2829,7 @@ const Flashcards = () => {
       const totalGraded = srSessionStats.again + srSessionStats.hard + srSessionStats.good + srSessionStats.easy;
       const successRate = totalGraded > 0 ? Math.round(((srSessionStats.good + srSessionStats.easy) / totalGraded) * 100) : 0;
 
-      return (
-        <div className="flashcards-page">
+      return renderFocusChrome(
           <div className="fc-study-mode">
             <div className="fc-sr-results">
               <h2 className="fc-sr-results-title">Session Complete</h2>
@@ -2822,12 +2866,10 @@ const Flashcards = () => {
               </div>
             </div>
           </div>
-        </div>
       );
     }
 
-    return (
-      <div className="flashcards-page">
+    return renderFocusChrome(
         <div className="fc-study-mode">
           <div className="fc-study-header">
             <button className="fc-btn fc-btn-ghost" onClick={exitSrStudy}>
@@ -2854,7 +2896,19 @@ const Flashcards = () => {
           <div className="fc-sr-body">
             <div className="fc-sr-card-area">
               {card && (
-                <div className={`fc-sr-card ${srFlipped ? 'fc-sr-card-flipped' : ''}`} onClick={() => !srFlipped && setSrFlipped(true)}>
+                <div
+                  className={`fc-sr-card ${srFlipped ? 'fc-sr-card-flipped' : ''}`}
+                  onClick={() => !srFlipped && setSrFlipped(true)}
+                  onKeyDown={(event) => {
+                    if (!srFlipped && (event.key === 'Enter' || event.key === ' ')) {
+                      event.preventDefault();
+                      setSrFlipped(true);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={srFlipped ? 'Flashcard answer shown' : 'Reveal flashcard answer'}
+                >
                   <div className="fc-sr-card-inner">
                     <div className="fc-sr-card-front">
                       <div className="fc-sr-card-badge">{card.sr_state === 'new' ? 'NEW' : card.sr_state?.toUpperCase()}</div>
@@ -2911,14 +2965,12 @@ const Flashcards = () => {
           </div>
           {renderAskAiPanel(card)}
         </div>
-      </div>
     );
   }
 
   // Study Mode UI (MCQ Quiz)
   if (studyMode && flashcards.length > 0) {
-    return (
-      <div className="flashcards-page">
+    return renderFocusChrome(
         <div className="fc-study-mode">
           {showStudyResults ? (
             <div className="fc-results">
@@ -3076,140 +3128,59 @@ const Flashcards = () => {
           )}
           {renderAskAiPanel(currentStudyCards[currentCard])}
         </div>
-      </div>
     );
   }
 
 
   return (
-    <div className="flashcards-page">
-      <GeoBackground />
-      <div className="fc-qb-topbar">
-        <div className="fc-qb-tagline"><span>LEARNING,</span> UNIFIED</div>
-        <div className="fc-qb-topbar-right">
-          <div className="fc-qb-context-control">
+    <div className="flashcards-page with-social-chrome">
+      <SocialHubChrome
+        brandKicker="Flashcards"
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+        sidebarLead={(
+          <button className="fc-side-generate" onClick={() => setActivePanel('generator')} type="button">
+            <Sparkles size={15} />
+            <span>Generate cards</span>
+          </button>
+        )}
+        sidebarTail={(
+          <div className="fc-side-context">
             <ContextSelector hsMode={hsMode} docCount={userDocCount} onOpen={() => setContextPanelOpen(true)} />
           </div>
-        </div>
-      </div>
-
-      <div className="fc-layout fc-qb-body">
-        <div className={`fc-qb-shell ${sidebarCollapsed ? 'fc-qb-shell--collapsed' : ''}`}>
-          <aside className={`fc-qb-sidebar ${sidebarCollapsed ? 'fc-qb-sidebar--collapsed' : ''}`} aria-label="Flashcards navigation">
-            <div className="cb-tile-texture" aria-hidden />
-            {sidebarCollapsed ? (
-              <div className="fc-qb-collapsed-strip">
-                <button className="fc-qb-strip-btn fc-qb-strip-logo" data-tip="Open sidebar" onClick={() => setSidebarCollapsed(false)} type="button">
-                  {FC_ICONS.chevronRight}
-                </button>
-                <button className={`fc-qb-strip-btn ${activePanel === 'generator' ? 'active' : ''}`} data-tip="Generator" onClick={() => { setSidebarCollapsed(false); setActivePanel('generator'); }} type="button">
-                  {FC_ICONS.sparkle}
-                </button>
-                <button className={`fc-qb-strip-btn ${activePanel === 'cards' ? 'active' : ''}`} data-tip="My Flashcards" onClick={() => { setSidebarCollapsed(false); setActivePanel('cards'); }} type="button">
-                  {FC_ICONS.cards}
-                </button>
-                <button className={`fc-qb-strip-btn ${activePanel === 'sr_study' ? 'active' : ''}`} data-tip="Study Queue" onClick={() => { setSidebarCollapsed(false); setActivePanel('sr_study'); loadDueCards(); loadSrStats(); }} type="button">
-                  {FC_ICONS.target}
-                </button>
-                <button className={`fc-qb-strip-btn ${activePanel === 'review' ? 'active' : ''}`} data-tip="Needs Review" onClick={() => { setSidebarCollapsed(false); setActivePanel('review'); }} type="button">
-                  {FC_ICONS.refresh}
-                </button>
-                <button className="fc-qb-strip-btn" data-tip="Random Cards" onClick={startRandomCards} type="button" disabled={loadingRandomCards}>
-                  {FC_ICONS.shuffle}
-                </button>
-                <button className={`fc-qb-strip-btn ${activePanel === 'sources' ? 'active' : ''}`} data-tip="PDF Sources" onClick={() => { setSidebarCollapsed(false); setActivePanel('sources'); loadUploadedDocuments(); }} type="button">
-                  {FC_ICONS.file}
-                </button>
-                <button className={`fc-qb-strip-btn ${activePanel === 'statistics' ? 'active' : ''}`} data-tip="Statistics" onClick={() => { setSidebarCollapsed(false); setActivePanel('statistics'); }} type="button">
-                  {FC_ICONS.chart}
-                </button>
-                <div className="fc-qb-strip-spacer" />
-                <button className="fc-qb-strip-btn" data-tip="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} type="button">
-                  {FC_ICONS.home}
-                </button>
-              </div>
-            ) : (
-            <>
-              <div className="fc-qb-side-brand">
-                <div className="fc-qb-brand-wrap">
-                  <div className="fc-qb-brand">cerbyl</div>
-                  <div className="fc-qb-brand-kicker">Flashcards</div>
-                </div>
-                <button
-                  className="fc-qb-side-close-btn"
-                  onClick={() => setSidebarCollapsed(true)}
-                  title="Close sidebar"
-                  aria-label="Close flashcards sidebar"
-                  type="button"
-                >
-                  {FC_ICONS.chevronLeft}
-                </button>
-              </div>
-
-              <button className="fc-qb-new-btn" onClick={() => setActivePanel('generator')} type="button">
-                {FC_ICONS.sparkle}
-                <span>Generate</span>
-              </button>
-
-              <div className="fc-qb-side-block fc-qb-side-block--grow">
-                <div className="fc-qb-side-label">Practice</div>
-                <nav className="fc-qb-view-nav" aria-label="Flashcards practice">
-                  <button className={`fc-qb-view-link ${activePanel === 'cards' ? 'fc-qb-view-link--active' : ''}`} onClick={() => setActivePanel('cards')} type="button">
-                    {FC_ICONS.cards}
-                    <span>My Flashcards</span>
-                  </button>
-                  <button className={`fc-qb-view-link ${activePanel === 'sr_study' ? 'fc-qb-view-link--active' : ''}`} onClick={() => { setActivePanel('sr_study'); loadDueCards(); loadSrStats(); }} type="button">
-                    {FC_ICONS.target}
-                    <span>Study Queue</span>
-                  </button>
-                  <button className={`fc-qb-view-link ${activePanel === 'review' ? 'fc-qb-view-link--active' : ''}`} onClick={() => setActivePanel('review')} type="button">
-                    {FC_ICONS.refresh}
-                    <span>Needs Review</span>
-                  </button>
-                  <button className="fc-qb-view-link" onClick={startRandomCards} type="button" disabled={loadingRandomCards}>
-                    {FC_ICONS.shuffle}
-                    <span>{loadingRandomCards ? 'Mixing Cards…' : 'Random Cards'}</span>
-                  </button>
-                </nav>
-              </div>
-
-              <div className="fc-qb-side-block">
-                <div className="fc-qb-side-label">Library</div>
-                <nav className="fc-qb-view-nav" aria-label="Flashcard library">
-                  <button className={`fc-qb-view-link ${activePanel === 'sources' ? 'fc-qb-view-link--active' : ''}`} onClick={() => { setActivePanel('sources'); loadUploadedDocuments(); }} type="button">
-                    {FC_ICONS.file}
-                    <span>PDF Sources</span>
-                  </button>
-                  <button className={`fc-qb-view-link ${activePanel === 'explore' ? 'fc-qb-view-link--active' : ''}`} onClick={() => { setActivePanel('explore'); loadAllPublicFlashcards(); }} type="button">
-                    {FC_ICONS.search}
-                    <span>Explore Public</span>
-                  </button>
-                  <button className={`fc-qb-view-link ${activePanel === 'statistics' ? 'fc-qb-view-link--active' : ''}`} onClick={() => setActivePanel('statistics')} type="button">
-                    {FC_ICONS.chart}
-                    <span>Statistics</span>
-                  </button>
-                </nav>
-              </div>
-
-              <div className="fc-qb-side-actions">
-                <button
-                  className="fc-qb-action-btn"
-                  onClick={() => navigate('/dashboard-cerbyl')}
-                  type="button"
-                >
-                  {FC_ICONS.home}
-                  <span>Dashboard</span>
-                </button>
-              </div>
-            </>
-            )}
-          </aside>
-
-          <main className="fc-main fc-qb-main">
+        )}
+        sideSections={[
+          {
+            label: 'Practice',
+            items: [
+              { icon: Layers3, label: 'My Flashcards', active: activePanel === 'cards', count: flashcardHistory.length, onClick: () => setActivePanel('cards') },
+              { icon: Target, label: 'Study Queue', active: activePanel === 'sr_study', count: dueCards.due_count, onClick: () => { setActivePanel('sr_study'); loadDueCards(); loadSrStats(); } },
+              { icon: RefreshCcw, label: 'Needs Review', active: activePanel === 'review', count: reviewCards.total_cards, onClick: () => setActivePanel('review') },
+              { icon: Shuffle, label: loadingRandomCards ? 'Mixing Cards…' : 'Random Cards', disabled: loadingRandomCards, onClick: startRandomCards },
+            ],
+          },
+          {
+            label: 'Library',
+            items: [
+              { icon: FileText, label: 'PDF Sources', active: activePanel === 'sources', onClick: () => { setActivePanel('sources'); loadUploadedDocuments(); } },
+              { icon: Search, label: 'Explore Public', active: activePanel === 'explore', onClick: () => { setActivePanel('explore'); loadAllPublicFlashcards(); } },
+              { icon: BarChart3, label: 'Statistics', active: activePanel === 'statistics', onClick: () => setActivePanel('statistics') },
+            ],
+          },
+        ]}
+      >
+        <main className="fc-main fc-qb-main" ref={mainContentRef}>
           {activePanel === 'cards' && (
             <>
 
               <div className="fc-content fc-cards-panel">
+                <div className="fc-view-header">
+                  <span className="fc-view-kicker">Your Collection</span>
+                  <h2 className="fc-view-title">My Flashcards</h2>
+                  <p className="fc-view-sub">
+                    {flashcardHistory.length} {flashcardHistory.length === 1 ? 'set' : 'sets'} · {flashcardStats?.total_cards || 0} cards total
+                  </p>
+                </div>
                 {loadingHistory && flashcardHistory.length === 0 ? (
                   <div className="fc-loading">
                     <div className="fc-pulse-loader">
@@ -3229,25 +3200,12 @@ const Flashcards = () => {
                   </div>
                 ) : (
                   <>
-                    <div className="fc-view-header">
-                      <span className="fc-view-kicker">Your Collection</span>
-                      <h2 className="fc-view-title">My Flashcards</h2>
-                      <p className="fc-view-sub">{flashcardHistory.length} {flashcardHistory.length === 1 ? 'set' : 'sets'} · {flashcardStats?.total_cards || 0} cards total</p>
-                    </div>
-                    
                     <div className={`fc-grid ${isRearranging ? 'fc-grid-rearranging' : ''}`}>
-                      {displayedSets.map((set, index) => {
+                      {displayedSets.map((set) => {
                         const mastery = getMasteryLevel(set.accuracy_percentage || 0);
-                        
-                        const colors = [
-                          '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
-                          '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B739', '#52B788'
-                        ];
-                        const cardColor = colors[index % colors.length];
                         return (
-                          <div key={set.id} className="fc-set-card-new" onMouseMove={handleTileMove} onMouseLeave={handleTileLeave}>
-                            <div className="cb-tile-texture" aria-hidden="true" />
-                            <div className="fc-set-thumbnail" style={{ background: `linear-gradient(135deg, ${cardColor} 0%, ${cardColor}dd 100%)` }}>
+                          <div key={set.id} className="fc-set-card-new">
+                            <div className="fc-set-thumbnail">
                               <div className="fc-set-thumbnail-content">
                                 {editingSetId === set.id ? (
                                   <input
@@ -3270,19 +3228,7 @@ const Flashcards = () => {
                                 className="fc-delete-btn-thumb" 
                                 onClick={(e) => deleteFlashcardSet(set.id, e)}
                                 type="button"
-                                style={{ 
-                                  background: 'rgba(0, 0, 0, 0.3)',
-                                  borderColor: 'rgba(0, 0, 0, 0.5)',
-                                  color: 'white'
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.background = 'rgba(0, 0, 0, 0.6)';
-                                  e.currentTarget.style.borderColor = 'rgba(0, 0, 0, 0.8)';
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.background = 'rgba(0, 0, 0, 0.3)';
-                                  e.currentTarget.style.borderColor = 'rgba(0, 0, 0, 0.5)';
-                                }}
+                                aria-label={`Delete ${set.title || 'flashcard set'}`}
                               >
                                 {FC_ICONS.trash}
                               </button>
@@ -3364,6 +3310,8 @@ const Flashcards = () => {
                     <button 
                       className={`fc-mode-btn ${generationMode === 'topic' ? 'active' : ''}`}
                       onClick={() => setGenerationMode('topic')}
+                      type="button"
+                      aria-pressed={generationMode === 'topic'}
                     >
                       <div className="fc-mode-icon">{FC_ICONS.sparkle}</div>
                       <span className="fc-mode-label">AI BY TOPIC</span>
@@ -3372,6 +3320,8 @@ const Flashcards = () => {
                     <button 
                       className={`fc-mode-btn ${generationMode === 'chat_history' ? 'active' : ''}`}
                       onClick={() => setGenerationMode('chat_history')}
+                      type="button"
+                      aria-pressed={generationMode === 'chat_history'}
                     >
                       <div className="fc-mode-icon">{FC_ICONS.chat}</div>
                       <span className="fc-mode-label">FROM CHAT</span>
@@ -3380,6 +3330,8 @@ const Flashcards = () => {
                     <button 
                       className="fc-mode-btn"
                       onClick={enterCustomCreateMode}
+                      type="button"
+                      aria-pressed={customCreateMode}
                     >
                       <div className="fc-mode-icon">{FC_ICONS.edit}</div>
                       <span className="fc-mode-label">CREATE CUSTOM</span>
@@ -3387,6 +3339,7 @@ const Flashcards = () => {
                     </button>
                   </div>
 
+                  <div className="fc-generator-workspace">
                   {generationMode === 'topic' ? (
                     <>
                       <div className="fc-form-group">
@@ -3415,6 +3368,9 @@ const Flashcards = () => {
                           <div className="fc-custom-select-wrapper">
                             <button 
                               className="fc-custom-select" 
+                              type="button"
+                              aria-haspopup="listbox"
+                              aria-expanded={difficultyDropdownOpen}
                               onClick={() => {
                                 setDifficultyDropdownOpen(!difficultyDropdownOpen);
                                 setDepthDropdownOpen(false);
@@ -3468,6 +3424,9 @@ const Flashcards = () => {
                           <div className="fc-custom-select-wrapper">
                             <button 
                               className="fc-custom-select" 
+                              type="button"
+                              aria-haspopup="listbox"
+                              aria-expanded={depthDropdownOpen}
                               onClick={() => {
                                 setDepthDropdownOpen(!depthDropdownOpen);
                                 setDifficultyDropdownOpen(false);
@@ -3717,6 +3676,7 @@ const Flashcards = () => {
                   >
                     {generating ? 'GENERATING...' : `GENERATE ${cardCount} FLASHCARDS`}
                   </button>
+                  </div>
                 </div>
               </div>
             </>
@@ -4134,7 +4094,7 @@ const Flashcards = () => {
           )}
 
           {activePanel === 'sr_study' && (
-            <div className="fc-content">
+            <div className="fc-content fc-sr-panel">
               <div className="fc-view-header">
                 <span className="fc-view-kicker">Spaced Repetition Algorithm</span>
                 <h2 className="fc-view-title">Study Queue</h2>
@@ -4391,8 +4351,7 @@ const Flashcards = () => {
             </>
           )}
         </main>
-        </div>
-      </div>
+      </SocialHubChrome>
 
       <CustomPopup
         isOpen={popup.isOpen}

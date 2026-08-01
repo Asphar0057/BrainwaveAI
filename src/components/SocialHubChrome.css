@@ -442,6 +442,13 @@
   transform: none;
 }
 
+.shc-view-link:disabled,
+.shc-strip-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 /* count badge */
 .shc-nav-count {
   margin-left: auto;
@@ -651,9 +658,6 @@
    Carries the hub tile's linework and depth into every destination page.
    ═══════════════════════════════════════════ */
 :is(
-  .fd-friend-card,
-  .fd-user-row,
-  .fd-search-box,
   .af-activity-card,
   .af-empty-feed,
   .sp-item-card,
@@ -699,6 +703,7 @@
 
 :is(
   .fd-friend-card,
+  .nh-route-card,
   .af-activity-card,
   .sp-item-card,
   .leaderboard-entry,
@@ -727,6 +732,7 @@
 
 :is(
   .fd-friend-card,
+  .nh-route-card,
   .af-activity-card,
   .sp-item-card,
   .leaderboard-entry,
@@ -749,8 +755,6 @@
 }
 
 [data-theme-mode="light"] :is(
-  .fd-friend-card,
-  .fd-user-row,
   .af-activity-card,
   .sp-item-card,
   .current-user-rank,
@@ -793,6 +797,11 @@
     gap: 14px;
   }
 
+  .shc-body:not(.shc-body--collapsed):not(.shc-body--no-sidebar) {
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+
+  .shc-body--collapsed { grid-template-columns: 52px minmax(0, 1fr); }
   .shc-body--no-sidebar { grid-template-columns: 1fr; }
 }
 
@@ -815,6 +824,8 @@
 :is(
   .fd-friend-card,
   .fd-user-row,
+  .nh-route-card,
+  .nh-note-row,
   .af-activity-card,
   .sp-item-card,
   .leaderboard-entry,
@@ -845,6 +856,8 @@
   :is(
     .fd-friend-card,
     .fd-user-row,
+    .nh-route-card,
+    .nh-note-row,
     .af-activity-card,
     .sp-item-card,
     .leaderboard-entry,
@@ -918,6 +931,8 @@
   :is(
     .fd-friend-card,
     .fd-user-row,
+    .nh-route-card,
+    .nh-note-row,
     .af-activity-card,
     .sp-item-card,
     .leaderboard-entry,

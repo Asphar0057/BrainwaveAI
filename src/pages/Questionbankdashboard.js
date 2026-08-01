@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Upload, MessageSquare, Sparkles, FileText, BarChart3,
   Plus, Play, Trash2, TrendingUp, Target, Brain, Zap, Award,
-  CheckCircle, XCircle, Loader, Clock, FileUp, BookOpen, PieChart, ChevronLeft, ChevronRight, Home,
+  CheckCircle, XCircle, Loader, Clock, FileUp, BookOpen, PieChart,
   Download, FileDown, Eye, Edit3, RefreshCw, Layers, AlertTriangle,
   Star, GitMerge, Wand2, List, ChevronDown, ChevronUp, X, Save, Settings,
   Search, ArrowUpRight, Filter, Check
@@ -12,6 +12,7 @@ import './Questionbankdashboard.css';
 import './QuestionbankConvert.css';
 import { API_URL } from '../config';
 import ImportExportModal from '../components/ImportExportModal';
+import SocialHubChrome from '../components/SocialHubChrome';
 import questionBankAgentService from '../services/questionBankAgentService';
 import { queuedAIJsonFetch } from '../services/aiJobService';
 import MathRenderer from '../components/MathRenderer';
@@ -19,9 +20,9 @@ import MathRenderer from '../components/MathRenderer';
 const CONTEXT_SELECTION_KEY = 'ctx_selected_doc_ids';
 
 const QUICK_SECTIONS = [
-  { label: 'AI Chat', route: '/ai-chat' },
-  { label: 'Flashcards', route: '/flashcards' },
-  { label: 'Notes', route: '/notes' }
+  { label: 'AI Chat', route: '/ai-chat', icon: MessageSquare },
+  { label: 'Flashcards', route: '/flashcards', icon: Layers },
+  { label: 'Notes', route: '/notes', icon: BookOpen }
 ];
 
 const QUESTION_VIEWS = [
@@ -3225,152 +3226,71 @@ const QuestionBankDashboard = () => {
     );
   };
 
+  const sidebarLead = (
+    <button className="qbd-hub-create" onClick={() => setActiveView('custom')} type="button">
+      <Sparkles size={15} />
+      <span>Build a question set</span>
+    </button>
+  );
+
   return (
-    <div className="qbd-rb-root qbd-container">
-      <div className="qbd-rb-bg" aria-hidden>
-        <div className="qbd-rb-orb qbd-rb-orb-1" />
-        <div className="qbd-rb-orb qbd-rb-orb-2" />
-        <div className="qbd-rb-grid" />
-      </div>
-
-      <div className="qbd-rb-topbar">
-        <div className="qbd-rb-tagline">Learning Unified</div>
-        <div className="qbd-rb-topbar-right">
-          <button className="qbd-rb-top-btn" onClick={() => navigate('/dashboard-cerbyl')}>
-            Dashboard
-          </button>
-          <button className="qbd-rb-top-btn qbd-rb-top-btn--accent" onClick={() => setShowImportExport(true)}>
-            Convert
-          </button>
-        </div>
-      </div>
-
-      <div className={`qbd-rb-shell ${sidebarCollapsed ? 'qbd-rb-shell--collapsed' : ''}`}>
-        <aside className={`qbd-rb-sidebar ${sidebarCollapsed ? 'qbd-rb-sidebar--collapsed' : ''}`} aria-label="Question bank navigation">
-          <div className="qbd-tile-texture" aria-hidden="true" />
-          {sidebarCollapsed ? (
-            <div className="qbd-rb-collapsed-strip">
-              <button className="qbd-rb-strip-btn qbd-rb-strip-logo" data-tip="Open sidebar" onClick={() => setSidebarCollapsed(false)} type="button">
-                <ChevronRight size={18} />
-              </button>
-              <button className={`qbd-rb-strip-btn ${activeView === 'custom' ? 'active' : ''}`} data-tip="Generate Custom" onClick={() => { setSidebarCollapsed(false); setActiveView('custom'); }} type="button">
-                <Sparkles size={18} />
-              </button>
-              {QUESTION_VIEWS.filter((view) => view.key !== 'custom').map((view) => {
-                const Icon = view.icon;
-                return (
-                  <button key={view.key} className={`qbd-rb-strip-btn ${activeView === view.key ? 'active' : ''}`} data-tip={view.label} onClick={() => { setSidebarCollapsed(false); setActiveView(view.key); }} type="button">
-                    <Icon size={18} />
-                  </button>
-                );
-              })}
-              <div className="qbd-rb-strip-spacer" />
-              <button className="qbd-rb-strip-btn" data-tip="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} type="button">
-                <Home size={18} />
-              </button>
-            </div>
-          ) : (
-          <>
-            <div className="qbd-rb-side-brand">
-              <div className="qbd-rb-brand-wrap">
-                <div className="qbd-rb-brand">cerbyl</div>
-                <div className="qbd-rb-brand-kicker">Question Hub</div>
-              </div>
-              <button
-                className="qbd-rb-side-close-btn"
-                onClick={() => setSidebarCollapsed(true)}
-                aria-label="Close sidebar"
-                type="button"
-              >
-                <ChevronLeft size={14} />
-              </button>
-            </div>
-
-            <button className="qbd-rb-new-btn" onClick={() => setActiveView('custom')} type="button">
-              <Sparkles size={16} />
-              <span>Build a question set</span>
-            </button>
-
-            <div className="qbd-rb-side-block qbd-rb-side-block--grow">
-              <div className="qbd-rb-side-label">Practice desk</div>
-              <nav className="qbd-rb-view-nav">
-                {QUESTION_VIEWS.filter((view) => view.key !== 'custom').map((view) => {
-                  const Icon = view.icon;
-                  return (
-                    <button
-                      key={view.key}
-                      className={`qbd-rb-view-link ${activeView === view.key ? 'qbd-rb-view-link--active' : ''}`}
-                      onClick={() => setActiveView(view.key)}
-                      type="button"
-                    >
-                      <Icon size={15} />
-                      <span>{view.label}</span>
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
-
-            <div className="qbd-rb-side-block">
-              <div className="qbd-rb-side-label">Use your context</div>
-              <div className="qbd-rb-quick-list">
-                {QUICK_SECTIONS.map((section) => (
-                  <button key={section.label} className="qbd-rb-quick-item" onClick={() => navigate(section.route)} type="button">
-                    <span className="qbd-rb-quick-dot" />
-                    <span>{section.label}</span>
-                    <ArrowUpRight size={12} />
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <nav className="qbd-rb-side-nav-groups">
-              <div className="qbd-rb-side-group">
-                <div className="qbd-rb-side-group-title">Keep improving</div>
-                <button className="qbd-rb-side-link" onClick={() => navigate('/weaknesses')} type="button">
-                  <span className="qbd-rb-side-link-dot" />
-                  Weak areas
+    <div className="qbd-hub with-social-chrome">
+      <SocialHubChrome
+        brandKicker="Questions"
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+        sidebarLead={sidebarLead}
+        sideSections={[
+          {
+            label: 'Practice desk',
+            items: QUESTION_VIEWS.filter((view) => view.key !== 'custom').map((view) => ({
+              icon: view.icon,
+              label: view.label,
+              active: activeView === view.key,
+              count: view.key === 'question-sets' ? questionSets.length : null,
+              onClick: () => setActiveView(view.key),
+            })),
+          },
+          {
+            label: 'Keep improving',
+            items: [
+              { icon: Target, label: 'Weak areas', onClick: () => navigate('/weaknesses') },
+              { icon: Zap, label: 'Quiz modes', onClick: () => navigate('/quiz-hub') },
+              { icon: GitMerge, label: 'Convert', onClick: () => setShowImportExport(true) },
+            ],
+          },
+          {
+            label: 'Use your context',
+            items: QUICK_SECTIONS.map((section) => ({
+              icon: section.icon,
+              label: section.label,
+              onClick: () => navigate(section.route),
+            })),
+          },
+        ]}
+      >
+        <main className="qbd-hub-main">
+          <div className="qbd-hub-mobile-nav" aria-label="Question Hub views">
+            {QUESTION_VIEWS.map((view) => {
+              const Icon = view.icon;
+              return (
+                <button
+                  key={view.key}
+                  className={activeView === view.key ? 'active' : ''}
+                  onClick={() => setActiveView(view.key)}
+                  type="button"
+                >
+                  <Icon size={14} />
+                  <span>{view.label}</span>
                 </button>
-                <button className="qbd-rb-side-link" onClick={() => navigate('/quiz-hub')} type="button">
-                  <span className="qbd-rb-side-link-dot" />
-                  Quiz modes
-                </button>
-              </div>
-            </nav>
-
-            <div className="qbd-rb-side-actions">
-              <button className="qbd-rb-action-btn" onClick={() => navigate('/dashboard-cerbyl')} type="button">
-                <Home size={14} />
-                <span>Dashboard</span>
-              </button>
-            </div>
-          </>
-          )}
-        </aside>
-
-        <main className="qbd-rb-main">
-          <div className="qbd-rb-mobile-nav">
-            {QUESTION_VIEWS.map((view) => (
-              <button
-                key={view.key}
-                className={`qbd-rb-mobile-link ${activeView === view.key ? 'qbd-rb-mobile-link--active' : ''}`}
-                onClick={() => setActiveView(view.key)}
-              >
-                {view.label}
-              </button>
-            ))}
+              );
+            })}
           </div>
-
-          <section className="qbd-rb-panel">
-            <div className="qbd-tile-texture qbd-tile-texture--panel" aria-hidden="true" />
-            <div className="qbd-main">
-              <div className="qbd-content">
-                {renderViewContent()}
-              </div>
-            </div>
-          </section>
+          <div className="qbd-main">
+            <div className="qbd-content">{renderViewContent()}</div>
+          </div>
         </main>
-      </div>
+      </SocialHubChrome>
       {renderStudyModal()}
       {/* Import/Export Modal */}
       <ImportExportModal

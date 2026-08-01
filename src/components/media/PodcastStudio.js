@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   BookmarkPlus,
   Copy,
@@ -326,7 +327,7 @@ const getPodcastDisplayTitle = (title) => {
   return cleaned || 'Media Podcast';
 };
 
-const PodcastStudio = ({ results, userName, onExit, onSettingsDrawerChange }) => {
+const PodcastStudio = ({ results, userName, onExit, onSettingsDrawerChange, embedded = false }) => {
   const mediaRecorderRef = useRef(null);
   const mediaStreamRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -391,7 +392,7 @@ const PodcastStudio = ({ results, userName, onExit, onSettingsDrawerChange }) =>
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
 
-  const [isFullscreenMode, setIsFullscreenMode] = useState(true);
+  const [isFullscreenMode, setIsFullscreenMode] = useState(!embedded);
   const [subtitlesExpanded, setSubtitlesExpanded] = useState(false);
   const [showSettingsDrawer, setShowSettingsDrawer] = useState(false);
   const [speechCharIndex, setSpeechCharIndex] = useState(-1);
@@ -1508,8 +1509,392 @@ const PodcastStudio = ({ results, userName, onExit, onSettingsDrawerChange }) =>
   const canOpenFullscreen = Boolean(sessionId && currentSegment);
   const fullscreenTitle = getPodcastDisplayTitle(sessionId ? (episodeTitle || 'Podcast Session') : results?.filename);
 
+  const settingsDrawer = showSettingsDrawer ? (
+    <div className={`podcast-settings-overlay ${embedded && !isFullscreenMode ? 'pce-settings-overlay' : ''}`} onClick={closeSettingsDrawer}>
+      <aside className="podcast-settings-drawer" onClick={(e) => e.stopPropagation()}>
+        <div className="podcast-settings-drawer-head">
+          <span>Settings</span>
+          <button
+            className="podcast-tool-btn podcast-settings-close-btn"
+            onMouseDown={handleSettingsCloseInteraction}
+            onPointerDown={handleSettingsCloseInteraction}
+            onClick={handleSettingsCloseInteraction}
+            aria-label="Close settings"
+            type="button"
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        <div className="podcast-settings-drawer-body">
+          <p className="podcast-settings-section-label">Voice Mode</p>
+          <div className="podcast-mode-list">
+            {voiceModes.map((mode) => (
+              <button key={mode.id} className={`podcast-mode-pill ${selectedVoiceMode === mode.id ? 'active' : ''}`} onClick={() => handleVoiceModeChange(mode.id)}>
+                <strong>{mode.label}</strong>
+                <span>{mode.description}</span>
+              </button>
+            ))}
+          </div>
+
+          <p className="podcast-settings-section-label">Language & Voice</p>
+          <div className="podcast-settings-stack">
+            <div className="podcast-setting-row">
+              <label>Ask In</label>
+              <select value={questionLanguage} onChange={(e) => setQuestionLanguage(e.target.value)}>
+                {languages.map((lang) => <option key={lang.code} value={lang.code}>{lang.label}</option>)}
+              </select>
+            </div>
+            <div className="podcast-setting-row">
+              <label>Answer In</label>
+              <select value={answerLanguage} onChange={(e) => handleAnswerLanguageChange(e.target.value)}>
+                {languages.map((lang) => <option key={lang.code} value={lang.code}>{lang.label}</option>)}
+              </select>
+            </div>
+            <div className="podcast-setting-row">
+              <label>Persona</label>
+              <select value={selectedPersona} onChange={(e) => handlePersonaChange(e.target.value)}>
+                {voicePersonas.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+              </select>
+            </div>
+            <div className="podcast-setting-row">
+              <label>Voice</label>
+              <select value={selectedVoiceUri} onChange={(e) => setSelectedVoiceUri(e.target.value)} disabled={!speechSupported || voices.length === 0}>
+                {voices.length === 0 && <option value="">No Google voices available</option>}
+                {voices.map((v) => <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <p className="podcast-settings-section-label">Playback</p>
+          <div className="podcast-settings-stack">
+            <div className="podcast-setting-row">
+              <label>Difficulty</label>
+              <div className="podcast-range-row">
+                <input type="range" min="0" max="2" step="1" value={difficultySliderValue} onChange={(e) => handleDifficultyChange(difficultyFromIndex(Number(e.target.value)))} />
+                <span>{selectedDifficulty}</span>
+              </div>
+            </div>
+            <div className="podcast-setting-row">
+              <label>Speed</label>
+              <div className="podcast-range-row">
+                <input type="range" min="0.85" max="1.2" step="0.01" value={playbackRate} onChange={(e) => setPlaybackRate(Number(e.target.value))} />
+                <span>{playbackRate.toFixed(2)}x</span>
+              </div>
+            </div>
+          </div>
+          <div className="podcast-toggle-strip">
+            <label className="podcast-toggle-label">
+              <input type="checkbox" checked={autoPlay} onChange={(e) => setAutoPlay(e.target.checked)} />
+              Auto-play
+            </label>
+            <label className="podcast-toggle-label">
+              <input type="checkbox" checked={handsFreeEnabled} onChange={toggleHandsFree} />
+              Hands-free {isHandsFreeListening ? '· listening' : ''}
+            </label>
+          </div>
+          {handsFreeEnabled && (
+            <input type="text" value={wakePhrase} onChange={(e) => setWakePhrase(e.target.value)} onBlur={() => persistSettings({ wake_phrase: wakePhrase })} placeholder="Wake phrase (e.g. hey cerbyl)" className="podcast-wake-input" style={{ marginTop: 12 }} />
+          )}
+
+          {savedSessions.length > 0 && (
+            <>
+              <p className="podcast-settings-section-label">Saved Sessions</p>
+              <div className="podcast-saved-list">
+                {savedSessions.slice(0, 6).map((item) => (
+                  <button key={item.session_id} className="podcast-saved-item" onClick={() => { resumeSession(item.session_id); setShowSettingsDrawer(false); }}>
+                    <strong>{item.title || 'Podcast Session'}</strong>
+                    <span>{item.voice_mode} · {item.difficulty} · ch {Math.max((item.current_index || 0) + 1, 1)}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </aside>
+    </div>
+  ) : null;
+
+  if (embedded && !isFullscreenMode) {
+    return (
+      <div className="pce" ref={fullscreenRef}>
+        <header className="pce-hero">
+          <span className="pce-kicker">{sessionId ? 'Listening session' : 'Audio study room'}</span>
+          <h2>{sessionId ? fullscreenTitle : 'Make the source speak back.'}</h2>
+          <p>
+            {sessionId
+              ? 'Listen chapter by chapter, revisit key moments, and keep the source in sync with your study flow.'
+              : 'Choose a teaching style, then turn this source into a paced, interactive listening session.'}
+          </p>
+        </header>
+
+        <div className="pce-toolbar" aria-label="Podcast status and controls">
+          <div className="pce-toolbar-status">
+            <span className={`pce-status-dot ${isSpeaking && !isSpeechPaused ? 'is-live' : ''}`} />
+            <div>
+              <span>{sessionId ? playbackStatusLabel : 'Source ready'}</span>
+              <strong>
+                {sessionId
+                  ? (currentChapter?.title || 'Preparing current chapter')
+                  : getPodcastDisplayTitle(results?.filename)}
+              </strong>
+            </div>
+          </div>
+          <div className="pce-toolbar-actions">
+            <button type="button" className="pce-quiet-button" onClick={() => setShowSettingsDrawer(true)}>
+              <Settings size={14} />
+              <span>Settings</span>
+            </button>
+            {canOpenFullscreen && (
+              <button type="button" className="pce-quiet-button" onClick={openFullscreenMode}>
+                <Maximize2 size={14} />
+                <span>Immersive mode</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {!sessionId ? (
+          <div className="pce-prelaunch">
+            <section className="pce-section">
+              <div className="pce-section-heading">
+                <div>
+                  <span className="pce-kicker">Choose the delivery</span>
+                  <h3>Voice mode</h3>
+                </div>
+                <span>{voiceModes.length} listening styles</span>
+              </div>
+              <div className="pce-mode-grid">
+                {voiceModes.map((mode, index) => (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    className={`pce-mode-card ${selectedVoiceMode === mode.id ? 'is-selected' : ''}`}
+                    aria-pressed={selectedVoiceMode === mode.id}
+                    onClick={() => setSelectedVoiceMode(mode.id)}
+                  >
+                    <span className="pce-selection-rail" aria-hidden="true" />
+                    <span className="pce-mode-index">{String(index + 1).padStart(2, '0')}</span>
+                    <span className="pce-mini-wave" aria-hidden="true">
+                      <i /><i /><i /><i /><i />
+                    </span>
+                    <strong>{mode.label}</strong>
+                    <small>{mode.description}</small>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <div className="pce-card-grid">
+              <section className="pce-surface-card pce-source-card">
+                <div className="pce-card-head">
+                  <span className="pce-card-index">01</span>
+                  <div>
+                    <span className="pce-kicker">Source profile</span>
+                    <h3>Ready to listen</h3>
+                  </div>
+                  <Headphones size={17} />
+                </div>
+                <div className="pce-card-work pce-source-scan">
+                  <span className="pce-scan-line" aria-hidden="true" />
+                  <strong>{getPodcastDisplayTitle(results?.filename)}</strong>
+                  <div className="pce-source-stats">
+                    <span><b>{transcript.split(' ').filter(Boolean).length.toLocaleString()}</b> words</span>
+                    <span><b>{keyConcepts.length}</b> concepts</span>
+                    <span><b>{voiceModes.find((mode) => mode.id === selectedVoiceMode)?.label || selectedVoiceMode}</b> mode</span>
+                  </div>
+                </div>
+                <div className="pce-card-foot">
+                  <span>Audio is generated from the current source and saved to your session history.</span>
+                  <button
+                    type="button"
+                    className="pce-primary-button"
+                    onClick={startSession}
+                    disabled={isStarting || !transcript || transcript.length < 100}
+                  >
+                    {isStarting ? <Loader2 size={16} className="spin" /> : <Play size={16} />}
+                    <span>{isStarting ? 'Preparing session' : 'Start listening'}</span>
+                  </button>
+                </div>
+              </section>
+
+              <section className="pce-surface-card pce-sessions-card">
+                <div className="pce-card-head">
+                  <span className="pce-card-index">02</span>
+                  <div>
+                    <span className="pce-kicker">Continue listening</span>
+                    <h3>Recent sessions</h3>
+                  </div>
+                  <List size={17} />
+                </div>
+                <div className="pce-card-work pce-session-list">
+                  {isLoadingSaved ? (
+                    <div className="pce-empty"><Loader2 size={18} className="spin" /><span>Loading saved sessions</span></div>
+                  ) : savedSessions.length > 0 ? savedSessions.slice(0, 4).map((item) => (
+                    <button className="pce-session-card" key={item.session_id} type="button" onClick={() => resumeSession(item.session_id)}>
+                      <span><Play size={13} /></span>
+                      <div>
+                        <strong>{item.title || 'Podcast Session'}</strong>
+                        <small>{item.voice_mode} · chapter {Math.max((item.current_index || 0) + 1, 1)}</small>
+                      </div>
+                      <SkipForward size={14} />
+                    </button>
+                  )) : (
+                    <div className="pce-empty">
+                      <Headphones size={20} />
+                      <strong>Your first session starts here.</strong>
+                      <span>Completed and paused sessions will stay available in this panel.</span>
+                    </div>
+                  )}
+                </div>
+                <div className="pce-card-foot pce-card-foot--quiet">
+                  <span>Sessions preserve chapter position, bookmarks, voice mode, and playback settings.</span>
+                </div>
+              </section>
+            </div>
+            {error && <div className="pce-error" role="alert"><Mic size={13} /><span>{error}</span></div>}
+          </div>
+        ) : (
+          <div className="pce-session">
+            <div className="pce-card-grid">
+              <section className="pce-surface-card pce-player-card">
+                <div className="pce-card-head">
+                  <span className="pce-card-index">01</span>
+                  <div>
+                    <span className="pce-kicker">Now playing</span>
+                    <h3>{currentChapter?.title || 'Current chapter'}</h3>
+                  </div>
+                  <span className={`pce-audio-mark ${isSpeaking && !isSpeechPaused ? 'is-playing' : ''}`} aria-hidden="true">
+                    <i /><i /><i /><i /><i />
+                  </span>
+                </div>
+                <div className="pce-card-work pce-player-work">
+                  <div className="pce-player-meta">
+                    <span>{voiceProfile?.label || selectedVoiceMode}</span>
+                    <span>{selectedPersona}</span>
+                    <span>{playbackRate.toFixed(2)}x</span>
+                  </div>
+                  <div className="pce-progress">
+                    <span style={{ transform: `scaleX(${currentChapterProgressPercent / 100})` }} />
+                  </div>
+                  <div className="pce-time-row">
+                    <span>{formatTime(currentChapterElapsedSeconds)}</span>
+                    <span>{currentChapter ? formatTime(currentChapter.duration_seconds || 0) : '0:00'}</span>
+                  </div>
+                  <div className="pce-transport" aria-label="Podcast playback controls">
+                    <button type="button" onClick={goToPreviousChapter} disabled={currentIndex <= 0} aria-label="Previous chapter"><SkipBack size={17} /></button>
+                    <button type="button" onClick={handlePlay} disabled={!normalizedCurrentSegment || !speechSupported} className="pce-transport-primary" aria-label={isSpeechPaused ? 'Resume podcast' : 'Play podcast'}>
+                      <Play size={19} />
+                    </button>
+                    <button type="button" onClick={pauseSpeaking} disabled={!isSpeaking || isSpeechPaused} aria-label="Pause podcast"><Pause size={17} /></button>
+                    <button type="button" onClick={fetchNextSegment} disabled={isFetchingNext || !hasMore} aria-label="Next chapter">
+                      {isFetchingNext ? <Loader2 size={17} className="spin" /> : <SkipForward size={17} />}
+                    </button>
+                    <button type="button" onClick={addBookmark} disabled={!sessionId} aria-label="Bookmark current moment"><BookmarkPlus size={17} /></button>
+                  </div>
+                </div>
+                <div className="pce-card-foot pce-player-foot">
+                  <label>
+                    <span>Playback speed</span>
+                    <input type="range" min="0.85" max="1.2" step="0.01" value={playbackRate} onChange={(e) => setPlaybackRate(Number(e.target.value))} />
+                    <strong>{playbackRate.toFixed(2)}x</strong>
+                  </label>
+                  <label className="pce-check">
+                    <input type="checkbox" checked={autoPlay} onChange={(e) => setAutoPlay(e.target.checked)} />
+                    <span>Auto-play</span>
+                  </label>
+                  <button type="button" className="pce-stop-button" onClick={stopSession}><Square size={13} /> Stop</button>
+                </div>
+              </section>
+
+              <section className="pce-surface-card pce-queue-card">
+                <div className="pce-card-head">
+                  <span className="pce-card-index">02</span>
+                  <div>
+                    <span className="pce-kicker">Listening map</span>
+                    <h3>Chapters & bookmarks</h3>
+                  </div>
+                  <List size={17} />
+                </div>
+                <div className="pce-card-work pce-queue-work">
+                  <div className="pce-chapter-list">
+                    {chapters.map((chapter) => (
+                      <button
+                        key={`embedded-chapter-${chapter.index}`}
+                        type="button"
+                        className={`pce-chapter-button ${chapter.index === currentIndex ? 'is-current' : ''}`}
+                        onClick={() => jumpToChapter(chapter.index)}
+                      >
+                        <span>{String(chapter.index + 1).padStart(2, '0')}</span>
+                        <div><strong>{chapter.title}</strong><small>{formatTime(chapter.start_second)} · {chapter.duration_seconds}s</small></div>
+                        <Play size={12} />
+                      </button>
+                    ))}
+                  </div>
+                  {bookmarks.length > 0 && (
+                    <div className="pce-bookmark-list">
+                      <span className="pce-kicker">Bookmarks</span>
+                      {bookmarks.map((bookmark) => (
+                        <button key={`embedded-bookmark-${bookmark.id}`} type="button" className="pce-bookmark-button" onClick={() => replayBookmark(bookmark.id)}>
+                          <BookmarkPlus size={13} />
+                          <strong>{bookmark.label}</strong>
+                          <span>{bookmark.timestamp_label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="pce-card-foot pce-card-foot--quiet">
+                  <span>{chapters.length} chapters · {bookmarks.length} bookmarks</span>
+                </div>
+              </section>
+            </div>
+
+            <section className="pce-surface-card pce-subtitles-card">
+              <div className="pce-card-head">
+                <span className="pce-card-index">03</span>
+                <div>
+                  <span className="pce-kicker">Synced reading</span>
+                  <h3>Subtitles</h3>
+                </div>
+                <span className="pce-cue-count">{subtitleModel.cues.length} cues</span>
+              </div>
+              <div className="pce-card-work pce-subtitle-list">
+                {subtitleModel.cues.length === 0 ? (
+                  <div className="pce-empty"><Mic size={18} /><span>Start playback to sync the transcript.</span></div>
+                ) : subtitleModel.cues.map((cue) => {
+                  const isActiveCue = cue.index === activeSubtitleIndex;
+                  const isPastCue = activeWordIndex > cue.endWordIndex;
+                  const cueOffset = currentChapter && subtitleModel.words.length
+                    ? Math.round((cue.startWordIndex / subtitleModel.words.length) * (currentChapter.duration_seconds || 0))
+                    : 0;
+                  return (
+                    <button
+                      key={`embedded-cue-${cue.index}`}
+                      ref={(node) => { subtitleRefs.current[cue.index] = node; }}
+                      className={`pce-subtitle-cue ${isActiveCue ? 'is-active' : ''} ${isPastCue ? 'is-past' : ''}`}
+                      type="button"
+                      onClick={() => seekToSubtitle(cue)}
+                    >
+                      <span>{formatTime(cueOffset)}</span>
+                      <span>{cue.text}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+            {error && <div className="pce-error" role="alert"><Mic size={13} /><span>{error}</span></div>}
+          </div>
+        )}
+        {settingsDrawer && typeof document !== 'undefined'
+          ? createPortal(settingsDrawer, document.body)
+          : settingsDrawer}
+      </div>
+    );
+  }
+
   return (
-    <div className="podcast-fullscreen-shell" ref={fullscreenRef}>
+    <div className={`podcast-fullscreen-shell ${embedded && !isFullscreenMode ? 'podcast-fullscreen-shell--embedded' : ''}`} ref={fullscreenRef}>
       <div className="podcast-fullscreen-backdrop" />
       <div className="podcast-fullscreen">
 
@@ -1821,112 +2206,7 @@ const PodcastStudio = ({ results, userName, onExit, onSettingsDrawerChange }) =>
         )}
       </div>
 
-      {}
-      {showSettingsDrawer && (
-        <div className="podcast-settings-overlay" onClick={closeSettingsDrawer}>
-          <aside className="podcast-settings-drawer" onClick={(e) => e.stopPropagation()}>
-            <div className="podcast-settings-drawer-head">
-              <span>Settings</span>
-              <button
-                className="podcast-tool-btn podcast-settings-close-btn"
-                onMouseDown={handleSettingsCloseInteraction}
-                onPointerDown={handleSettingsCloseInteraction}
-                onClick={handleSettingsCloseInteraction}
-                aria-label="Close settings"
-                type="button"
-              >
-                <X size={14} />
-              </button>
-            </div>
-
-            <div className="podcast-settings-drawer-body">
-              <p className="podcast-settings-section-label">Voice Mode</p>
-              <div className="podcast-mode-list">
-                {voiceModes.map((mode) => (
-                  <button key={mode.id} className={`podcast-mode-pill ${selectedVoiceMode === mode.id ? 'active' : ''}`} onClick={() => handleVoiceModeChange(mode.id)}>
-                    <strong>{mode.label}</strong>
-                    <span>{mode.description}</span>
-                  </button>
-                ))}
-              </div>
-
-              <p className="podcast-settings-section-label">Language & Voice</p>
-              <div className="podcast-settings-stack">
-                <div className="podcast-setting-row">
-                  <label>Ask In</label>
-                  <select value={questionLanguage} onChange={(e) => setQuestionLanguage(e.target.value)}>
-                    {languages.map((lang) => <option key={lang.code} value={lang.code}>{lang.label}</option>)}
-                  </select>
-                </div>
-                <div className="podcast-setting-row">
-                  <label>Answer In</label>
-                  <select value={answerLanguage} onChange={(e) => handleAnswerLanguageChange(e.target.value)}>
-                    {languages.map((lang) => <option key={lang.code} value={lang.code}>{lang.label}</option>)}
-                  </select>
-                </div>
-                <div className="podcast-setting-row">
-                  <label>Persona</label>
-                  <select value={selectedPersona} onChange={(e) => handlePersonaChange(e.target.value)}>
-                    {voicePersonas.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-                  </select>
-                </div>
-                <div className="podcast-setting-row">
-                  <label>Voice</label>
-                  <select value={selectedVoiceUri} onChange={(e) => setSelectedVoiceUri(e.target.value)} disabled={!speechSupported || voices.length === 0}>
-                    {voices.length === 0 && <option value="">No Google voices available</option>}
-                    {voices.map((v) => <option key={v.voiceURI} value={v.voiceURI}>{v.name}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <p className="podcast-settings-section-label">Playback</p>
-              <div className="podcast-settings-stack">
-                <div className="podcast-setting-row">
-                  <label>Difficulty</label>
-                  <div className="podcast-range-row">
-                    <input type="range" min="0" max="2" step="1" value={difficultySliderValue} onChange={(e) => handleDifficultyChange(difficultyFromIndex(Number(e.target.value)))} />
-                    <span>{selectedDifficulty}</span>
-                  </div>
-                </div>
-                <div className="podcast-setting-row">
-                  <label>Speed</label>
-                  <div className="podcast-range-row">
-                    <input type="range" min="0.85" max="1.2" step="0.01" value={playbackRate} onChange={(e) => setPlaybackRate(Number(e.target.value))} />
-                    <span>{playbackRate.toFixed(2)}x</span>
-                  </div>
-                </div>
-              </div>
-              <div className="podcast-toggle-strip">
-                <label className="podcast-toggle-label">
-                  <input type="checkbox" checked={autoPlay} onChange={(e) => setAutoPlay(e.target.checked)} />
-                  Auto-play
-                </label>
-                <label className="podcast-toggle-label">
-                  <input type="checkbox" checked={handsFreeEnabled} onChange={toggleHandsFree} />
-                  Hands-free {isHandsFreeListening ? '· listening' : ''}
-                </label>
-              </div>
-              {handsFreeEnabled && (
-                <input type="text" value={wakePhrase} onChange={(e) => setWakePhrase(e.target.value)} onBlur={() => persistSettings({ wake_phrase: wakePhrase })} placeholder="Wake phrase (e.g. hey cerbyl)" className="podcast-wake-input" style={{ marginTop: 12 }} />
-              )}
-
-              {savedSessions.length > 0 && (
-                <>
-                  <p className="podcast-settings-section-label">Saved Sessions</p>
-                  <div className="podcast-saved-list">
-                    {savedSessions.slice(0, 6).map((item) => (
-                      <button key={item.session_id} className="podcast-saved-item" onClick={() => { resumeSession(item.session_id); setShowSettingsDrawer(false); }}>
-                        <strong>{item.title || 'Podcast Session'}</strong>
-                        <span>{item.voice_mode} · {item.difficulty} · ch {Math.max((item.current_index || 0) + 1, 1)}</span>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          </aside>
-        </div>
-      )}
+      {settingsDrawer}
     </div>
   );
 };

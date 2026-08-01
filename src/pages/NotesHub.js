@@ -2,13 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowUpRight, BookOpen, Clock3, FileText, Headphones,
-  LayoutTemplate, Library, Loader2, Mic, Plus, Sparkles, Upload,
-  ChevronLeft, ChevronRight, Home
+  LayoutTemplate, Library, Loader2, Mic, Plus, Sparkles, Upload
 } from 'lucide-react';
 import './NotesHub.css';
-import '../components/SocialHubChrome.css';
-import '../components/NotesSidebarSystem.css';
-import NotesLineField from '../components/NotesLineField';
+import SocialHubChrome from '../components/SocialHubChrome';
 import { API_URL } from '../config';
 
 const plainText = (html = '') => html
@@ -39,7 +36,6 @@ function NotesHub() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const userName = localStorage.getItem('username');
 
   useEffect(() => {
@@ -109,107 +105,100 @@ function NotesHub() {
     return `${recentNotes.length} recent ${recentNotes.length === 1 ? 'note' : 'notes'}`;
   }, [loading, recentNotes.length]);
 
+  const sidebarLead = (
+    <button className="nh-side-create" type="button" onClick={createNote} disabled={creating}>
+      {creating ? <Loader2 className="nh-spin" size={15} /> : <Plus size={15} />}
+      <span>{creating ? 'Opening note…' : 'New note'}</span>
+    </button>
+  );
+
+  const sidebarTail = (
+    <button className="nh-side-capture" type="button" onClick={() => navigate('/notes/ai-media')}>
+      <Sparkles size={16} />
+      <span>
+        <strong>Capture from anywhere</strong>
+        <small>Transform a recording, video or document.</small>
+      </span>
+      <ArrowUpRight size={14} />
+    </button>
+  );
+
   return (
-    <div className="nh notes-hub-page">
-      <div className="shc-topbar">
-        <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-        <div className="shc-topbar-right">
-          <span className="nh-sync-state"><span />{totalLabel}</span>
-          <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-        </div>
-      </div>
-      <NotesLineField />
-
-      <div className="nh-layout-body">
-        <div className={`nh-workspace ${sidebarCollapsed ? 'nh-workspace--collapsed' : ''}`}>
-          <aside className={`nh-sidebar notes-sidebar-system ${sidebarCollapsed ? 'nh-sidebar--collapsed' : ''}`} aria-label="Notes workspace">
-            <div className="notes-sidebar-texture" aria-hidden="true" />
-            {sidebarCollapsed ? (
-              <div className="nh-collapsed-strip">
-                <button data-tip="Open sidebar" type="button" onClick={() => setSidebarCollapsed(false)}><ChevronRight size={17} /></button>
-                <button data-tip="New note" type="button" onClick={createNote}><Plus size={17} /></button>
-                <button data-tip="My library" type="button" onClick={() => navigate('/notes/my-notes')}><Library size={17} /></button>
-                <button data-tip="Media notes" type="button" onClick={() => navigate('/notes/ai-media')}><Mic size={17} /></button>
-                <span />
-                <button data-tip="Dashboard" type="button" onClick={() => navigate('/dashboard-cerbyl')}><Home size={17} /></button>
+    <div className="nh with-social-chrome">
+      <SocialHubChrome
+        brandKicker="Notes"
+        sidebarLead={sidebarLead}
+        sidebarTail={sidebarTail}
+        sideSections={[
+          {
+            label: 'Workspace',
+            items: [
+              { icon: BookOpen, label: 'Overview', active: true, onClick: () => {} },
+              { icon: Library, label: 'My Library', onClick: () => navigate('/notes/my-notes') },
+              { icon: Mic, label: 'Media Notes', onClick: () => navigate('/notes/ai-media') },
+            ],
+          },
+        ]}
+      >
+        <main className="nh-main">
+          <header className="nh-hero">
+            <div className="nh-hero-copy">
+              <span className="nh-kicker">Your thinking, in one place</span>
+              <h1>What do you want to capture?</h1>
+              <p>Write from scratch, or bring a source and let Cerbyl structure the first pass.</p>
+            </div>
+            <div className="nh-library-status" aria-label={totalLabel}>
+              <span className="nh-status-dot" />
+              <div>
+                <small>Library status</small>
+                <strong>{totalLabel}</strong>
               </div>
-            ) : (
-            <>
-            <div className="nh-brand-block">
-              <div className="nh-brand">cerbyl</div>
-              <span>Notes workspace</span>
-              <button className="nh-sidebar-close" type="button" onClick={() => setSidebarCollapsed(true)} aria-label="Close notes sidebar"><ChevronLeft size={14} /></button>
+            </div>
+          </header>
+
+          {error && <div className="nh-error" role="alert">{error}. Please try again.</div>}
+
+          <section className="nh-view">
+            <div className="nh-view-bar">
+              <div>
+                <span>Capture routes</span>
+                <strong>Choose how the thought enters your workspace</strong>
+              </div>
             </div>
 
-            <button className="nh-new-note" type="button" onClick={createNote} disabled={creating}>
-              {creating ? <Loader2 className="nh-spin" size={17} /> : <Plus size={17} />}
-              <span>{creating ? 'Opening note…' : 'New note'}</span>
-            </button>
-
-            <nav className="nh-side-nav" aria-label="Notes destinations">
-              <span className="nh-side-label">Workspace</span>
-              <button className="is-active" type="button"><BookOpen size={16} /><span>Overview</span></button>
-              <button type="button" onClick={() => navigate('/notes/my-notes')}><Library size={16} /><span>My library</span></button>
-              <button type="button" onClick={() => navigate('/notes/ai-media')}><Mic size={16} /><span>Media notes</span></button>
-            </nav>
-
-            <div className="nh-capture-card">
-              <Sparkles size={17} />
-              <div>
-                <span>Capture from anywhere</span>
-                <p>Turn a recording, video or document into a note you can actually study.</p>
-              </div>
-              <button type="button" onClick={() => navigate('/notes/ai-media')} aria-label="Open Media Notes">
-                <ArrowUpRight size={15} />
-              </button>
-            </div>
-
-            <button className="nh-dashboard-link" type="button" onClick={() => navigate('/dashboard-cerbyl')}>
-              <span>Return to dashboard</span><ArrowUpRight size={14} />
-            </button>
-            </>
-            )}
-          </aside>
-
-          <main className="nh-main">
-            <header className="nh-command-header">
-              <div>
-                <span className="nh-kicker">Your thinking, in one place</span>
-                <h1>What do you want to capture?</h1>
-                <p>Write from scratch, or bring a source and let Cerbyl structure the first pass.</p>
-              </div>
-              <div className="nh-header-mark" aria-hidden="true">
-                <span>NOTE</span><strong>01</strong>
-              </div>
-            </header>
-
-            {error && <div className="nh-error" role="alert">{error}</div>}
-
-            <section className="nh-capture-grid" aria-label="Capture options">
+            <div className="nh-capture-grid" aria-label="Capture options">
               <button className="nh-route-card nh-route-write" type="button" onClick={createNote} disabled={creating}>
-                <span className="nh-route-number">01 / WRITE</span>
-                <span className="nh-route-icon"><FileText size={24} /></span>
+                <span className="nh-card-spine" aria-hidden="true"><i /></span>
+                <span className="nh-route-top">
+                  <span className="nh-route-number">Write</span>
+                  <span className="nh-route-icon"><FileText size={22} /></span>
+                </span>
                 <span className="nh-route-copy">
                   <strong>Start with a blank page</strong>
                   <small>A focused editor for ideas, classes and working notes.</small>
                 </span>
-                <span className="nh-route-action">Open editor <ArrowUpRight size={15} /></span>
+                <span className="nh-route-action">
+                  {creating ? <><Loader2 className="nh-spin" size={14} />Opening editor</> : <>Open editor <ArrowUpRight size={15} /></>}
+                </span>
               </button>
 
               <button className="nh-route-card nh-route-media" type="button" onClick={() => navigate('/notes/ai-media')}>
-                <span className="nh-route-number">02 / TRANSFORM</span>
-                <span className="nh-route-icon"><Headphones size={24} /></span>
+                <span className="nh-card-spine" aria-hidden="true"><i /></span>
+                <span className="nh-route-top">
+                  <span className="nh-route-number">Transform</span>
+                  <span className="nh-route-icon"><Headphones size={22} /></span>
+                </span>
                 <span className="nh-route-copy">
                   <strong>Turn media into study notes</strong>
                   <small>Keep the source, transcript and study material connected.</small>
                 </span>
                 <span className="nh-route-action">Add a source <Upload size={15} /></span>
               </button>
-            </section>
+            </div>
 
             <section className="nh-recent-panel">
               <div className="nh-panel-heading">
-                <div><span className="nh-kicker">Continue the thread</span><h2>Recent notes</h2></div>
+                <div><span>Continue the thread</span><h2>Recent notes</h2></div>
                 <button type="button" onClick={() => navigate('/notes/my-notes')}>View library <ArrowUpRight size={14} /></button>
               </div>
 
@@ -228,16 +217,16 @@ function NotesHub() {
                   </button>
                 )) : (
                   <div className="nh-empty-recent">
-                    <LayoutTemplate size={20} />
+                    <span className="nh-empty-icon"><LayoutTemplate size={20} /></span>
                     <div><strong>Your latest notes will live here.</strong><span>Create a note or transform a source to begin.</span></div>
                     <button type="button" onClick={createNote}>Create first note</button>
                   </div>
                 )}
               </div>
             </section>
-          </main>
-        </div>
-      </div>
+          </section>
+        </main>
+      </SocialHubChrome>
     </div>
   );
 }

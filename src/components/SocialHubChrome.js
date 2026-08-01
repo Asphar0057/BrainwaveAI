@@ -1,15 +1,19 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, LayoutGrid, Users } from 'lucide-react';
 import './SocialHubChrome.css';
 import GeometricGrid from './GeometricGrid';
 
-const StripBtn = ({ icon: Icon, label, onClick, active }) => (
+const StripBtn = ({ icon: Icon, label, onClick, active, pressed, disabled = false }) => (
   <button
     className={`shc-strip-btn ${active ? 'shc-strip-btn--active' : ''}`}
     type="button"
     onClick={onClick}
     data-tip={label}
+    disabled={disabled}
+    aria-label={label}
+    aria-current={active && pressed === undefined ? 'page' : undefined}
+    aria-pressed={pressed}
   >
     {Icon ? <Icon size={15} /> : null}
   </button>
@@ -23,6 +27,61 @@ const FOOTER_ITEMS = [
 const REACTIVE_SURFACE_SELECTOR = [
   '.fd-friend-card',
   '.fd-user-row',
+  '.nh-route-card',
+  '.nh-note-row',
+  '.mn-intake-card',
+  '.amn-library-card',
+  '.mn-study-workspace .mn-notes-panel',
+  '.mn-tab-content > .mn-notes-panel',
+  '.mn-transcript-rail',
+  '.mn-transcript-view',
+  '.mn-tab',
+  '.mn-tab-action-btn',
+  '.mn-quiz-question',
+  '.mn-flashcard',
+  '.mn-moment-item',
+  '.mn-workflow-strip span',
+  '.mn-recipe-picker button',
+  '.pce-mode-card',
+  '.pce-surface-card',
+  '.pce-session-card',
+  '.pce-chapter-button',
+  '.pce-bookmark-button',
+  '.pce-subtitle-cue',
+  '.nre-document-card',
+  '.flashcards-page .fc-set-card-new',
+  '.flashcards-page .fc-mode-btn',
+  '.flashcards-page .fc-generator-workspace',
+  '.flashcards-page .fc-stat-card',
+  '.flashcards-page .fc-sr-summary-item',
+  '.flashcards-page .fc-sr-stats-panel',
+  '.flashcards-page .fc-sr-ai-section',
+  '.flashcards-page .fc-review-card-item',
+  '.flashcards-page .fc-review-set',
+  '.flashcards-page .fc-source-card',
+  '.flashcards-page .fc-source-upload-card',
+  '.flashcards-page.fc-focus-shell .fc-study-card-front',
+  '.flashcards-page.fc-focus-shell .fc-study-card-back',
+  '.flashcards-page.fc-focus-shell .fc-edit-card',
+  '.flashcards-page.fc-focus-shell .fc-study-question-card',
+  '.flashcards-page.fc-focus-shell .fc-mcq-option',
+  '.flashcards-page.fc-focus-shell .fc-sr-card-front',
+  '.flashcards-page.fc-focus-shell .fc-sr-card-back',
+  '.flashcards-page.fc-focus-shell .fc-result-stat',
+  '.lp-resume-path',
+  '.lp-route-row',
+  '.lpd-overview-card',
+  '.lpd-toolkit-card',
+  '.lpd-activity',
+  '.lpd-resource-card',
+  '.lpd-application-item',
+  '.lpd-connection-section',
+  '.flashcards-page.fc-focus-shell .fc-sr-result-item',
+  '.se-page .se-deck-card',
+  '.se-page .se-upload-stage',
+  '.se-page .se-slide-frame',
+  '.se-page .se-explanation-panel',
+  '.se-page .se-insight-section',
   '.af-activity-card',
   '.sp-item-card',
   '.leaderboard-entry',
@@ -34,6 +93,40 @@ const REACTIVE_SURFACE_SELECTOR = [
   '.qb-create-generator',
   '.qb-gm-btn',
   '.qb-battle-card',
+  '.qbd-hub .qbd-qh-focus',
+  '.qbd-hub .qbd-qh-set-list',
+  '.qbd-hub .qbd-qh-set-row',
+  '.qbd-hub .qbd-document-card',
+  '.qbd-hub .qbd-source-card',
+  '.qbd-hub .qbd-custom-card',
+  '.qbd-hub .qbd-generation-settings',
+  '.qbd-hub .qbd-upload-section',
+  '.qbd-hub .qbd-stat-box',
+  '.qbd-hub .qbd-adaptive-box',
+  '.qbd-hub .qbd-performance-section',
+  '.qbd-hub .qbd-difficulty-section',
+  '.qbd-hub .qbd-difficulty-card',
+  '.qbd-hub .qbd-weak-topics',
+  '.qbd-hub .qbd-preview-question',
+  '.qbd-hub .qbd-question-card',
+  '.wa-root .wa-diagnosis-summary',
+  '.wa-root .wa-queue',
+  '.wa-root .wa-topics-overview',
+  '.wa-root .wa-topic-row',
+  '.wa-root .wa-component-panel',
+  '.wa-root .wa-activity-row',
+  '.atl-activity-card',
+  '.atl-reminder-card',
+  '.xpv-quest-row',
+  '.xpv-power-grid button',
+  '.xpv-topic-arc',
+  '.xpv-badge-grid button',
+  '.xpv-reward-ledger > button',
+  '.xpv-route-brief',
+  '.wt-page .wt-rec-card',
+  '.wt-page .wt-gen-card',
+  '.wt-page .wt-tip-item',
+  '.wt-page .wt-q-card',
   '.plx-card',
   '.playlist-detail-page .pdx-row',
   '.playlist-detail-page .detail-header',
@@ -47,16 +140,42 @@ const SocialHubChrome = ({
   topbarAction = { label: 'Dashboard', path: '/dashboard-cerbyl' },
   sidebarLead = null,
   sidebarTail = null,
+  collapsedLeadItems = [],
+  collapsedTailItems = [],
   noSidebar = false,
+  collapsed: controlledCollapsed,
+  onCollapsedChange,
   children,
 }) => {
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const collapsed = controlledCollapsed ?? internalCollapsed;
+  const setCollapsed = useCallback((nextValue) => {
+    const resolved = typeof nextValue === 'function' ? nextValue(collapsed) : nextValue;
+    if (controlledCollapsed === undefined) {
+      setInternalCollapsed(resolved);
+    }
+    onCollapsedChange?.(resolved);
+  }, [collapsed, controlledCollapsed, onCollapsedChange]);
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined;
+    const media = window.matchMedia('(max-width: 1100px)');
+    const syncToViewport = () => {
+      if (controlledCollapsed === undefined) {
+        setInternalCollapsed(media.matches);
+      }
+      onCollapsedChange?.(media.matches);
+    };
+    syncToViewport();
+    media.addEventListener?.('change', syncToViewport);
+    return () => media.removeEventListener?.('change', syncToViewport);
+  }, [controlledCollapsed === undefined, onCollapsedChange]);
   const activeSurfaceRef = useRef(null);
 
   const clearReactiveSurface = useCallback(() => {
     const surface = activeSurfaceRef.current;
     if (!surface) return;
+    surface.classList.remove('shc-reactive-active');
     surface.style.removeProperty('--shc-mx');
     surface.style.removeProperty('--shc-my');
     surface.style.removeProperty('--shc-rx');
@@ -75,6 +194,7 @@ const SocialHubChrome = ({
     if (activeSurfaceRef.current !== surface) {
       clearReactiveSurface();
       activeSurfaceRef.current = surface;
+      surface.classList.add('shc-reactive-active');
     }
 
     const rect = surface.getBoundingClientRect();
@@ -89,11 +209,16 @@ const SocialHubChrome = ({
     surface.style.setProperty('--shc-ry', `${rotateY.toFixed(2)}deg`);
   }, [clearReactiveSurface]);
 
+  const handleSurfaceScroll = useCallback(() => {
+    clearReactiveSurface();
+  }, [clearReactiveSurface]);
+
   return (
     <div
       className="shc-shell"
       onPointerMove={handleSurfacePointerMove}
       onPointerLeave={clearReactiveSurface}
+      onScrollCapture={handleSurfaceScroll}
     >
         <div className="shc-bg-fx" aria-hidden="true">
           <div className="shc-bg-wash" />
@@ -139,6 +264,20 @@ const SocialHubChrome = ({
 
                 <div className="shc-strip-rule" />
 
+                {collapsedLeadItems.map(item => (
+                  <StripBtn
+                    key={item.label}
+                    icon={item.icon}
+                    label={item.label}
+                    onClick={item.onClick}
+                    active={item.active}
+                    pressed={item.pressed}
+                    disabled={item.disabled}
+                  />
+                ))}
+
+                {collapsedLeadItems.length > 0 && <div className="shc-strip-rule" />}
+
                 {sideSections.flatMap(s => s.items).map(item => (
                   <StripBtn
                     key={item.label}
@@ -146,11 +285,25 @@ const SocialHubChrome = ({
                     label={item.label}
                     onClick={item.onClick}
                     active={item.active}
+                    pressed={item.pressed}
+                    disabled={item.disabled}
                   />
                 ))}
 
                 <div className="shc-strip-spacer" />
                 <div className="shc-strip-rule" />
+
+                {collapsedTailItems.map(item => (
+                  <StripBtn
+                    key={item.label}
+                    icon={item.icon}
+                    label={item.label}
+                    onClick={item.onClick}
+                    active={item.active}
+                    pressed={item.pressed}
+                    disabled={item.disabled}
+                  />
+                ))}
 
                 {footerItems.map(fi => (
                   <StripBtn key={fi.label} icon={fi.icon} label={fi.label} onClick={() => navigate(fi.path)} />
@@ -192,6 +345,9 @@ const SocialHubChrome = ({
                               className={`shc-view-link ${item.active ? 'shc-view-link--active' : ''}`}
                               type="button"
                               onClick={item.onClick}
+                              disabled={item.disabled}
+                              aria-current={item.active && item.pressed === undefined ? 'page' : undefined}
+                              aria-pressed={item.pressed}
                             >
                               {Icon ? <Icon size={15} /> : null}
                               <span>{item.label}</span>

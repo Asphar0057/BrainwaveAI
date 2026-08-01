@@ -23,17 +23,7 @@ import {
   X,
   Zap
 } from 'lucide-react';
-import {
-  SidebarAction,
-  SidebarActions,
-  SidebarMenuItem,
-  SidebarPrimaryButton,
-  SidebarSection,
-  SidebarShell,
-  SidebarStripButton,
-  SidebarStripDivider,
-  SidebarStripSpacer
-} from '../components/Sidebar';
+import SocialHubChrome from '../components/SocialHubChrome';
 
 const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
@@ -89,36 +79,60 @@ export default function XPRoadmapWorkspace({
   handleContinueMission
 }) {
   const [armedPowerUp, setArmedPowerUp] = useState(null);
+  const [activeSection, setActiveSection] = useState('xpv-roadmap');
 
   useEffect(() => {
-    const sidebar = shellRef?.current?.querySelector('.xpv-workspace > .sb-sidebar');
+    const sidebar = shellRef?.current?.querySelector('.shc-sidebar');
     if (sidebar) sidebar.scrollTop = 0;
   }, [shellRef, sidebarCollapsed]);
 
-  if (loading) {
-    return (
-      <div className="xpv-loading">
-        <div className="xpv-line-field" aria-hidden="true" />
-        <div className="xpv-loading-mark" aria-hidden="true">
-          <span />
-          <Zap size={24} />
+  const renderStatus = ({ error = false } = {}) => (
+    <div className="xpv-shell with-social-chrome" ref={shellRef}>
+      <SocialHubChrome
+        brandKicker="XP Roadmap"
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+        sideSections={[{
+          label: 'Roadmap',
+          items: [
+            { label: 'Level path', icon: Map, active: true, disabled: true },
+            { label: 'Weekly quests', icon: Target, disabled: true },
+            { label: 'Rewards', icon: Gift, disabled: true },
+          ],
+        }]}
+        footerItems={[
+          { icon: User, label: displayName, path: '/profile' },
+          { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard-cerbyl' },
+        ]}
+        sidebarLead={(
+          <button className="xpv-side-primary" type="button" disabled>
+            <Rocket size={15} />
+            <span>Continue journey</span>
+          </button>
+        )}
+      >
+        <div className="xpv-content xpv-status-content">
+          <section className={`xpv-status-panel ${error ? 'is-error' : ''}`} aria-live="polite">
+            <div className="xpv-loading-mark" aria-hidden="true">
+              {!error && <span />}
+              <Zap size={22} />
+            </div>
+            <span className="xpv-kicker">{error ? 'Route interrupted' : 'Plotting progress'}</span>
+            <strong>{error ? 'Progress is temporarily out of reach' : 'Mapping your next level'}</strong>
+            <p>{error ? statsError : 'Loading progress, weekly goals and available rewards.'}</p>
+            {error && <button type="button" onClick={retryStats}>Try again</button>}
+          </section>
         </div>
-        <strong>Mapping your next level</strong>
-        <p>Loading progress, weekly goals and available rewards.</p>
-      </div>
-    );
+      </SocialHubChrome>
+    </div>
+  );
+
+  if (loading) {
+    return renderStatus();
   }
 
   if (statsError) {
-    return (
-      <div className="xpv-loading xpv-error-state">
-        <div className="xpv-line-field" aria-hidden="true" />
-        <div className="xpv-loading-mark" aria-hidden="true"><Zap size={24} /></div>
-        <strong>Progress is temporarily out of reach</strong>
-        <p>{statsError}</p>
-        <button type="button" onClick={retryStats}>Try again</button>
-      </div>
-    );
+    return renderStatus({ error: true });
   }
 
   const nextMilestoneIndex = badgeCollection.findIndex((node) => xp < node.xp);
@@ -131,82 +145,60 @@ export default function XPRoadmapWorkspace({
     return ((nextMilestoneIndex - 1 + Math.max(0, Math.min(1, segmentProgress))) / (badgeCollection.length - 1)) * 100;
   })();
   const getPlotX = (node) => Math.max(8, Math.min(80, node.x));
+  const jumpToSection = (sectionId) => {
+    setActiveSection(sectionId);
+    scrollToPanel(sectionId);
+  };
+  const roadmapSections = [
+    {
+      label: 'Roadmap',
+      items: [
+        { label: 'Level path', icon: Map, active: activeSection === 'xpv-roadmap', onClick: () => jumpToSection('xpv-roadmap') },
+        { label: 'Weekly quests', icon: Target, active: activeSection === 'xpv-quests', count: runMechanics.completedQuests, onClick: () => jumpToSection('xpv-quests') },
+        { label: 'Rewards', icon: Gift, active: activeSection === 'xpv-rewards', count: masteredCount, onClick: () => jumpToSection('xpv-rewards') },
+        { label: 'Topic arcs', icon: BookOpen, active: activeSection === 'xpv-topics', count: topicArcs.length, onClick: () => jumpToSection('xpv-topics') },
+      ],
+    },
+    {
+      label: 'Practice',
+      items: [
+        { label: 'Question bank', icon: Brain, onClick: () => navigate('/question-bank') },
+        { label: 'Flashcards', icon: Layers, onClick: () => navigate('/flashcards') },
+        { label: 'Notes', icon: FileText, onClick: () => navigate('/notes') },
+      ],
+    },
+  ];
 
   return (
-    <div className="xpv-shell" ref={shellRef}>
-      <div className="xpv-line-field" aria-hidden="true" />
-
-      <header className="xpv-topbar">
-        <span className="xpv-topbar-brand"><b>LEARNING,</b> UNIFIED</span>
-        <div className="xpv-topbar-actions">
-          <span>{masteredCount} milestones complete</span>
-          <button type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-        </div>
-      </header>
-
+    <div className="xpv-shell with-social-chrome" ref={shellRef}>
       {levelWave && <div className="xpv-level-wave" aria-hidden="true" />}
-
-      <div className={`xpv-workspace ${sidebarCollapsed ? 'is-collapsed' : ''}`}>
-        <SidebarShell
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed((value) => !value)}
-          brandKicker="XP ROADMAP"
-          ariaLabel="XP Roadmap navigation"
-          collapsedContent={(
-            <>
-              <SidebarStripButton icon={<Map size={18} />} tip="Roadmap" active onClick={() => { setSidebarCollapsed(false); scrollToPanel('xpv-roadmap'); }} />
-              <SidebarStripButton icon={<Target size={18} />} tip="Weekly quests" onClick={() => scrollToPanel('xpv-quests')} />
-              <SidebarStripButton icon={<Gift size={18} />} tip="Rewards" onClick={() => scrollToPanel('xpv-rewards')} />
-              <SidebarStripButton icon={<BookOpen size={18} />} tip="Topic arcs" onClick={() => scrollToPanel('xpv-topics')} />
-              <SidebarStripDivider />
-              <SidebarStripButton icon={<Layers size={18} />} tip="Flashcards" onClick={() => navigate('/flashcards')} />
-              <SidebarStripButton icon={<Brain size={18} />} tip="Question bank" onClick={() => navigate('/question-bank')} />
-              <SidebarStripSpacer />
-              <SidebarStripButton icon={<LayoutDashboard size={18} />} tip="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} />
-            </>
-          )}
-        >
-          <SidebarPrimaryButton
-            icon={nextNode ? <Rocket size={16} /> : <Trophy size={16} />}
-            label={nextNode ? 'Continue journey' : 'View mastery'}
-            onClick={openNextMission}
-          />
-
-          <SidebarSection heading="Roadmap">
-            <SidebarMenuItem icon={<Map size={16} />} label="Level path" active onClick={() => scrollToPanel('xpv-roadmap')} />
-            <SidebarMenuItem icon={<Target size={16} />} label="Weekly quests" badge={<span className="xpv-side-badge">{runMechanics.completedQuests}/4</span>} onClick={() => scrollToPanel('xpv-quests')} />
-            <SidebarMenuItem icon={<Gift size={16} />} label="Rewards" badge={<span className="xpv-side-badge">{masteredCount}</span>} onClick={() => scrollToPanel('xpv-rewards')} />
-            <SidebarMenuItem icon={<BookOpen size={16} />} label="Topic arcs" badge={<span className="xpv-side-badge">{topicArcs.length}</span>} onClick={() => scrollToPanel('xpv-topics')} />
-          </SidebarSection>
-
-          <SidebarSection heading="Practice">
-            <SidebarMenuItem icon={<Brain size={16} />} label="Question bank" onClick={() => navigate('/question-bank')} />
-            <SidebarMenuItem icon={<Layers size={16} />} label="Flashcards" onClick={() => navigate('/flashcards')} />
-            <SidebarMenuItem icon={<FileText size={16} />} label="Notes" onClick={() => navigate('/notes')} />
-          </SidebarSection>
-
+      <SocialHubChrome
+        brandKicker="XP Roadmap"
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+        sideSections={roadmapSections}
+        collapsedLeadItems={[{ icon: nextNode ? Rocket : Trophy, label: nextNode ? 'Continue journey' : 'View mastery', onClick: openNextMission }]}
+        footerItems={[
+          { icon: User, label: displayName, path: '/profile' },
+          { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard-cerbyl' },
+        ]}
+        sidebarLead={(
+          <button className="xpv-side-primary" type="button" onClick={openNextMission}>
+            {nextNode ? <Rocket size={15} /> : <Trophy size={15} />}
+            <span>{nextNode ? 'Continue journey' : 'View mastery'}</span>
+          </button>
+        )}
+        sidebarTail={(
           <div className="xpv-sidebar-progress">
             <div><span>Level {level}</span><strong>{xp.toLocaleString()} XP</strong></div>
-            <div
-              className="xpv-progress-line"
-              role="progressbar"
-              aria-label={`Progress to level ${level + 1}`}
-              aria-valuemin="0"
-              aria-valuemax="100"
-              aria-valuenow={Math.round(levelProgress)}
-            >
+            <div className="xpv-progress-line" role="progressbar" aria-label={`Progress to level ${level + 1}`} aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(levelProgress)}>
               <i style={{ width: `${levelProgress}%` }} />
             </div>
             <small>{Math.max(0, levelWindow.end - xp).toLocaleString()} XP to level {level + 1}</small>
           </div>
-
-          <SidebarActions>
-            <SidebarAction icon={<LayoutDashboard size={15} />} label="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} />
-            <SidebarAction icon={<User size={15} />} label={displayName} onClick={() => navigate('/profile')} />
-          </SidebarActions>
-        </SidebarShell>
-
-        <main className="xpv-content">
+        )}
+      >
+        <div className="xpv-content">
           <section className="xpv-hero" id="xpv-roadmap">
             <div className="xpv-hero-copy">
               <span className="xpv-kicker">XP Roadmap</span>
@@ -407,7 +399,8 @@ export default function XPRoadmapWorkspace({
                         }
                       }}
                       disabled={power.disabled || powerUpLoading === power.id}
-                      aria-label={`${power.label}: ${power.description}`}
+                      aria-pressed={armedPowerUp === power.id}
+                      aria-label={`${armedPowerUp === power.id ? 'Confirm ' : ''}${power.label}: ${power.description}`}
                     >
                       <Icon size={17} />
                       <span>
@@ -516,8 +509,8 @@ export default function XPRoadmapWorkspace({
               })}
             </div>
           </section>
-        </main>
-      </div>
+        </div>
+      </SocialHubChrome>
 
       {xpBursts.map((burst) => (
         <span key={burst.id} className="xpv-xp-burst" style={{ left: burst.x, top: burst.y }}>
