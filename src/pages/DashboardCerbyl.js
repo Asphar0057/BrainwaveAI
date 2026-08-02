@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowUpRight, Plus, ChevronRight, FileText, Mic, Library, Search, Pencil, X, Check, User, Bell, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowUpRight, Plus, ChevronLeft, ChevronRight, FileText, Mic, Library, Search, Pencil, X, Check, User, Bell, Sparkles, Trash2 } from 'lucide-react';
 import { API_URL } from '../config/api';
 import ThemeSwitcher from '../components/ThemeSwitcher';
 import { useNotifications } from '../contexts/NotificationContext';
@@ -65,7 +65,8 @@ const SIDE_LINKS = [
   { label: 'Social Hub',        route: '/social' },
   { label: 'Activity Timeline', route: '/activity-timeline' },
   { label: 'Learning Path',     route: '/learning-paths' },
-  { label: 'XP Roadmap',        route: '/xp-roadmap' }
+  { label: 'XP Roadmap',        route: '/xp-roadmap' },
+  { label: 'Analytics',         route: '/analytics' }
 ];
 
 const greetingForHour = (h) => {
@@ -143,6 +144,82 @@ const routeForNotification = (notificationType) => {
     default:
       return '/dashboard-cerbyl';
   }
+};
+
+const createNotificationPreviewItems = () => {
+  if (typeof window === 'undefined' || !['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+    return [];
+  }
+
+  const now = Date.now();
+  const minutesAgo = (minutes) => new Date(now - minutes * 60 * 1000).toISOString();
+
+  return [
+    {
+      id: 'preview-focus-ready',
+      notification_type: 'reminder',
+      title: 'Your focus block is ready',
+      message: 'A 25-minute study session is waiting in your activity timeline.',
+      created_at: minutesAgo(2),
+      is_read: false,
+    },
+    {
+      id: 'preview-cards-due',
+      notification_type: 'flashcard_review',
+      title: '12 cards are ready to review',
+      message: 'Photosynthesis is due now. A short review will protect your streak.',
+      created_at: minutesAgo(18),
+      is_read: false,
+    },
+    {
+      id: 'preview-friend-request',
+      notification_type: 'friend_request',
+      title: 'New study connection',
+      message: 'A learner sent you a friend request in Social Hub.',
+      created_at: minutesAgo(44),
+      is_read: false,
+    },
+    {
+      id: 'preview-quiz-result',
+      notification_type: 'quiz_excellent',
+      title: 'Strong quiz performance',
+      message: 'You scored 90% and moved two concepts into the mastered group.',
+      created_at: minutesAgo(92),
+      is_read: false,
+    },
+    {
+      id: 'preview-note-saved',
+      notification_type: 'notes_milestone',
+      title: 'Your study note is ready',
+      message: 'Clear Writing Secrets was saved with a transcript and study brief.',
+      created_at: minutesAgo(180),
+      is_read: true,
+    },
+    {
+      id: 'preview-level-up',
+      notification_type: 'level_up',
+      title: 'Level 5 unlocked',
+      message: 'Your recent learning activity earned enough XP for the next level.',
+      created_at: minutesAgo(360),
+      is_read: true,
+    },
+    {
+      id: 'preview-insight',
+      notification_type: 'study_insights',
+      title: 'A new learning insight is available',
+      message: 'Your strongest recall window is between 7 PM and 9 PM.',
+      created_at: minutesAgo(720),
+      is_read: true,
+    },
+    {
+      id: 'preview-shared',
+      notification_type: 'share_received',
+      title: 'New notes shared with you',
+      message: 'Open Social Hub to review the shared neural networks summary.',
+      created_at: minutesAgo(1440),
+      is_read: true,
+    },
+  ];
 };
 
 const fetchJson = async (url) => {
@@ -353,6 +430,15 @@ const DashboardCerbyl = () => {
   });
   const [isPfpModalOpen, setIsPfpModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined;
+    const media = window.matchMedia('(max-width: 1100px)');
+    const syncSidebarToViewport = () => setIsSidebarOpen(!media.matches);
+    syncSidebarToViewport();
+    media.addEventListener?.('change', syncSidebarToViewport);
+    return () => media.removeEventListener?.('change', syncSidebarToViewport);
+  }, []);
   const [featureQuery, setFeatureQuery] = useState('');
   const [showFeatureResults, setShowFeatureResults] = useState(false);
   const [activeFeatureIndex, setActiveFeatureIndex] = useState(-1);
@@ -450,6 +536,7 @@ const DashboardCerbyl = () => {
   }, [applySubscriptionOverview, userName]);
 
   const [showNotifications, setShowNotifications] = useState(false);
+  const [previewNotifications, setPreviewNotifications] = useState(createNotificationPreviewItems);
   const [chatPromptDisplay, setChatPromptDisplay] = useState(QUICK_ASK_PROMPT);
   const [chatReplyDisplay, setChatReplyDisplay] = useState('');
   const [isChatTypingAnim, setIsChatTypingAnim] = useState(false);
@@ -465,6 +552,11 @@ const DashboardCerbyl = () => {
     markAllNotificationsAsRead,
     deleteNotification,
   } = useNotifications();
+  const isNotificationPreview = notifications.length === 0 && previewNotifications.length > 0;
+  const visibleNotifications = isNotificationPreview ? previewNotifications : notifications;
+  const visibleUnreadCount = isNotificationPreview
+    ? previewNotifications.filter((notification) => !notification.is_read).length
+    : unreadCount;
   const [flashActiveSetId, setFlashActiveSetId] = useState('');
   const [isNotesAnimating, setIsNotesAnimating] = useState(false);
   const [notesTitleProgress, setNotesTitleProgress] = useState({});
@@ -990,7 +1082,6 @@ const DashboardCerbyl = () => {
       startX: event.clientX,
       startOffset: moduleOffsetRef.current
     };
-    marquee.setPointerCapture?.(event.pointerId);
   };
 
   const handleModulePointerMove = (event) => {
@@ -1010,6 +1101,9 @@ const DashboardCerbyl = () => {
     if (!moduleDragMovedRef.current && Math.abs(deltaX) > 5) {
       moduleDragMovedRef.current = true;
       setIsModuleDragging(true);
+      // Keep a simple press owned by the module button so its click can
+      // navigate. Capture only once the gesture is definitively a drag.
+      marquee.setPointerCapture?.(event.pointerId);
     }
     if (!moduleDragMovedRef.current) return;
 
@@ -1591,9 +1685,31 @@ const DashboardCerbyl = () => {
   }, [showNotifications]);
 
   const openNotification = async (notification) => {
-    await markNotificationAsRead(notification.id);
+    if (isNotificationPreview) {
+      setPreviewNotifications((current) => current.map((item) => (
+        item.id === notification.id ? { ...item, is_read: true } : item
+      )));
+    } else {
+      await markNotificationAsRead(notification.id);
+    }
     setShowNotifications(false);
     navigate(routeForNotification(notification.notification_type));
+  };
+
+  const markVisibleNotificationsAsRead = () => {
+    if (isNotificationPreview) {
+      setPreviewNotifications((current) => current.map((item) => ({ ...item, is_read: true })));
+      return;
+    }
+    markAllNotificationsAsRead();
+  };
+
+  const deleteVisibleNotification = (notificationId) => {
+    if (isNotificationPreview) {
+      setPreviewNotifications((current) => current.filter((item) => item.id !== notificationId));
+      return;
+    }
+    deleteNotification(notificationId);
   };
 
   return (
@@ -1660,13 +1776,15 @@ const DashboardCerbyl = () => {
           )}
         </div>
         <div className="cb-topbar-right">
-          <button
-            className="cb-topbar-text-btn"
-            onClick={() => setIsSidebarOpen(prev => !prev)}
-            aria-label={isSidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
-          >
-            {isSidebarOpen ? 'HIDE SIDEBAR' : 'SHOW SIDEBAR'}
-          </button>
+          {!isSidebarOpen && (
+            <button
+              className="cb-topbar-text-btn"
+              onClick={() => setIsSidebarOpen(true)}
+              aria-label="Show sidebar"
+            >
+              SHOW SIDEBAR
+            </button>
+          )}
           <div className="cb-date">{formatDateLong(now)}</div>
           <ThemeSwitcher />
           <div className="cb-notif-wrap">
@@ -1675,41 +1793,46 @@ const DashboardCerbyl = () => {
               className="cb-notif-btn"
               type="button"
               onClick={() => setShowNotifications(prev => !prev)}
-              aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}
+              aria-label={`Notifications${visibleUnreadCount ? `, ${visibleUnreadCount} unread` : ''}`}
             >
               <Bell size={16} />
-              {unreadCount > 0 && <span className="cb-notif-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>}
+              {visibleUnreadCount > 0 && <span className="cb-notif-badge">{visibleUnreadCount > 99 ? '99+' : visibleUnreadCount}</span>}
             </button>
 
             {showNotifications && (
               <div ref={notifPanelRef} className="cb-notif-panel" role="dialog" aria-label="Notifications">
+                <div className="cb-tile-texture cb-notif-texture" aria-hidden="true" />
                 <div className="cb-notif-panel-head">
-                  <div>
-                    <span>Notifications</span>
-                    <p>
-                      {unreadCount > 0
-                        ? `${unreadCount} unread`
-                        : notifications.length > 0
-                          ? `${notifications.length} notification${notifications.length === 1 ? '' : 's'}`
-                          : 'All caught up'}
-                    </p>
+                  <div className="cb-notif-heading">
+                    <span className="cb-notif-heading-icon"><Bell size={15} /></span>
+                    <div>
+                      <span>Notifications</span>
+                      <p>
+                        {visibleUnreadCount > 0
+                          ? `${visibleUnreadCount} unread · ${visibleNotifications.length} total`
+                          : visibleNotifications.length > 0
+                            ? `${visibleNotifications.length} notification${visibleNotifications.length === 1 ? '' : 's'}`
+                            : 'All caught up'}
+                      </p>
+                    </div>
                   </div>
-                  <button className="cb-notif-mark-all" type="button" onClick={markAllNotificationsAsRead} disabled={unreadCount === 0}>
+                  <button className="cb-notif-mark-all" type="button" onClick={markVisibleNotificationsAsRead} disabled={visibleUnreadCount === 0}>
                     Mark all read
                   </button>
                 </div>
 
                 <div className="cb-notif-list">
-                  {notifications.length === 0 ? (
+                  {visibleNotifications.length === 0 ? (
                     <div className="cb-notif-empty">
                       <Bell size={24} />
                       <p>No notifications yet</p>
                     </div>
                   ) : (
-                    notifications.slice(0, 12).map((notification) => (
+                    visibleNotifications.slice(0, 12).map((notification, index) => (
                       <div
                         key={notification.id}
                         className={`cb-notif-item ${notification.is_read ? '' : 'cb-notif-item--unread'}`}
+                        style={{ '--cb-notif-index': index }}
                         role="button"
                         tabIndex={0}
                         onClick={() => openNotification(notification)}
@@ -1734,7 +1857,7 @@ const DashboardCerbyl = () => {
                           aria-label={`Delete notification ${notification.title}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            deleteNotification(notification.id);
+                            deleteVisibleNotification(notification.id);
                           }}
                         >
                           <Trash2 size={13} />
@@ -1743,6 +1866,9 @@ const DashboardCerbyl = () => {
                     ))
                   )}
                 </div>
+                {isNotificationPreview && visibleNotifications.length > 0 && (
+                  <div className="cb-notif-preview-note">Local preview notifications · interactions are safe to test</div>
+                )}
               </div>
             )}
           </div>
@@ -1758,13 +1884,25 @@ const DashboardCerbyl = () => {
 
       <div className={`cb-shell ${isSidebarOpen ? '' : 'cb-shell--collapsed'}`}>
         {}
-        {isSidebarOpen && (
-        <div className="cb-side-slot">
-        <aside className="cb-side">
+        <div className={`cb-side-slot ${isSidebarOpen ? '' : 'cb-side-slot--collapsed'}`}>
+        <aside className={`cb-side ${isSidebarOpen ? '' : 'cb-side--collapsed'}`}>
           <div className="cb-tile-texture" />
-          <div className="cb-brand">
-            <span className="cb-brand-name">cerbyl</span>
-          </div>
+          {isSidebarOpen ? (
+          <>
+            <div className="cb-brand">
+              <span className="cb-brand-name">cerbyl</span>
+              <span className="cb-brand-kicker">Dashboard</span>
+              <button
+                className="cb-sidebar-collapse"
+                type="button"
+                onClick={() => setIsSidebarOpen(false)}
+                title="Collapse"
+                aria-label="Collapse dashboard sidebar"
+                aria-expanded="true"
+              >
+                <ChevronLeft size={12} />
+              </button>
+            </div>
 
           <div className="cb-logo-wrap">
             {profilePhoto ? (
@@ -1829,9 +1967,37 @@ const DashboardCerbyl = () => {
               <span className="cb-user-sub">Level {stats.level} · {stats.xp} XP</span>
             </span>
           </button>
+          </>
+          ) : (
+            <div className="cb-side-strip">
+              <button
+                className="cb-side-strip-btn"
+                type="button"
+                onClick={() => setIsSidebarOpen(true)}
+                aria-label="Expand dashboard sidebar"
+                aria-expanded="false"
+                data-tip="Expand"
+              >
+                <ChevronRight size={15} />
+              </button>
+              <div className="cb-side-strip-rule" />
+              <button
+                className="cb-side-strip-btn cb-side-strip-btn--profile"
+                type="button"
+                onClick={() => navigate('/profile')}
+                aria-label="Open profile"
+                data-tip="Profile"
+              >
+                {profilePhoto ? (
+                  <img src={profilePhoto} alt="" className="cb-side-strip-avatar" referrerPolicy="no-referrer" />
+                ) : (
+                  <User size={15} />
+                )}
+              </button>
+            </div>
+          )}
         </aside>
         </div>
-        )}
 
         {}
         <main className="cb-main">

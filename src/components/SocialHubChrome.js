@@ -150,6 +150,11 @@ const REACTIVE_SURFACE_SELECTOR = [
   '.an-root .an-pts-item',
   '.an-root .an-transparency-note',
   '.qh .qh-mode-card',
+  '.sh-root .sh-search-surface',
+  '.sh-root .sh-chip',
+  '.sh-root .sh-result-card',
+  '.sh-root .sh-ai-panel',
+  '.sh-root .sh-create-card',
 ].join(',');
 
 const SocialHubChrome = ({

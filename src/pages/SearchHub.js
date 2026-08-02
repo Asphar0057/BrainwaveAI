@@ -1,16 +1,13 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Sparkles, Clock, Users, BookOpen, FileText, Layers, ChevronRight, ChevronLeft, X, Filter, Calendar, Play, HelpCircle, RefreshCw, Edit, MessageCircle, Target, Brain, TrendingUp, Zap, BarChart3, LogIn, UserPlus, Plus, LayoutDashboard, Compass, Film, Trophy, Share2, Gamepad2, User, Settings, Shield, LogOut } from 'lucide-react';
-import { SidebarShell, SidebarSection, SidebarMenuItem, SidebarActions, SidebarAction, SidebarStripButton, SidebarStripDivider } from '../components/Sidebar';
-import { useTheme } from '../contexts/ThemeContext';
+import { Search, Sparkles, Clock, Users, BookOpen, FileText, Layers, ChevronRight, ChevronLeft, X, Filter, Calendar, Play, HelpCircle, RefreshCw, Edit, MessageCircle, Target, Brain, BarChart3, LogIn, UserPlus, LogOut } from 'lucide-react';
 import './SearchHub.css';
-import '../components/SocialHubChrome.css';
+import SocialHubChrome from '../components/SocialHubChrome';
 import { API_URL } from '../config/api';
 import { signOutAppSession } from '../utils/authSession';
 import ContextSelector from '../components/ContextSelector';
 import ContextPanel from '../components/ContextPanel';
 import contextService from '../services/contextService';
-import AbstractFx from '../components/AbstractFx';
 import MathRenderer from '../components/MathRenderer';
 import { queueLegacyAIEndpoint, queuedAIFormFetch, queuedAIJsonFetch, USE_AI_JOB_QUEUE } from '../services/aiJobService';
 
@@ -204,9 +201,9 @@ const STOPWORDS = new Set([
 
 const SearchHub = () => {
   const navigate = useNavigate();
-  const { selectedTheme, changeTheme } = useTheme();
   const searchInputRef = useRef(null);
   const searchHighlightRef = useRef(null);
+  const mainScrollRef = useRef(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -254,6 +251,9 @@ const SearchHub = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => (
     typeof window !== 'undefined' ? window.innerWidth > 768 : true
   ));
+  const handleSidebarCollapsedChange = useCallback((collapsed) => {
+    setIsSidebarOpen(!collapsed);
+  }, []);
 
   
   const [sessionId] = useState(() => `searchhub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
@@ -1452,7 +1452,7 @@ const SearchHub = () => {
     saveRecentSearch(finalQuery);
 
     
-    window.scrollTo({ top: window.innerHeight, behavior: 'smooth' });
+    mainScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
 
     try {
       const token = localStorage.getItem('token');
@@ -2657,200 +2657,81 @@ const SearchHub = () => {
     return count;
   };
 
-  const GeometricGrid = () => {
-    const W = 1600, H = 1000, STEP = 80;
-    const lines = [];
-    const nums = [];
-    let lineKey = 0;
-    for (let x = 0; x <= W; x += STEP) {
-      lines.push(<line key={`v${lineKey++}`} x1={x} y1={0} x2={x} y2={H} />);
-    }
-    for (let y = 0; y <= H; y += STEP) {
-      lines.push(<line key={`h${lineKey++}`} x1={0} y1={y} x2={W} y2={y} />);
-    }
-    let n = 1;
-    for (let r = 0; r <= H; r += STEP * 3) {
-      for (let c = 0; c <= W; c += STEP * 3) {
-        nums.push(<text key={`n${c}${r}`} x={c + 3} y={r + 11}>{String(n++ % 99 + 1).padStart(2, '0')}</text>);
-      }
-    }
-    return (
-      <svg className="sh-bg-geo" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" aria-hidden>
-        <g className="sh-bg-geo-lines">{lines}</g>
-        <g className="sh-bg-geo-nums">{nums}</g>
-      </svg>
-    );
+  const resetWorkspace = () => {
+    setSearchResults(null);
+    setAiSuggestion(null);
+    setSearchQuery('');
+    setShowFilters(false);
+    setShowCommandGuide(false);
+    requestAnimationFrame(() => {
+      mainScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      searchInputRef.current?.focus();
+    });
   };
 
-  const userEmail = localStorage.getItem('email');
-  const sideNavGroups = [
+  const openCommands = () => {
+    setSearchResults(null);
+    setAiSuggestion(null);
+    setShowCommandGuide(true);
+    requestAnimationFrame(() => mainScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }));
+  };
+
+  const sideSections = [
     {
-      title: 'Main',
+      label: 'Search workspace',
       items: [
-        { label: 'Dashboard', route: '/dashboard-cerbyl', icon: LayoutDashboard },
-        { label: 'Atlas', route: '/search-hub', icon: Compass }
-      ]
+        { icon: Search, label: 'Explore', active: !searchResults && !showCommandGuide, onClick: resetWorkspace },
+        { icon: Sparkles, label: 'Commands', active: showCommandGuide, pressed: showCommandGuide, onClick: openCommands },
+        { icon: Clock, label: 'Recent searches', count: recentSearches.length, onClick: resetWorkspace },
+      ],
     },
-    {
-      title: 'Learning Tools',
-      items: [
-        { label: 'AI Chat', route: '/ai-chat', icon: MessageCircle },
-        { label: 'Notes', route: '/notes', icon: FileText },
-        { label: 'Flashcards', route: '/flashcards', icon: Layers },
-        { label: 'Quiz Hub', route: '/quiz-hub', icon: HelpCircle },
-        { label: 'Slide Explorer', route: '/slide-explorer', icon: Play },
-        { label: 'Media Notes', route: '/notes/ai-media', icon: Film }
-      ]
-    },
-    {
-      title: 'Practice & Assessment',
-      items: [
-        { label: 'Question Bank', route: '/question-bank', icon: BookOpen },
-        { label: 'Solo Quiz', route: '/solo-quiz', icon: Edit },
-        { label: 'Quiz Battle', route: '/quiz-battle', icon: Zap },
-        { label: 'Weak Areas', route: '/weaknesses', icon: Target },
-        { label: 'Weakness Practice', route: '/weakness-practice', icon: RefreshCw },
-        { label: 'Challenges', route: '/challenges', icon: Trophy }
-      ]
-    },
-    {
-      title: 'Progress & Analytics',
-      items: [
-        { label: 'Analytics', route: '/analytics', icon: BarChart3 },
-        { label: 'Study Insights', route: '/study-insights', icon: Brain },
-        { label: 'XP Roadmap', route: '/xp-roadmap', icon: TrendingUp },
-        { label: 'Knowledge Map', route: '/knowledge-map', icon: Share2 },
-        { label: 'Activity Timeline', route: '/activity-timeline', icon: Clock }
-      ]
-    },
-    {
-      title: 'Learning Paths',
-      items: [
-        { label: 'All Paths', route: '/learning-paths', icon: BookOpen },
-        { label: 'Playlists', route: '/playlists', icon: Layers },
-        { label: 'Learning Path', route: '/concept-web', icon: Brain },
-        { label: 'Review Hub', route: '/learning-review-hub', icon: RefreshCw }
-      ]
-    },
-    {
-      title: 'Social & Gamification',
-      items: [
-        { label: 'Social Hub', route: '/social', icon: Users },
-        { label: 'Friends', route: '/friends-dashboard', icon: Users },
-        { label: 'Leaderboards', route: '/leaderboards', icon: TrendingUp },
-        { label: 'Games', route: '/games', icon: Gamepad2 },
-        { label: 'Shared Content', route: '/shared-content', icon: FileText }
-      ]
-    },
-    {
-      title: 'Profile & Settings',
-      items: [
-        { label: 'Profile', route: '/profile', icon: User },
-        { label: 'Customize', route: '/customize-dashboard', icon: Settings }
-      ]
-    },
-    ...(['aditya.s.lanka@gmail.com', 'asphar057@gmail.com'].includes(userEmail) ? [{
-      title: 'Admin',
-      items: [
-        { label: 'Analytics Dashboard', route: '/admin/analytics', icon: Shield }
-      ]
-    }] : [])
   ];
 
-  const stripItems = [
-    { label: 'Dashboard', route: '/dashboard-cerbyl', icon: LayoutDashboard },
-    { label: 'AI Chat', route: '/ai-chat', icon: MessageCircle },
-    { label: 'Notes', route: '/notes', icon: FileText },
-    { label: 'Flashcards', route: '/flashcards', icon: Layers },
-    { label: 'Quiz Hub', route: '/quiz-hub', icon: HelpCircle },
-    { divider: true },
-    { label: 'Weak Areas', route: '/weaknesses', icon: Target },
-    { label: 'Analytics', route: '/analytics', icon: BarChart3 },
-    { label: 'Social Hub', route: '/social', icon: Users },
-    { label: 'Games', route: '/games', icon: Gamepad2 },
-    { divider: true },
-    { label: 'Profile', route: '/profile', icon: User },
-  ];
+  const sidebarLead = (
+    <button className="sh-side-primary" type="button" onClick={resetWorkspace}>
+      <Search size={15} />
+      <span>New search</span>
+    </button>
+  );
 
-  return (
-    <div className="sh-root">
-      <div className="shc-topbar">
-        <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-        <div className="shc-topbar-right">
-          <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
+  const sidebarTail = (
+    <div className="sh-side-tail">
+      <div className="sh-side-context">
+        <div>
+          <span>Study context</span>
+          <strong>{hsMode ? `${userDocCount} sources active` : 'Workspace only'}</strong>
         </div>
-      </div>
-      <div className="sh-bg-fx" aria-hidden>
-        <div className="sh-bg-orb sh-bg-orb-1" />
-        <div className="sh-bg-orb sh-bg-orb-2" />
-        <GeometricGrid />
-        <AbstractFx variant="circles" />
-        <div className="sh-bg-vignette" />
-      </div>
-
-      {/* Floating top-right controls */}
-      <div style={{position:'fixed',top:'10px',right:'16px',zIndex:8000,display:'flex',alignItems:'center',gap:'8px'}}>
         <ContextSelector hsMode={hsMode} docCount={userDocCount} onOpen={() => setContextPanelOpen(true)} />
       </div>
+      {userName ? (
+        <button className="sh-side-session" type="button" onClick={handleLogout}>
+          <LogOut size={14} /> Sign out
+        </button>
+      ) : (
+        <div className="sh-side-auth">
+          <button type="button" onClick={() => navigate('/login')}><LogIn size={14} /> Sign in</button>
+          <button type="button" onClick={() => navigate('/register')}><UserPlus size={14} /> Join</button>
+        </div>
+      )}
+    </div>
+  );
 
+  return (
+    <div className="sh-root with-social-chrome">
       {showLoginMessage && (
         <div className="sh-login-msg">PLEASE LOGIN TO CONTINUE</div>
       )}
-
-      <div className={`sh-shell ${isSidebarOpen ? '' : 'sh-shell--collapsed'}`}>
-        <SidebarShell
-          collapsed={!isSidebarOpen}
-          onToggleCollapse={() => setIsSidebarOpen((prev) => !prev)}
-          brandKicker="SEARCH HUB"
-          ariaLabel="Search Hub navigation"
-          collapsedContent={(
-            <>
-              {stripItems.map((item, index) => (
-                item.divider
-                  ? <SidebarStripDivider key={`div-${index}`} />
-                  : (
-                    <SidebarStripButton
-                      key={item.route}
-                      icon={<item.icon size={18} />}
-                      tip={item.label}
-                      onClick={() => navigate(item.route)}
-                    />
-                  )
-              ))}
-            </>
-          )}
-        >
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: '18px', overflowY: 'auto' }}>
-            {sideNavGroups.map((group) => (
-              <SidebarSection key={group.title} heading={group.title}>
-                {group.items.map((link) => (
-                  <SidebarMenuItem
-                    key={`${group.title}-${link.label}`}
-                    icon={<link.icon size={16} />}
-                    label={link.label}
-                    onClick={() => navigate(link.route)}
-                  />
-                ))}
-              </SidebarSection>
-            ))}
-          </nav>
-
-          <SidebarActions>
-            {!userName ? (
-              <>
-                <SidebarAction icon={<LogIn size={16} />} label="Login" onClick={() => navigate('/login')} />
-                <SidebarAction icon={<UserPlus size={16} />} label="Sign Up" onClick={() => navigate('/register')} />
-              </>
-            ) : (
-              <>
-                <SidebarAction icon={<LayoutDashboard size={16} />} label="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} />
-                <SidebarAction icon={<LogOut size={16} />} label="Logout" onClick={handleLogout} />
-              </>
-            )}
-          </SidebarActions>
-        </SidebarShell>
-
-        <main className="sh-main">
+      <SocialHubChrome
+        brandKicker="Search"
+        sideSections={sideSections}
+        sidebarLead={sidebarLead}
+        sidebarTail={sidebarTail}
+        collapsed={isSidebarOpen === false}
+        onCollapsedChange={handleSidebarCollapsedChange}
+        collapsedLeadItems={[{ icon: Search, label: 'New search', onClick: resetWorkspace }]}
+        collapsedTailItems={userName ? [{ icon: LogOut, label: 'Sign out', onClick: handleLogout }] : [{ icon: LogIn, label: 'Sign in', onClick: () => navigate('/login') }]}
+      >
+        <main ref={mainScrollRef} className="sh-main">
         {!searchResults && !isSearching && !isCreating ? (
           isLoadingPrompts ? (
             <div className="sh-loading-init">
@@ -2858,10 +2739,12 @@ const SearchHub = () => {
             </div>
           ) : (
             <div className="sh-hero">
-              <div className="sh-eyebrow">AI LEARNING COMMAND CENTER</div>
-              <h1 className="sh-brand">cerbyl<span className="sh-period">.</span></h1>
+              <header className="sh-hero-copy">
+                <div className="sh-eyebrow">AI LEARNING COMMAND CENTER</div>
+                <h1 className="sh-brand">cerbyl<span className="sh-period">.</span></h1>
+              </header>
 
-              <div className="sh-search-wrap">
+              <div className="sh-search-wrap sh-search-surface">
                 <form
                   onSubmit={(e) => { e.preventDefault(); handleSearch(); }}
                   className={`sh-form ${showAutocomplete && autocompleteResults.length > 0 ? 'sh-form--open' : ''}`}
@@ -2899,6 +2782,11 @@ const SearchHub = () => {
                       placeholder="Ask me anything... or type /help"
                       className="sh-input sh-input--syntax"
                       autoComplete="off"
+                      role="combobox"
+                      aria-autocomplete="list"
+                      aria-expanded={showAutocomplete && autocompleteResults.length > 0}
+                      aria-controls="search-autocomplete-list"
+                      aria-activedescendant={selectedAutocompleteIndex >= 0 ? `search-autocomplete-option-${selectedAutocompleteIndex}` : undefined}
                     />
                   </div>
                   <button type="submit" className="sh-submit" aria-label="Search">
@@ -2907,13 +2795,16 @@ const SearchHub = () => {
                 </form>
 
                 {showAutocomplete && autocompleteResults.length > 0 && (
-                  <div className="sh-autocomplete">
+                  <div id="search-autocomplete-list" className="sh-autocomplete" role="listbox" aria-label="Search suggestions">
                     {autocompleteResults.map((suggestion, index) => {
                       const commandColor = getCommandColorFromText(suggestion.text);
                       return (
                       <button
                         key={index}
+                        id={`search-autocomplete-option-${index}`}
                         type="button"
+                        role="option"
+                        aria-selected={index === selectedAutocompleteIndex}
                         className={`sh-ac-item ${index === selectedAutocompleteIndex ? 'sh-ac-item--sel' : ''} ${suggestion.source === 'nlp' ? 'sh-ac-item--nlp' : ''}`}
                         onClick={() => {
                           setSearchQuery(suggestion.text);
@@ -3041,7 +2932,7 @@ const SearchHub = () => {
                     setSearchResults(null);
                     setAiSuggestion(null);
                     setSearchQuery('');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    mainScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                 >
                   <ChevronLeft size={14} /> Back
@@ -3123,6 +3014,16 @@ const SearchHub = () => {
                         key={result.id || index}
                         className={`sh-result-card ${result.featured ? 'sh-result-card--featured' : ''}`}
                         onClick={() => handleResultClick(result)}
+                        onKeyDown={(event) => {
+                          if (event.target !== event.currentTarget) return;
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            handleResultClick(result);
+                          }
+                        }}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Open ${result.title || result.name}`}
                       >
                         <div className="sh-result-icon">{getContentTypeIcon(result.type)}</div>
                         <div className="sh-result-details">
@@ -3256,7 +3157,7 @@ const SearchHub = () => {
           </div>
         )}
         </main>
-      </div>
+      </SocialHubChrome>
 
       {showLoginModal && (
         <div className="sh-modal-overlay" onClick={() => setShowLoginModal(false)}>
