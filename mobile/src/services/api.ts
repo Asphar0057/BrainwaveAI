@@ -1033,6 +1033,44 @@ export async function getFriendActivityFeed(userId: string) {
   return res.json();
 }
 
+// ── Notifications ─────────────────────────────────────────────────────
+export type AppNotification = {
+  id: number;
+  title: string;
+  message: string;
+  notification_type: string;
+  is_read: boolean;
+  created_at: string;
+};
+
+export async function getNotifications(userId: string, limit = 50): Promise<{ notifications: AppNotification[] }> {
+  const headers = await authHeaders();
+  const res = await fetch(
+    `${API_URL}/get_notifications?user_id=${encodeURIComponent(userId)}&timezone_offset=${new Date().getTimezoneOffset()}&limit=${limit}`,
+    { headers }
+  );
+  if (!res.ok) return { notifications: [] };
+  return res.json();
+}
+
+export async function markNotificationRead(notificationId: number) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/mark_notification_read/${notificationId}`, { method: 'PUT', headers });
+  return res.json();
+}
+
+export async function markAllNotificationsRead(userId: string) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/mark_all_notifications_read?user_id=${encodeURIComponent(userId)}`, { method: 'PUT', headers });
+  return res.json();
+}
+
+export async function deleteNotification(notificationId: number) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/delete_notification/${notificationId}`, { method: 'DELETE', headers });
+  return res.json();
+}
+
 // ── Sharing ───────────────────────────────────────────────────────────
 export type SharedItem = {
   id: number;
