@@ -1133,6 +1133,68 @@ export async function getChatShareLink(sessionId: number): Promise<{ public_toke
   return res.json();
 }
 
+// ── Reminders ─────────────────────────────────────────────────────────
+export type Reminder = {
+  id: number;
+  title: string;
+  description: string | null;
+  reminder_date: string | null;
+  reminder_type: string;
+  priority: string;
+  color: string;
+  is_completed: boolean;
+  is_flagged: boolean;
+};
+
+export async function getReminders(userId: string, opts: { startDate?: string; endDate?: string; includeCompleted?: boolean } = {}): Promise<Reminder[]> {
+  const headers = await authHeaders();
+  const params = new URLSearchParams({ user_id: userId });
+  if (opts.startDate) params.set('start_date', opts.startDate);
+  if (opts.endDate) params.set('end_date', opts.endDate);
+  if (opts.includeCompleted) params.set('include_completed', 'true');
+  const res = await fetch(`${API_URL}/get_reminders?${params.toString()}`, { headers });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function createReminder(payload: {
+  userId: string;
+  title: string;
+  description?: string;
+  reminderDate?: string;
+  priority?: string;
+  color?: string;
+}): Promise<Reminder> {
+  const headers = await authHeaders();
+  const body = new FormData();
+  body.append('user_id', payload.userId);
+  body.append('title', payload.title);
+  if (payload.description) body.append('description', payload.description);
+  if (payload.reminderDate) body.append('reminder_date', payload.reminderDate);
+  body.append('priority', payload.priority ?? 'none');
+  body.append('color', payload.color ?? '#D7B38C');
+  body.append('timezone_offset', String(new Date().getTimezoneOffset()));
+  const res = await fetch(`${API_URL}/create_reminder`, { method: 'POST', headers, body });
+  if (!res.ok) await readApiError(res, 'Could not create reminder');
+  return res.json();
+}
+
+export async function updateReminder(reminderId: number, patch: { isCompleted?: boolean; title?: string }): Promise<Reminder> {
+  const headers = await authHeaders();
+  const body = new FormData();
+  if (patch.isCompleted !== undefined) body.append('is_completed', String(patch.isCompleted));
+  if (patch.title !== undefined) body.append('title', patch.title);
+  const res = await fetch(`${API_URL}/update_reminder/${reminderId}`, { method: 'PUT', headers, body });
+  if (!res.ok) await readApiError(res, 'Could not update reminder');
+  return res.json();
+}
+
+export async function deleteReminder(reminderId: number) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/delete_reminder/${reminderId}`, { method: 'DELETE', headers });
+  return res.json();
+}
+
 export async function respondFriendRequest(userId: string, requestId: number, action: 'accept' | 'decline') {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}/respond_friend_request`, {

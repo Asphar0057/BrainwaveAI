@@ -1,15 +1,16 @@
-import { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, ViewStyle } from 'react-native';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, ViewStyle, TextInput, Modal, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthUser } from '../services/auth';
-import { API_URL } from '../services/api';
+import { API_URL, getReminders, createReminder, updateReminder, deleteReminder, Reminder } from '../services/api';
 import HapticTouchable from '../components/HapticTouchable';
 import GeoBackground from '../components/GeoBackground';
 import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../components/NeumorphicTexture';
+import { triggerHaptic } from '../utils/haptics';
 
 const GOLD_XL = '#EAECEF';
 const GOLD_L  = '#E5C9A8';
@@ -34,6 +35,10 @@ export default function CalendarScreen({ user, onBack }: Props) {
   const [current, setCurrent] = useState(new Date());
   const [selected, setSelected] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState(0);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [showCreate, setShowCreate] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -49,6 +54,80 @@ export default function CalendarScreen({ user, onBack }: Props) {
   }, [user.username]);
 
   useEffect(() => { load(); }, [load]);
+
+  const loadReminders = useCallback(async () => {
+    const year = current.getFullYear();
+    const month = current.getMonth();
+    const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01T00:00:00`;
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}T23:59:59`;
+    try {
+      const data = await getReminders(user.username, { startDate, endDate });
+      setReminders(Array.isArray(data) ? data : []);
+    } catch {
+      setReminders([]);
+    }
+  }, [user.username, current]);
+
+  useEffect(() => { loadReminders(); }, [loadReminders]);
+
+  const remindersByDate = useMemo(() => {
+    const map: Record<string, Reminder[]> = {};
+    reminders.forEach((r) => {
+      if (!r.reminder_date) return;
+      const dateKey = r.reminder_date.slice(0, 10);
+      if (!map[dateKey]) map[dateKey] = [];
+      map[dateKey].push(r);
+    });
+    return map;
+  }, [reminders]);
+
+  const toggleReminderComplete = async (reminder: Reminder) => {
+    triggerHaptic('light');
+    setReminders((cur) => cur.map((r) => (r.id === reminder.id ? { ...r, is_completed: !r.is_completed } : r)));
+    try {
+      await updateReminder(reminder.id, { isCompleted: !reminder.is_completed });
+    } catch {
+      // silenced -- optimistic update stays
+    }
+  };
+
+  const removeReminder = (reminder: Reminder) => {
+    Alert.alert('Delete reminder?', reminder.title, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          setReminders((cur) => cur.filter((r) => r.id !== reminder.id));
+          try {
+            await deleteReminder(reminder.id);
+          } catch {
+            // silenced
+          }
+        },
+      },
+    ]);
+  };
+
+  const submitCreateReminder = async () => {
+    if (!newTitle.trim() || !selected) return;
+    setCreating(true);
+    try {
+      await createReminder({
+        userId: user.username,
+        title: newTitle.trim(),
+        reminderDate: `${selected}T09:00:00`,
+      });
+      setNewTitle('');
+      setShowCreate(false);
+      await loadReminders();
+    } catch (error) {
+      Alert.alert('Could not add reminder', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setCreating(false);
+    }
+  };
 
   if (!fontsLoaded) return null;
 
@@ -126,6 +205,7 @@ export default function CalendarScreen({ user, onBack }: Props) {
                   >
                     <Text style={[s.cellNum, isToday && s.cellNumToday, isSel && s.cellNumSel]}>{day}</Text>
                     {heat && heat.count > 0 ? <View style={[s.dot, { backgroundColor: LEVEL_COLORS[Math.min(heat.level + 1, 5)] }]} /> : null}
+                    {remindersByDate[dateStr]?.length ? <View style={s.reminderDot} /> : null}
                   </HapticTouchable>
                 );
               })}
@@ -143,7 +223,12 @@ export default function CalendarScreen({ user, onBack }: Props) {
         {/* Selected day detail */}
         {selected && (
           <View style={s.dayDetail}>
-            <Text style={s.dayDetailTitle}>{new Date(selected + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</Text>
+            <View style={s.dayDetailHeadRow}>
+              <Text style={s.dayDetailTitle}>{new Date(selected + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</Text>
+              <HapticTouchable onPress={() => setShowCreate(true)} haptic="selection" style={s.addReminderBtn}>
+                <Ionicons name="add" size={16} color={GOLD_L} />
+              </HapticTouchable>
+            </View>
             {selectedDay ? (
               <View style={s.dayDetailRow}>
                 <Ionicons name="flash" size={14} color={GOLD_M} />
@@ -152,6 +237,28 @@ export default function CalendarScreen({ user, onBack }: Props) {
             ) : (
               <Text style={s.dayDetailEmpty}>No activity on this day</Text>
             )}
+
+            {(remindersByDate[selected] ?? []).length > 0 ? (
+              <View style={{ gap: 8, marginTop: 4 }}>
+                {(remindersByDate[selected] ?? []).map((reminder) => (
+                  <HapticTouchable
+                    key={reminder.id}
+                    style={s.reminderRow}
+                    onPress={() => toggleReminderComplete(reminder)}
+                    onLongPress={() => removeReminder(reminder)}
+                    haptic="none"
+                  >
+                    <Ionicons
+                      name={reminder.is_completed ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={18}
+                      color={reminder.is_completed ? GOLD_M : DIM}
+                    />
+                    <Text style={[s.reminderText, reminder.is_completed && s.reminderTextDone]} numberOfLines={1}>{reminder.title}</Text>
+                  </HapticTouchable>
+                ))}
+                <Text style={s.reminderHint}>long-press a reminder to delete it</Text>
+              </View>
+            ) : null}
           </View>
         )}
 
@@ -171,6 +278,32 @@ export default function CalendarScreen({ user, onBack }: Props) {
           </View>
         </View>
       </ScrollView>
+
+      <Modal transparent visible={showCreate} animationType="fade" onRequestClose={() => setShowCreate(false)}>
+        <View style={s.modalOverlay}>
+          <HapticTouchable style={StyleSheet.absoluteFill} onPress={() => setShowCreate(false)} activeOpacity={1} haptic="none" />
+          <View style={s.modalCard}>
+            <Text style={s.modalTitle}>new reminder</Text>
+            <Text style={s.modalSub}>{selected ? new Date(selected + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : ''}</Text>
+            <TextInput
+              style={s.modalInput}
+              value={newTitle}
+              onChangeText={setNewTitle}
+              placeholder="reminder title"
+              placeholderTextColor={DIM}
+              autoFocus
+            />
+            <View style={s.modalActions}>
+              <HapticTouchable style={s.modalCancel} onPress={() => { setShowCreate(false); setNewTitle(''); }} haptic="light">
+                <Text style={s.modalCancelText}>cancel</Text>
+              </HapticTouchable>
+              <HapticTouchable style={s.modalSave} onPress={submitCreateReminder} haptic="medium" disabled={creating || !newTitle.trim()}>
+                {creating ? <ActivityIndicator size="small" color="#0a0a0b" /> : <Text style={s.modalSaveText}>add</Text>}
+              </HapticTouchable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -197,16 +330,34 @@ const s = StyleSheet.create({
   cellNumToday: { color: GOLD_L },
   cellNumSel: { color: GOLD_XL },
   dot: { width: 4, height: 4, borderRadius: 2, marginTop: 2 },
+  reminderDot: { position: 'absolute', top: 4, right: 6, width: 4, height: 4, borderRadius: 2, backgroundColor: '#7fb8e0' },
   legend: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4 },
   legendLabel: { fontFamily: 'Inter_400Regular', fontSize: 9, color: DIM },
   legendBox: { width: 12, height: 12, borderRadius: 3, borderWidth: 1, borderColor: BORDER },
   dayDetail: { backgroundColor: SURFACE, borderRadius: 24, borderWidth: 1, borderColor: BORDER, padding: 16, gap: 8, boxShadow: cbTileShadow(0.08) } as ViewStyle,
+  dayDetailHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   dayDetailTitle: { fontFamily: 'Inter_900Black', fontSize: 15, color: GOLD_L },
+  addReminderBtn: { width: 28, height: 28, borderRadius: 10, borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center' },
   dayDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   dayDetailText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: GOLD_M },
   dayDetailEmpty: { fontFamily: 'Inter_400Regular', fontSize: 13, color: DIM },
+  reminderRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  reminderText: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 13, color: GOLD_XL },
+  reminderTextDone: { color: DIM, textDecorationLine: 'line-through' },
+  reminderHint: { fontFamily: 'Inter_400Regular', fontSize: 9.5, color: DIM, marginTop: 2 },
   infoRow: { flexDirection: 'row', gap: 10 },
   infoCard: { flex: 1, backgroundColor: SURFACE, borderRadius: 20, borderWidth: 1, borderColor: BORDER, paddingVertical: 14, alignItems: 'center', boxShadow: cbTileShadow(0.055) } as ViewStyle,
   infoVal: { fontFamily: 'Inter_900Black', fontSize: 20, color: GOLD_L },
   infoLbl: { fontFamily: 'Inter_400Regular', fontSize: 9, color: DIM, textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 3 },
+
+  modalOverlay: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 24 },
+  modalCard: { width: '100%', maxWidth: 380, borderRadius: 20, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, padding: 20, gap: 12, boxShadow: cbModalShadow(0.2) } as ViewStyle,
+  modalTitle: { fontFamily: 'Inter_900Black', fontSize: 16, color: GOLD_L },
+  modalSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM, marginTop: -8 },
+  modalInput: { borderWidth: 1, borderColor: BORDER, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontFamily: 'Inter_400Regular', fontSize: 13.5, color: GOLD_XL, backgroundColor: '#0a0a0b' },
+  modalActions: { flexDirection: 'row', gap: 10, justifyContent: 'flex-end' },
+  modalCancel: { paddingHorizontal: 16, paddingVertical: 11, borderRadius: 12 },
+  modalCancelText: { fontFamily: 'Inter_600SemiBold', fontSize: 12.5, color: DIM },
+  modalSave: { paddingHorizontal: 18, paddingVertical: 11, borderRadius: 12, backgroundColor: GOLD_M, minWidth: 64, alignItems: 'center' },
+  modalSaveText: { fontFamily: 'Inter_700Bold', fontSize: 12.5, color: '#0a0a0b' },
 });
