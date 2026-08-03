@@ -29,6 +29,9 @@ import SlideExplorerScreen from '../screens/SlideExplorerScreen';
 import CanvasHubScreen from '../screens/CanvasHubScreen';
 import LearningPathsScreen from '../screens/social/LearningPathsScreen';
 import LeaderboardScreen from '../screens/social/LeaderboardScreen';
+import RLInsightsScreen from '../screens/RLInsightsScreen';
+import AchievementsScreen from '../screens/AchievementsScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 import HapticTouchable from '../components/HapticTouchable';
 import ScreenErrorBoundary from '../components/ScreenErrorBoundary';
 import { useAppTheme } from '../contexts/ThemeContext';
@@ -52,6 +55,9 @@ type RootStackParamList = {
   TopicsHub: undefined;
   LearningPaths: undefined;
   Leaderboard: undefined;
+  RLInsights: undefined;
+  Achievements: undefined;
+  Notifications: undefined;
 };
 
 const TABS: { label: string; icon: IoniconsName; activeIcon: IoniconsName }[] = [
@@ -62,12 +68,12 @@ const TABS: { label: string; icon: IoniconsName; activeIcon: IoniconsName }[] = 
   { label: 'profile', icon: 'person-outline',    activeIcon: 'person'  },
 ];
 
-type Props = { user: AuthUser; onLogout: () => void; onUserUpdate?: (patch: Partial<AuthUser>) => void };
+type Props = { user: AuthUser; onLogout: () => void; onUserUpdate?: (patch: Partial<AuthUser>) => void; onRetakeQuiz?: () => void };
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-type AppTarget = 'flashcards' | 'notes' | 'aimedia' | 'settings' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'xpAnalytics' | 'weaknessPractice' | 'topicsHub' | 'learningPaths' | 'leaderboard';
+type AppTarget = 'flashcards' | 'notes' | 'aimedia' | 'settings' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'xpAnalytics' | 'weaknessPractice' | 'topicsHub' | 'learningPaths' | 'leaderboard' | 'rlInsights' | 'achievements' | 'notifications';
 
-function MainTabs({ user, onLogout, onUserUpdate, onNavigate, requestedTab, tabRequestKey }: Props & {
+function MainTabs({ user, onLogout, onUserUpdate, onRetakeQuiz, onNavigate, requestedTab, tabRequestKey }: Props & {
   onNavigate: (screen: AppTarget) => void;
   requestedTab?: number;
   tabRequestKey?: number;
@@ -169,7 +175,7 @@ function MainTabs({ user, onLogout, onUserUpdate, onNavigate, requestedTab, tabR
             <View key="1" collapsable={false} style={s.page}><MoreScreen user={user} onNavigate={onNavigate} onNavigateToAI={() => goTo(0)} /></View>
             <View key="2" collapsable={false} style={s.page}><HomeScreen user={user} onNavigate={onNavigate} onNavigateToAI={() => goTo(0)} onSwipeLeftPage={() => goTo(3)} onSwipeRightPage={() => goTo(1)} /></View>
             <View key="3" collapsable={false} style={s.page}><SocialScreen user={user} onOpenLeaderboard={() => onNavigate('leaderboard')} /></View>
-            <View key="4" collapsable={false} style={s.page}><ProfileScreen user={user} onLogout={onLogout} onUserUpdate={onUserUpdate} onNavigate={onNavigate} /></View>
+            <View key="4" collapsable={false} style={s.page}><ProfileScreen user={user} onLogout={onLogout} onUserUpdate={onUserUpdate} onNavigate={onNavigate} onRetakeQuiz={onRetakeQuiz} /></View>
           </PagerView>
 
           {!useSideRail ? (
@@ -211,7 +217,7 @@ function MainTabs({ user, onLogout, onUserUpdate, onNavigate, requestedTab, tabR
   );
 }
 
-export default function TabNavigator({ user, onLogout, onUserUpdate }: Props) {
+export default function TabNavigator({ user, onLogout, onUserUpdate, onRetakeQuiz }: Props) {
   const { selectedTheme } = useAppTheme();
   return (
     <NavigationIndependentTree>
@@ -232,6 +238,7 @@ export default function TabNavigator({ user, onLogout, onUserUpdate }: Props) {
                 user={user}
                 onLogout={onLogout}
                 onUserUpdate={onUserUpdate}
+                onRetakeQuiz={onRetakeQuiz}
                 requestedTab={route.params?.selectedTab}
                 tabRequestKey={route.params?.tabRequestKey}
                 onNavigate={(screen) => {
@@ -250,6 +257,9 @@ export default function TabNavigator({ user, onLogout, onUserUpdate }: Props) {
                   if (screen === 'topicsHub') navigation.navigate('TopicsHub');
                   if (screen === 'learningPaths') navigation.navigate('LearningPaths');
                   if (screen === 'leaderboard') navigation.navigate('Leaderboard');
+                  if (screen === 'rlInsights') navigation.navigate('RLInsights');
+                  if (screen === 'achievements') navigation.navigate('Achievements');
+                  if (screen === 'notifications') navigation.navigate('Notifications');
                 }}
               />
             )}
@@ -336,12 +346,39 @@ export default function TabNavigator({ user, onLogout, onUserUpdate }: Props) {
           </Stack.Screen>
           <Stack.Screen name="XpAnalytics">
             {({ navigation }) => (
-              <ScreenErrorBoundary label="XP Analytics"><XpAnalyticsScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
+              <ScreenErrorBoundary label="XP Analytics">
+                <XpAnalyticsScreen
+                  user={user}
+                  onBack={() => navigation.goBack()}
+                  onOpenAchievements={() => navigation.navigate('Achievements')}
+                />
+              </ScreenErrorBoundary>
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="Achievements">
+            {({ navigation }) => (
+              <ScreenErrorBoundary label="Achievements"><AchievementsScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="Notifications">
+            {({ navigation }) => (
+              <ScreenErrorBoundary label="Notifications"><NotificationsScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
             )}
           </Stack.Screen>
           <Stack.Screen name="WeaknessPractice">
             {({ navigation }) => (
-              <ScreenErrorBoundary label="Weakness Practice"><WeaknessPracticeScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
+              <ScreenErrorBoundary label="Weakness Practice">
+                <WeaknessPracticeScreen
+                  user={user}
+                  onBack={() => navigation.goBack()}
+                  onNavigate={(screen) => { if (screen === 'rlInsights') navigation.navigate('RLInsights'); }}
+                />
+              </ScreenErrorBoundary>
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="RLInsights">
+            {({ navigation }) => (
+              <ScreenErrorBoundary label="Learning Insights"><RLInsightsScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
             )}
           </Stack.Screen>
           <Stack.Screen name="TopicsHub">
