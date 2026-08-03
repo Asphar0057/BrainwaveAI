@@ -908,6 +908,54 @@ export async function getWeaknessAnalysis(userId: number) {
   return res.json();
 }
 
+// ── RL / bandit observability + live BKT recommendations ────────────────
+export type RLStrategyStat = {
+  strategy_id: string;
+  total_pulls: number;
+  avg_reward: number;
+  win_rate: number;
+  best_states: string[];
+  worst_states: string[];
+};
+export type RLPolicyRow = { state_description: string; best_strategy: string; confidence: number; pulls: number };
+export type RLStrategyPerformance = {
+  strategy_stats: RLStrategyStat[];
+  top_policy: RLPolicyRow[];
+  learning_curve: { avg_reward_by_week: { week: string; avg_reward: number }[]; exploration_rate: number };
+  overall_stats: {
+    total_interactions_with_rl: number;
+    avg_reward_all_time: number;
+    most_used_strategy: string;
+    most_effective_strategy: string;
+    improvement_vs_rules: number;
+    selection_method_breakdown: Record<string, number>;
+  };
+};
+
+export async function getRlStrategyPerformance(userId: string): Promise<RLStrategyPerformance> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/intelligence/rl/strategy-performance/${encodeURIComponent(userId)}`, { headers });
+  if (!res.ok) await readApiError(res, 'Failed to load learning insights');
+  return res.json();
+}
+
+export type WeaknessRecommendation = {
+  concept_id: string;
+  concept_name: string;
+  p_mastery: number;
+  priority_score: number;
+  estimated_time_minutes: number;
+  recommended_resource: 'ask_tutor' | 'review_flashcards' | 'try_a_quiz';
+  trend_label: 'improving' | 'declining' | 'stable';
+};
+
+export async function getWeaknessRecommendations(userId: string): Promise<{ recommendations: WeaknessRecommendation[] }> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/intelligence/weakness/recommendations?user_id=${encodeURIComponent(userId)}`, { headers });
+  if (!res.ok) return { recommendations: [] };
+  return res.json();
+}
+
 export async function getMasteryOverview(userId: number) {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}/weakness-practice/mastery-overview?user_id=${encodeURIComponent(String(userId))}`, { headers });

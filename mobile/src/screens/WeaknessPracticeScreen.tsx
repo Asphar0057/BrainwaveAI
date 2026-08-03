@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../services/auth';
-import { generatePracticeQuestions, getWeaknessAnalysis } from '../services/api';
+import { generatePracticeQuestions, getWeaknessAnalysis, getWeaknessRecommendations, WeaknessRecommendation } from '../services/api';
 import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
 import { cbTileShadow } from '../components/NeumorphicTexture';
@@ -13,7 +13,18 @@ import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
-type Props = { user: AuthUser; onBack: () => void };
+type Props = { user: AuthUser; onBack: () => void; onNavigate?: (screen: 'rlInsights') => void };
+
+const RESOURCE_LABELS: Record<string, string> = {
+  ask_tutor: 'Ask the tutor',
+  review_flashcards: 'Review flashcards',
+  try_a_quiz: 'Try a quiz',
+};
+const RESOURCE_ICONS: Record<string, React.ComponentProps<typeof Ionicons>['name']> = {
+  ask_tutor: 'sparkles-outline',
+  review_flashcards: 'layers-outline',
+  try_a_quiz: 'help-circle-outline',
+};
 type Severity = 'critical' | 'practice' | 'improving';
 type Filter = 'all' | Severity;
 type WeakTopic = {
@@ -45,7 +56,7 @@ function topicSeverity(topic: WeakTopic): Severity {
   return 'improving';
 }
 
-export default function WeaknessPracticeScreen({ user, onBack }: Props) {
+export default function WeaknessPracticeScreen({ user, onBack, onNavigate }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
   const insets = useSafeAreaInsets();
@@ -56,6 +67,7 @@ export default function WeaknessPracticeScreen({ user, onBack }: Props) {
   const [analysis, setAnalysis] = useState<any>(null);
   const [filter, setFilter] = useState<Filter>('all');
   const [generatingTopic, setGeneratingTopic] = useState<string | null>(null);
+  const [recommendations, setRecommendations] = useState<WeaknessRecommendation[]>([]);
 
   const load = useCallback(async () => {
     if (!user.id) {
@@ -71,7 +83,10 @@ export default function WeaknessPracticeScreen({ user, onBack }: Props) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user.id]);
+    getWeaknessRecommendations(user.username)
+      .then((data) => setRecommendations(Array.isArray(data?.recommendations) ? data.recommendations : []))
+      .catch(() => setRecommendations([]));
+  }, [user.id, user.username]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -138,10 +153,53 @@ export default function WeaknessPracticeScreen({ user, onBack }: Props) {
             <Text style={s.kicker}>PERFORMANCE MAP</Text>
             <Text style={s.title}>weakness</Text>
           </View>
+          {onNavigate ? (
+            <HapticTouchable style={s.iconBtn} onPress={() => onNavigate('rlInsights')} haptic="light" accessibilityLabel="How you learn best">
+              <Ionicons name="hardware-chip-outline" size={18} color={selectedTheme.accentHover} />
+            </HapticTouchable>
+          ) : null}
           <HapticTouchable style={s.iconBtn} onPress={() => { setRefreshing(true); load(); }} haptic="light" accessibilityLabel="Refresh weakness analysis">
             <Ionicons name="refresh" size={17} color={selectedTheme.accentHover} />
           </HapticTouchable>
         </View>
+
+        {recommendations.length > 0 && (
+          <View style={s.listCard}>
+            <View style={s.listHeader}>
+              <View>
+                <Text style={s.listKicker}>PRIORITY ORDER · LIVE MASTERY</Text>
+                <Text style={s.listTitle}>focus next</Text>
+              </View>
+            </View>
+            {recommendations.map((rec, index) => (
+              <View key={rec.concept_id || index} style={s.topicRow}>
+                <View style={s.topicRank}><Text style={s.topicRankText}>{String(index + 1).padStart(2, '0')}</Text></View>
+                <View style={s.topicBody}>
+                  <View style={s.topicTitleRow}>
+                    <Text style={s.topicTitle} numberOfLines={1}>{rec.concept_name}</Text>
+                    <View style={[s.severityPill, s[`severity_${rec.trend_label === 'declining' ? 'critical' : rec.trend_label === 'improving' ? 'improving' : 'practice'}`]]}>
+                      <Text style={s.severityText}>{rec.trend_label}</Text>
+                    </View>
+                  </View>
+                  <Text style={s.topicMeta}>
+                    {Math.round(rec.p_mastery * 100)}% mastery · ~{rec.estimated_time_minutes} min · {RESOURCE_LABELS[rec.recommended_resource] || rec.recommended_resource}
+                  </Text>
+                </View>
+                <HapticTouchable
+                  style={s.practiceBtn}
+                  onPress={() => generateSet(rec.concept_name)}
+                  disabled={generatingTopic === rec.concept_name}
+                  haptic="medium"
+                  accessibilityLabel={`Practice ${rec.concept_name}`}
+                >
+                  {generatingTopic === rec.concept_name
+                    ? <ActivityIndicator color={s.accentInk.color} size="small" />
+                    : <Ionicons name={RESOURCE_ICONS[rec.recommended_resource] || 'arrow-forward'} size={16} color={s.accentInk.color} />}
+                </HapticTouchable>
+              </View>
+            ))}
+          </View>
+        )}
 
         {!user.id ? (
           <EmptyState icon="person-circle-outline" title="reload your session" copy="Your account needs to refresh before weakness analysis can load." styles={s} />
