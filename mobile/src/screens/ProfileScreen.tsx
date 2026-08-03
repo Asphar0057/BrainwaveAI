@@ -1,11 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Switch, TextInput, Alert, ActivityIndicator, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser, signOut, updateStoredUser, updateStoredToken } from '../services/auth';
-import { changeUsername, changePassword } from '../services/api';
+import { changeUsername, changePassword, getComprehensiveProfile, updateComprehensiveProfile, ComprehensiveProfile } from '../services/api';
 import HapticTouchable from '../components/HapticTouchable';
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
@@ -20,11 +20,21 @@ type Props = {
   onLogout?: () => void;
   onUserUpdate?: (patch: Partial<AuthUser>) => void;
   onNavigate?: (screen: 'settings') => void;
+  onRetakeQuiz?: () => void;
 };
 
 type EditField = 'username' | 'password' | null;
 
-export default function ProfileScreen({ user, onLogout, onUserUpdate, onNavigate }: Props) {
+const GOAL_LABELS: Record<string, string> = {
+  exam_prep: 'Ace my exams',
+  homework_help: 'Get homework help',
+  concept_mastery: 'Master difficult concepts',
+  skill_building: 'Build new skills',
+  career_prep: 'Prepare for my career',
+  curiosity: 'Learn out of curiosity',
+};
+
+export default function ProfileScreen({ user, onLogout, onUserUpdate, onNavigate, onRetakeQuiz }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
   const styles = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
@@ -32,6 +42,8 @@ export default function ProfileScreen({ user, onLogout, onUserUpdate, onNavigate
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [editing, setEditing] = useState<EditField>(null);
+  const [profile, setProfile] = useState<ComprehensiveProfile | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
 
   const [usernameInput, setUsernameInput] = useState(user.username);
   const [savingUsername, setSavingUsername] = useState(false);
@@ -45,6 +57,33 @@ export default function ProfileScreen({ user, onLogout, onUserUpdate, onNavigate
   const switchTrackOn  = rgbaFromHex(selectedTheme.accent, selectedTheme.isLight ? 0.42 : 0.52);
   const switchThumbOff = selectedTheme.isLight ? selectedTheme.panelAlt : selectedTheme.textSecondary;
   const switchThumbOn  = selectedTheme.isLight ? darkenColor(selectedTheme.accent, 18) : selectedTheme.accentHover;
+
+  const loadProfile = useCallback(async () => {
+    setLoadingProfile(true);
+    try {
+      const data = await getComprehensiveProfile(user.username);
+      setProfile(data);
+      if (typeof data.notificationsEnabled === 'boolean') setNotificationsEnabled(data.notificationsEnabled);
+    } catch {
+      // silenced -- profile widgets just stay empty if this fails
+    } finally {
+      setLoadingProfile(false);
+    }
+  }, [user.username]);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
+
+  const handleNotificationsToggle = async (value: boolean) => {
+    setNotificationsEnabled(value);
+    triggerHaptic('selection');
+    try {
+      await updateComprehensiveProfile(user.username, { notificationsEnabled: value });
+    } catch {
+      // silenced -- non-critical preference sync
+    }
+  };
 
   if (!fontsLoaded) return null;
 
@@ -288,6 +327,76 @@ export default function ProfileScreen({ user, onLogout, onUserUpdate, onNavigate
           )}
         </View>
 
+        <Text style={styles.sectionLabel}>learning profile</Text>
+        <View style={styles.card}>
+          <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
+          <NeumorphicTexture grainOpacity={0.20} />
+
+          {loadingProfile ? (
+            <View style={styles.linkRow}>
+              <ActivityIndicator size="small" color={selectedTheme.accent} />
+              <Text style={[styles.linkSubLabel, { marginLeft: 10 }]}>loading profile…</Text>
+            </View>
+          ) : (
+            <>
+              <View style={[styles.linkRow, styles.rowDivider]}>
+                <View style={styles.iconWrap}>
+                  <Ionicons name="school-outline" size={16} color={selectedTheme.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.linkLabel}>Main Subject</Text>
+                  <Text style={styles.linkSubLabel}>{profile?.fieldOfStudy || 'Not set yet'}</Text>
+                </View>
+              </View>
+
+              {profile?.preferredSubjects && profile.preferredSubjects.length > 0 ? (
+                <View style={[styles.editBlock, styles.rowDivider]}>
+                  <Text style={styles.editTitle}>Other Subjects</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    {profile.preferredSubjects.map((subject) => (
+                      <View key={subject} style={styles.subjectChip}>
+                        <Text style={styles.subjectChipText}>{subject}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+
+              <View style={[styles.linkRow, styles.rowDivider]}>
+                <View style={styles.iconWrap}>
+                  <Ionicons name="flag-outline" size={16} color={selectedTheme.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.linkLabel}>Goal</Text>
+                  <Text style={styles.linkSubLabel}>
+                    {profile?.brainwaveGoal ? (GOAL_LABELS[profile.brainwaveGoal] || profile.brainwaveGoal) : 'Not set yet'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={[styles.linkRow, profile?.quizCompleted || profile?.quizSkipped ? styles.rowDivider : undefined]}>
+                <View style={styles.iconWrap}>
+                  <Ionicons name="sparkles-outline" size={16} color={selectedTheme.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.linkLabel}>Learning Archetype</Text>
+                  <Text style={styles.linkSubLabel}>{profile?.primaryArchetype || 'Take the quiz to discover yours'}</Text>
+                </View>
+              </View>
+
+              {(profile?.quizCompleted || profile?.quizSkipped) && onRetakeQuiz ? (
+                <HapticTouchable style={styles.linkRow} activeOpacity={0.8} haptic="light" onPress={onRetakeQuiz}>
+                  <View style={styles.iconWrap}>
+                    <Ionicons name="refresh-outline" size={16} color={selectedTheme.accent} />
+                  </View>
+                  <Text style={styles.linkLabel}>Retake Onboarding Quiz</Text>
+                  <Ionicons name="chevron-forward" size={14} color={selectedTheme.textSecondary} />
+                </HapticTouchable>
+              ) : null}
+            </>
+          )}
+        </View>
+
         <Text style={styles.sectionLabel}>preferences</Text>
         <View style={styles.card}>
           <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
@@ -299,10 +408,7 @@ export default function ProfileScreen({ user, onLogout, onUserUpdate, onNavigate
             <Text style={styles.prefLabel}>Notifications</Text>
             <Switch
               value={notificationsEnabled}
-              onValueChange={(value) => {
-                setNotificationsEnabled(value);
-                triggerHaptic('selection');
-              }}
+              onValueChange={handleNotificationsToggle}
               trackColor={{ false: switchTrackOff, true: switchTrackOn }}
               thumbColor={notificationsEnabled ? switchThumbOn : switchThumbOff}
               ios_backgroundColor={switchTrackOff}
@@ -421,6 +527,12 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     linkDanger: { color: theme.danger },
     editBlock: { paddingHorizontal: 16, paddingVertical: 16, gap: 10 },
     editTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: GOLD_LIGHT, letterSpacing: 0.4, textTransform: 'uppercase' },
+    subjectChip: {
+      paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10,
+      borderWidth: 1, borderColor: BORDER,
+      backgroundColor: rgbaFromHex(GOLD_LIGHT, theme.isLight ? 0.1 : 0.14),
+    },
+    subjectChipText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: GOLD_LIGHT },
     editInput: {
       borderWidth: 1, borderColor: BORDER, borderRadius: 12,
       backgroundColor: rgbaFromHex(CARD_ALT, theme.isLight ? 0.6 : 0.5),

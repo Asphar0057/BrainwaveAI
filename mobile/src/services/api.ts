@@ -71,6 +71,82 @@ export async function changePassword(currentPassword: string | null, newPassword
   return res.json();
 }
 
+// ── Onboarding / Comprehensive Profile ──────────────────────────────────
+export type ProfileQuizStatus = { completed: boolean; quiz_completed: boolean; quiz_skipped: boolean };
+
+export async function checkProfileQuiz(userId: string): Promise<ProfileQuizStatus> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/check_profile_quiz?user_id=${encodeURIComponent(userId)}`, { headers });
+  if (!res.ok) return { completed: false, quiz_completed: false, quiz_skipped: false };
+  return res.json();
+}
+
+export type ComprehensiveProfile = {
+  fieldOfStudy: string;
+  brainwaveGoal: string;
+  preferredSubjects: string[];
+  primaryArchetype: string;
+  secondaryArchetype: string;
+  archetypeDescription: string;
+  quizCompleted: boolean;
+  quizSkipped: boolean;
+  notificationsEnabled?: boolean;
+};
+
+export async function getComprehensiveProfile(userId: string): Promise<ComprehensiveProfile> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/get_comprehensive_profile?user_id=${encodeURIComponent(userId)}`, { headers });
+  if (!res.ok) await readApiError(res, 'Could not load profile');
+  return res.json();
+}
+
+export async function updateComprehensiveProfile(userId: string, patch: Record<string, unknown>) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/update_comprehensive_profile`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId, ...patch }),
+  });
+  if (!res.ok) await readApiError(res, 'Could not update profile');
+  return res.json();
+}
+
+export type SaveCompleteProfilePayload = {
+  user_id: string;
+  learning_stage?: string;
+  preferred_subjects?: string[];
+  main_subject?: string;
+  brainwave_goal?: string;
+  learning_preferences?: Record<string, string[]>;
+  quiz_completed: boolean;
+  quiz_skipped: boolean;
+};
+
+export async function saveCompleteProfile(payload: SaveCompleteProfilePayload) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/save_complete_profile`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) await readApiError(res, 'Could not save profile');
+  return res.json();
+}
+
+export async function setWeeklyGoals(userId: string, goals: { chat: number; note: number; flashcard: number; quiz: number }) {
+  const headers = await authHeaders();
+  const params = new URLSearchParams({
+    user_id: userId,
+    chat_goal: String(goals.chat),
+    note_goal: String(goals.note),
+    flashcard_goal: String(goals.flashcard),
+    quiz_goal: String(goals.quiz),
+  });
+  const res = await fetch(`${API_URL}/set_weekly_goals?${params.toString()}`, { method: 'POST', headers });
+  if (!res.ok) await readApiError(res, 'Could not save weekly goals');
+  return res.json();
+}
+
 // ── Stats ─────────────────────────────────────────────────────────────
 export async function getEnhancedStats(userId: string) {
   const headers = await authHeaders();

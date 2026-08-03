@@ -474,7 +474,7 @@ const ProfileQuiz = () => {
           })
         });
 
-        await fetch(`${API_URL}/api/set_weekly_goals?user_id=${encodeURIComponent(userName)}&chat_goal=${preset.chat}&note_goal=${preset.note}&flashcard_goal=${preset.flashcard}&quiz_goal=${preset.quiz}`, {
+        await fetch(`${API_URL}/set_weekly_goals?user_id=${encodeURIComponent(userName)}&chat_goal=${preset.chat}&note_goal=${preset.note}&flashcard_goal=${preset.flashcard}&quiz_goal=${preset.quiz}`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}` }
         });
