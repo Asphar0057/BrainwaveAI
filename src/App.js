@@ -21,6 +21,7 @@ import {
 } from './utils/usageLimit';
 import './styles/ui-safety.css';
 import './App.css';
+import './styles/neumorphism.css';
 
 // Pages are lazy-loaded so each route ships as its own chunk instead of
 // inflating the initial bundle with ~60 page components up front.
@@ -267,7 +268,7 @@ function App() {
       <NotificationProvider>
         <ToastProvider>
           <RateLimitHandler />
-          <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg-top)', color: 'var(--text-primary)' }}>
+          <div className="app-neumorphic-root" style={{ minHeight: '100vh', backgroundColor: 'var(--bg-top)', color: 'var(--text-primary)' }}>
             <RouteWarmup />
             {isPostHogEnabled && <PostHogRouteTracker />}
             <GlobalNotifications />

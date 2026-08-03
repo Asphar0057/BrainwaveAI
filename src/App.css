@@ -69,11 +69,22 @@
 .usage-limit-popover__panel {
   width: min(440px, 100%);
   border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
-  border-top: 4px solid var(--accent);
+  border-radius: 14px;
   background: color-mix(in srgb, var(--bg-card, var(--bg-top)) 94%, #050505 6%);
   color: var(--text-primary);
-  box-shadow: 0 24px 80px color-mix(in srgb, #000 38%, transparent);
+  box-shadow: var(--neu-shadow-raised-hover);
   padding: 24px;
+  overflow: hidden;
+  position: relative;
+}
+
+.usage-limit-popover__panel::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto auto 20px;
+  width: 72px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--accent), transparent);
 }
 
 .usage-limit-popover__eyebrow {
@@ -101,4 +112,18 @@
   color: var(--accent-contrast, #06110d);
   font-weight: 900;
   cursor: pointer;
+  border-radius: 10px;
+  box-shadow: var(--neu-shadow-soft);
+  transition: transform 160ms ease, box-shadow 180ms ease, filter 180ms ease;
+}
+
+.usage-limit-popover__panel button:hover {
+  filter: brightness(1.04);
+  box-shadow: var(--neu-shadow-raised-hover);
+  transform: translateY(-1px);
+}
+
+.usage-limit-popover__panel button:active {
+  transform: scale(.98);
+  box-shadow: var(--neu-shadow-pressed);
 }

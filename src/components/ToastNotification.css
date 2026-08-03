@@ -13,13 +13,12 @@
   position: relative;
   width: min(360px, calc(100vw - 32px));
   min-height: 76px;
-  border-radius: 8px;
+  border-radius: 14px;
   border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
-  border-left: 3px solid color-mix(in srgb, var(--accent) 76%, var(--text-primary));
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--panel) 94%, transparent), color-mix(in srgb, var(--hover-bg) 74%, transparent)),
     linear-gradient(90deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent 62%);
-  box-shadow: 0 14px 34px color-mix(in srgb, #000 22%, transparent);
+  box-shadow: var(--neu-shadow-raised-hover);
   padding: 12px;
   display: flex;
   align-items: flex-start;
@@ -28,6 +27,16 @@
   opacity: 0;
   pointer-events: auto;
   transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.22s ease, border-color 0.18s ease;
+}
+
+.toast-notification::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto auto 18px;
+  width: 72px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+  pointer-events: none;
 }
 
 .toast-notification.visible {
@@ -55,6 +64,7 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
+  box-shadow: var(--neu-shadow-inset);
 }
 
 .toast-content {
@@ -94,7 +104,13 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
+  box-shadow: var(--neu-shadow-soft);
   transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.toast-close:active {
+  transform: scale(.98);
+  box-shadow: var(--neu-shadow-pressed);
 }
 
 .toast-close:hover {
@@ -102,6 +118,17 @@
   border-color: color-mix(in srgb, var(--accent) 42%, transparent);
   background: color-mix(in srgb, var(--accent) 9%, transparent);
   transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-notification,
+  .toast-close {
+    transition-duration: .01ms;
+  }
+
+  .toast-close:hover {
+    transform: none;
+  }
 }
 
 @media (max-width: 768px) {

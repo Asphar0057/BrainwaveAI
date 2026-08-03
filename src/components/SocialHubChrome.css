@@ -54,6 +54,20 @@
 
 /* ── shell ── */
 .shc-shell {
+  --shc-neu-raised:
+    9px 9px 20px rgba(0, 0, 0, .34),
+    -5px -5px 14px rgba(255, 255, 255, .018),
+    inset 1px 1px 0 rgba(255, 255, 255, .024),
+    inset -1px -1px 0 rgba(0, 0, 0, .24);
+  --shc-neu-raised-hover:
+    13px 13px 27px rgba(0, 0, 0, .4),
+    -6px -6px 17px rgba(255, 255, 255, .023),
+    inset 1px 1px 0 rgba(255, 255, 255, .03),
+    inset -1px -1px 0 rgba(0, 0, 0, .3);
+  --shc-neu-inset:
+    inset 4px 4px 9px rgba(0, 0, 0, .34),
+    inset -3px -3px 7px rgba(255, 255, 255, .018),
+    0 1px 0 rgba(255, 255, 255, .018);
   position: relative;
   z-index: 2;
   flex: 1;
@@ -63,6 +77,23 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+[data-theme-mode="light"] .shc-shell {
+  --shc-neu-raised:
+    9px 9px 20px rgba(68, 56, 44, .14),
+    -6px -6px 16px rgba(255, 255, 255, .72),
+    inset 1px 1px 0 rgba(255, 255, 255, .68),
+    inset -1px -1px 0 rgba(78, 61, 45, .08);
+  --shc-neu-raised-hover:
+    13px 13px 27px rgba(68, 56, 44, .18),
+    -7px -7px 18px rgba(255, 255, 255, .82),
+    inset 1px 1px 0 rgba(255, 255, 255, .74),
+    inset -1px -1px 0 rgba(78, 61, 45, .1);
+  --shc-neu-inset:
+    inset 4px 4px 9px rgba(84, 67, 50, .12),
+    inset -3px -3px 8px rgba(255, 255, 255, .72),
+    0 1px 0 rgba(255, 255, 255, .5);
 }
 
 /* ── shared Social Hub atmosphere ── */
@@ -367,6 +398,7 @@
   border: 1px solid color-mix(in srgb, var(--accent) 14%, transparent);
   border-radius: 14px;
   background: color-mix(in srgb, var(--bg-secondary) 58%, transparent);
+  box-shadow: var(--shc-neu-raised);
   flex-shrink: 0;
 }
 
@@ -429,6 +461,7 @@
   border-color: color-mix(in srgb, var(--accent) 28%, transparent);
   color: var(--text-primary);
   transform: translateX(4px);
+  box-shadow: var(--shc-neu-raised);
 }
 
 /* active — same as .playlists-page .menu-item.active */
@@ -436,6 +469,7 @@
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   border-color: color-mix(in srgb, var(--accent) 34%, transparent);
   color: var(--text-primary);
+  box-shadow: var(--shc-neu-inset);
 }
 
 .shc-view-link--active:hover {
@@ -485,6 +519,7 @@
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  box-shadow: var(--shc-neu-raised);
   transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
 }
 
@@ -493,6 +528,7 @@
   border-color: color-mix(in srgb, var(--accent) 32%, transparent);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   transform: translateY(-1px);
+  box-shadow: var(--shc-neu-raised-hover);
 }
 
 /* ═══════════════════════════════════════════
@@ -551,12 +587,14 @@
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  box-shadow: var(--shc-neu-raised);
 }
 
 .shc-strip-btn--active {
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+  box-shadow: var(--shc-neu-inset);
 }
 
 .shc-strip-btn--toggle {
@@ -615,6 +653,18 @@
     12px 12px 26px rgba(0, 0, 0, 0.62),
     -8px -8px 20px rgba(255, 255, 255, 0.03),
     inset 0 0 0 1px color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+/* Shared lead actions keep their flat accent face while gaining the same
+   physical edge separation as the surrounding shell. */
+.shc-sidebar-lead > button {
+  box-shadow: var(--shc-neu-raised);
+}
+
+.shc-sidebar-lead > button:active:not(:disabled) {
+  box-shadow:
+    inset 4px 4px 8px rgba(77, 53, 30, .22),
+    inset -3px -3px 7px rgba(255, 255, 255, .14);
 }
 
 .shc-main > * { min-width: 0; }
@@ -821,6 +871,27 @@
    SHARED INTERACTION CONTRACT
    Matches Dashboard + Flashcards: quiet at rest, precise on intent.
    ═══════════════════════════════════════════ */
+.shc-shell .shc-main .shc-neumorphic-surface {
+  box-shadow: var(--shc-neu-raised);
+}
+
+.shc-shell .shc-main .shc-neumorphic-surface:is(
+  .active,
+  [aria-pressed="true"],
+  [aria-current="page"],
+  .mn-tab--active,
+  .fc-mode-btn--active,
+  .qbd-active
+) {
+  box-shadow: var(--shc-neu-inset);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .shc-shell .shc-main .shc-neumorphic-surface:not(.active):not([aria-pressed="true"]):hover {
+    box-shadow: var(--shc-neu-raised-hover);
+  }
+}
+
 :is(
   .fd-friend-card,
   .fd-user-row,

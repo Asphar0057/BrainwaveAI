@@ -1,0 +1,189 @@
+/*
+ * Shared Cerbyl neumorphism layer.
+ *
+ * This file deliberately uses low-specificity selectors so page-specific
+ * layouts and colours remain authoritative. It supplies the same paired
+ * light/dark depth language to both SocialHubChrome and legacy routes.
+ */
+:root {
+  --neu-shadow-raised:
+    10px 12px 24px rgba(0, 0, 0, .30),
+    -5px -5px 14px rgba(255, 255, 255, .018),
+    inset 1px 1px 0 rgba(255, 255, 255, .026),
+    inset -1px -1px 0 rgba(0, 0, 0, .22);
+  --neu-shadow-raised-hover:
+    13px 16px 30px rgba(0, 0, 0, .35),
+    -6px -6px 16px rgba(255, 255, 255, .026),
+    inset 1px 1px 0 rgba(255, 255, 255, .035),
+    inset -1px -1px 0 rgba(0, 0, 0, .24);
+  --neu-shadow-soft:
+    6px 7px 14px rgba(0, 0, 0, .24),
+    -3px -3px 9px rgba(255, 255, 255, .016),
+    inset 1px 1px 0 rgba(255, 255, 255, .022),
+    inset -1px -1px 0 rgba(0, 0, 0, .18);
+  --neu-shadow-inset:
+    inset 4px 4px 9px rgba(0, 0, 0, .30),
+    inset -3px -3px 8px rgba(255, 255, 255, .022),
+    1px 1px 0 rgba(255, 255, 255, .014);
+  --neu-shadow-pressed:
+    inset 5px 5px 11px rgba(0, 0, 0, .36),
+    inset -3px -3px 8px rgba(255, 255, 255, .018);
+}
+
+[data-theme-mode="light"] {
+  --neu-shadow-raised:
+    10px 12px 24px rgba(63, 47, 32, .13),
+    -6px -6px 16px rgba(255, 255, 255, .70),
+    inset 1px 1px 0 rgba(255, 255, 255, .66),
+    inset -1px -1px 0 rgba(76, 55, 35, .09);
+  --neu-shadow-raised-hover:
+    13px 16px 30px rgba(63, 47, 32, .17),
+    -7px -7px 18px rgba(255, 255, 255, .78),
+    inset 1px 1px 0 rgba(255, 255, 255, .72),
+    inset -1px -1px 0 rgba(76, 55, 35, .11);
+  --neu-shadow-soft:
+    6px 7px 14px rgba(63, 47, 32, .11),
+    -4px -4px 10px rgba(255, 255, 255, .60),
+    inset 1px 1px 0 rgba(255, 255, 255, .62),
+    inset -1px -1px 0 rgba(76, 55, 35, .07);
+  --neu-shadow-inset:
+    inset 4px 4px 9px rgba(80, 61, 42, .12),
+    inset -3px -3px 8px rgba(255, 255, 255, .68),
+    1px 1px 0 rgba(255, 255, 255, .44);
+  --neu-shadow-pressed:
+    inset 5px 5px 11px rgba(80, 61, 42, .15),
+    inset -3px -3px 8px rgba(255, 255, 255, .60);
+}
+
+/* Common route surfaces. :where() keeps every page free to override this. */
+#root :where(
+  [class$="-card"], [class*="-card "],
+  [class$="-panel"], [class*="-panel "],
+  [class$="-tile"], [class*="-tile "],
+  [class$="-modal"], [class*="-modal "],
+  [class$="-popover"], [class*="-popover "],
+  [class$="-summary"], [class*="-summary "]
+):not(.nre-document-card):not(.mn-notes-panel):not(.podcast-fullscreen-stage-card) {
+  box-shadow: var(--neu-shadow-raised);
+}
+
+/*
+ * Secondary data surfaces cover older pages whose component vocabulary uses
+ * rows/items/stats instead of cards. Their depth is intentionally quieter so
+ * dense libraries, queues, results, analytics and admin tables stay readable.
+ */
+.app-neumorphic-root :where(
+  article,
+  dialog,
+  fieldset,
+  [class$="-row"], [class*="-row "],
+  [class$="-item"], [class*="-item "],
+  [class$="-stat"], [class*="-stat "],
+  [class$="-metric"], [class*="-metric "],
+  [class$="-widget"], [class*="-widget "],
+  [class$="-option"], [class*="-option "],
+  [class$="-choice"], [class*="-choice "],
+  [class$="-result"], [class*="-result "],
+  [class$="-preview"], [class*="-preview "]
+):not([class*="-card"]):not([class*="-panel"]):not([class*="-modal"]):not(.nre-editor-content):not(.mn-note-row):not(.transcript-row) {
+  box-shadow: var(--neu-shadow-soft);
+}
+
+/* Grouping furniture reads as carved into the page instead of another card. */
+.app-neumorphic-root :where(
+  [class$="-toolbar"], [class*="-toolbar "],
+  [class$="-controls"], [class*="-controls "],
+  [class$="-queue"], [class*="-queue "],
+  [class$="-table"], [class*="-table "],
+  [class$="-list"], [class*="-list "]
+):not(.slide-notif-stack):not(.toast-container):not(.mn-note-list) {
+  box-shadow: var(--neu-shadow-inset);
+}
+
+/* Inputs should feel recessed, not float above a work surface. */
+#root :where(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+#root :where([contenteditable="true"]):not(.nre-editor-content) {
+  box-shadow: var(--neu-shadow-inset);
+}
+
+/* Compact secondary controls share a quieter raised treatment. */
+#root :where(
+  button,
+  [role="button"],
+  [class$="-toolbar"], [class*="-toolbar "],
+  [class$="-controls"], [class*="-controls "]
+) {
+  --neu-control-shadow: var(--neu-shadow-soft);
+}
+
+#root :where(button, [role="button"]):not(.slide-notif-hitarea):not(:disabled) {
+  box-shadow: var(--neu-control-shadow, var(--neu-shadow-soft));
+}
+
+#root :where(
+  button[aria-pressed="true"],
+  button[aria-selected="true"],
+  [role="button"][aria-pressed="true"],
+  [role="tab"][aria-selected="true"],
+  .active,
+  .is-active,
+  .selected,
+  .is-selected
+) {
+  box-shadow: var(--neu-shadow-pressed);
+}
+
+/* Note-taking surfaces stay flat and steady by design. */
+#root :where(
+  .nre-document-card,
+  .nre-editor-content,
+  .mn-notes-panel,
+  .mn-notes-editor,
+  .podcast-fullscreen-stage-card,
+  video,
+  audio,
+  canvas
+) {
+  transform: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  #root :where(
+    [class$="-card"], [class*="-card "],
+    [class$="-tile"], [class*="-tile "],
+    [class$="-popover"], [class*="-popover "]
+  ):not(.nre-document-card):not(.mn-notes-panel):not(.podcast-fullscreen-stage-card):hover {
+    box-shadow: var(--neu-shadow-raised-hover);
+  }
+
+  #root :where(button, [role="button"]):not(.slide-notif-hitarea):not(:disabled):hover {
+    --neu-control-shadow: var(--neu-shadow-raised-hover);
+  }
+}
+
+#root :where(button, [role="button"]):not(.slide-notif-hitarea):not(:disabled):active {
+  box-shadow: var(--neu-shadow-pressed);
+}
+
+.app-neumorphic-root :where(button, [role="button"], input, select, textarea, a):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 78%, white);
+  outline-offset: 3px;
+}
+
+.app-neumorphic-root :where(button, [role="button"]):disabled,
+.app-neumorphic-root :where(button, [role="button"])[aria-disabled="true"] {
+  box-shadow: var(--neu-shadow-inset);
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #root :where(
+    [class$="-card"], [class*="-card "],
+    [class$="-tile"], [class*="-tile "],
+    [class$="-popover"], [class*="-popover "],
+    button,
+    [role="button"]
+  ) {
+    transition-duration: .01ms !important;
+  }
+}

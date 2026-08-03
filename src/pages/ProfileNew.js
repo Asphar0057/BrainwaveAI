@@ -1,15 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { X, Check, Pencil, Award, BarChart3, Crown, Rocket, ShieldCheck, LogOut, Trash2, LayoutDashboard, User, CreditCard, Target, Settings, BookOpen, Sparkles, Plus, Gauge, ArrowUpRight, Bell, Eye, Fingerprint } from 'lucide-react';
-import { SidebarShell, SidebarSection, SidebarMenuItem, SidebarPrimaryButton, SidebarActions, SidebarAction, SidebarStripButton, SidebarStripDivider, SidebarStripSpacer } from '../components/Sidebar';
+import { X, Check, Pencil, Award, BarChart3, Crown, Rocket, ShieldCheck, LogOut, Trash2, User, CreditCard, Target, Settings, BookOpen, Sparkles, Plus, Gauge, ArrowUpRight, Bell, Eye, Fingerprint } from 'lucide-react';
+import SocialHubChrome from '../components/SocialHubChrome';
 import WeaknessTracker from '../components/WeaknessTracker/WeaknessTracker';
 import { API_URL } from '../config';
 import { signOutAppSession } from '../utils/authSession';
-import { fetchAccountSession } from '../utils/institutionSession';
+import { fetchAccountSession, getCachedAccountSession } from '../utils/institutionSession';
 import { getProfileExperience } from '../utils/profileExperience';
 import './ProfileNew.css';
 import './ProfileWorkspace.css';
-import '../components/SocialHubChrome.css';
 
 const PRESET_PFPS = [
   { id: 'cat', label: 'Cat', src: '/pfp/cat.png' },
@@ -22,6 +21,14 @@ const PFP_DEFAULT_KEY = 'cerbyl.defaultPfp';
 const PFP_CUSTOM_KEY = 'cerbyl.customPfp';
 const DISPLAY_NAME_KEY = 'cerbyl.displayName';
 const MAX_CUSTOM_PFP_BYTES = 2 * 1024 * 1024;
+
+export const getHighResolutionProfilePhoto = (src, size = 1024) => {
+  if (typeof src !== 'string' || !src) return '';
+  if (!/^https:\/\/lh\d*\.googleusercontent\.com\//i.test(src)) return src;
+
+  const safeSize = Math.max(256, Math.min(2048, Number(size) || 1024));
+  return src.replace(/=s\d+(?:-c)?(?:-[a-z0-9-]+)?$/i, `=s${safeSize}-c`);
+};
 
 const hydrateProfile = (parsed = {}, username = '') => {
   const p = parsed || {};
@@ -205,58 +212,22 @@ export const formatReset = (resetAt) => {
   return `${mins}m`;
 };
 
-const PRICE_TICKER_MS = 340;
-
 export const PriceTicker = ({ amount }) => {
-  const [displayAmount, setDisplayAmount] = useState(Number(amount || 0));
-  const [nextAmount, setNextAmount] = useState(null);
-  const [direction, setDirection] = useState('up');
-  const [transitionToken, setTransitionToken] = useState(0);
-  const timerRef = useRef(null);
+  const target = Number.isFinite(Number(amount)) ? Number(amount) : 0;
+  const previousAmountRef = useRef(target);
+  const direction = target >= previousAmountRef.current ? 'up' : 'down';
 
   useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    const target = Number(amount || 0);
-    if (!Number.isFinite(target)) return;
-    if (nextAmount !== null) return;
-    if (target === displayAmount) return;
-
-    setDirection(target > displayAmount ? 'up' : 'down');
-    setNextAmount(target);
-    setTransitionToken((prev) => prev + 1);
-
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      setDisplayAmount(target);
-      setNextAmount(null);
-    }, PRICE_TICKER_MS);
-  }, [amount, displayAmount, nextAmount]);
-
-  if (nextAmount === null) {
-    return (
-      <span className="pn-price-ticker pn-price-ticker--static">
-        <span className="pn-price-ticker-value pn-price-ticker-value--static">
-          {formatUsd(displayAmount)}
-        </span>
-      </span>
-    );
-  }
+    previousAmountRef.current = target;
+  }, [target]);
 
   return (
     <span
-      key={transitionToken}
+      key={target}
       className={`pn-price-ticker ${direction === 'up' ? 'pn-price-ticker--up' : 'pn-price-ticker--down'}`}
     >
-      <span className="pn-price-ticker-value pn-price-ticker-value--old">
-        {formatUsd(displayAmount)}
-      </span>
       <span className="pn-price-ticker-value pn-price-ticker-value--new">
-        {formatUsd(nextAmount)}
+        {formatUsd(target)}
       </span>
     </span>
   );
@@ -374,7 +345,7 @@ const ProfileNew = () => {
   const pfpPreviousFocusRef = useRef(null);
   const token = localStorage.getItem('token');
   const [userName, setUserName] = useState(() => localStorage.getItem('username') || '');
-  const [accountRole, setAccountRole] = useState(null);
+  const [accountRole, setAccountRole] = useState(() => getCachedAccountSession()?.role || 'learner');
   const profileExperience = getProfileExperience(accountRole);
 
   const [pfp, setPfp] = useState(() => {
@@ -393,9 +364,9 @@ const ProfileNew = () => {
   const [profileData, setProfileData] = useState(() => toProfileFormData(cachedProfile, userName));
   const [quizAnswers, setQuizAnswers] = useState({});
   const [dataLoaded, setDataLoaded] = useState(false);
-  const [autoSaving, setAutoSaving] = useState(false);
-  const [lastSaved, setLastSaved] = useState(null);
-  const [profileSaveError, setProfileSaveError] = useState('');
+  const [, setAutoSaving] = useState(false);
+  const [, setLastSaved] = useState(null);
+  const [, setProfileSaveError] = useState('');
   const [deleteStep, setDeleteStep] = useState('password');
   const [deleteForm, setDeleteForm] = useState({ password: '', otp: '' });
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -498,7 +469,7 @@ const ProfileNew = () => {
     let cancelled = false;
     fetchAccountSession({ force: true })
       .then((session) => {
-        if (!cancelled) setAccountRole(session.role);
+        if (!cancelled && session?.role) setAccountRole(session.role);
       })
       .catch(() => {
         if (!cancelled) navigate('/login', { replace: true });
@@ -531,6 +502,7 @@ const ProfileNew = () => {
   const isGoogleAccount = Boolean(pfp?.googleUser || pfp?.google_user);
   const initial = (displayName[0] || 'A').toUpperCase();
   const profilePhoto = pfp?.picture || pfp?.picture_url || '';
+  const displayProfilePhoto = getHighResolutionProfilePhoto(profilePhoto);
   const activeCustomPfp = pfp?.customPfp || '';
   const defaultUserPfp = pfp?.defaultPfp || '';
   const profileLevel = gamificationStats?.level || 1;
@@ -936,73 +908,83 @@ const ProfileNew = () => {
     constructive: 'Constructive', direct: 'Direct & Concise'
   };
 
+  const profileSideSections = [
+    {
+      label: 'Profile',
+      items: [
+        { icon: User, label: 'Overview', active: activeSection === 'pn-section-overview', onClick: () => scrollToSection('pn-section-overview') },
+        { icon: BookOpen, label: 'Identity', active: activeSection === 'pn-section-personal', onClick: () => scrollToSection('pn-section-personal') },
+        { icon: Sparkles, label: 'Learning profile', active: activeSection === 'pn-section-subjects', onClick: () => scrollToSection('pn-section-subjects') },
+        ...(profileExperience.showPaymentInformation ? [{ icon: CreditCard, label: 'Plan and usage', active: activeSection === 'pn-section-subscription', onClick: () => scrollToSection('pn-section-subscription') }] : [])
+      ]
+    },
+    {
+      label: 'Account',
+      items: [
+        { icon: BarChart3, label: 'Mastery', active: activeSection === 'pn-section-mastery', onClick: () => scrollToSection('pn-section-mastery') },
+        { icon: Settings, label: 'Preferences', active: activeSection === 'pn-section-settings', onClick: () => scrollToSection('pn-section-settings') },
+        { icon: Award, label: 'Assessment', onClick: () => navigate('/profile-quiz') }
+      ]
+    }
+  ];
+
   return (
-    <div className="pn-root pn-profile-workspace">
-      <div className="pnw-line-field" aria-hidden="true" />
-
-      <header className="pn-topbar">
-        <span className="pnw-top-brand"><b>LEARNING,</b> UNIFIED</span>
-        <div className="pn-topbar-actions">
-          <div className={`pn-save-status ${profileSaveError ? 'is-error' : ''}`} role="status">
-            {autoSaving ? 'Saving changes' : profileSaveError || (lastSaved ? `Saved ${lastSaved}` : 'Profile ready')}
+    <div className="pn-root pn-profile-workspace with-social-chrome">
+      <SocialHubChrome
+        brandKicker="Profile"
+        sideSections={profileSideSections}
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+        topbarAction={{ label: 'Dashboard', path: profileExperience.dashboardRoute }}
+        sidebarLead={(
+          <button type="button" className="pnw-side-primary" onClick={() => scrollToSection('pn-section-personal')}>
+            <Pencil size={15} />
+            <span>Edit profile</span>
+          </button>
+        )}
+        collapsedLeadItems={[
+          { icon: Pencil, label: 'Edit profile', onClick: () => { setSidebarCollapsed(false); scrollToSection('pn-section-personal'); } }
+        ]}
+        collapsedTailItems={[
+          { icon: LogOut, label: 'Sign out', onClick: clearSessionAndGoLogin }
+        ]}
+        sidebarTail={(
+          <div className="pnw-sidebar-tail">
+            <button type="button" onClick={clearSessionAndGoLogin}>
+              <LogOut size={15} /><span>Sign out</span><ArrowUpRight size={13} />
+            </button>
           </div>
-          <button className="pn-top-action" onClick={() => navigate(profileExperience.dashboardRoute)} type="button">Dashboard</button>
-        </div>
-      </header>
-
-      <div className="pf-qb-body">
-        <div className={`pf-qb-shell ${sidebarCollapsed ? 'pf-qb-shell--collapsed' : ''}`}>
-          <SidebarShell
-            collapsed={sidebarCollapsed}
-            onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
-            brandKicker="PROFILE"
-            ariaLabel="Profile navigation"
-            collapsedContent={(
-              <>
-                <SidebarStripButton icon={<User size={18} />} tip="Overview" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-overview'); }} />
-                <SidebarStripButton icon={<BookOpen size={18} />} tip="Identity" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-personal'); }} />
-                <SidebarStripButton icon={<Sparkles size={18} />} tip="Learning profile" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-subjects'); }} />
-                {profileExperience.showPaymentInformation && <SidebarStripButton icon={<CreditCard size={18} />} tip="Plan" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-subscription'); }} />}
-                <SidebarStripButton icon={<BarChart3 size={18} />} tip="Mastery" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-mastery'); }} />
-                <SidebarStripDivider />
-                <SidebarStripButton icon={<Settings size={18} />} tip="Preferences" onClick={() => { setSidebarCollapsed(false); scrollToSection('pn-section-settings'); }} />
-                {profileExperience.showPaymentInformation && <SidebarStripButton icon={<Gauge size={18} />} tip="Usage" onClick={() => navigate('/profile/usage')} />}
-                <SidebarStripSpacer />
-                <SidebarStripButton icon={<LayoutDashboard size={18} />} tip="Dashboard" onClick={() => navigate(profileExperience.dashboardRoute)} />
-              </>
-            )}
-          >
-            <SidebarPrimaryButton icon={<Pencil size={15} />} label="Edit profile" onClick={() => scrollToSection('pn-section-personal')} />
-            <SidebarSection heading="Profile">
-              <SidebarMenuItem icon={<User size={16} />} label="Overview" active={activeSection === 'pn-section-overview'} onClick={() => scrollToSection('pn-section-overview')} />
-              <SidebarMenuItem icon={<BookOpen size={16} />} label="Identity" active={activeSection === 'pn-section-personal'} onClick={() => scrollToSection('pn-section-personal')} />
-              <SidebarMenuItem icon={<Sparkles size={16} />} label="Learning profile" active={activeSection === 'pn-section-subjects'} onClick={() => scrollToSection('pn-section-subjects')} />
-              {profileExperience.showPaymentInformation && <SidebarMenuItem icon={<CreditCard size={16} />} label="Plan and usage" active={activeSection === 'pn-section-subscription'} onClick={() => scrollToSection('pn-section-subscription')} />}
-            </SidebarSection>
-            <SidebarSection heading="Account">
-              <SidebarMenuItem icon={<BarChart3 size={16} />} label="Mastery" active={activeSection === 'pn-section-mastery'} onClick={() => scrollToSection('pn-section-mastery')} />
-              <SidebarMenuItem icon={<Settings size={16} />} label="Preferences" active={activeSection === 'pn-section-settings'} onClick={() => scrollToSection('pn-section-settings')} />
-              <SidebarMenuItem icon={<Award size={16} />} label="Assessment" onClick={() => navigate('/profile-quiz')} />
-            </SidebarSection>
-            <SidebarActions>
-              <SidebarAction icon={<LayoutDashboard size={15} />} label="Dashboard" onClick={() => navigate(profileExperience.dashboardRoute)} />
-              <SidebarAction icon={<LogOut size={15} />} label="Sign out" onClick={clearSessionAndGoLogin} />
-            </SidebarActions>
-          </SidebarShell>
-
-          <main className="pf-qb-main" ref={mainScrollRef}>
+        )}
+      >
+          <div className="pnw-main" ref={mainScrollRef}>
             <div className="pnw-canvas">
-              <section className={`pnw-identity ${profilePhoto ? '' : 'pnw-identity--no-photo'}`} id="pn-section-overview">
-                {profilePhoto && (
+              <section className={`pnw-identity ${displayProfilePhoto ? '' : 'pnw-identity--no-photo'}`} id="pn-section-overview">
+                <svg className="pnw-identity-signal" viewBox="0 0 1000 330" preserveAspectRatio="none" aria-hidden="true">
+                  <path className="pnw-signal-path pnw-signal-path--primary" d="M26 270 C178 228 240 276 376 202 S610 116 760 154 S888 94 980 58" />
+                  <path className="pnw-signal-path pnw-signal-path--secondary" d="M88 74 C226 118 296 94 418 136 S636 244 808 210 S922 230 988 184" />
+                  <path className="pnw-signal-path pnw-signal-path--quiet" d="M236 318 C354 250 452 276 556 212 S738 76 946 106" />
+                  <g className="pnw-signal-nodes">
+                    <circle cx="178" cy="238" r="4" />
+                    <circle cx="376" cy="202" r="5" />
+                    <circle cx="610" cy="133" r="3" />
+                    <circle cx="760" cy="154" r="5" />
+                    <circle cx="296" cy="94" r="3" />
+                    <circle cx="556" cy="212" r="4" />
+                    <circle cx="808" cy="210" r="3" />
+                    <circle cx="946" cy="106" r="4" />
+                  </g>
+                </svg>
+                {displayProfilePhoto && (
                   <img
                     className="pnw-identity-backdrop"
-                    src={profilePhoto}
+                    src={displayProfilePhoto}
                     alt=""
                     aria-hidden="true"
                     referrerPolicy="no-referrer"
+                    decoding="async"
                   />
                 )}
-                {!profilePhoto && <div className="pnw-identity-initial" aria-hidden="true">{initial}</div>}
+                {!displayProfilePhoto && <div className="pnw-identity-initial" aria-hidden="true">{initial}</div>}
                 <div className="pnw-identity-nameplate" aria-hidden="true">{displayName}</div>
                 <div className="pnw-identity-copy">
                   <p className="pnw-kicker">{profileExperience.identityLabel}</p>
@@ -1024,9 +1006,17 @@ const ProfileNew = () => {
 
                 <div className="pnw-portrait">
                   <div className="pnw-portrait-index" aria-hidden>{String(profileLevel).padStart(2, '0')}</div>
+                  <div
+                    className="pnw-portrait-orbit"
+                    style={{ '--pnw-level-progress': `${levelProgress * 3.6}deg` }}
+                    aria-hidden="true"
+                  >
+                    <span className="pnw-orbit-progress"><strong>{Math.round(levelProgress)}%</strong><small>next</small></span>
+                    <span className="pnw-orbit-satellite" />
+                  </div>
                   <button ref={pfpTriggerRef} type="button" className="pnw-photo-button" onClick={() => setPfpModalOpen(true)} aria-label="Change profile picture">
-                    {profilePhoto
-                      ? <img src={profilePhoto} alt={displayName} referrerPolicy="no-referrer" />
+                    {displayProfilePhoto
+                      ? <img src={displayProfilePhoto} alt={displayName} referrerPolicy="no-referrer" decoding="async" fetchPriority="high" />
                       : <span>{initial}</span>}
                     <i><Pencil size={14} /> Change photo</i>
                   </button>
@@ -1186,7 +1176,7 @@ const ProfileNew = () => {
                 <div className="pnw-plan-heading">
                   <div className="pnw-section-heading">
                     <div>
-                      <span><CreditCard size={15} /> Plan and usage</span>
+                      <span><CreditCard size={15} /> SUBSCRIPTION</span>
                       <h2>Choose the capacity you need.</h2>
                     </div>
                   </div>
@@ -1341,9 +1331,8 @@ const ProfileNew = () => {
                 </section>
               </div>
             </div>
-          </main>
-        </div>
-      </div>
+          </div>
+      </SocialHubChrome>
 
       {pfpModalOpen && (
         <div className="pn-modal-overlay" onClick={() => setPfpModalOpen(false)}>

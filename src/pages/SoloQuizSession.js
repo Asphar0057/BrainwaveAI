@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, Target, Trophy, CheckCircle, XCircle, Loader, Lightbulb, RefreshCw, AlertCircle, ChevronLeft, ChevronRight , Menu} from 'lucide-react';
-import './QuizBattleSession.css';
-import '../components/SocialHubChrome.css';
+import { Clock, Trophy, CheckCircle, XCircle, Loader, Lightbulb, RefreshCw, AlertCircle, ChevronLeft, ChevronRight, ArrowLeft, Play } from 'lucide-react';
+import SocialHubChrome from '../components/SocialHubChrome';
 import quizAgentService from '../services/quizAgentService';
 import MathRenderer from '../components/MathRenderer';
 import { extractQuestionText, normalizeQuestions } from '../utils/quizQuestionUtils';
+import './QuizBattleSession.css';
+import './SoloQuizFlow.css';
 
 const SoloQuizSession = () => {
   const navigate = useNavigate();
@@ -354,22 +355,56 @@ const SoloQuizSession = () => {
     navigate('/solo-quiz');
   };
 
+  const renderSoloChrome = (content, activeSection = 'session') => (
+    <div className="solo-quiz-flow with-social-chrome">
+      <SocialHubChrome
+        brandKicker="Solo Quiz"
+        sidebarLead={(
+          <button className="solo-flow-primary" type="button" onClick={() => navigate('/solo-quiz')}>
+            <ArrowLeft size={15} />
+            <span>New quiz</span>
+          </button>
+        )}
+        collapsedLeadItems={[{ icon: ArrowLeft, label: 'New quiz', onClick: () => navigate('/solo-quiz') }]}
+        sideSections={[
+          {
+            label: 'Quiz session',
+            items: [
+              { icon: Play, label: 'Questions', active: activeSection === 'session', onClick: () => {} },
+              { icon: Trophy, label: 'Results', active: activeSection === 'results', disabled: activeSection !== 'results', onClick: () => {} },
+              { icon: ArrowLeft, label: 'Quiz setup', onClick: () => navigate('/solo-quiz') },
+            ],
+          },
+        ]}
+        sidebarTail={(
+          <div className="solo-flow-summary" aria-live="polite">
+            <span>{activeSection === 'results' ? 'Completed' : 'Current session'}</span>
+            <strong>{quizData?.topic || 'Preparing quiz'}</strong>
+            <small>{questions.length ? `${questions.length} questions` : 'Loading questions'}</small>
+          </div>
+        )}
+      >
+        {content}
+      </SocialHubChrome>
+    </div>
+  );
+
   if (loading) {
-    return (
-      <div className="battle-session-loading">
+    return renderSoloChrome(
+      <main className="solo-flow-state battle-session-loading">
         <Loader size={48} className="spinner" />
-        <h2>Loading Quiz...</h2>
-      </div>
+        <h2>Loading quiz…</h2>
+      </main>
     );
   }
 
   if (grading) {
-    return (
-      <div className="battle-session-loading">
+    return renderSoloChrome(
+      <main className="solo-flow-state battle-session-loading">
         <Loader size={48} className="spinner" />
-        <h2>Grading Your Answers...</h2>
+        <h2>Grading your answers…</h2>
         <p>AI is analyzing your performance</p>
-      </div>
+      </main>
     );
   }
 
@@ -377,8 +412,8 @@ const SoloQuizSession = () => {
     const percentage = results?.percentage || Math.round((score / questions.length) * 100);
     const correctCount = results?.correct_answers || score;
 
-    return (
-      <div className="battle-result-page detailed">
+    return renderSoloChrome(
+      <main className="solo-result-main battle-result-page detailed">
         <div className="result-container detailed">
           <div className="result-header">
             <Trophy size={64} className="result-icon winner" />
@@ -519,7 +554,8 @@ const SoloQuizSession = () => {
             </button>
           </div>
         </div>
-      </div>
+      </main>,
+      'results'
     );
   }
 
@@ -540,38 +576,8 @@ const SoloQuizSession = () => {
   const currentQuestionId = String(currentQuestion?.id ?? currentQuestionIndex);
   const hasAnswered = userAnswers.hasOwnProperty(currentQuestionId);
 
-  return (
-    <div className="battle-session-page solo-session-page">
-      <div className="shc-topbar">
-        <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-        <div className="shc-topbar-right">
-          <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-        </div>
-      </div>
-      <svg className="geo-bg" viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <circle cx="600" cy="400" r="360" fill="none" stroke="currentColor" strokeWidth="1"/>
-        <circle cx="600" cy="400" r="260" fill="none" stroke="currentColor" strokeWidth="0.5"/>
-        <circle cx="600" cy="400" r="168" fill="none" stroke="currentColor" strokeWidth="0.5"/>
-        <circle cx="600" cy="400" r="90" fill="none" stroke="currentColor" strokeWidth="1"/>
-        <line x1="600" y1="40" x2="600" y2="760" stroke="currentColor" strokeWidth="0.5"/>
-        <line x1="240" y1="400" x2="960" y2="400" stroke="currentColor" strokeWidth="0.5"/>
-        <line x1="346" y1="146" x2="854" y2="654" stroke="currentColor" strokeWidth="0.3"/>
-        <line x1="854" y1="146" x2="346" y2="654" stroke="currentColor" strokeWidth="0.3"/>
-        <circle cx="600" cy="40" r="4" fill="currentColor"/>
-        <circle cx="960" cy="400" r="4" fill="currentColor"/>
-        <circle cx="600" cy="760" r="4" fill="currentColor"/>
-        <circle cx="240" cy="400" r="4" fill="currentColor"/>
-        <rect x="580" y="20" width="40" height="40" fill="none" stroke="currentColor" strokeWidth="0.5"/>
-        <rect x="940" y="380" width="40" height="40" fill="none" stroke="currentColor" strokeWidth="0.5"/>
-        <circle cx="854" cy="146" r="3" fill="currentColor" opacity="0.5"/>
-        <circle cx="346" cy="146" r="3" fill="currentColor" opacity="0.5"/>
-        <circle cx="854" cy="654" r="3" fill="currentColor" opacity="0.5"/>
-        <circle cx="346" cy="654" r="3" fill="currentColor" opacity="0.5"/>
-        <circle cx="120" cy="160" r="2" fill="currentColor" opacity="0.4"/>
-        <circle cx="1050" cy="200" r="2" fill="currentColor" opacity="0.4"/>
-        <circle cx="80" cy="600" r="2" fill="currentColor" opacity="0.4"/>
-        <circle cx="1100" cy="580" r="2" fill="currentColor" opacity="0.4"/>
-      </svg>
+  return renderSoloChrome(
+    <main className="solo-session-main battle-session-page solo-session-page">
       <div className="session-header">
         <span className="view-kicker">Solo Quiz</span>
         <h1 className="session-title">{quizData?.topic || 'QUIZ'}</h1>
@@ -718,7 +724,8 @@ const SoloQuizSession = () => {
                 }
 
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={index}
                     className={`question-dot ${
                       isCurrent ? 'current' : 
@@ -726,10 +733,12 @@ const SoloQuizSession = () => {
                       'upcoming'
                     } ${quizMode === 'standard' ? 'clickable' : ''}`}
                     onClick={() => quizMode === 'standard' && handleQuestionJump(index)}
-                    style={{ cursor: quizMode === 'standard' ? 'pointer' : 'default' }}
+                    disabled={quizMode !== 'standard'}
+                    aria-label={`Go to question ${index + 1}${isAnswered ? ', answered' : ''}`}
+                    aria-current={isCurrent ? 'step' : undefined}
                   >
                     {index + 1}
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -747,7 +756,7 @@ const SoloQuizSession = () => {
           )}
         </div>
       </div>
-    </div>
+    </main>
   );
 };
 

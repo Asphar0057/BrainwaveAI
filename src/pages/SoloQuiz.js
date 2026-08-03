@@ -5,10 +5,8 @@ import {
   BookOpen, Gauge, Cpu, Database, ArrowRight, History, TrendingUp, Zap, ChevronRight, ArrowLeft
 } from 'lucide-react';
 import './SoloQuiz.css';
-import '../components/SocialHubChrome.css';
+import SocialHubChrome from '../components/SocialHubChrome';
 import quizAgentService from '../services/quizAgentService';
-import { SidebarShell, SidebarSection, SidebarMenuItem, SidebarStripButton } from '../components/Sidebar';
-import QuizStudioBackground from '../components/QuizStudioBackground';
 
 const SoloQuiz = () => {
   const navigate = useNavigate();
@@ -39,6 +37,8 @@ const SoloQuiz = () => {
       default: return { easy: 3, medium: 5, hard: 2 };
     }
   };
+
+  const difficultyLabel = difficulty === 'medium' ? 'Balanced' : difficulty;
 
   useEffect(() => {
     const autoStartData = location.state;
@@ -110,37 +110,31 @@ const SoloQuiz = () => {
   };
 
   return (
-    <div className="sq-page">
-      <QuizStudioBackground />
-      <div className="shc-topbar">
-        <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-        <div className="shc-topbar-right">
-          <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-        </div>
-      </div>
-      <div className={`sq-body ${sidebarCollapsed ? 'sq-body--collapsed' : ''}`}>
-        <SidebarShell
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
-          brandKicker="SOLO QUIZ"
-          ariaLabel="Solo Quiz navigation"
-          collapsedContent={(
-            <>
-              <SidebarStripButton icon={<Sparkles size={18} />} tip="Generator" active={activeTab === 'generator'} onClick={() => { setSidebarCollapsed(false); setActiveTab('generator'); }} />
-              <SidebarStripButton icon={<History size={18} />} tip="Completed" active={activeTab === 'completed'} onClick={() => { setSidebarCollapsed(false); setActiveTab('completed'); }} />
-              <SidebarStripButton icon={<TrendingUp size={18} />} tip="Statistics" active={activeTab === 'statistics'} onClick={() => { setSidebarCollapsed(false); setActiveTab('statistics'); }} />
-              <SidebarStripButton icon={<ArrowLeft size={18} />} tip="Quiz modes" onClick={() => navigate('/quiz-hub')} />
-            </>
-          )}
-        >
-          <SidebarSection heading="Quiz Workspace">
-            <SidebarMenuItem icon={<Sparkles size={16} />} label="Generator" active={activeTab === 'generator'} onClick={() => setActiveTab('generator')} />
-            <SidebarMenuItem icon={<History size={16} />} label="Completed" active={activeTab === 'completed'} onClick={() => setActiveTab('completed')} />
-            <SidebarMenuItem icon={<TrendingUp size={16} />} label="Statistics" active={activeTab === 'statistics'} onClick={() => setActiveTab('statistics')} />
-            <SidebarMenuItem icon={<ArrowLeft size={16} />} label="Quiz Modes" onClick={() => navigate('/quiz-hub')} />
-          </SidebarSection>
-        </SidebarShell>
-
+    <div className="sq-page with-social-chrome">
+      <SocialHubChrome
+        brandKicker="Solo Quiz"
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+        sidebarLead={(
+          <button className="sq-side-primary" type="button" onClick={() => setActiveTab('generator')}>
+            <Sparkles size={15} />
+            <span>Build a quiz</span>
+          </button>
+        )}
+        collapsedLeadItems={[{ icon: Sparkles, label: 'Build a quiz', active: activeTab === 'generator', onClick: () => setActiveTab('generator') }]}
+        sideSections={[
+          {
+            label: 'Quiz Workspace',
+            items: [
+              { icon: Sparkles, label: 'Generator', active: activeTab === 'generator', onClick: () => setActiveTab('generator') },
+              { icon: History, label: 'Completed', active: activeTab === 'completed', onClick: () => setActiveTab('completed'), count: completedQuizzes.length },
+              { icon: TrendingUp, label: 'Statistics', active: activeTab === 'statistics', onClick: () => setActiveTab('statistics') },
+              { icon: ArrowLeft, label: 'Quiz modes', onClick: () => navigate('/quiz-hub') },
+            ],
+          },
+        ]}
+        collapsedTailItems={[{ icon: ArrowLeft, label: 'Quiz modes', onClick: () => navigate('/quiz-hub') }]}
+      >
         <main className="sq-main">
           {activeTab === 'generator' && (
             <div className="sq-content">
@@ -161,7 +155,7 @@ const SoloQuiz = () => {
                     </div>
                     <div className="sq-live-specs">
                       <span><strong>{questionCount}</strong> questions</span>
-                      <span><strong>{difficulty}</strong> level</span>
+                      <span><strong>{difficultyLabel}</strong> level</span>
                       <span><strong>{timingMode === 'none' ? 'Open' : timingMode}</strong> pace</span>
                     </div>
                     <div className="sq-live-mode">
@@ -434,7 +428,7 @@ const SoloQuiz = () => {
             </div>
           )}
         </main>
-      </div>
+      </SocialHubChrome>
     </div>
   );
 };

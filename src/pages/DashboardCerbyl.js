@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowUpRight, Plus, ChevronLeft, ChevronRight, FileText, Mic, Library, Search, Pencil, X, Check, User, Bell, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowUpRight, Plus, ChevronLeft, ChevronRight, FileText, Mic, Library, Search, Pencil, X, Check, User, Bell, Sparkles, Trash2, Settings, LogOut } from 'lucide-react';
 import { API_URL } from '../config/api';
 import ThemeSwitcher from '../components/ThemeSwitcher';
 import { useNotifications } from '../contexts/NotificationContext';
 import { getRelativeTime } from '../utils/dateUtils';
+import { signOutAppSession } from '../utils/authSession';
 import './DashboardCerbyl.css';
 
 const MODULES = [
@@ -144,82 +145,6 @@ const routeForNotification = (notificationType) => {
     default:
       return '/dashboard-cerbyl';
   }
-};
-
-const createNotificationPreviewItems = () => {
-  if (typeof window === 'undefined' || !['localhost', '127.0.0.1'].includes(window.location.hostname)) {
-    return [];
-  }
-
-  const now = Date.now();
-  const minutesAgo = (minutes) => new Date(now - minutes * 60 * 1000).toISOString();
-
-  return [
-    {
-      id: 'preview-focus-ready',
-      notification_type: 'reminder',
-      title: 'Your focus block is ready',
-      message: 'A 25-minute study session is waiting in your activity timeline.',
-      created_at: minutesAgo(2),
-      is_read: false,
-    },
-    {
-      id: 'preview-cards-due',
-      notification_type: 'flashcard_review',
-      title: '12 cards are ready to review',
-      message: 'Photosynthesis is due now. A short review will protect your streak.',
-      created_at: minutesAgo(18),
-      is_read: false,
-    },
-    {
-      id: 'preview-friend-request',
-      notification_type: 'friend_request',
-      title: 'New study connection',
-      message: 'A learner sent you a friend request in Social Hub.',
-      created_at: minutesAgo(44),
-      is_read: false,
-    },
-    {
-      id: 'preview-quiz-result',
-      notification_type: 'quiz_excellent',
-      title: 'Strong quiz performance',
-      message: 'You scored 90% and moved two concepts into the mastered group.',
-      created_at: minutesAgo(92),
-      is_read: false,
-    },
-    {
-      id: 'preview-note-saved',
-      notification_type: 'notes_milestone',
-      title: 'Your study note is ready',
-      message: 'Clear Writing Secrets was saved with a transcript and study brief.',
-      created_at: minutesAgo(180),
-      is_read: true,
-    },
-    {
-      id: 'preview-level-up',
-      notification_type: 'level_up',
-      title: 'Level 5 unlocked',
-      message: 'Your recent learning activity earned enough XP for the next level.',
-      created_at: minutesAgo(360),
-      is_read: true,
-    },
-    {
-      id: 'preview-insight',
-      notification_type: 'study_insights',
-      title: 'A new learning insight is available',
-      message: 'Your strongest recall window is between 7 PM and 9 PM.',
-      created_at: minutesAgo(720),
-      is_read: true,
-    },
-    {
-      id: 'preview-shared',
-      notification_type: 'share_received',
-      title: 'New notes shared with you',
-      message: 'Open Social Hub to review the shared neural networks summary.',
-      created_at: minutesAgo(1440),
-      is_read: true,
-    },
-  ];
 };
 
 const fetchJson = async (url) => {
@@ -536,7 +461,6 @@ const DashboardCerbyl = () => {
   }, [applySubscriptionOverview, userName]);
 
   const [showNotifications, setShowNotifications] = useState(false);
-  const [previewNotifications, setPreviewNotifications] = useState(createNotificationPreviewItems);
   const [chatPromptDisplay, setChatPromptDisplay] = useState(QUICK_ASK_PROMPT);
   const [chatReplyDisplay, setChatReplyDisplay] = useState('');
   const [isChatTypingAnim, setIsChatTypingAnim] = useState(false);
@@ -552,11 +476,6 @@ const DashboardCerbyl = () => {
     markAllNotificationsAsRead,
     deleteNotification,
   } = useNotifications();
-  const isNotificationPreview = notifications.length === 0 && previewNotifications.length > 0;
-  const visibleNotifications = isNotificationPreview ? previewNotifications : notifications;
-  const visibleUnreadCount = isNotificationPreview
-    ? previewNotifications.filter((notification) => !notification.is_read).length
-    : unreadCount;
   const [flashActiveSetId, setFlashActiveSetId] = useState('');
   const [isNotesAnimating, setIsNotesAnimating] = useState(false);
   const [notesTitleProgress, setNotesTitleProgress] = useState({});
@@ -1685,31 +1604,14 @@ const DashboardCerbyl = () => {
   }, [showNotifications]);
 
   const openNotification = async (notification) => {
-    if (isNotificationPreview) {
-      setPreviewNotifications((current) => current.map((item) => (
-        item.id === notification.id ? { ...item, is_read: true } : item
-      )));
-    } else {
-      await markNotificationAsRead(notification.id);
-    }
+    await markNotificationAsRead(notification.id);
     setShowNotifications(false);
     navigate(routeForNotification(notification.notification_type));
   };
 
-  const markVisibleNotificationsAsRead = () => {
-    if (isNotificationPreview) {
-      setPreviewNotifications((current) => current.map((item) => ({ ...item, is_read: true })));
-      return;
-    }
-    markAllNotificationsAsRead();
-  };
-
-  const deleteVisibleNotification = (notificationId) => {
-    if (isNotificationPreview) {
-      setPreviewNotifications((current) => current.filter((item) => item.id !== notificationId));
-      return;
-    }
-    deleteNotification(notificationId);
+  const handleDashboardSignOut = async () => {
+    await signOutAppSession();
+    navigate('/login', { replace: true });
   };
 
   return (
@@ -1793,10 +1695,10 @@ const DashboardCerbyl = () => {
               className="cb-notif-btn"
               type="button"
               onClick={() => setShowNotifications(prev => !prev)}
-              aria-label={`Notifications${visibleUnreadCount ? `, ${visibleUnreadCount} unread` : ''}`}
+              aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}
             >
               <Bell size={16} />
-              {visibleUnreadCount > 0 && <span className="cb-notif-badge">{visibleUnreadCount > 99 ? '99+' : visibleUnreadCount}</span>}
+              {unreadCount > 0 && <span className="cb-notif-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>}
             </button>
 
             {showNotifications && (
@@ -1808,27 +1710,27 @@ const DashboardCerbyl = () => {
                     <div>
                       <span>Notifications</span>
                       <p>
-                        {visibleUnreadCount > 0
-                          ? `${visibleUnreadCount} unread · ${visibleNotifications.length} total`
-                          : visibleNotifications.length > 0
-                            ? `${visibleNotifications.length} notification${visibleNotifications.length === 1 ? '' : 's'}`
+                        {unreadCount > 0
+                          ? `${unreadCount} unread · ${notifications.length} total`
+                          : notifications.length > 0
+                            ? `${notifications.length} notification${notifications.length === 1 ? '' : 's'}`
                             : 'All caught up'}
                       </p>
                     </div>
                   </div>
-                  <button className="cb-notif-mark-all" type="button" onClick={markVisibleNotificationsAsRead} disabled={visibleUnreadCount === 0}>
+                  <button className="cb-notif-mark-all" type="button" onClick={markAllNotificationsAsRead} disabled={unreadCount === 0}>
                     Mark all read
                   </button>
                 </div>
 
                 <div className="cb-notif-list">
-                  {visibleNotifications.length === 0 ? (
+                  {notifications.length === 0 ? (
                     <div className="cb-notif-empty">
                       <Bell size={24} />
                       <p>No notifications yet</p>
                     </div>
                   ) : (
-                    visibleNotifications.slice(0, 12).map((notification, index) => (
+                    notifications.slice(0, 12).map((notification, index) => (
                       <div
                         key={notification.id}
                         className={`cb-notif-item ${notification.is_read ? '' : 'cb-notif-item--unread'}`}
@@ -1857,7 +1759,7 @@ const DashboardCerbyl = () => {
                           aria-label={`Delete notification ${notification.title}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            deleteVisibleNotification(notification.id);
+                            deleteNotification(notification.id);
                           }}
                         >
                           <Trash2 size={13} />
@@ -1866,19 +1768,44 @@ const DashboardCerbyl = () => {
                     ))
                   )}
                 </div>
-                {isNotificationPreview && visibleNotifications.length > 0 && (
-                  <div className="cb-notif-preview-note">Local preview notifications · interactions are safe to test</div>
-                )}
               </div>
             )}
           </div>
-          <button className="cb-profile-btn" onClick={() => navigate('/profile')} aria-label="Profile">
-            {profilePhoto ? (
-              <img src={profilePhoto} alt={displayName} className="cb-profile-btn-img" referrerPolicy="no-referrer" />
-            ) : (
-              <span className="cb-profile-btn-initial">{(displayName[0] || 'A').toUpperCase()}</span>
-            )}
-          </button>
+          <div className="cb-profile-menu-wrap" onMouseEnter={() => setShowNotifications(false)}>
+            <button
+              className="cb-profile-btn"
+              onClick={() => navigate('/profile')}
+              aria-label="Open profile; hover for account shortcuts"
+              aria-haspopup="menu"
+            >
+              {profilePhoto ? (
+                <img src={profilePhoto} alt={displayName} className="cb-profile-btn-img" referrerPolicy="no-referrer" />
+              ) : (
+                <span className="cb-profile-btn-initial">{(displayName[0] || 'A').toUpperCase()}</span>
+              )}
+            </button>
+            <div className="cb-profile-drawer" role="menu" aria-label="Account shortcuts">
+              <span className="cb-profile-drawer-texture" aria-hidden="true" />
+              <div className="cb-profile-drawer-identity" aria-hidden="true">
+                <span>Account</span>
+                <strong>{displayName}</strong>
+              </div>
+              <div className="cb-profile-drawer-actions">
+                <button type="button" role="menuitem" onClick={() => navigate('/profile')}>
+                  <User size={14} />
+                  <span>Profile</span>
+                </button>
+                <button type="button" role="menuitem" onClick={() => navigate('/customize-dashboard')}>
+                  <Settings size={14} />
+                  <span>Settings</span>
+                </button>
+                <button type="button" role="menuitem" className="cb-profile-drawer-signout" onClick={handleDashboardSignOut}>
+                  <LogOut size={14} />
+                  <span>Log out</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

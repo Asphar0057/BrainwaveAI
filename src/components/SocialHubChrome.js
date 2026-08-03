@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, LayoutGrid, Users } from 'lucide-react';
 import './SocialHubChrome.css';
@@ -25,6 +25,18 @@ const FOOTER_ITEMS = [
 ];
 
 const REACTIVE_SURFACE_SELECTOR = [
+  '.sq-generator-header',
+  '.sq-generator-form',
+  '.sq-quiz-card',
+  '.sq-stat-card',
+  '.sq-empty-state',
+  '.solo-quiz-flow .question-card',
+  '.solo-quiz-flow .battle-sidebar',
+  '.solo-quiz-flow .answer-option',
+  '.solo-quiz-flow .question-comparison-item',
+  '.solo-quiz-flow .result-stat',
+  '.solo-quiz-flow .insight-section',
+  '.solo-quiz-flow .solo-review-question',
   '.fd-friend-card',
   '.fd-user-row',
   '.nh-route-card',
@@ -70,18 +82,30 @@ const REACTIVE_SURFACE_SELECTOR = [
   '.flashcards-page.fc-focus-shell .fc-result-stat',
   '.lp-resume-path',
   '.lp-route-row',
+  '.lp-planning-desk',
+  '.lp-topics-panel',
   '.lpd-overview-card',
   '.lpd-toolkit-card',
   '.lpd-activity',
   '.lpd-resource-card',
+  '.lpd-resource-tool-card',
+  '.lpd-resource-lab',
   '.lpd-application-item',
   '.lpd-connection-section',
+  '.lpd-section-panel',
+  '.lpd-lesson-stage',
+  '.lpd-quiz-question',
+  '.lpd-quiz-item',
+  '.lpd-summary-block',
   '.flashcards-page.fc-focus-shell .fc-sr-result-item',
   '.se-page .se-deck-card',
   '.se-page .se-upload-stage',
   '.se-page .se-slide-frame',
   '.se-page .se-explanation-panel',
   '.se-page .se-insight-section',
+  '.se-page .se-insights-panel',
+  '.se-page .se-definition-card',
+  '.se-page .se-exam-question-card',
   '.af-activity-card',
   '.sp-item-card',
   '.leaderboard-entry',
@@ -91,8 +115,18 @@ const REACTIVE_SURFACE_SELECTOR = [
   '.games-page .section-card',
   '.games-page .bingo-cell',
   '.qb-create-generator',
+  '.qb-create-header',
+  '.qb-create-form',
   '.qb-gm-btn',
   '.qb-battle-card',
+  '.qb-empty',
+  '.qb-detail-card',
+  '.battle-quiz-flow .question-card',
+  '.battle-quiz-flow .battle-sidebar',
+  '.battle-quiz-flow .answer-option',
+  '.battle-quiz-flow .result-stat',
+  '.battle-quiz-flow .player-result',
+  '.battle-quiz-flow .question-comparison-item',
   '.qbd-hub .qbd-qh-focus',
   '.qbd-hub .qbd-qh-set-list',
   '.qbd-hub .qbd-qh-set-row',
@@ -109,12 +143,24 @@ const REACTIVE_SURFACE_SELECTOR = [
   '.qbd-hub .qbd-weak-topics',
   '.qbd-hub .qbd-preview-question',
   '.qbd-hub .qbd-question-card',
+  '.qbd-hub .qbd-recommendations-panel',
+  '.qbd-hub .qbd-recommendation-card',
+  '.qbd-hub .qbd-topics-panel',
+  '.qbd-hub .qbd-selected-sources-panel',
+  '.qbd-hub .qbd-selected-source-item',
+  '.qbd-hub .qbd-wrong-answers-panel',
+  '.qbd-hub .qbd-wrong-answer-card',
+  '.qbd-hub .qbd-weak-area-card',
+  '.qbd-hub .qbd-weak-topic-card',
   '.wa-root .wa-diagnosis-summary',
   '.wa-root .wa-queue',
   '.wa-root .wa-topics-overview',
   '.wa-root .wa-topic-row',
+  '.wa-root .wa-stage',
+  '.wa-root .wa-weak-row',
   '.wa-root .wa-component-panel',
   '.wa-root .wa-activity-row',
+  '.atl-panel',
   '.atl-activity-card',
   '.atl-reminder-card',
   '.xpv-quest-row',
@@ -149,12 +195,23 @@ const REACTIVE_SURFACE_SELECTOR = [
   '.an-root .an-param-card',
   '.an-root .an-pts-item',
   '.an-root .an-transparency-note',
+  '.an-root .an-profile-card',
+  '.an-root .an-fsrs-stat',
   '.qh .qh-mode-card',
   '.sh-root .sh-search-surface',
   '.sh-root .sh-chip',
   '.sh-root .sh-result-card',
   '.sh-root .sh-ai-panel',
   '.sh-root .sh-create-card',
+  '.pn-profile-workspace .pnw-identity',
+  '.pn-profile-workspace .pnw-panel',
+  '.pn-profile-workspace .pnw-signature',
+  '.pn-profile-workspace .pnw-plan-section',
+  '.pn-profile-workspace .pnw-mastery',
+  '.pn-profile-workspace .pnw-plan-ledger article',
+  '.pn-profile-workspace .pnw-subjects button',
+  '.pn-profile-workspace .pnw-status-band > div',
+  '.pn-profile-workspace .pnw-assessment-callout',
 ].join(',');
 
 const SocialHubChrome = ({
@@ -195,6 +252,33 @@ const SocialHubChrome = ({
     return () => media.removeEventListener?.('change', syncToViewport);
   }, [controlledCollapsed === undefined, onCollapsedChange]);
   const activeSurfaceRef = useRef(null);
+  const shellRef = useRef(null);
+
+  useLayoutEffect(() => {
+    const root = shellRef.current;
+    if (!root || typeof MutationObserver === 'undefined') return undefined;
+
+    const decorateSurfaces = (scope) => {
+      if (scope instanceof Element && scope.matches(REACTIVE_SURFACE_SELECTOR)) {
+        scope.classList.add('shc-neumorphic-surface');
+      }
+      scope.querySelectorAll?.(REACTIVE_SURFACE_SELECTOR).forEach((surface) => {
+        surface.classList.add('shc-neumorphic-surface');
+      });
+    };
+
+    decorateSurfaces(root);
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) decorateSurfaces(node);
+        });
+      });
+    });
+    observer.observe(root, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
+  }, []);
 
   const clearReactiveSurface = useCallback(() => {
     const surface = activeSurfaceRef.current;
@@ -239,6 +323,7 @@ const SocialHubChrome = ({
 
   return (
     <div
+      ref={shellRef}
       className="shc-shell"
       onPointerMove={handleSurfacePointerMove}
       onPointerLeave={clearReactiveSurface}

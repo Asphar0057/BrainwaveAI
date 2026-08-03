@@ -8,7 +8,17 @@ jest.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
 }));
 
-import ProfileNew from '../../pages/ProfileNew';
+import ProfileNew, { getHighResolutionProfilePhoto } from '../../pages/ProfileNew';
+
+describe('profile photo resolution', () => {
+  it('requests a high-resolution Google avatar without changing other image sources', () => {
+    expect(getHighResolutionProfilePhoto('https://lh3.googleusercontent.com/a/example=s96-c'))
+      .toBe('https://lh3.googleusercontent.com/a/example=s1024-c');
+    expect(getHighResolutionProfilePhoto('/pfp/cat.png')).toBe('/pfp/cat.png');
+    expect(getHighResolutionProfilePhoto('data:image/jpeg;base64,abc'))
+      .toBe('data:image/jpeg;base64,abc');
+  });
+});
 
 const PLANS = [
   {

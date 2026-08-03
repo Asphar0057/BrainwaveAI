@@ -47,8 +47,10 @@
     radial-gradient(ellipse 72% 110% at 100% 100%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 68%),
     linear-gradient(140deg, color-mix(in srgb, var(--accent) 8%, #1a1b1d), #121315 52%, #0e0f11 100%);
   box-shadow:
-    0 18px 40px rgba(0, 0, 0, .34),
-    inset 0 0 0 1px color-mix(in srgb, var(--accent) 4%, transparent);
+    12px 14px 32px rgba(0, 0, 0, .38),
+    -6px -6px 17px rgba(255, 255, 255, .022),
+    inset 1px 1px 0 rgba(255, 255, 255, .03),
+    inset -1px -1px 0 rgba(0, 0, 0, .25);
   transition:
     transform 180ms cubic-bezier(.2, .8, .2, 1),
     border-color 180ms ease,
@@ -60,8 +62,10 @@
     radial-gradient(ellipse 72% 110% at 100% 100%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 68%),
     linear-gradient(140deg, color-mix(in srgb, var(--accent) 5%, var(--bg-secondary)), var(--bg-secondary) 58%, color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary)) 100%);
   box-shadow:
-    0 18px 40px rgba(20, 15, 10, .14),
-    inset 0 0 0 1px color-mix(in srgb, var(--accent) 5%, transparent);
+    12px 14px 32px rgba(52, 39, 26, .15),
+    -7px -7px 18px rgba(255, 255, 255, .72),
+    inset 1px 1px 0 rgba(255, 255, 255, .68),
+    inset -1px -1px 0 rgba(67, 48, 31, .1);
 }
 
 .slide-notif-card::before {
@@ -131,6 +135,7 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
+  box-shadow: var(--neu-shadow-inset);
 }
 
 .slide-notif-icon svg {
@@ -181,6 +186,7 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
+  box-shadow: var(--neu-shadow-soft);
   transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
 }
 
@@ -269,8 +275,10 @@
     transform: translateY(-2px);
     border-color: color-mix(in srgb, var(--accent) 34%, transparent);
     box-shadow:
-      0 22px 46px rgba(0, 0, 0, .4),
-      inset 0 0 0 1px color-mix(in srgb, var(--accent) 9%, transparent);
+      15px 18px 38px rgba(0, 0, 0, .42),
+      -7px -7px 18px rgba(255, 255, 255, .028),
+      inset 1px 1px 0 rgba(255, 255, 255, .04),
+      inset -1px -1px 0 rgba(0, 0, 0, .28);
   }
 
   .slide-notif-card:has(.slide-notif-hitarea:hover)::before {

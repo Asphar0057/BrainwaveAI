@@ -2,15 +2,14 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Swords, Users, Clock, X, Check, Zap, Trophy, Shield,
-  Flame, Crown, Sparkles, ChevronRight, ChevronLeft, BookOpen, Database,
+  Flame, Crown, Sparkles, ChevronRight, BookOpen, Database,
   Gauge, ArrowRight, AlertCircle, LoaderCircle, ArrowLeft
 } from 'lucide-react';
 import './QuizBattle.css';
-import '../components/SocialHubChrome.css';
+import SocialHubChrome from '../components/SocialHubChrome';
 import { API_URL } from '../config';
 import useSharedWebSocket from '../hooks/useSharedWebSocket';
 import BattleNotification from './BattleNotification.js';
-import QuizStudioBackground from '../components/QuizStudioBackground';
 
 const QuizBattle = () => {
   const navigate = useNavigate();
@@ -268,91 +267,45 @@ const QuizBattle = () => {
 
   const filters = useMemo(() => ['pending', 'active', 'completed', 'all'], []);
 
+  const selectBattleView = (filter) => {
+    setActiveView('battles');
+    setStatusFilter(filter);
+  };
+
+  const sideSections = [{
+    label: 'Battle Workspace',
+    items: filters.map((filter) => ({
+      label: `${filter.charAt(0).toUpperCase()}${filter.slice(1)} battles`,
+      icon: filter === 'pending' ? Clock : filter === 'active' ? Flame : filter === 'completed' ? Trophy : Database,
+      active: activeView === 'battles' && statusFilter === filter,
+      onClick: () => selectBattleView(filter),
+    })),
+  }];
+
   return (
-    <div className="qb-page">
-      <QuizStudioBackground />
-      <div className="shc-topbar">
-        <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-        <div className="shc-topbar-right">
-          <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-        </div>
-      </div>
-      <div className={`qb-shell ${sidebarCollapsed ? 'qb-shell--collapsed' : ''}`}>
-        <aside className={`qb-sidebar ${sidebarCollapsed ? 'qb-sidebar--collapsed' : ''}`}>
-          {sidebarCollapsed ? (
-            <div className="qb-sb-strip">
-              <button className="qb-sb-strip-btn" data-tip="Expand" aria-label="Expand quiz battles sidebar" onClick={() => setSidebarCollapsed(false)} type="button">
-                <ChevronRight size={18} />
-              </button>
-              <button className={`qb-sb-strip-btn ${activeView === 'create' ? 'active' : ''}`} data-tip="Create Battle" aria-label="Create Battle" onClick={() => { setSidebarCollapsed(false); setActiveView('create'); }} type="button">
-                <Swords size={18} />
-              </button>
-              <button className={`qb-sb-strip-btn ${activeView === 'battles' && statusFilter === 'pending' ? 'active' : ''}`} data-tip="Pending" aria-label="Pending battles" onClick={() => { setActiveView('battles'); setStatusFilter('pending'); }} type="button">
-                <Clock size={18} />
-              </button>
-              <button className={`qb-sb-strip-btn ${activeView === 'battles' && statusFilter === 'active' ? 'active' : ''}`} data-tip="Active" aria-label="Active battles" onClick={() => { setActiveView('battles'); setStatusFilter('active'); }} type="button">
-                <Flame size={18} />
-              </button>
-              <button className={`qb-sb-strip-btn ${activeView === 'battles' && statusFilter === 'completed' ? 'active' : ''}`} data-tip="Completed" aria-label="Completed battles" onClick={() => { setActiveView('battles'); setStatusFilter('completed'); }} type="button">
-                <Trophy size={18} />
-              </button>
-              <button className={`qb-sb-strip-btn ${activeView === 'battles' && statusFilter === 'all' ? 'active' : ''}`} data-tip="All" aria-label="All battles" onClick={() => { setActiveView('battles'); setStatusFilter('all'); }} type="button">
-                <Database size={18} />
-              </button>
-              <button className="qb-sb-strip-btn" data-tip="Quiz modes" aria-label="Back to quiz modes" onClick={() => navigate('/quiz-hub')} type="button">
-                <ArrowLeft size={18} />
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="qb-sidebar-brand">
-                <div>
-                  <div className="qb-sidebar-logo">cerbyl</div>
-                  <div className="qb-sidebar-kicker">Quiz Battles</div>
-                </div>
-                <button className="qb-sb-collapse-btn" onClick={() => setSidebarCollapsed(true)} type="button" aria-label="Collapse quiz battles sidebar">
-                  <ChevronLeft size={14} />
-                </button>
-              </div>
-
-              <div className="qb-sidebar-section">
-                <div className="qb-sidebar-label">Battle Workspace</div>
-                <button
-                  className={`qb-sidebar-create ${activeView === 'create' ? 'active' : ''}`}
-                  onClick={() => setActiveView('create')}
-                >
-                  <Swords size={16} />
-                  <span>Create Battle</span>
-                </button>
-              </div>
-
-              <div className="qb-sidebar-section">
-                <div className="qb-sidebar-label">Status</div>
-                <div className="qb-sidebar-nav">
-                  {filters.map((filter) => (
-                    <button
-                      key={filter}
-                      className={`qb-sidebar-link ${activeView === 'battles' && statusFilter === filter ? 'active' : ''}`}
-                      onClick={() => { setActiveView('battles'); setStatusFilter(filter); }}
-                    >
-                      {filter === 'pending' && <Clock size={16} />}
-                      {filter === 'active' && <Flame size={16} />}
-                      {filter === 'completed' && <Trophy size={16} />}
-                      {filter === 'all' && <Database size={16} />}
-                      <span>{filter.charAt(0).toUpperCase() + filter.slice(1)}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <button className="qb-sidebar-return" type="button" onClick={() => navigate('/quiz-hub')}>
-                <ArrowLeft size={15} />
-                <span>Quiz modes</span>
-              </button>
-            </>
-          )}
-        </aside>
-
+    <div className="qb-page with-social-chrome">
+      <SocialHubChrome
+        brandKicker="Quiz Battles"
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+        sidebarLead={(
+          <button className="qb-sidebar-create" type="button" onClick={() => setActiveView('create')}>
+            <Swords size={16} />
+            <span>Create battle</span>
+          </button>
+        )}
+        sideSections={sideSections}
+        collapsedLeadItems={[{
+          label: 'Create battle', icon: Swords, active: activeView === 'create', onClick: () => setActiveView('create'),
+        }]}
+        collapsedTailItems={[{ label: 'Quiz modes', icon: ArrowLeft, onClick: () => navigate('/quiz-hub') }]}
+        sidebarTail={(
+          <button className="qb-sidebar-return" type="button" onClick={() => navigate('/quiz-hub')}>
+            <ArrowLeft size={15} />
+            <span>Quiz modes</span>
+          </button>
+        )}
+      >
         <main className="qb-content">
           <div className="qb-container">
             {activeView === 'create' ? (
@@ -727,7 +680,7 @@ const QuizBattle = () => {
             )}
           </div>
         </main>
-      </div>
+      </SocialHubChrome>
 
       {showNotification && pendingBattle && (
         <BattleNotification
@@ -738,13 +691,6 @@ const QuizBattle = () => {
         />
       )}
 
-      <div className="qb-battle-particles">
-        <div className="qb-particle"></div>
-        <div className="qb-particle"></div>
-        <div className="qb-particle"></div>
-        <div className="qb-gradient-orb"></div>
-        <div className="qb-gradient-orb"></div>
-      </div>
     </div>
   );
 };

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Clock, Target, Trophy, CheckCircle, XCircle, Loader , Menu} from 'lucide-react';
+import { Clock, Target, Trophy, CheckCircle, XCircle, Loader, ArrowLeft, Play, Swords } from 'lucide-react';
 import './QuizBattleSession.css';
-import '../components/SocialHubChrome.css';
+import './BattleQuizFlow.css';
+import SocialHubChrome from '../components/SocialHubChrome';
 import { API_URL } from '../config';
 import { queuedAIJsonFetch } from '../services/aiJobService';
 import useSharedWebSocket from '../hooks/useSharedWebSocket';
@@ -331,13 +332,45 @@ const QuizBattleSession = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const renderBattleChrome = (content, activeSection = 'session') => (
+    <div className="battle-quiz-flow with-social-chrome">
+      <SocialHubChrome
+        brandKicker="Quiz Battles"
+        sidebarLead={(
+          <button className="battle-flow-primary" type="button" onClick={() => navigate('/quiz-battles')}>
+            <ArrowLeft size={15} />
+            <span>Battle hub</span>
+          </button>
+        )}
+        collapsedLeadItems={[{ icon: ArrowLeft, label: 'Battle hub', onClick: () => navigate('/quiz-battles') }]}
+        sideSections={[{
+          label: 'Battle Session',
+          items: [
+            { icon: Play, label: 'Questions', active: activeSection === 'session', disabled: activeSection === 'results', onClick: () => {} },
+            { icon: Trophy, label: 'Results', active: activeSection === 'results', disabled: activeSection !== 'results', onClick: () => {} },
+            { icon: Swords, label: 'All battles', onClick: () => navigate('/quiz-battles') },
+          ],
+        }]}
+        sidebarTail={(
+          <div className="battle-flow-summary" aria-live="polite">
+            <span>{activeSection === 'results' ? 'Battle complete' : isConnected ? 'Live connection' : 'Refreshing battle'}</span>
+            <strong>{battle?.subject || 'Preparing arena'}</strong>
+            <small>{questions.length ? `${questions.length} questions` : 'Loading questions'}</small>
+          </div>
+        )}
+      >
+        {content}
+      </SocialHubChrome>
+    </div>
+  );
+
   if (loading || generatingQuestions) {
-    return (
-      <div className="battle-session-loading">
+    return renderBattleChrome(
+      <main className="battle-session-loading">
         <Loader size={48} className="spinner" />
         <h2>{generatingQuestions ? 'Generating Questions...' : 'Loading Battle...'}</h2>
         <p>{generatingQuestions ? 'AI is creating custom questions for your battle' : 'Please wait'}</p>
-      </div>
+      </main>
     );
   }
 
@@ -354,8 +387,8 @@ const QuizBattleSession = () => {
       const youWon = battleData.your_score > battleData.opponent_score;
       const isDraw = battleData.your_score === battleData.opponent_score;
 
-      return (
-        <div className="battle-result-page detailed">
+      return renderBattleChrome(
+        <main className="battle-result-page detailed">
           <div className="result-container detailed">
             <div className="result-header">
               <Trophy size={64} className={`result-icon ${youWon ? 'winner' : isDraw ? 'draw' : 'loser'}`} />
@@ -448,15 +481,16 @@ const QuizBattleSession = () => {
               Back to Quiz Battles
             </button>
           </div>
-        </div>
+        </main>,
+        'results'
       );
     }
 
     
     const totalQuestions = Math.max(questions.length, 1);
 
-    return (
-      <div className="battle-result-page">
+    return renderBattleChrome(
+      <main className="battle-result-page">
         <div className="result-container">
           <div className="result-header">
             <Trophy size={64} className="result-icon" />
@@ -499,13 +533,14 @@ const QuizBattleSession = () => {
             Back to Quiz Battles
           </button>
         </div>
-      </div>
+      </main>,
+      'results'
     );
   }
 
   if (!currentQuestion) {
-    return (
-      <div className="battle-session-loading">
+    return renderBattleChrome(
+      <main className="battle-session-loading">
         <Loader size={48} className="spinner" />
         <h2>No questions available</h2>
         <p>This battle does not have any playable questions yet.</p>
@@ -515,7 +550,7 @@ const QuizBattleSession = () => {
         >
           Back to Quiz Battles
         </button>
-      </div>
+      </main>
     );
   }
 
@@ -523,14 +558,8 @@ const QuizBattleSession = () => {
   const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
   const currentOptions = Array.isArray(currentQuestion.options) ? currentQuestion.options : [];
 
-  return (
-    <div className="battle-session-page">
-      <div className="shc-topbar">
-        <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-        <div className="shc-topbar-right">
-          <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-        </div>
-      </div>
+  return renderBattleChrome(
+    <main className="battle-session-page">
       {/* Live opponent notification */}
       {opponentNotification && (
         <div className={`opponent-notification ${opponentNotification.isCorrect ? 'correct' : 'incorrect'}`}>
@@ -640,7 +669,7 @@ const QuizBattleSession = () => {
           </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 };
 
