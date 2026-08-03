@@ -2053,6 +2053,61 @@ export async function getBattleDetails(battleId: number) {
   return res.json();
 }
 
+export type BattleQuestion = { id: number; question: string; options: string[]; correct_answer: number; explanation: string };
+
+export async function generateBattleQuestions(payload: {
+  battleId: number;
+  subject: string;
+  difficulty?: string;
+  questionCount?: number;
+}): Promise<{ questions: BattleQuestion[] }> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/generate_battle_questions`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      battle_id: payload.battleId,
+      subject: payload.subject,
+      difficulty: payload.difficulty ?? 'medium',
+      question_count: payload.questionCount ?? 10,
+    }),
+  });
+  if (!res.ok) await readApiError(res, 'Failed to generate battle questions');
+  return res.json();
+}
+
+export type BattleAnswer = {
+  question_id: number;
+  question: string;
+  options: string[];
+  correct_answer: number;
+  explanation: string;
+  selected_answer: number;
+  is_correct: boolean;
+  time_taken: number;
+};
+
+export async function submitBattleAnswer(battleId: number, questionIndex: number, isCorrect: boolean) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/submit_battle_answer`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ battle_id: battleId, question_index: questionIndex, is_correct: isCorrect }),
+  });
+  return res.json();
+}
+
+export async function completeQuizBattle(battleId: number, score: number, answers: BattleAnswer[]) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/complete_quiz_battle`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ battle_id: battleId, score, answers }),
+  });
+  if (!res.ok) await readApiError(res, 'Failed to submit battle results');
+  return res.json();
+}
+
 // ── Solo Quiz ────────────────────────────────────────────────────────
 export async function createSoloQuiz(payload: { subject: string; difficulty: string; question_count: number }) {
   const headers = await authHeaders();

@@ -14,6 +14,7 @@ import {
 import HapticTouchable from '../../components/HapticTouchable';
 import GeoBackground from '../../components/GeoBackground';
 import SocialTileMaterial from '../../components/SocialTileMaterial';
+import BattlePlayScreen from './BattlePlayScreen';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../../utils/theme';
 import { useResponsiveLayout } from '../../hooks/useResponsiveLayout';
@@ -90,6 +91,7 @@ export default function GamesScreen({ user, onBack }: Props) {
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating]     = useState(false);
 
+  const [activeBattleId, setActiveBattleId] = useState<number | null>(null);
   const [selectedFriend, setSelectedFriend] = useState<any>(null);
   const [subject, setSubject]               = useState('Mathematics');
   const [difficulty, setDifficulty]         = useState('medium');
@@ -152,6 +154,16 @@ export default function GamesScreen({ user, onBack }: Props) {
   const outgoing = battles.filter((b: any) => b.status === 'pending' && isChallenger(b));
 
   if (!fontsLoaded) return null;
+
+  if (activeBattleId !== null) {
+    return (
+      <BattlePlayScreen
+        user={user}
+        battleId={activeBattleId}
+        onExit={() => { setActiveBattleId(null); load(); }}
+      />
+    );
+  }
 
   if (loading) return (
     <View style={{ flex: 1 }}>
@@ -237,30 +249,38 @@ export default function GamesScreen({ user, onBack }: Props) {
           <>
             <Text style={s.section}>live battles</Text>
             {active.map((b: any, i: number) => (
-              <View key={b.id ?? i} style={card.wrap}>
-                <SocialTileMaterial />
-                <View style={[card.accent, { backgroundColor: GOLD_M }]} />
-                <View style={card.body}>
-                  <View style={vs.row}>
-                    <View style={vs.player}>
-                      <Avatar name={user.username} size={44} />
-                      <Text style={vs.name} numberOfLines={1}>{user.username}</Text>
-                      {b.challenger_score !== undefined && (
-                        <Text style={vs.score}>{isChallenger(b) ? (b.challenger_score ?? 0) : (b.opponent_score ?? 0)}</Text>
-                      )}
+              <HapticTouchable key={b.id ?? i} onPress={() => setActiveBattleId(b.id)} haptic="medium">
+                <View style={card.wrap}>
+                  <SocialTileMaterial />
+                  <View style={[card.accent, { backgroundColor: GOLD_M }]} />
+                  <View style={card.body}>
+                    <View style={vs.row}>
+                      <View style={vs.player}>
+                        <Avatar name={user.username} size={44} />
+                        <Text style={vs.name} numberOfLines={1}>{user.username}</Text>
+                        {b.challenger_score !== undefined && (
+                          <Text style={vs.score}>{isChallenger(b) ? (b.challenger_score ?? 0) : (b.opponent_score ?? 0)}</Text>
+                        )}
+                      </View>
+                      <Text style={vs.vsText}>VS</Text>
+                      <View style={vs.player}>
+                        <Avatar name={opponentName(b)} size={44} />
+                        <Text style={vs.name} numberOfLines={1}>{opponentName(b)}</Text>
+                        {b.opponent_score !== undefined && (
+                          <Text style={vs.score}>{isChallenger(b) ? (b.opponent_score ?? 0) : (b.challenger_score ?? 0)}</Text>
+                        )}
+                      </View>
                     </View>
-                    <Text style={vs.vsText}>VS</Text>
-                    <View style={vs.player}>
-                      <Avatar name={opponentName(b)} size={44} />
-                      <Text style={vs.name} numberOfLines={1}>{opponentName(b)}</Text>
-                      {b.opponent_score !== undefined && (
-                        <Text style={vs.score}>{isChallenger(b) ? (b.opponent_score ?? 0) : (b.challenger_score ?? 0)}</Text>
-                      )}
+                    <Text style={vs.subject}>{b.subject} · {b.difficulty}</Text>
+                    <View style={vs.playRow}>
+                      <Text style={vs.playHint}>
+                        {b.your_completed ? 'waiting for opponent · tap to check' : 'tap to play'}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={14} color={GOLD_M} />
                     </View>
                   </View>
-                  <Text style={vs.subject}>{b.subject} · {b.difficulty}</Text>
                 </View>
-              </View>
+              </HapticTouchable>
             ))}
           </>
         )}
@@ -508,6 +528,8 @@ function createVersusStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme
     score: { fontFamily: 'Inter_900Black', fontSize: 28, color: theme.accent },
     vsText: { fontFamily: 'Inter_900Black', fontSize: 18, color: darkenColor(theme.accent, theme.isLight ? 12 : 26) },
     subject: { fontFamily: 'Inter_400Regular', fontSize: 11, color: theme.textSecondary, textAlign: 'center' },
+    playRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4 },
+    playHint: { fontFamily: 'Inter_600SemiBold', fontSize: 10.5, color: theme.accent, letterSpacing: 0.3 },
   });
 }
 
