@@ -10,6 +10,10 @@ function normalizeApiUrl(url: string): string {
 
 export const API_URL = normalizeApiUrl(process.env.EXPO_PUBLIC_API_URL ?? PRODUCTION_API_URL);
 
+// Public web app origin (for building shareable /chat/share/:token, /flashcards/share/:token links) —
+// matches backend's ALLOWED_ORIGINS default in main.py, not the API host.
+export const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL ?? 'https://cerbyl.com').replace(/\/+$/, '');
+
 async function getToken(): Promise<string | null> {
   return AsyncStorage.getItem('token');
 }
@@ -1029,6 +1033,68 @@ export async function getFriendActivityFeed(userId: string) {
   return res.json();
 }
 
+// ── Sharing ───────────────────────────────────────────────────────────
+export type SharedItem = {
+  id: number;
+  content_type: 'note' | 'chat';
+  content_id: number;
+  title: string;
+  permission: string;
+  message: string | null;
+  shared_at: string | null;
+  shared_by: { id: number; username: string; first_name: string; last_name: string; picture_url: string };
+};
+
+export async function shareContent(payload: {
+  contentType: 'note' | 'chat';
+  contentId: number;
+  friendIds: number[];
+  message?: string;
+  permission?: 'view' | 'edit';
+}) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/share_content`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      content_type: payload.contentType,
+      content_id: payload.contentId,
+      friend_ids: payload.friendIds,
+      message: payload.message ?? null,
+      permission: payload.permission ?? 'view',
+    }),
+  });
+  if (!res.ok) await readApiError(res, 'Could not share this item');
+  return res.json();
+}
+
+export async function getSharedWithMe(): Promise<{ shared_items: SharedItem[] }> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/shared_with_me`, { headers });
+  if (!res.ok) return { shared_items: [] };
+  return res.json();
+}
+
+export async function getSharedContentDetail(contentType: 'note' | 'chat', contentId: number) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/shared/${contentType}/${contentId}`, { headers });
+  if (!res.ok) await readApiError(res, 'Could not open this shared item');
+  return res.json();
+}
+
+export async function removeSharedAccess(shareId: number) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/remove_shared_access/${shareId}`, { method: 'DELETE', headers });
+  return res.json();
+}
+
+export async function getChatShareLink(sessionId: number): Promise<{ public_token: string }> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/chat/${sessionId}/share-link`, { headers });
+  if (!res.ok) await readApiError(res, 'Could not create a share link');
+  return res.json();
+}
+
 export async function respondFriendRequest(userId: string, requestId: number, action: 'accept' | 'decline') {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}/respond_friend_request`, {
@@ -1852,6 +1918,81 @@ export async function getChatMessages(chatId: number) {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}/get_chat_messages?chat_id=${chatId}`, { headers });
   return res.json(); // [{id, type, content, timestamp}]
+}
+
+export async function renameChatSession(chatId: number, newTitle: string) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/rename_chat_session`, {
+    method: 'PUT',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, new_title: newTitle }),
+  });
+  if (!res.ok) await readApiError(res, 'Could not rename chat');
+  return res.json();
+}
+
+export async function deleteChatSession(chatId: number) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/delete_chat_session/${chatId}`, { method: 'DELETE', headers });
+  if (!res.ok) await readApiError(res, 'Could not delete chat');
+  return res.json();
+}
+
+export type ChatFolder = { id: number; name: string; color: string; parent_id: number | null; created_at: string | null };
+
+export async function createChatFolder(userId: string, name: string, color = '#D7B38C'): Promise<ChatFolder> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/create_chat_folder`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId, name, color }),
+  });
+  if (!res.ok) await readApiError(res, 'Could not create folder');
+  return res.json();
+}
+
+export async function getChatFolders(userId: string): Promise<{ folders: ChatFolder[] }> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/get_chat_folders?user_id=${encodeURIComponent(userId)}`, { headers });
+  if (!res.ok) return { folders: [] };
+  return res.json();
+}
+
+export async function deleteChatFolder(folderId: number) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/delete_chat_folder/${folderId}`, { method: 'DELETE', headers });
+  if (!res.ok) await readApiError(res, 'Could not delete folder');
+  return res.json();
+}
+
+export async function moveChatToFolder(chatId: number, folderId: number | null) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/move_chat_to_folder`, {
+    method: 'PUT',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: String(chatId), folder_id: folderId }),
+  });
+  if (!res.ok) await readApiError(res, 'Could not move chat');
+  return res.json();
+}
+
+export async function submitChatFeedback(payload: {
+  userId: string;
+  rating: number;
+  messageContent?: string;
+  feedbackText?: string;
+  improvementSuggestion?: string;
+}) {
+  const headers = await authHeaders();
+  const body = new FormData();
+  body.append('user_id', payload.userId);
+  body.append('rating', String(payload.rating));
+  if (payload.messageContent) body.append('message_content', payload.messageContent);
+  if (payload.feedbackText) body.append('feedback_text', payload.feedbackText);
+  if (payload.improvementSuggestion) body.append('improvement_suggestion', payload.improvementSuggestion);
+  const res = await fetch(`${API_URL}/submit_advanced_feedback`, { method: 'POST', headers, body });
+  if (!res.ok) await readApiError(res, 'Could not submit feedback');
+  return res.json();
 }
 
 // ── Register ──────────────────────────────────────────────────────────

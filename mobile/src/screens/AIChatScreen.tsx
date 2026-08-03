@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TextInput,
   FlatList, Platform, Animated,
-  Modal, ScrollView, ActivityIndicator, PanResponder, Alert, Image, ViewStyle, Keyboard,
+  Modal, ScrollView, ActivityIndicator, PanResponder, Alert, Image, ViewStyle, Keyboard, Share,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
@@ -17,8 +17,13 @@ import GeoBackground from '../components/GeoBackground';
 import ContextSelector from '../components/ContextSelector';
 import ContextPanel from '../components/ContextPanel';
 import { AuthUser } from '../services/auth';
-import { createChatSession, askAI, askAIWithFile, getChatSessions, getChatMessages, getSearchHubSuggestions } from '../services/api';
+import {
+  createChatSession, askAI, askAIWithFile, getChatSessions, getChatMessages, getSearchHubSuggestions,
+  renameChatSession, deleteChatSession, submitChatFeedback, getFriends, shareContent, getChatShareLink, WEB_URL,
+  createChatFolder, getChatFolders, deleteChatFolder, moveChatToFolder, ChatFolder,
+} from '../services/api';
 import { getHsModeEnabled, getSelectedDocIds } from '../services/contextService';
+import { triggerHaptic } from '../utils/haptics';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
@@ -27,7 +32,7 @@ const EDGE_SWIPE_WIDTH = 20;
 
 type ChatAttachment = { uri: string; name: string; type: string };
 type Msg = { id: string; role: 'user' | 'ai'; text: string; attachmentUri?: string };
-type Session = { id: number; title: string; updated_at: string | null };
+type Session = { id: number; title: string; updated_at: string | null; folder_id?: number | null };
 type Props = { user: AuthUser };
 
 const DEFAULT_PROMPTS = [
@@ -178,6 +183,20 @@ export default function AIChatScreen({ user }: Props) {
   const [contextPanelOpen, setContextPanelOpen] = useState(false);
   const [hsMode, setHsMode] = useState(false);
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
+  const [renameTarget, setRenameTarget] = useState<Session | null>(null);
+  const [renameText, setRenameText] = useState('');
+  const [renaming, setRenaming] = useState(false);
+  const [shareTarget, setShareTarget] = useState<Session | null>(null);
+  const [friends, setFriends] = useState<any[]>([]);
+  const [selectedFriendIds, setSelectedFriendIds] = useState<Set<number>>(new Set());
+  const [sharing, setSharing] = useState(false);
+  const [feedbackGiven, setFeedbackGiven] = useState<Record<string, 'up' | 'down'>>({});
+  const [negativeFeedbackTarget, setNegativeFeedbackTarget] = useState<Msg | null>(null);
+  const [feedbackComment, setFeedbackComment] = useState('');
+  const [folders, setFolders] = useState<ChatFolder[]>([]);
+  const [newFolderModalOpen, setNewFolderModalOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [creatingFolder, setCreatingFolder] = useState(false);
 
   useEffect(() => {
     getHsModeEnabled().then(setHsMode).catch(() => {});
@@ -219,6 +238,12 @@ export default function AIChatScreen({ user }: Props) {
     };
   }, [focusGlass]);
 
+  const loadFolders = useCallback(() => {
+    getChatFolders(user.username)
+      .then((data) => setFolders(Array.isArray(data?.folders) ? data.folders : []))
+      .catch(() => setFolders([]));
+  }, [user.username]);
+
   const openSidebar = useCallback(() => {
     setSidebarOpen(true);
     Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 100, friction: 14 }).start();
@@ -227,7 +252,8 @@ export default function AIChatScreen({ user }: Props) {
       .then((data) => setSessions(Array.isArray(data?.sessions) ? data.sessions : []))
       .catch(() => setSessions([]))
       .finally(() => setSessionsLoading(false));
-  }, [sidebarWidth, slideAnim, user.username]);
+    loadFolders();
+  }, [sidebarWidth, slideAnim, user.username, loadFolders]);
 
   const closeSidebar = useCallback(() => {
     Animated.timing(slideAnim, { toValue: -sidebarWidth, duration: 220, useNativeDriver: true }).start(() => {
@@ -288,6 +314,197 @@ export default function AIChatScreen({ user }: Props) {
       setLoading(false);
     }
   }, [closeSidebar]);
+
+  const openSessionActions = (session: Session) => {
+    Alert.alert(
+      session.title || 'untitled chat',
+      undefined,
+      [
+        { text: 'Share', onPress: () => openShareModal(session) },
+        { text: 'Rename', onPress: () => { setRenameTarget(session); setRenameText(session.title || ''); } },
+        { text: 'Move to Folder', onPress: () => openMoveToFolder(session) },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert('Delete chat?', 'This cannot be undone.', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                  try {
+                    await deleteChatSession(session.id);
+                    setSessions((current) => current.filter((item) => item.id !== session.id));
+                    if (chatId === session.id) newChat();
+                  } catch (error) {
+                    Alert.alert('Delete failed', error instanceof Error ? error.message : 'Please try again.');
+                  }
+                },
+              },
+            ]);
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+    );
+  };
+
+  const submitRename = async () => {
+    if (!renameTarget || !renameText.trim()) return;
+    setRenaming(true);
+    try {
+      await renameChatSession(renameTarget.id, renameText.trim());
+      setSessions((current) => current.map((item) => (item.id === renameTarget.id ? { ...item, title: renameText.trim() } : item)));
+      setRenameTarget(null);
+    } catch (error) {
+      Alert.alert('Rename failed', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setRenaming(false);
+    }
+  };
+
+  const openMoveToFolder = (session: Session) => {
+    const buttons: { text: string; onPress?: () => void; style?: 'cancel' | 'destructive' }[] = folders.map((folder) => ({
+      text: folder.name,
+      onPress: async () => {
+        setSessions((current) => current.map((item) => (item.id === session.id ? { ...item, folder_id: folder.id } : item)));
+        try {
+          await moveChatToFolder(session.id, folder.id);
+        } catch {
+          // silenced -- optimistic update stays
+        }
+      },
+    }));
+    if (session.folder_id) {
+      buttons.push({
+        text: 'Remove from folder',
+        onPress: async () => {
+          setSessions((current) => current.map((item) => (item.id === session.id ? { ...item, folder_id: null } : item)));
+          try {
+            await moveChatToFolder(session.id, null);
+          } catch {
+            // silenced
+          }
+        },
+      });
+    }
+    buttons.push({ text: 'Cancel', style: 'cancel' });
+    if (folders.length === 0) {
+      Alert.alert('No folders yet', 'Create a folder first from the sidebar.', [{ text: 'OK' }]);
+      return;
+    }
+    Alert.alert('Move to folder', session.title || 'untitled chat', buttons);
+  };
+
+  const submitCreateFolder = async () => {
+    if (!newFolderName.trim()) return;
+    setCreatingFolder(true);
+    try {
+      await createChatFolder(user.username, newFolderName.trim());
+      setNewFolderName('');
+      setNewFolderModalOpen(false);
+      loadFolders();
+    } catch (error) {
+      Alert.alert('Could not create folder', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setCreatingFolder(false);
+    }
+  };
+
+  const removeFolder = (folder: ChatFolder) => {
+    Alert.alert('Delete folder?', `Chats in "${folder.name}" will become unfiled.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          setFolders((current) => current.filter((f) => f.id !== folder.id));
+          setSessions((current) => current.map((item) => (item.folder_id === folder.id ? { ...item, folder_id: null } : item)));
+          try {
+            await deleteChatFolder(folder.id);
+          } catch {
+            // silenced
+          }
+        },
+      },
+    ]);
+  };
+
+  const openShareModal = async (session: Session) => {
+    setShareTarget(session);
+    setSelectedFriendIds(new Set());
+    if (friends.length === 0) {
+      try {
+        const data = await getFriends(user.username);
+        setFriends(Array.isArray(data) ? data : data?.friends ?? []);
+      } catch {
+        setFriends([]);
+      }
+    }
+  };
+
+  const toggleFriendSelected = (friendId: number) => {
+    setSelectedFriendIds((current) => {
+      const next = new Set(current);
+      if (next.has(friendId)) next.delete(friendId);
+      else next.add(friendId);
+      return next;
+    });
+  };
+
+  const submitShare = async () => {
+    if (!shareTarget || selectedFriendIds.size === 0) return;
+    setSharing(true);
+    try {
+      await shareContent({ contentType: 'chat', contentId: shareTarget.id, friendIds: Array.from(selectedFriendIds) });
+      setShareTarget(null);
+      triggerHaptic('success');
+    } catch (error) {
+      Alert.alert('Share failed', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const copyChatLink = async () => {
+    if (!shareTarget) return;
+    try {
+      const { public_token } = await getChatShareLink(shareTarget.id);
+      const url = `${WEB_URL}/chat/share/${public_token}`;
+      await Share.share(Platform.OS === 'ios' ? { url, message: url } : { message: url });
+    } catch (error) {
+      Alert.alert('Could not create link', error instanceof Error ? error.message : 'Please try again.');
+    }
+  };
+
+  const giveFeedback = (message: Msg, direction: 'up' | 'down') => {
+    setFeedbackGiven((current) => ({ ...current, [message.id]: direction }));
+    triggerHaptic(direction === 'up' ? 'success' : 'light');
+    if (direction === 'up') {
+      submitChatFeedback({ userId: user.username, rating: 5, messageContent: message.text }).catch(() => {});
+    } else {
+      setNegativeFeedbackTarget(message);
+      setFeedbackComment('');
+    }
+  };
+
+  const submitNegativeFeedback = async () => {
+    if (!negativeFeedbackTarget) return;
+    try {
+      await submitChatFeedback({
+        userId: user.username,
+        rating: 2,
+        messageContent: negativeFeedbackTarget.text,
+        feedbackText: feedbackComment.trim() || undefined,
+      });
+    } catch {
+      // silenced -- feedback is best-effort
+    } finally {
+      setNegativeFeedbackTarget(null);
+      setFeedbackComment('');
+    }
+  };
 
   const send = async (text: string = input) => {
     const trimmed = text.trim();
@@ -379,7 +596,46 @@ export default function AIChatScreen({ user }: Props) {
     if (!query) return sessions;
     return sessions.filter((session) => (session.title || '').toLowerCase().includes(query));
   }, [sessions, sidebarSearch]);
+  const unfiledSessions = useMemo(() => filteredSessions.filter((s) => !s.folder_id), [filteredSessions]);
+  const foldersWithSessions = useMemo(
+    () => folders.map((folder) => ({ folder, sessions: filteredSessions.filter((s) => s.folder_id === folder.id) })),
+    [folders, filteredSessions]
+  );
   const isEmpty = messages.length === 0 && !loading;
+
+  const renderSessionCard = (session: Session) => {
+    const active = chatId === session.id;
+    return (
+      <TileGleam
+        key={session.id}
+        borderRadius={18}
+        style={[s.sessionCard, active && s.sessionCardActive]}
+        onPress={() => loadSession(session)}
+        onLongPress={() => openSessionActions(session)}
+        haptic="selection"
+      >
+        <NeumorphicTexture grainVariant="dots" grainOpacity={0.14} />
+        <View style={s.sessionRow}>
+          <View style={[s.sessionAvatar, active && s.sessionAvatarActive]}>
+            <Ionicons
+              name="chatbubble-ellipses"
+              size={14}
+              color={active ? selectedTheme.bgPrimary : selectedTheme.accentHover}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[s.sessionTitle, active && s.sessionTitleActive]} numberOfLines={2}>
+              {session.title || 'untitled chat'}
+            </Text>
+            {session.updated_at ? (
+              <Text style={s.sessionDate}>{new Date(session.updated_at).toLocaleDateString()}</Text>
+            ) : null}
+          </View>
+          {active ? <Ionicons name="chevron-forward" size={14} color={selectedTheme.accentHover} /> : null}
+        </View>
+      </TileGleam>
+    );
+  };
 
   useEffect(() => {
     if (!isEmpty) return;
@@ -492,6 +748,24 @@ export default function AIChatScreen({ user }: Props) {
                       <MarkdownText>{preprocessText(item.text)}</MarkdownText>
                     )}
                   </View>
+                  {!isUser ? (
+                    <View style={s.feedbackRow}>
+                      <HapticTouchable onPress={() => giveFeedback(item, 'up')} style={s.feedbackBtn} haptic="none" accessibilityLabel="Good response">
+                        <Ionicons
+                          name={feedbackGiven[item.id] === 'up' ? 'thumbs-up' : 'thumbs-up-outline'}
+                          size={14}
+                          color={feedbackGiven[item.id] === 'up' ? selectedTheme.success : selectedTheme.textSecondary}
+                        />
+                      </HapticTouchable>
+                      <HapticTouchable onPress={() => giveFeedback(item, 'down')} style={s.feedbackBtn} haptic="none" accessibilityLabel="Poor response">
+                        <Ionicons
+                          name={feedbackGiven[item.id] === 'down' ? 'thumbs-down' : 'thumbs-down-outline'}
+                          size={14}
+                          color={feedbackGiven[item.id] === 'down' ? selectedTheme.danger : selectedTheme.textSecondary}
+                        />
+                      </HapticTouchable>
+                    </View>
+                  ) : null}
                 </View>
               );
             }}
@@ -562,14 +836,25 @@ export default function AIChatScreen({ user }: Props) {
                         <Text style={s.sidebarTitle}>chats</Text>
                         <Text style={s.sidebarSub}>{sessions.length} conversation{sessions.length === 1 ? '' : 's'}</Text>
                       </View>
-                      <HapticTouchable
-                        onPress={() => setSidebarSearchOpen((open) => !open)}
-                        style={[s.sidebarSearchBtn, sidebarSearchOpen && s.sidebarSearchBtnActive]}
-                        activeOpacity={0.8}
-                        haptic="selection"
-                      >
-                        <Ionicons name="search" size={16} color={sidebarSearchOpen ? selectedTheme.bgPrimary : selectedTheme.textPrimary} />
-                      </HapticTouchable>
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <HapticTouchable
+                          onPress={() => setNewFolderModalOpen(true)}
+                          style={s.sidebarSearchBtn}
+                          activeOpacity={0.8}
+                          haptic="selection"
+                          accessibilityLabel="New folder"
+                        >
+                          <Ionicons name="folder-outline" size={16} color={selectedTheme.textPrimary} />
+                        </HapticTouchable>
+                        <HapticTouchable
+                          onPress={() => setSidebarSearchOpen((open) => !open)}
+                          style={[s.sidebarSearchBtn, sidebarSearchOpen && s.sidebarSearchBtnActive]}
+                          activeOpacity={0.8}
+                          haptic="selection"
+                        >
+                          <Ionicons name="search" size={16} color={sidebarSearchOpen ? selectedTheme.bgPrimary : selectedTheme.textPrimary} />
+                        </HapticTouchable>
+                      </View>
                     </View>
                   </View>
 
@@ -596,38 +881,36 @@ export default function AIChatScreen({ user }: Props) {
                     </View>
                   ) : (
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 6, paddingBottom: 20 }}>
-                      {filteredSessions.map((session) => {
-                        const active = chatId === session.id;
-                        return (
-                          <TileGleam
-                            key={session.id}
-                            borderRadius={18}
-                            style={[s.sessionCard, active && s.sessionCardActive]}
-                            onPress={() => loadSession(session)}
-                            haptic="selection"
-                          >
-                            <NeumorphicTexture grainVariant="dots" grainOpacity={0.14} />
-                            <View style={s.sessionRow}>
-                              <View style={[s.sessionAvatar, active && s.sessionAvatarActive]}>
-                                <Ionicons
-                                  name="chatbubble-ellipses"
-                                  size={14}
-                                  color={active ? selectedTheme.bgPrimary : selectedTheme.accentHover}
-                                />
-                              </View>
-                              <View style={{ flex: 1 }}>
-                                <Text style={[s.sessionTitle, active && s.sessionTitleActive]} numberOfLines={2}>
-                                  {session.title || 'untitled chat'}
-                                </Text>
-                                {session.updated_at ? (
-                                  <Text style={s.sessionDate}>{new Date(session.updated_at).toLocaleDateString()}</Text>
-                                ) : null}
-                              </View>
-                              {active ? <Ionicons name="chevron-forward" size={14} color={selectedTheme.accentHover} /> : null}
+                      {foldersWithSessions.map(({ folder, sessions: folderSessions }) => (
+                        folderSessions.length > 0 || !sidebarSearch ? (
+                          <View key={folder.id} style={{ marginBottom: 4 }}>
+                            <HapticTouchable
+                              style={s.folderHeaderRow}
+                              onLongPress={() => removeFolder(folder)}
+                              haptic="none"
+                            >
+                              <Ionicons name="folder" size={13} color={folder.color || selectedTheme.accent} />
+                              <Text style={s.folderHeaderText}>{folder.name}</Text>
+                              <Text style={s.folderHeaderCount}>{folderSessions.length}</Text>
+                            </HapticTouchable>
+                            {folderSessions.map((session) => renderSessionCard(session))}
+                          </View>
+                        ) : null
+                      ))}
+
+                      {unfiledSessions.length === 0 && foldersWithSessions.length > 0 ? null : (
+                        <>
+                          {foldersWithSessions.length > 0 ? <Text style={s.folderHeaderText2}>unfiled</Text> : null}
+                          {unfiledSessions.length === 0 ? (
+                            <View style={s.sidebarEmptyWrap}>
+                              <Ionicons name="chatbubbles-outline" size={28} color={selectedTheme.textSecondary} />
+                              <Text style={s.sidebarEmpty}>{sidebarSearch ? 'No matches' : 'No chats yet'}</Text>
                             </View>
-                          </TileGleam>
-                        );
-                      })}
+                          ) : (
+                            unfiledSessions.map((session) => renderSessionCard(session))
+                          )}
+                        </>
+                      )}
                     </ScrollView>
                   )}
                 </SafeAreaView>
@@ -645,6 +928,122 @@ export default function AIChatScreen({ user }: Props) {
           setSelectedDocIds(nextIds);
         }}
       />
+
+      <Modal transparent visible={newFolderModalOpen} animationType="fade" onRequestClose={() => setNewFolderModalOpen(false)}>
+        <View style={s.centerOverlay}>
+          <HapticTouchable style={StyleSheet.absoluteFill} onPress={() => setNewFolderModalOpen(false)} activeOpacity={1} haptic="none" />
+          <View style={s.centerCard}>
+            <Text style={s.centerCardTitle}>new folder</Text>
+            <TextInput
+              style={s.centerCardInput}
+              value={newFolderName}
+              onChangeText={setNewFolderName}
+              placeholder="folder name"
+              placeholderTextColor={selectedTheme.textSecondary}
+              autoFocus
+            />
+            <View style={s.centerCardActions}>
+              <HapticTouchable style={s.centerCardCancel} onPress={() => { setNewFolderModalOpen(false); setNewFolderName(''); }} haptic="light">
+                <Text style={s.centerCardCancelText}>cancel</Text>
+              </HapticTouchable>
+              <HapticTouchable style={s.centerCardSave} onPress={submitCreateFolder} haptic="medium" disabled={creatingFolder || !newFolderName.trim()}>
+                {creatingFolder ? <ActivityIndicator size="small" color={selectedTheme.bgPrimary} /> : <Text style={s.centerCardSaveText}>create</Text>}
+              </HapticTouchable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal transparent visible={!!renameTarget} animationType="fade" onRequestClose={() => setRenameTarget(null)}>
+        <View style={s.centerOverlay}>
+          <HapticTouchable style={StyleSheet.absoluteFill} onPress={() => setRenameTarget(null)} activeOpacity={1} haptic="none" />
+          <View style={s.centerCard}>
+            <Text style={s.centerCardTitle}>rename chat</Text>
+            <TextInput
+              style={s.centerCardInput}
+              value={renameText}
+              onChangeText={setRenameText}
+              placeholder="chat title"
+              placeholderTextColor={selectedTheme.textSecondary}
+              autoFocus
+            />
+            <View style={s.centerCardActions}>
+              <HapticTouchable style={s.centerCardCancel} onPress={() => setRenameTarget(null)} haptic="light">
+                <Text style={s.centerCardCancelText}>cancel</Text>
+              </HapticTouchable>
+              <HapticTouchable style={s.centerCardSave} onPress={submitRename} haptic="medium" disabled={renaming || !renameText.trim()}>
+                {renaming ? <ActivityIndicator size="small" color={selectedTheme.bgPrimary} /> : <Text style={s.centerCardSaveText}>save</Text>}
+              </HapticTouchable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal transparent visible={!!shareTarget} animationType="fade" onRequestClose={() => setShareTarget(null)}>
+        <View style={s.centerOverlay}>
+          <HapticTouchable style={StyleSheet.absoluteFill} onPress={() => setShareTarget(null)} activeOpacity={1} haptic="none" />
+          <View style={s.centerCard}>
+            <Text style={s.centerCardTitle}>share "{shareTarget?.title || 'this chat'}"</Text>
+            <HapticTouchable style={s.shareLinkRow} onPress={copyChatLink} haptic="selection">
+              <Ionicons name="link-outline" size={16} color={selectedTheme.accentHover} />
+              <Text style={s.shareLinkText}>share public link</Text>
+            </HapticTouchable>
+            {friends.length === 0 ? (
+              <Text style={s.centerCardSub}>add friends to share directly with them</Text>
+            ) : (
+              <>
+                <Text style={s.centerCardSub}>or share with friends</Text>
+                <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
+                  {friends.map((f: any) => {
+                    const selected = selectedFriendIds.has(f.id);
+                    return (
+                      <HapticTouchable key={f.id} style={s.friendRow} onPress={() => toggleFriendSelected(f.id)} haptic="selection">
+                        <Ionicons name={selected ? 'checkbox' : 'square-outline'} size={18} color={selected ? selectedTheme.accentHover : selectedTheme.textSecondary} />
+                        <Text style={s.friendRowText}>{f.username || f.friend_username || f.name || '?'}</Text>
+                      </HapticTouchable>
+                    );
+                  })}
+                </ScrollView>
+                <View style={s.centerCardActions}>
+                  <HapticTouchable style={s.centerCardCancel} onPress={() => setShareTarget(null)} haptic="light">
+                    <Text style={s.centerCardCancelText}>cancel</Text>
+                  </HapticTouchable>
+                  <HapticTouchable style={s.centerCardSave} onPress={submitShare} haptic="medium" disabled={sharing || selectedFriendIds.size === 0}>
+                    {sharing ? <ActivityIndicator size="small" color={selectedTheme.bgPrimary} /> : <Text style={s.centerCardSaveText}>share</Text>}
+                  </HapticTouchable>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal transparent visible={!!negativeFeedbackTarget} animationType="fade" onRequestClose={() => setNegativeFeedbackTarget(null)}>
+        <View style={s.centerOverlay}>
+          <HapticTouchable style={StyleSheet.absoluteFill} onPress={submitNegativeFeedback} activeOpacity={1} haptic="none" />
+          <View style={s.centerCard}>
+            <Text style={s.centerCardTitle}>what went wrong?</Text>
+            <Text style={s.centerCardSub}>optional — helps us improve cerbyl</Text>
+            <TextInput
+              style={[s.centerCardInput, { minHeight: 70 }]}
+              value={feedbackComment}
+              onChangeText={setFeedbackComment}
+              placeholder="tell us more..."
+              placeholderTextColor={selectedTheme.textSecondary}
+              multiline
+              autoFocus
+            />
+            <View style={s.centerCardActions}>
+              <HapticTouchable style={s.centerCardCancel} onPress={() => { setNegativeFeedbackTarget(null); setFeedbackComment(''); }} haptic="light">
+                <Text style={s.centerCardCancelText}>skip</Text>
+              </HapticTouchable>
+              <HapticTouchable style={s.centerCardSave} onPress={submitNegativeFeedback} haptic="medium">
+                <Text style={s.centerCardSaveText}>submit</Text>
+              </HapticTouchable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -808,6 +1207,19 @@ function createStyles(
     borderWidth: 1,
     borderColor: BORDER,
   },
+  feedbackRow: {
+    flexDirection: 'row',
+    gap: 4,
+    marginTop: 4,
+    marginHorizontal: 6,
+  },
+  feedbackBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   userBubble: {
     alignSelf: 'flex-end',
     backgroundColor: USER_BG,
@@ -927,6 +1339,10 @@ function createStyles(
     backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.32 : 0.42),
   },
   sidebarSearchBtnActive: { backgroundColor: theme.accent, borderColor: theme.accent },
+  folderHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 16, paddingVertical: 8 },
+  folderHeaderText: { fontFamily: 'Inter_700Bold', fontSize: 10.5, color: GOLD_L, letterSpacing: 0.6, flex: 1 },
+  folderHeaderCount: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM },
+  folderHeaderText2: { fontFamily: 'Inter_700Bold', fontSize: 10.5, color: DIM, letterSpacing: 0.6, paddingHorizontal: 16, paddingVertical: 8, textTransform: 'uppercase' },
   sidebarSearchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -976,5 +1392,42 @@ function createStyles(
   sessionTitle: { fontFamily: 'Inter_400Regular', fontSize: 13, color: GOLD_L, lineHeight: 18 },
   sessionTitleActive: { color: theme.accentHover, fontFamily: 'Inter_600SemiBold' },
   sessionDate: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM, marginTop: 3, letterSpacing: 0.4 },
+
+  centerOverlay: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 24 },
+  centerCard: {
+    width: '100%',
+    maxWidth: 380,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: CARD,
+    padding: 20,
+    gap: 12,
+    boxShadow: cbModalShadow(0.2),
+  } as ViewStyle,
+  centerCardTitle: { fontFamily: 'Inter_700Bold', fontSize: 15, color: GOLD_L },
+  centerCardSub: { fontFamily: 'Inter_400Regular', fontSize: 11.5, color: DIM, marginTop: -8 },
+  centerCardInput: {
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13.5,
+    color: GOLD_XL,
+    backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.5 : 0.6),
+    textAlignVertical: 'top',
+  },
+  centerCardActions: { flexDirection: 'row', gap: 10, justifyContent: 'flex-end' },
+  centerCardCancel: { paddingHorizontal: 16, paddingVertical: 11, borderRadius: 12 },
+  centerCardCancelText: { fontFamily: 'Inter_600SemiBold', fontSize: 12.5, color: DIM },
+  centerCardSave: { paddingHorizontal: 18, paddingVertical: 11, borderRadius: 12, backgroundColor: theme.accent, minWidth: 72, alignItems: 'center' },
+  centerCardSaveText: { fontFamily: 'Inter_700Bold', fontSize: 12.5, color: theme.isLight ? darkenColor(theme.accent, 32) : theme.bgPrimary },
+
+  shareLinkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: BORDER, backgroundColor: rgbaFromHex(theme.accent, theme.isLight ? 0.08 : 0.12) },
+  shareLinkText: { fontFamily: 'Inter_600SemiBold', fontSize: 12.5, color: GOLD_L },
+  friendRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9 },
+  friendRowText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: GOLD_XL },
 });
 }
