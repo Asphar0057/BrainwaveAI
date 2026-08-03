@@ -20,12 +20,13 @@ import QuizPlaylistScreen  from './social/QuizPlaylistScreen';
 import SoloQuizScreen      from './social/SoloQuizScreen';
 import PlaylistsScreen     from './social/PlaylistsScreen';
 import LearningPathsScreen from './social/LearningPathsScreen';
+import SharedWithMeScreen  from './SharedWithMeScreen';
 import GeoBackground from '../components/GeoBackground';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
-type Section = 'friends' | 'games' | 'quiz' | 'solo' | 'playlists' | 'paths';
+type Section = 'friends' | 'games' | 'quiz' | 'solo' | 'playlists' | 'paths' | 'shared';
 type HubData = {
   friendCount:    number;
   requestCount:   number;
@@ -176,6 +177,7 @@ export default function SocialScreen({ user, onOpenLeaderboard }: Props) {
   if (screen === 'solo')        return <SoloQuizScreen      user={user} onBack={() => setScreen(null)} />;
   if (screen === 'playlists')   return <PlaylistsScreen     user={user} onBack={() => setScreen(null)} />;
   if (screen === 'paths')       return <LearningPathsScreen user={user} onBack={() => setScreen(null)} />;
+  if (screen === 'shared')      return <SharedWithMeScreen  user={user} onBack={() => setScreen(null)} />;
 
   return (
     <View style={s.root}>
@@ -394,6 +396,13 @@ export default function SocialScreen({ user, onOpenLeaderboard }: Props) {
                 <View style={s.discoveryNumber}><Text style={s.discoveryNumberText}>02</Text></View>
                 <Ionicons name="map-outline" size={19} color={accent} />
                 <View style={{ flex: 1 }}><Text style={s.discoveryTitle}>learning paths</Text><Text style={s.discoveryCopy}>move through a journey together</Text></View>
+                <Ionicons name="chevron-forward" size={15} color="#D8B38D" />
+              </TileGleam>
+              <TileGleam style={s.discoveryPath} onPress={() => setScreen('shared')} haptic="light" borderRadius={26}>
+                <SocialTileMaterial />
+                <View style={s.discoveryNumber}><Text style={s.discoveryNumberText}>03</Text></View>
+                <Ionicons name="share-social-outline" size={19} color={accent} />
+                <View style={{ flex: 1 }}><Text style={s.discoveryTitle}>shared with me</Text><Text style={s.discoveryCopy}>notes and chats friends sent you</Text></View>
                 <Ionicons name="chevron-forward" size={15} color="#D8B38D" />
               </TileGleam>
             </View>
