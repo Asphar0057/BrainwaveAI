@@ -1057,6 +1057,95 @@ export async function reviewFlashcard(payload: {
   return res.json();
 }
 
+// ── Spaced Repetition (SM-2/FSRS) ────────────────────────────────────────
+export type SRIntervalPreview = { again: string; hard: string; good: string; easy: string };
+export type SRDueCard = {
+  id: number;
+  set_id: number;
+  set_title: string;
+  question: string;
+  answer: string;
+  difficulty: string;
+  sr_state: 'new' | 'learning' | 'review' | 'relearning';
+  ease_factor: number;
+  interval: number;
+  repetitions: number;
+  lapses: number;
+  interval_preview: SRIntervalPreview;
+};
+export type SRDueCardsResponse = {
+  due_count: number;
+  new_count: number;
+  review_count: number;
+  learning_count: number;
+  relearning_count: number;
+  cards: SRDueCard[];
+};
+
+export async function getDueFlashcards(userId: string, limit = 100): Promise<SRDueCardsResponse> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/flashcards/due?user_id=${encodeURIComponent(userId)}&limit=${limit}`, { headers });
+  if (!res.ok) await readApiError(res, 'Failed to load due flashcards');
+  return res.json();
+}
+
+export type SRGrade = 'again' | 'hard' | 'good' | 'easy';
+export type SRReviewResult = {
+  status: string;
+  card_id: number;
+  new_state: string;
+  new_interval: number;
+  new_ease: number;
+  next_review_date: string;
+  fsrs_stability: number;
+  retrievability: number;
+  interval_preview: SRIntervalPreview;
+};
+
+export async function srReviewFlashcard(userId: string, cardId: number, grade: SRGrade): Promise<SRReviewResult> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/flashcards/sr_review`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId, card_id: cardId, grade }),
+  });
+  if (!res.ok) await readApiError(res, 'Failed to submit review grade');
+  return res.json();
+}
+
+export type SRStats = {
+  total_cards: number;
+  state_distribution: { new: number; learning: number; review: number; relearning: number };
+  retention_rate: number;
+  total_reviews?: number;
+  ease_distribution: { range: string; label: string; count: number }[];
+  review_forecast: { date: string; day_label: string; count: number }[];
+  maturity: { average_interval: number; mature_count: number; longest_interval: number; review_card_count?: number };
+  lapse_stats: { total_lapses: number; most_lapsed: { card_id: number; question: string; lapses: number }[] };
+};
+
+export async function getSrStats(userId: string): Promise<SRStats> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/flashcards/sr_stats?user_id=${encodeURIComponent(userId)}`, { headers });
+  if (!res.ok) await readApiError(res, 'Failed to load spaced repetition stats');
+  return res.json();
+}
+
+export type SRAiSuggestions = {
+  daily_target: number;
+  problem_areas: { topic: string; suggestion: string; priority: 'high' | 'medium' | 'low' }[];
+  study_tips: string[];
+  optimal_new_cards_per_day: number;
+  encouragement: string;
+};
+
+export async function getFlashcardAiSuggestions(userId: string): Promise<SRAiSuggestions> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/flashcards/ai_suggestions?user_id=${encodeURIComponent(userId)}`, { headers });
+  if (!res.ok) await readApiError(res, 'Failed to load study suggestions');
+  return res.json();
+}
+
 export async function createFlashcardSet(payload: {
   userId: string;
   title: string;

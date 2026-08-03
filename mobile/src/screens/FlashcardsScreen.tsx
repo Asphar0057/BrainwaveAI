@@ -22,6 +22,7 @@ import HapticTouchable from '../components/HapticTouchable';
 import MathText from '../components/MathText';
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
+import SpacedRepetitionScreen from './SpacedRepetitionScreen';
 import { AuthUser } from '../services/auth';
 import { useAppTheme } from '../contexts/ThemeContext';
 import {
@@ -110,6 +111,7 @@ type FlashcardsStackParamList = {
   FlashcardsCreate: { mode?: CreateMode } | undefined;
   FlashcardsStudy: { set: FlashcardSet; cards: Flashcard[] };
   FlashcardsResults: { set: FlashcardSet; cards: Flashcard[]; stats: { correct: number; incorrect: number } };
+  FlashcardsSpacedRepetition: undefined;
 };
 
 const FlashcardsStack = createNativeStackNavigator<FlashcardsStackParamList>();
@@ -823,10 +825,12 @@ function FlashcardsSets({
   refreshTick,
   onOpenCreate,
   onOpenStudy,
+  onOpenSpacedRepetition,
 }: Props & {
   refreshTick: number;
   onOpenCreate: (mode?: CreateMode) => void;
   onOpenStudy: (set: FlashcardSet, cards: Flashcard[]) => void;
+  onOpenSpacedRepetition: () => void;
 }) {
   const [sets, setSets] = useState<FlashcardSet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -964,7 +968,9 @@ function FlashcardsSets({
         <View style={{ flex: 1 }}>
           <Text style={s.title}>flashcards</Text>
         </View>
-        <View style={{ width: 22 }} />
+        <HapticTouchable onPress={onOpenSpacedRepetition} haptic="selection" accessibilityLabel="Spaced repetition review">
+          <Ionicons name="repeat" size={22} color={GOLD_L} />
+        </HapticTouchable>
       </View>
 
       {loading ? (
@@ -1115,7 +1121,13 @@ export default function FlashcardsScreen({ user, onBack }: Props) {
             refreshTick={refreshTick}
             onOpenCreate={(mode) => navigation.navigate('FlashcardsCreate', { mode })}
             onOpenStudy={(set, cards) => navigation.navigate('FlashcardsStudy', { set, cards })}
+            onOpenSpacedRepetition={() => navigation.navigate('FlashcardsSpacedRepetition')}
           />
+        )}
+      </FlashcardsStack.Screen>
+      <FlashcardsStack.Screen name="FlashcardsSpacedRepetition">
+        {({ navigation }) => (
+          <SpacedRepetitionScreen user={user} onBack={() => navigation.goBack()} />
         )}
       </FlashcardsStack.Screen>
       <FlashcardsStack.Screen name="FlashcardsCreate">
