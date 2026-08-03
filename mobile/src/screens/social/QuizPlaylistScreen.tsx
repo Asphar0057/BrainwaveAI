@@ -11,6 +11,7 @@ import { getChallenges, createChallenge, joinChallenge, getFriends } from '../..
 import HapticTouchable from '../../components/HapticTouchable';
 import GeoBackground from '../../components/GeoBackground';
 import SocialTileMaterial from '../../components/SocialTileMaterial';
+import ChallengePlayScreen from './ChallengePlayScreen';
 import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../../components/NeumorphicTexture';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../../utils/theme';
@@ -44,6 +45,7 @@ export default function QuizPlaylistScreen({ user, onBack }: Props) {
   const [creating, setCreating]       = useState(false);
   const [joining, setJoining]         = useState<number | null>(null);
   const [tab, setTab]                 = useState<'discover' | 'mine'>('discover');
+  const [activeChallengeId, setActiveChallengeId] = useState<number | null>(null);
   const BG = selectedTheme.bgPrimary;
   const CARD = selectedTheme.panel;
   const GOLD_XL = selectedTheme.accent;
@@ -57,7 +59,7 @@ export default function QuizPlaylistScreen({ user, onBack }: Props) {
   // Form
   const [title, setTitle]             = useState('');
   const [subject, setSubject]         = useState('Mathematics');
-  const [difficulty, setDifficulty]   = useState('medium');
+  const [goal, setGoal]               = useState<'questions' | 'accuracy'>('questions');
   const [useCustomSub, setUseCustomSub] = useState(false);
   const [customSub, setCustomSub]     = useState('');
 
@@ -80,12 +82,12 @@ export default function QuizPlaylistScreen({ user, onBack }: Props) {
     try {
       const finalSubject = useCustomSub && customSub.trim() ? customSub.trim() : subject;
       await createChallenge({
-        creator_id: user.username,
         title: title.trim(),
         subject: finalSubject,
-        difficulty,
-        question_count: 10,
-        time_limit_hours: 48,
+        challenge_type: goal === 'questions' ? 'speed' : 'accuracy',
+        target_metric: goal === 'questions' ? 'questions_answered' : 'accuracy_percentage',
+        target_value: goal === 'questions' ? 10 : 80,
+        time_limit_minutes: 1440,
       });
       setShowCreate(false);
       setTitle('');
@@ -103,8 +105,8 @@ export default function QuizPlaylistScreen({ user, onBack }: Props) {
     finally { setJoining(null); }
   };
 
-  const mine    = challenges.filter((c: any) => c.creator_username === user.username || c.creator_id === user.username);
-  const others  = challenges.filter((c: any) => c.creator_username !== user.username && c.creator_id !== user.username);
+  const mine    = challenges.filter((c: any) => c.creator?.username === user.username);
+  const others  = challenges.filter((c: any) => c.creator?.username !== user.username);
   const display = tab === 'mine' ? mine : others;
 
   const isJoined = (c: any) => {
@@ -112,9 +114,17 @@ export default function QuizPlaylistScreen({ user, onBack }: Props) {
     return Array.isArray(parts) && parts.some((p: any) => (typeof p === 'string' ? p : p?.username) === user.username);
   };
 
-  const diffColor = (d: string) => (d === 'easy' ? selectedTheme.success : d === 'hard' ? selectedTheme.danger : selectedTheme.accent);
-
   if (!fontsLoaded) return null;
+
+  if (activeChallengeId !== null) {
+    return (
+      <ChallengePlayScreen
+        user={user}
+        challengeId={activeChallengeId}
+        onExit={() => { setActiveChallengeId(null); load(); }}
+      />
+    );
+  }
 
   if (loading) return (
     <View style={[s.root, { alignItems: 'center', justifyContent: 'center' }]}>
@@ -172,27 +182,30 @@ export default function QuizPlaylistScreen({ user, onBack }: Props) {
             </HapticTouchable>
           </View>
         ) : display.map((c: any, i: number) => {
-          const joined  = isJoined(c);
-          const isMine  = c.creator_username === user.username || c.creator_id === user.username;
-          const count   = c.participants?.length ?? c.participant_count ?? 0;
-          const dColor  = diffColor(c.difficulty);
+          const joined = c.is_participating ?? isJoined(c);
+          const completed = c.user_completed ?? false;
+          const isMine = c.creator?.username === user.username || c.creator_id === user.username;
+          const count = c.participant_count ?? c.participants?.length ?? 0;
+          const goalLabel = c.target_metric === 'accuracy_percentage' ? `${c.target_value ?? 80}% accuracy` : `${c.target_value ?? 10} questions`;
+          const dColor = c.challenge_type === 'accuracy' ? selectedTheme.success : GOLD_M;
+          const progressPct = Math.max(0, Math.min(100, c.user_progress ?? 0));
           return (
-            <View key={c.id ?? i} style={s.card}>
+            <HapticTouchable
+              key={c.id ?? i}
+              style={s.card}
+              activeOpacity={0.9}
+              haptic="none"
+              onPress={() => { if (joined && !completed) setActiveChallengeId(c.id); }}
+            >
               <SocialTileMaterial />
               {/* Card top row */}
               <View style={s.cardHeader}>
                 <View style={[s.subjectBadge, { borderColor: dColor + '60', backgroundColor: dColor + '15' }]}>
-                  <Text style={[s.subjectText, { color: dColor }]}>{c.difficulty ?? 'medium'}</Text>
+                  <Text style={[s.subjectText, { color: dColor }]}>{goalLabel}</Text>
                 </View>
                 <View style={s.subjectBadge}>
                   <Text style={s.subjectText}>{c.subject}</Text>
                 </View>
-                {c.time_limit_hours && (
-                  <View style={[s.subjectBadge, { marginLeft: 'auto' }]}>
-                    <Ionicons name="time-outline" size={10} color={DIM} />
-                    <Text style={s.subjectText}>{c.time_limit_hours}h</Text>
-                  </View>
-                )}
               </View>
 
               {/* Title */}
@@ -200,46 +213,34 @@ export default function QuizPlaylistScreen({ user, onBack }: Props) {
 
               {/* Creator row */}
               <View style={s.cardMeta}>
-                <Avatar name={c.creator_username ?? c.creator ?? '?'} size={22} />
-                <Text style={s.cardCreator}>{c.creator_username ?? c.creator ?? '?'}</Text>
+                <Avatar name={c.creator?.username ?? '?'} size={22} />
+                <Text style={s.cardCreator}>{c.creator?.username ?? '?'}</Text>
                 {isMine && <View style={s.youChip}><Text style={s.youChipText}>you</Text></View>}
                 <View style={{ flex: 1 }} />
                 <Ionicons name="people-outline" size={12} color={DIM} />
                 <Text style={s.cardCreator}>{count}</Text>
               </View>
 
-              {/* Participants row */}
-              {count > 0 && c.participants && Array.isArray(c.participants) && (
-                <View style={s.avatarRow}>
-                  {c.participants.slice(0, 6).map((p: any, pi: number) => (
-                    <View key={pi} style={[s.miniAvatar, { marginLeft: pi > 0 ? -8 : 0 }]}>
-                      <Avatar name={typeof p === 'string' ? p : p?.username ?? '?'} size={26} />
-                    </View>
-                  ))}
-                  {count > 6 && <Text style={s.moreText}>+{count - 6}</Text>}
-                </View>
-              )}
-
               {/* Progress bar if user is participating */}
-              {joined && c.user_score !== undefined && (
+              {joined ? (
                 <View style={s.progressWrap}>
-                  <View style={[s.progressBar, { width: `${Math.min(100, (c.user_score / (c.max_score ?? 100)) * 100)}%` as any }]} />
-                  <Text style={s.progressText}>{c.user_score ?? 0}/{c.max_score ?? c.question_count ?? 10} pts</Text>
+                  <View style={[s.progressBar, { width: `${progressPct}%` as any }]} />
+                  <Text style={s.progressText}>{completed ? 'completed' : `${Math.round(progressPct)}% there`}</Text>
                 </View>
-              )}
+              ) : null}
 
               {/* Action */}
               {!isMine && (
                 <HapticTouchable
                   style={[s.joinBtn, joined && s.joinBtnJoined]}
-                  onPress={() => !joined && doJoin(c.id)}
+                  onPress={() => (joined ? (completed ? undefined : setActiveChallengeId(c.id)) : doJoin(c.id))}
                   haptic={joined ? 'selection' : 'medium'}
                 >
                   {joining === c.id
                     ? <ActivityIndicator size="small" color={joined ? GOLD_M : INK} />
                     : <>
-                        <Ionicons name={joined ? 'checkmark-circle' : 'play-circle-outline'} size={14} color={joined ? GOLD_M : INK} />
-                        <Text style={[s.joinBtnText, joined && { color: GOLD_M }]}>{joined ? 'joined' : 'join challenge'}</Text>
+                        <Ionicons name={completed ? 'checkmark-circle' : joined ? 'play-circle-outline' : 'add-circle-outline'} size={14} color={joined ? GOLD_M : INK} />
+                        <Text style={[s.joinBtnText, joined && { color: GOLD_M }]}>{completed ? 'completed' : joined ? 'continue' : 'join challenge'}</Text>
                         {!joined && <Ionicons name="chevron-forward" size={15} color={INK} />}
                       </>
                   }
@@ -252,13 +253,9 @@ export default function QuizPlaylistScreen({ user, onBack }: Props) {
                     <Ionicons name="people-outline" size={11} color={GOLD_M} />
                     <Text style={s.statText}>{count} participants</Text>
                   </View>
-                  <View style={s.statChip}>
-                    <Ionicons name="layers-outline" size={11} color={GOLD_M} />
-                    <Text style={s.statText}>{c.question_count ?? 10} questions</Text>
-                  </View>
                 </View>
               )}
-            </View>
+            </HapticTouchable>
           );
         })}
       </ScrollView>
@@ -298,18 +295,19 @@ export default function QuizPlaylistScreen({ user, onBack }: Props) {
               <TextInput style={[s.input, { marginTop: -12, marginBottom: 24 }]} value={customSub} onChangeText={setCustomSub} placeholder="enter subject..." placeholderTextColor={DIM} autoFocus />
             )}
 
-            <Text style={s.fieldLabel}>difficulty</Text>
+            <Text style={s.fieldLabel}>goal</Text>
             <View style={s.chipRow}>
-              {(['easy', 'medium', 'hard'] as const).map(d => (
-                <HapticTouchable key={d} style={[s.chip, difficulty === d && { borderColor: diffColor(d) + '80', backgroundColor: diffColor(d) + '15' }]} onPress={() => setDifficulty(d)} haptic="selection">
-                  <Text style={[s.chipText, difficulty === d && { color: diffColor(d) }]}>{d}</Text>
-                </HapticTouchable>
-              ))}
+              <HapticTouchable style={[s.chip, goal === 'questions' && s.chipActive]} onPress={() => setGoal('questions')} haptic="selection">
+                <Text style={[s.chipText, goal === 'questions' && s.chipTextActive]}>answer 10 questions</Text>
+              </HapticTouchable>
+              <HapticTouchable style={[s.chip, goal === 'accuracy' && s.chipActive]} onPress={() => setGoal('accuracy')} haptic="selection">
+                <Text style={[s.chipText, goal === 'accuracy' && s.chipTextActive]}>reach 80% accuracy</Text>
+              </HapticTouchable>
             </View>
 
             <LinearGradient colors={[GOLD_D + '25', GOLD_D + '08']} style={s.infoBox}>
               <Ionicons name="information-circle-outline" size={16} color={GOLD_M} />
-              <Text style={s.infoText}>10 questions will be generated · challenge runs for 48 hours · anyone with the link can join</Text>
+              <Text style={s.infoText}>10 questions will be generated · challenge stays open for 24 hours · anyone can join</Text>
             </LinearGradient>
 
             <HapticTouchable

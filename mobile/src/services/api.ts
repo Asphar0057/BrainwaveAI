@@ -2402,18 +2402,19 @@ export async function getChallenges(userId: string) {
 }
 
 export async function createChallenge(payload: {
-  creator_id: string;
   title: string;
   subject: string;
-  difficulty?: string;
-  question_count?: number;
-  time_limit_hours?: number;
+  description?: string;
+  challenge_type: 'speed' | 'accuracy' | 'topic_mastery' | 'streak';
+  target_metric: 'questions_answered' | 'accuracy_percentage';
+  target_value: number;
+  time_limit_minutes?: number;
 }) {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}/create_challenge`, {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ difficulty: 'medium', question_count: 10, time_limit_hours: 24, ...payload }),
+    body: JSON.stringify({ description: '', time_limit_minutes: 1440, ...payload }),
   });
   return res.json();
 }
@@ -2425,5 +2426,54 @@ export async function joinChallenge(challengeId: number, userId: string) {
     headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify({ challenge_id: challengeId, user_id: userId }),
   });
+  return res.json();
+}
+
+export async function getChallengeDetail(challengeId: number) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/challenge/${challengeId}`, { headers });
+  if (!res.ok) await readApiError(res, 'Could not load this challenge');
+  return res.json();
+}
+
+export async function generateChallengeQuestions(payload: {
+  challengeId: number;
+  subject: string;
+  challengeType?: string;
+  questionCount?: number;
+}): Promise<{ questions: BattleQuestion[] }> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/generate_challenge_questions`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      challenge_id: payload.challengeId,
+      subject: payload.subject,
+      challenge_type: payload.challengeType ?? 'speed',
+      question_count: payload.questionCount ?? 10,
+    }),
+  });
+  if (!res.ok) await readApiError(res, 'Failed to generate challenge questions');
+  return res.json();
+}
+
+export async function updateChallengeProgress(payload: {
+  challengeId: number;
+  questionsAnswered: number;
+  accuracyPercentage: number;
+  answers: { question_id: number; selected_answer: number; is_correct: boolean }[];
+}): Promise<{ progress: number; completed: boolean }> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/update_challenge_progress`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      challenge_id: payload.challengeId,
+      questions_answered: payload.questionsAnswered,
+      accuracy_percentage: payload.accuracyPercentage,
+      answers: payload.answers,
+    }),
+  });
+  if (!res.ok) await readApiError(res, 'Failed to submit challenge progress');
   return res.json();
 }
