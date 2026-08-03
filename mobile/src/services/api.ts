@@ -333,6 +333,15 @@ export async function askAIWithFile(
   return res.json(); // { answer, chat_id, ... }
 }
 
+export type PersonalizedPrompt = { text: string; reason: string; priority: 'high' | 'medium' | 'low' };
+
+export async function getPersonalizedPrompts(): Promise<{ prompts: PersonalizedPrompt[] }> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/get_personalized_prompts`, { method: 'POST', headers });
+  if (!res.ok) return { prompts: [] };
+  return res.json();
+}
+
 export async function getSearchHubSuggestions(userId: string, query = '') {
   const headers = await authHeaders();
   const res = await fetch(

@@ -11,14 +11,14 @@ import NeumorphicTexture, { cbCardGradient, cbTileShadow, cbTileCardGradient, cb
 import CerbylMark from '../components/CerbylMark';
 import XpLineChart from '../components/XpLineChart';
 import { AuthUser } from '../services/auth';
-import { getEnhancedStats, getFriendActivityFeed, getXpHistory, XpHistory } from '../services/api';
+import { getEnhancedStats, getFriendActivityFeed, getXpHistory, XpHistory, getPersonalizedPrompts, PersonalizedPrompt, runSearchHubCommand, getNotifications } from '../services/api';
 import { triggerHaptic } from '../utils/haptics';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 const AnimatedView = Animated.createAnimatedComponent(View);
 
-type HomeTarget = 'flashcards' | 'notes' | 'aimedia' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'xpAnalytics' | 'weaknessPractice' | 'learningPaths';
+type HomeTarget = 'flashcards' | 'notes' | 'aimedia' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'xpAnalytics' | 'weaknessPractice' | 'learningPaths' | 'notifications';
 type Props = {
   user: AuthUser;
   onNavigate?: (screen: HomeTarget) => void;
@@ -83,6 +83,9 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
   const [xpHistory, setXpHistory] = useState<XpHistory | null>(null);
   const [xpChartWidth, setXpChartWidth] = useState(0);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [recommendedPrompts, setRecommendedPrompts] = useState<PersonalizedPrompt[]>([]);
+  const [actingPrompt, setActingPrompt] = useState<string | null>(null);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [heroIndex, setHeroIndex] = useState(0);
   const heroSwap = useRef(new Animated.Value(1)).current;
   const heroAnimating = useRef(false);
@@ -147,7 +150,32 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
       const list = Array.isArray(data) ? data : data?.activities ?? data?.feed ?? [];
       setRecentActivity(list.slice(0, 4));
     }).catch(() => {});
+    getPersonalizedPrompts().then((data) => {
+      setRecommendedPrompts(Array.isArray(data?.prompts) ? data.prompts : []);
+    }).catch(() => {});
+    getNotifications(user.username).then((data) => {
+      setUnreadNotifications((data.notifications ?? []).filter((n) => !n.is_read).length);
+    }).catch(() => {});
   }, [user.username, loadStats, loadXp]);
+
+  const actOnPrompt = async (prompt: PersonalizedPrompt) => {
+    if (actingPrompt) return;
+    setActingPrompt(prompt.text);
+    triggerHaptic('medium');
+    try {
+      const result = await runSearchHubCommand({ userId: user.username, query: prompt.text, sessionId: 'mobile-home-recommendation' });
+      const action = result?.metadata?.action;
+      if (action === 'create_note') onNavigate?.('notes');
+      else if (action === 'create_flashcards') onNavigate?.('flashcards');
+      else if (action === 'create_questions' || action === 'create_quiz') onNavigate?.('questionBank');
+      else if (action === 'create_learning_path') onNavigate?.('learningPaths');
+      else onNavigateToAI?.();
+    } catch {
+      onNavigateToAI?.();
+    } finally {
+      setActingPrompt(null);
+    }
+  };
 
   // Study time otherwise only changes when the backend flushes a session (background
   // or a 5-minute heartbeat, see useSessionTracking) — tick locally between fetches so
@@ -324,6 +352,14 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
             <Text style={styles.appName}>cerbyl</Text>
             <Text style={styles.greeting}>{greeting}, {firstName}</Text>
           </View>
+          <HapticTouchable onPress={() => onNavigate?.('notifications')} style={styles.bellBtn} haptic="selection" accessibilityLabel="Notifications">
+            <Ionicons name="notifications-outline" size={18} color={GOLD_L} />
+            {unreadNotifications > 0 ? (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>{unreadNotifications > 9 ? '9+' : unreadNotifications}</Text>
+              </View>
+            ) : null}
+          </HapticTouchable>
           <View style={styles.topLogoWrap}>
             <CerbylMark size={90} color={GOLD_L} />
           </View>
@@ -401,6 +437,38 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
                   </View>
                 );
               })}
+            </View>
+          </View>
+        )}
+
+        {recommendedPrompts.length > 0 && (
+          <View style={styles.activitySection}>
+            <View style={styles.activityHeader}>
+              <Text style={styles.activityHeadTitle}>recommended for you</Text>
+            </View>
+            <View style={{ gap: 8 }}>
+              {recommendedPrompts.map((prompt, idx) => (
+                <HapticTouchable
+                  key={`${prompt.text}-${idx}`}
+                  style={styles.recoCard}
+                  onPress={() => actOnPrompt(prompt)}
+                  disabled={actingPrompt === prompt.text}
+                  haptic="none"
+                >
+                  <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
+                  <NeumorphicTexture />
+                  <View style={styles.timelineDot}>
+                    {actingPrompt === prompt.text
+                      ? <ActivityIndicator size="small" color={selectedTheme.accentHover} />
+                      : <Ionicons name={prompt.priority === 'high' ? 'flash-outline' : 'bulb-outline'} size={15} color={selectedTheme.accentHover} />}
+                  </View>
+                  <View style={styles.timelineContent}>
+                    <Text style={styles.timelineLabel} numberOfLines={1}>{prompt.text}</Text>
+                    <Text style={styles.timelineActor}>{prompt.reason}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={14} color={selectedTheme.textSecondary} />
+                </HapticTouchable>
+              ))}
             </View>
           </View>
         )}
@@ -545,6 +613,34 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     justifyContent: 'center',
     marginRight: -10,
     transform: [{ translateX: 16 }],
+  },
+  bellBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.18 : 0.22),
+    backgroundColor: rgbaFromHex(theme.panelAlt, theme.isLight ? 0.84 : 0.72),
+    marginRight: 6,
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    backgroundColor: theme.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bellBadgeText: {
+    fontFamily: 'Inter_900Black',
+    fontSize: 8.5,
+    color: '#fff',
   },
   topTextWrap: {
     justifyContent: 'center',
@@ -937,6 +1033,17 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     alignItems: 'center',
     gap: 13,
     borderRadius: 20,
+    overflow: 'hidden',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    boxShadow: cbTileShadow(0.055),
+  } as ViewStyle,
+  recoCard: {
+    minHeight: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 18,
     overflow: 'hidden',
     paddingHorizontal: 14,
     paddingVertical: 12,

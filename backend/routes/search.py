@@ -1675,11 +1675,11 @@ async def get_personalized_prompts(
         priority_order = {"high": 0, "medium": 1, "low": 2}
         unique_prompts.sort(key=lambda x: (priority_order.get(x["priority"], 3), random.random()))
 
-        logger.info(f"Generated {len(unique_prompts)} personalized prompts for user {user_id}")
+        logger.info(f"Generated {len(unique_prompts)} personalized prompts for user {user.username}")
 
         return {
             "prompts": unique_prompts[:4],
-            "user_id": user_id
+            "user_id": user.username
         }
 
     except Exception as e:
