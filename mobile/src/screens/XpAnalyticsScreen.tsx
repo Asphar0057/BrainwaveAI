@@ -14,7 +14,7 @@ import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
-type Props = { user: AuthUser; onBack: () => void };
+type Props = { user: AuthUser; onBack: () => void; onOpenAchievements?: () => void };
 type Period = 'week' | 'month' | 'year';
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -48,7 +48,7 @@ function sourceIcon(label: string): IoniconsName {
   return SOURCE_ICONS[label] ?? 'ellipse-outline';
 }
 
-export default function XpAnalyticsScreen({ user, onBack }: Props) {
+export default function XpAnalyticsScreen({ user, onBack, onOpenAchievements }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
   const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
@@ -98,7 +98,13 @@ export default function XpAnalyticsScreen({ user, onBack }: Props) {
           <Ionicons name="chevron-back" size={18} color={selectedTheme.accent} />
         </HapticTouchable>
         <Text style={s.topTitle}>xp analytics</Text>
-        <View style={s.iconBtnGhost} />
+        {onOpenAchievements ? (
+          <HapticTouchable onPress={onOpenAchievements} style={s.iconBtn} haptic="light" accessibilityLabel="Achievements">
+            <Ionicons name="trophy-outline" size={18} color={selectedTheme.accent} />
+          </HapticTouchable>
+        ) : (
+          <View style={s.iconBtnGhost} />
+        )}
       </View>
 
       <ScrollView

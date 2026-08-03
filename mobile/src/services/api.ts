@@ -163,6 +163,51 @@ export async function getWeeklyBingo(userId: string) {
   return res.json();
 }
 
+export type EarnedAchievement = {
+  id: number;
+  name: string;
+  description: string;
+  icon: string;
+  points: number;
+  category: string;
+  rarity: string;
+  earned_at: string;
+};
+
+export async function getUserAchievements(userId: string): Promise<{ achievements: EarnedAchievement[]; total_points: number }> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/get_user_achievements?user_id=${encodeURIComponent(userId)}`, { headers });
+  if (!res.ok) return { achievements: [], total_points: 0 };
+  return res.json();
+}
+
+export type MissedAchievement = { id: number; name: string; description: string; icon: string; points: number };
+
+export async function getMissedAchievements(userId: string): Promise<{ missed_achievements: MissedAchievement[] }> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/check_missed_achievements?user_id=${encodeURIComponent(userId)}`, { headers });
+  if (!res.ok) return { missed_achievements: [] };
+  return res.json();
+}
+
+export type DailyChallenge = {
+  challenge: { id: number; title: string; description: string; target: number; type: string; reward: number; icon: string };
+  progress: number;
+};
+
+export async function getDashboardData(userId: string): Promise<{
+  status: string;
+  gamification: Record<string, any>;
+  daily_metrics: { questions_answered: number; time_spent_minutes: number; accuracy_rate: number };
+  streak: number;
+  daily_challenge: DailyChallenge;
+}> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/get_dashboard_data?user_id=${encodeURIComponent(userId)}`, { headers });
+  if (!res.ok) await readApiError(res, 'Failed to load dashboard data');
+  return res.json();
+}
+
 export type XpPoint = { date: string; label: string; xp: number };
 export type XpSource = { label: string; xp: number; count: number; percent: number };
 export type XpHistory = {
