@@ -2055,7 +2055,7 @@ export async function deleteChatSession(chatId: number) {
 
 export type ChatFolder = { id: number; name: string; color: string; parent_id: number | null; created_at: string | null };
 
-export async function createChatFolder(userId: string, name: string, color = '#D7B38C'): Promise<ChatFolder> {
+export async function createChatFolder(userId: string, name: string, color = '#D7B38C'): Promise<{ id: number; name: string; color: string; status: string }> {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}/create_chat_folder`, {
     method: 'POST',

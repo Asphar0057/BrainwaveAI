@@ -365,28 +365,24 @@ export default function AIChatScreen({ user }: Props) {
   };
 
   const openMoveToFolder = (session: Session) => {
+    const previousFolderId = session.folder_id;
+    const applyFolder = async (folderId: number | null) => {
+      setSessions((current) => current.map((item) => (item.id === session.id ? { ...item, folder_id: folderId } : item)));
+      try {
+        await moveChatToFolder(session.id, folderId);
+      } catch (error) {
+        setSessions((current) => current.map((item) => (item.id === session.id ? { ...item, folder_id: previousFolderId } : item)));
+        Alert.alert('Could not move chat', error instanceof Error ? error.message : 'Please try again.');
+      }
+    };
     const buttons: { text: string; onPress?: () => void; style?: 'cancel' | 'destructive' }[] = folders.map((folder) => ({
       text: folder.name,
-      onPress: async () => {
-        setSessions((current) => current.map((item) => (item.id === session.id ? { ...item, folder_id: folder.id } : item)));
-        try {
-          await moveChatToFolder(session.id, folder.id);
-        } catch {
-          // silenced -- optimistic update stays
-        }
-      },
+      onPress: () => applyFolder(folder.id),
     }));
     if (session.folder_id) {
       buttons.push({
         text: 'Remove from folder',
-        onPress: async () => {
-          setSessions((current) => current.map((item) => (item.id === session.id ? { ...item, folder_id: null } : item)));
-          try {
-            await moveChatToFolder(session.id, null);
-          } catch {
-            // silenced
-          }
-        },
+        onPress: () => applyFolder(null),
       });
     }
     buttons.push({ text: 'Cancel', style: 'cancel' });
@@ -419,12 +415,15 @@ export default function AIChatScreen({ user }: Props) {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
+          const previousSessionFolderIds = sessions.filter((s) => s.folder_id === folder.id).map((s) => s.id);
           setFolders((current) => current.filter((f) => f.id !== folder.id));
           setSessions((current) => current.map((item) => (item.folder_id === folder.id ? { ...item, folder_id: null } : item)));
           try {
             await deleteChatFolder(folder.id);
-          } catch {
-            // silenced
+          } catch (error) {
+            setFolders((current) => [...current, folder]);
+            setSessions((current) => current.map((item) => (previousSessionFolderIds.includes(item.id) ? { ...item, folder_id: folder.id } : item)));
+            Alert.alert('Could not delete folder', error instanceof Error ? error.message : 'Please try again.');
           }
         },
       },
@@ -1020,7 +1019,7 @@ export default function AIChatScreen({ user }: Props) {
 
       <Modal transparent visible={!!negativeFeedbackTarget} animationType="fade" onRequestClose={() => setNegativeFeedbackTarget(null)}>
         <View style={s.centerOverlay}>
-          <HapticTouchable style={StyleSheet.absoluteFill} onPress={submitNegativeFeedback} activeOpacity={1} haptic="none" />
+          <HapticTouchable style={StyleSheet.absoluteFill} onPress={() => { setNegativeFeedbackTarget(null); setFeedbackComment(''); }} activeOpacity={1} haptic="none" />
           <View style={s.centerCard}>
             <Text style={s.centerCardTitle}>what went wrong?</Text>
             <Text style={s.centerCardSub}>optional — helps us improve cerbyl</Text>
