@@ -472,7 +472,11 @@ const ProfileNew = () => {
         if (!cancelled && session?.role) setAccountRole(session.role);
       })
       .catch(() => {
-        if (!cancelled) navigate('/login', { replace: true });
+        // apiRequest() already redirects to /login and clears the token on a
+        // genuine 401 — only force-navigate here if that already happened
+        // (no token left), so a transient network/500 error doesn't kick out
+        // a still-validly-authenticated user.
+        if (!cancelled && !localStorage.getItem('token')) navigate('/login', { replace: true });
       });
     return () => { cancelled = true; };
   }, [navigate]);

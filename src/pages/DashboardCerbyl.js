@@ -341,6 +341,7 @@ const DashboardCerbyl = () => {
   const [recentNotes, setRecentNotes] = useState([]);
   const [recentMedia, setRecentMedia] = useState([]);
   const [recentSets, setRecentSets] = useState([]);
+  const [dashboardError, setDashboardError] = useState(false);
   const [subscriptionUsage, setSubscriptionUsage] = useState({
     loading: true,
     currentPlanId: 'starter',
@@ -674,6 +675,9 @@ const DashboardCerbyl = () => {
         }));
         setRecentNotes(Array.isArray(d.recent_notes) ? d.recent_notes.slice(0, 3) : []);
         setRecentSets(Array.isArray(d.recent_flashcard_sets) ? d.recent_flashcard_sets.slice(0, 3) : []);
+        setDashboardError(false);
+      } else {
+        setDashboardError(true);
       }
 
       if (heatmapResult.status === 'fulfilled') {
@@ -851,7 +855,7 @@ const DashboardCerbyl = () => {
     heatmap.forEach(d => map.set(d.date, d));
     const last = new Date(heatmap[heatmap.length - 1].date);
     const start = new Date(last);
-    start.setDate(last.getDate() - 7 * 24);
+    start.setDate(last.getDate() - 7 * 52);
     while (start.getDay() !== 0) start.setDate(start.getDate() - 1);
     const weeks = [];
     const cur = new Date(start);
@@ -1928,6 +1932,11 @@ const DashboardCerbyl = () => {
 
         {}
         <main className="cb-main">
+          {dashboardError && (
+            <div className="cb-dashboard-error-banner" role="alert">
+              <span>Couldn't load your latest stats — the numbers below may be out of date. Reload the page to try again.</span>
+            </div>
+          )}
           {}
           <section className="cb-hero">
             <div className="cb-hero-text">

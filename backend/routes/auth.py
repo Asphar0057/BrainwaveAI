@@ -1725,6 +1725,8 @@ async def get_comprehensive_profile(user_id: str = Query(...), db: Session = Dep
             "subscriptionStartedAt": None,
             "quizCompleted": False,
             "quizSkipped": False,
+            "quizResponses": {},
+            "archetypeScores": {},
         }
 
         if comprehensive_profile:
@@ -1757,6 +1759,20 @@ async def get_comprehensive_profile(user_id: str = Query(...), db: Session = Dep
                     result["preferredSubjects"] = json.loads(comprehensive_profile.preferred_subjects)
             except Exception:
                 result["preferredSubjects"] = []
+
+            try:
+                result["quizResponses"] = (
+                    json.loads(comprehensive_profile.quiz_responses) if comprehensive_profile.quiz_responses else {}
+                )
+            except Exception:
+                result["quizResponses"] = {}
+
+            try:
+                result["archetypeScores"] = (
+                    json.loads(comprehensive_profile.archetype_scores) if comprehensive_profile.archetype_scores else {}
+                )
+            except Exception:
+                result["archetypeScores"] = {}
         else:
             result["showStudyInsights"] = True
             result["notificationsEnabled"] = True
