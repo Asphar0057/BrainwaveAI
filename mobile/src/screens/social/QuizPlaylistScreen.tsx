@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator,
-  RefreshControl, TextInput, Modal, Alert, ViewStyle,
+  RefreshControl, TextInput, Modal, Alert, ViewStyle, BackHandler,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -76,12 +76,26 @@ export default function QuizPlaylistScreen({ user, onBack }: Props) {
   useEffect(() => { load(); }, [load]);
   const onRefresh = () => { setRefreshing(true); load(); };
 
+  const exitActiveChallenge = useCallback(() => {
+    setActiveChallengeId(null);
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    if (activeChallengeId === null) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      exitActiveChallenge();
+      return true;
+    });
+    return () => sub.remove();
+  }, [activeChallengeId, exitActiveChallenge]);
+
   const doCreate = async () => {
     if (!title.trim()) { Alert.alert('Enter a title'); return; }
     setCreating(true);
     try {
       const finalSubject = useCustomSub && customSub.trim() ? customSub.trim() : subject;
-      await createChallenge({
+      const created = await createChallenge({
         title: title.trim(),
         subject: finalSubject,
         challenge_type: goal === 'questions' ? 'speed' : 'accuracy',
@@ -89,6 +103,9 @@ export default function QuizPlaylistScreen({ user, onBack }: Props) {
         target_value: goal === 'questions' ? 10 : 80,
         time_limit_minutes: 1440,
       });
+      if (created?.challenge_id) {
+        await joinChallenge(created.challenge_id, user.username);
+      }
       setShowCreate(false);
       setTitle('');
       load();
@@ -121,7 +138,7 @@ export default function QuizPlaylistScreen({ user, onBack }: Props) {
       <ChallengePlayScreen
         user={user}
         challengeId={activeChallengeId}
-        onExit={() => { setActiveChallengeId(null); load(); }}
+        onExit={exitActiveChallenge}
       />
     );
   }

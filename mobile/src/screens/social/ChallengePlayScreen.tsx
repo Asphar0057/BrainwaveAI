@@ -41,6 +41,15 @@ export default function ChallengePlayScreen({ user, challengeId, onExit }: Props
   const answersRef = useRef<PlayAnswer[]>([]);
   const correctRef = useRef(0);
   const finalizedRef = useRef(false);
+  const mountedRef = useRef(true);
+  const answerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      if (answerTimeoutRef.current) clearTimeout(answerTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,6 +58,7 @@ export default function ChallengePlayScreen({ user, challengeId, onExit }: Props
         const detail = await getChallengeDetail(challengeId);
         if (cancelled) return;
         const c = detail.challenge;
+        if (!c) throw new Error('Challenge not found');
         setChallenge(c);
 
         if (c.completed) {
@@ -82,7 +92,7 @@ export default function ChallengePlayScreen({ user, challengeId, onExit }: Props
   const finalize = async () => {
     if (finalizedRef.current) return;
     finalizedRef.current = true;
-    setPhase('submitting');
+    if (mountedRef.current) setPhase('submitting');
     const total = answersRef.current.length;
     const accuracy = total > 0 ? (correctRef.current / total) * 100 : 0;
     try {
@@ -92,9 +102,11 @@ export default function ChallengePlayScreen({ user, challengeId, onExit }: Props
         accuracyPercentage: accuracy,
         answers: answersRef.current,
       });
+      if (!mountedRef.current) return;
       setProgressResult(result);
       setPhase('results');
     } catch (error) {
+      if (!mountedRef.current) return;
       Alert.alert('Challenge', error instanceof Error ? error.message : 'Could not submit your progress');
       onExit();
     }
@@ -109,10 +121,10 @@ export default function ChallengePlayScreen({ user, challengeId, onExit }: Props
     if (isCorrect) correctRef.current += 1;
     answersRef.current = [...answersRef.current, { question_id: q.id, selected_answer: answerIndex, is_correct: isCorrect }];
 
-    setTimeout(() => {
+    answerTimeoutRef.current = setTimeout(() => {
       if (idx + 1 >= questions.length) {
         finalize();
-      } else {
+      } else if (mountedRef.current) {
         setIdx(idx + 1);
         setSelected(null);
       }

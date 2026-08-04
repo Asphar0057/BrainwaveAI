@@ -2430,6 +2430,7 @@ export async function createChallenge(payload: {
     headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify({ description: '', time_limit_minutes: 1440, ...payload }),
   });
+  if (!res.ok) await readApiError(res, 'Failed to create challenge');
   return res.json();
 }
 
@@ -2440,6 +2441,7 @@ export async function joinChallenge(challengeId: number, userId: string) {
     headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify({ challenge_id: challengeId, user_id: userId }),
   });
+  if (!res.ok) await readApiError(res, 'Failed to join challenge');
   return res.json();
 }
 
