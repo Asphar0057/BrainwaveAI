@@ -1065,18 +1065,21 @@ export async function getNotifications(userId: string, limit = 50): Promise<{ no
 export async function markNotificationRead(notificationId: number) {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}/mark_notification_read/${notificationId}`, { method: 'PUT', headers });
+  if (!res.ok) await readApiError(res, 'Could not mark notification read');
   return res.json();
 }
 
 export async function markAllNotificationsRead(userId: string) {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}/mark_all_notifications_read?user_id=${encodeURIComponent(userId)}`, { method: 'PUT', headers });
+  if (!res.ok) await readApiError(res, 'Could not mark notifications read');
   return res.json();
 }
 
 export async function deleteNotification(notificationId: number) {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}/delete_notification/${notificationId}`, { method: 'DELETE', headers });
+  if (!res.ok) await readApiError(res, 'Could not delete notification');
   return res.json();
 }
 
@@ -1132,6 +1135,7 @@ export async function getSharedContentDetail(contentType: 'note' | 'chat', conte
 export async function removeSharedAccess(shareId: number) {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}/remove_shared_access/${shareId}`, { method: 'DELETE', headers });
+  if (!res.ok) await readApiError(res, 'Could not remove shared access');
   return res.json();
 }
 
@@ -1195,12 +1199,14 @@ export async function updateReminder(reminderId: number, patch: { isCompleted?: 
   if (patch.title !== undefined) body.append('title', patch.title);
   const res = await fetch(`${API_URL}/update_reminder/${reminderId}`, { method: 'PUT', headers, body });
   if (!res.ok) await readApiError(res, 'Could not update reminder');
-  return res.json();
+  const data = await res.json();
+  return data.reminder;
 }
 
 export async function deleteReminder(reminderId: number) {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}/delete_reminder/${reminderId}`, { method: 'DELETE', headers });
+  if (!res.ok) await readApiError(res, 'Could not delete reminder');
   return res.json();
 }
 

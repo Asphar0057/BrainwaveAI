@@ -46,11 +46,15 @@ export default function SharedWithMeScreen({ user, onBack }: Props) {
   const [detailItem, setDetailItem] = useState<SharedItem | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const data = await getSharedWithMe();
       setItems(data.shared_items ?? []);
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -151,6 +155,11 @@ export default function SharedWithMeScreen({ user, onBack }: Props) {
 
         {loading ? (
           <ActivityIndicator color={selectedTheme.accent} size="large" style={{ marginTop: 80 }} />
+        ) : loadError ? (
+          <HapticTouchable onPress={load} haptic="light" style={s.errorBanner}>
+            <Ionicons name="alert-circle-outline" size={16} color={selectedTheme.danger} />
+            <Text style={s.errorBannerText}>couldn't load — tap to retry</Text>
+          </HapticTouchable>
         ) : items.length === 0 ? (
           <View style={s.empty}>
             <Ionicons name="people-outline" size={30} color={selectedTheme.accent} />
@@ -192,6 +201,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     kicker: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 8, letterSpacing: 1.7 },
     title: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 24, lineHeight: 28, letterSpacing: -0.5 },
 
+    errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 14, borderWidth: 1, borderColor: rgbaFromHex(theme.danger, 0.3), backgroundColor: rgbaFromHex(theme.danger, 0.1), paddingHorizontal: 14, paddingVertical: 10, marginBottom: 16 } as ViewStyle,
+    errorBannerText: { fontFamily: 'Inter_600SemiBold', color: theme.danger, fontSize: 12 },
     empty: { alignItems: 'center', gap: 6, paddingVertical: 70, paddingHorizontal: 20 },
     emptyTitle: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 13, marginTop: 4 },
     emptyText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11.5, textAlign: 'center' },

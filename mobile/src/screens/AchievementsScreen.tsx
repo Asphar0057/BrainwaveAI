@@ -61,6 +61,7 @@ export default function AchievementsScreen({ user, onBack }: Props) {
   const [totalPoints, setTotalPoints] = useState(0);
   const [missed, setMissed] = useState<MissedAchievement[]>([]);
   const [dailyChallenge, setDailyChallenge] = useState<DailyChallenge | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -73,6 +74,9 @@ export default function AchievementsScreen({ user, onBack }: Props) {
       setTotalPoints(achievementsRes.total_points ?? 0);
       setMissed(missedRes.missed_achievements ?? []);
       setDailyChallenge(dashboardRes?.daily_challenge ?? null);
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -111,6 +115,12 @@ export default function AchievementsScreen({ user, onBack }: Props) {
           <ActivityIndicator color={selectedTheme.accent} size="large" style={{ marginTop: 80 }} />
         ) : (
           <>
+            {loadError ? (
+              <HapticTouchable onPress={load} haptic="light" style={s.errorBanner}>
+                <Ionicons name="alert-circle-outline" size={16} color={selectedTheme.danger} />
+                <Text style={s.errorBannerText}>couldn't load — tap to retry</Text>
+              </HapticTouchable>
+            ) : null}
             {dailyChallenge ? (
               <View style={s.challengeCard}>
                 <View style={s.challengeTop}>
@@ -197,6 +207,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     pointsBadgeText: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 12 },
     accentInk: { color: accentInk },
 
+    errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 14, borderWidth: 1, borderColor: rgbaFromHex(theme.danger, 0.3), backgroundColor: rgbaFromHex(theme.danger, 0.1), paddingHorizontal: 14, paddingVertical: 10, marginBottom: 16 } as ViewStyle,
+    errorBannerText: { fontFamily: 'Inter_600SemiBold', color: theme.danger, fontSize: 12 },
     challengeCard: { borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.9), padding: 16, gap: 10, marginBottom: 20, boxShadow: cbTileShadow(0.07) } as ViewStyle,
     challengeTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     challengeIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center' },

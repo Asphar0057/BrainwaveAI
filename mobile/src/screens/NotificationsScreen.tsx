@@ -50,11 +50,15 @@ export default function NotificationsScreen({ user, onBack }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const data = await getNotifications(user.username);
       setNotifications(data.notifications ?? []);
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -125,6 +129,11 @@ export default function NotificationsScreen({ user, onBack }: Props) {
 
         {loading ? (
           <ActivityIndicator color={selectedTheme.accent} size="large" style={{ marginTop: 80 }} />
+        ) : loadError ? (
+          <HapticTouchable onPress={load} haptic="light" style={s.errorBanner}>
+            <Ionicons name="alert-circle-outline" size={16} color={selectedTheme.danger} />
+            <Text style={s.errorBannerText}>couldn't load notifications — tap to retry</Text>
+          </HapticTouchable>
         ) : notifications.length === 0 ? (
           <View style={s.empty}>
             <Ionicons name="notifications-off-outline" size={30} color={selectedTheme.accent} />
@@ -166,6 +175,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     title: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 26, lineHeight: 30, letterSpacing: -0.6 },
     markAllText: { fontFamily: 'Inter_600SemiBold', color: theme.accentHover, fontSize: 11.5 },
 
+    errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 14, borderWidth: 1, borderColor: rgbaFromHex(theme.danger, 0.3), backgroundColor: rgbaFromHex(theme.danger, 0.1), paddingHorizontal: 14, paddingVertical: 10, marginBottom: 16 } as ViewStyle,
+    errorBannerText: { fontFamily: 'Inter_600SemiBold', color: theme.danger, fontSize: 12 },
     empty: { alignItems: 'center', gap: 8, paddingVertical: 70 },
     emptyTitle: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 13, marginTop: 4 },
 
