@@ -331,6 +331,10 @@ export default function OnboardingQuizScreen({ user, onDone }: Props) {
 
           {step === 'form' ? (
             <>
+              <HapticTouchable onPress={() => setStep('welcome')} activeOpacity={0.7} haptic="light" style={s.backLink}>
+                <Ionicons name="chevron-back" size={14} color={selectedTheme.textSecondary} />
+                <Text style={s.backLinkText}>back</Text>
+              </HapticTouchable>
               <Text style={s.pageTitle}>profile</Text>
               <Text style={s.pageSub}>customize your ai learning experience</Text>
 
@@ -481,6 +485,10 @@ export default function OnboardingQuizScreen({ user, onDone }: Props) {
             </>
           ) : (
             <>
+              <HapticTouchable onPress={() => setStep('form')} activeOpacity={0.7} haptic="light" style={s.backLink}>
+                <Ionicons name="chevron-back" size={14} color={selectedTheme.textSecondary} />
+                <Text style={s.backLinkText}>back to profile</Text>
+              </HapticTouchable>
               <Text style={s.pageTitle}>learning preferences</Text>
               <Text style={s.pageSub}>help us personalize your learning experience</Text>
 
@@ -553,6 +561,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     stepChipOn: { color: theme.accentHover },
     stepRule: { width: 18, height: 1, backgroundColor: rgbaFromHex(theme.accentHover, 0.3) },
 
+    backLink: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', marginBottom: 10, paddingVertical: 4 },
+    backLinkText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: theme.textSecondary },
     pageTitle: { fontFamily: 'Inter_900Black', fontSize: 28, color: theme.accentHover, letterSpacing: -0.6, marginBottom: 4 },
     pageSub: { fontFamily: 'Inter_400Regular', fontSize: 13, color: theme.textSecondary, marginBottom: 18 },
 
