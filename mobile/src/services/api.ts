@@ -2252,7 +2252,8 @@ export async function getGlobalLeaderboard(limit = 20) {
 export async function getQuizBattles(userId: string) {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}/quiz_battles?user_id=${encodeURIComponent(userId)}`, { headers });
-  return res.json(); // { battles: [{id, subject, status, challenger, opponent, ...}] }
+  if (!res.ok) return { battles: [] };
+  return res.json(); // { battles: [{id, subject, status, opponent, your_score, opponent_score, your_completed, opponent_completed, is_challenger, ...}] }
 }
 
 export async function createQuizBattle(payload: {
@@ -2274,6 +2275,7 @@ export async function createQuizBattle(payload: {
       ...payload,
     }),
   });
+  if (!res.ok) await readApiError(res, 'Failed to create battle');
   return res.json(); // { battle_id, message }
 }
 
@@ -2284,6 +2286,7 @@ export async function acceptQuizBattle(battleId: number, userId: string) {
     headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify({ battle_id: battleId, user_id: userId }),
   });
+  if (!res.ok) await readApiError(res, 'Could not accept battle');
   return res.json();
 }
 
@@ -2294,12 +2297,14 @@ export async function declineQuizBattle(battleId: number, userId: string) {
     headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify({ battle_id: battleId, user_id: userId }),
   });
+  if (!res.ok) await readApiError(res, 'Could not decline battle');
   return res.json();
 }
 
 export async function getBattleDetails(battleId: number) {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}/quiz_battle/${battleId}`, { headers });
+  if (!res.ok) await readApiError(res, 'Could not load this battle');
   return res.json();
 }
 

@@ -47,6 +47,15 @@ export default function BattlePlayScreen({ user, battleId, onExit }: Props) {
   const answersRef = useRef<BattleAnswer[]>([]);
   const scoreRef = useRef(0);
   const finalizedRef = useRef(false);
+  const mountedRef = useRef(true);
+  const answerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      if (answerTimeoutRef.current) clearTimeout(answerTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,6 +64,7 @@ export default function BattlePlayScreen({ user, battleId, onExit }: Props) {
         const detail = await getBattleDetails(battleId);
         if (cancelled) return;
         const b = detail.battle;
+        if (!b) throw new Error(detail?.detail || 'Battle not found');
         setBattle(b);
         setTimeRemaining(b.time_limit_seconds || 300);
 
@@ -106,11 +116,13 @@ export default function BattlePlayScreen({ user, battleId, onExit }: Props) {
   const finalize = async () => {
     if (finalizedRef.current) return;
     finalizedRef.current = true;
-    setPhase('submitting');
+    if (mountedRef.current) setPhase('submitting');
     try {
       const result = await completeQuizBattle(battleId, scoreRef.current, answersRef.current);
+      if (!mountedRef.current) return;
       if (result?.both_completed) {
         const detail = await getBattleDetails(battleId);
+        if (!mountedRef.current) return;
         setYourAnswers(Array.isArray(detail.battle?.your_answers) ? detail.battle.your_answers : []);
         setOpponentAnswers(Array.isArray(detail.battle?.opponent_answers) ? detail.battle.opponent_answers : []);
         setBattle(detail.battle);
@@ -119,6 +131,7 @@ export default function BattlePlayScreen({ user, battleId, onExit }: Props) {
         setPhase('waiting');
       }
     } catch (error) {
+      if (!mountedRef.current) return;
       Alert.alert('Battle', error instanceof Error ? error.message : 'Could not submit your results');
       setPhase('waiting');
     }
@@ -164,10 +177,10 @@ export default function BattlePlayScreen({ user, battleId, onExit }: Props) {
     }
     void submitBattleAnswer(battleId, idx, isCorrect).catch(() => {});
 
-    setTimeout(() => {
+    answerTimeoutRef.current = setTimeout(() => {
       if (idx + 1 >= questions.length) {
         finalize();
-      } else {
+      } else if (mountedRef.current) {
         setIdx(idx + 1);
         setSelected(null);
         questionStartRef.current = Date.now();

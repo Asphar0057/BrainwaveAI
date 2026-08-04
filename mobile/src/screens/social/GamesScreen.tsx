@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator,
-  RefreshControl, TextInput, Modal, Alert,
+  RefreshControl, TextInput, Modal, Alert, BackHandler,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -118,6 +118,20 @@ export default function GamesScreen({ user, onBack }: Props) {
   useEffect(() => { load(); }, [load]);
   const onRefresh = () => { setRefreshing(true); load(); };
 
+  const exitActiveBattle = useCallback(() => {
+    setActiveBattleId(null);
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    if (activeBattleId === null) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      exitActiveBattle();
+      return true;
+    });
+    return () => sub.remove();
+  }, [activeBattleId, exitActiveBattle]);
+
   const doAccept  = async (id: number) => {
     try {
       await acceptQuizBattle(id, user.username);
@@ -143,9 +157,9 @@ export default function GamesScreen({ user, onBack }: Props) {
     finally { setCreating(false); }
   };
 
-  const isChallenger = (b: any) => b.challenger?.username === user.username || b.challenger_id === user.username;
-  const opponent     = (b: any) => isChallenger(b) ? (b.opponent ?? b.challenged) : (b.challenger ?? b.challengedBy);
-  const opponentName = (b: any) => opponent(b)?.username ?? opponent(b)?.name ?? '?';
+  const isChallenger = (b: any) => !!b.is_challenger;
+  const opponent     = (b: any) => b.opponent;
+  const opponentName = (b: any) => opponent(b)?.username ?? opponent(b)?.first_name ?? opponent(b)?.name ?? '?';
   const friendName   = (f: any) => f.username || f.friend_username || f.name || '?';
 
   const pending  = battles.filter((b: any) => b.status === 'pending' && !isChallenger(b));
@@ -160,7 +174,7 @@ export default function GamesScreen({ user, onBack }: Props) {
       <BattlePlayScreen
         user={user}
         battleId={activeBattleId}
-        onExit={() => { setActiveBattleId(null); load(); }}
+        onExit={exitActiveBattle}
       />
     );
   }
@@ -258,16 +272,16 @@ export default function GamesScreen({ user, onBack }: Props) {
                       <View style={vs.player}>
                         <Avatar name={user.username} size={44} />
                         <Text style={vs.name} numberOfLines={1}>{user.username}</Text>
-                        {b.challenger_score !== undefined && (
-                          <Text style={vs.score}>{isChallenger(b) ? (b.challenger_score ?? 0) : (b.opponent_score ?? 0)}</Text>
+                        {b.your_score !== undefined && b.your_score !== null && (
+                          <Text style={vs.score}>{b.your_score ?? 0}</Text>
                         )}
                       </View>
                       <Text style={vs.vsText}>VS</Text>
                       <View style={vs.player}>
                         <Avatar name={opponentName(b)} size={44} />
                         <Text style={vs.name} numberOfLines={1}>{opponentName(b)}</Text>
-                        {b.opponent_score !== undefined && (
-                          <Text style={vs.score}>{isChallenger(b) ? (b.opponent_score ?? 0) : (b.challenger_score ?? 0)}</Text>
+                        {b.opponent_score !== undefined && b.opponent_score !== null && (
+                          <Text style={vs.score}>{b.opponent_score ?? 0}</Text>
                         )}
                       </View>
                     </View>
@@ -311,9 +325,7 @@ export default function GamesScreen({ user, onBack }: Props) {
           <>
             <Text style={s.section}>history</Text>
             {history.map((b: any, i: number) => {
-              const won = isChallenger(b)
-                ? (b.challenger_score ?? 0) > (b.opponent_score ?? 0)
-                : (b.opponent_score ?? 0) > (b.challenger_score ?? 0);
+              const won = (b.your_score ?? 0) > (b.opponent_score ?? 0);
               const resultLabel = b.status === 'completed' ? (won ? 'won' : 'lost') : b.status;
               const resultColor = b.status === 'completed' ? (won ? GOLD_M : DIM) : DIM;
               return (
