@@ -22,9 +22,15 @@ const readableAnswer = (answer, question) => {
     try { options = JSON.parse(options); } catch { options = []; }
   }
   const normalized = String(answer).trim();
-  const index = /^[A-Z]$/i.test(normalized) ? normalized.toUpperCase().charCodeAt(0) - 65 : -1;
+  let index = -1;
+  if (/^[A-Z]$/i.test(normalized)) {
+    index = normalized.toUpperCase().charCodeAt(0) - 65;
+  } else if (/^\d+$/.test(normalized)) {
+    index = parseInt(normalized, 10);
+  }
   const option = index >= 0 ? options[index] : null;
-  return option ? `${normalized.toUpperCase()} · ${String(option).replace(/^[A-D][).]\s*/, '')}` : normalized;
+  const letter = index >= 0 ? String.fromCharCode(65 + index) : normalized.toUpperCase();
+  return option ? `${letter} · ${String(option).replace(/^[A-D][).]\s*/, '')}` : normalized;
 };
 
 const SoloQuizReview = () => {

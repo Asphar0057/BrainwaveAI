@@ -238,6 +238,9 @@
 .battle-quiz-flow .result-button:hover { filter: brightness(1.05); transform: translateY(-2px); }
 .battle-quiz-flow .result-button:active { transform: scale(.98); }
 
+.battle-quiz-flow .battle-submit-error { margin-top: 18px; padding: 14px 16px; border: 1px solid rgba(217,90,90,.4); border-radius: 11px; background: rgba(217,90,90,.1); color: #f4f1ee; display: grid; gap: 10px; text-align: center; font-size: 12.5px; }
+.battle-quiz-flow .battle-submit-error .result-button { margin-top: 0; }
+
 .battle-quiz-flow .question-by-question { margin-top: 28px; }
 .battle-quiz-flow .question-by-question > h3 { margin: 0 0 14px; color: var(--bq-accent); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; }
 .battle-quiz-flow .questions-comparison-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: stretch; }

@@ -557,7 +557,7 @@ async def get_quiz_battle_detail(
 
         questions = db.query(models.BattleQuestion).filter(
             models.BattleQuestion.battle_id == battle_id
-        ).all()
+        ).order_by(models.BattleQuestion.id).all()
 
         question_list = []
         for q in questions:
@@ -674,7 +674,7 @@ async def generate_battle_questions(
         if existing:
             questions = db.query(models.BattleQuestion).filter(
                 models.BattleQuestion.battle_id == battle_id
-            ).all()
+            ).order_by(models.BattleQuestion.id).all()
 
             generation_lock.release()
             generation_lock_acquired = False

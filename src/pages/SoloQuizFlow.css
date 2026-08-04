@@ -13,6 +13,9 @@
 .solo-quiz-flow *::before,
 .solo-quiz-flow *::after { box-sizing: border-box; }
 
+.solo-quiz-flow .battle-submit-error { margin-top: 0; margin-bottom: 18px; padding: 14px 16px; border: 1px solid rgba(217,90,90,.4); border-radius: 11px; background: rgba(217,90,90,.1); color: var(--text-primary); display: grid; gap: 10px; text-align: center; font-size: 12.5px; }
+.solo-quiz-flow .battle-submit-error .result-button { margin-top: 0; }
+
 .solo-quiz-flow .shc-main > .solo-session-main,
 .solo-quiz-flow .shc-main > .solo-result-main,
 .solo-quiz-flow .shc-main > .solo-flow-state,

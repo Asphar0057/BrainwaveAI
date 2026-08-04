@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Clock, Target, Trophy, CheckCircle, XCircle, Loader, ArrowLeft, Play, Swords } from 'lucide-react';
 import './QuizBattleSession.css';
@@ -32,8 +32,23 @@ const QuizBattleSession = () => {
   const [opponentCompleted, setOpponentCompleted] = useState(false);
   const [showDetailedResults, setShowDetailedResults] = useState(false);
   const [detailedBattleData, setDetailedBattleData] = useState(null);
+  const [submitError, setSubmitError] = useState(null);
 
-  
+  const mountedRef = useRef(true);
+  const answerTimeoutRef = useRef(null);
+  const opponentNotifTimeoutRef = useRef(null);
+  const lastSubmitAttemptRef = useRef(null);
+  const resultsRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      if (answerTimeoutRef.current) clearTimeout(answerTimeoutRef.current);
+      if (opponentNotifTimeoutRef.current) clearTimeout(opponentNotifTimeoutRef.current);
+    };
+  }, []);
+
+
   const { isConnected } = useSharedWebSocket(token, (message) => {
     
     if (message.type === 'connected') {
@@ -54,10 +69,11 @@ const QuizBattleSession = () => {
                 
         
         setOpponentNotification(notificationData);
-                
-        
-        setTimeout(() => {
-          setOpponentNotification(null);
+
+
+        if (opponentNotifTimeoutRef.current) clearTimeout(opponentNotifTimeoutRef.current);
+        opponentNotifTimeoutRef.current = setTimeout(() => {
+          if (mountedRef.current) setOpponentNotification(null);
         }, 2000);
       } else {
         
@@ -126,7 +142,7 @@ const QuizBattleSession = () => {
     } else if (timeRemaining === 0 && questions.length > 0) {
       handleTimeUp();
     }
-  }, [timeRemaining, showResult]);
+  }, [timeRemaining, showResult, questions.length]);
 
   const loadBattle = async () => {
     try {
@@ -144,9 +160,13 @@ const QuizBattleSession = () => {
           setQuestions(normalizeQuestions(data.questions));
           setLoading(false);
         } else {
-          
+
           await generateQuestions(data.battle);
         }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        alert(errorData.detail || 'Failed to load battle');
+        navigate('/quiz-battles');
       }
     } catch (error) {
             alert('Failed to load battle');
@@ -190,11 +210,11 @@ const QuizBattleSession = () => {
   const handleAnswerSelect = (answerIndex) => {
     if (selectedAnswer !== null) return;
     setSelectedAnswer(answerIndex);
-    
-    
-    
-    setTimeout(() => {
-      handleNextQuestion(answerIndex);
+
+
+
+    answerTimeoutRef.current = setTimeout(() => {
+      if (mountedRef.current) handleNextQuestion(answerIndex);
     }, 2000);
   };
 
@@ -263,7 +283,8 @@ const QuizBattleSession = () => {
   const submitBattle = async (finalScore, answers) => {
     if (isSubmitting) return;
     setIsSubmitting(true);
-    
+    lastSubmitAttemptRef.current = { finalScore, answers };
+
     try {
       const response = await fetch(`${API_URL}/complete_quiz_battle`, {
         method: 'POST',
@@ -280,35 +301,49 @@ const QuizBattleSession = () => {
 
       if (response.ok) {
         const data = await response.json();
+        setSubmitError(null);
         setShowResult(true);
-        
-        
+
+
         if (data.both_completed) {
           fetchDetailedResults();
         }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        setSubmitError(errorData.detail || 'Failed to submit your results.');
       }
     } catch (error) {
-            alert('Failed to submit results');
+      setSubmitError('Failed to submit your results. Check your connection and try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const retrySubmitBattle = () => {
+    if (!lastSubmitAttemptRef.current) return;
+    const { finalScore, answers } = lastSubmitAttemptRef.current;
+    submitBattle(finalScore, answers);
+  };
+
   const fetchDetailedResults = async () => {
+    const requestId = ++resultsRequestIdRef.current;
     try {
             const response = await fetch(`${API_URL}/quiz_battle/${battleId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      
+
+      if (!mountedRef.current || requestId !== resultsRequestIdRef.current) return;
+
       if (response.ok) {
         const data = await response.json();
-                                                
+        if (!mountedRef.current || requestId !== resultsRequestIdRef.current) return;
+
         if (data.battle.opponent_completed && data.battle.your_completed) {
                     setDetailedBattleData(data);
           setShowDetailedResults(true);
-          setOpponentCompleted(true); 
-          
-          
+          setOpponentCompleted(true);
+
+
           const userName = localStorage.getItem('username');
           if (userName && data.battle) {
             if (data.battle.your_score > data.battle.opponent_score) {
@@ -639,6 +674,15 @@ const QuizBattleSession = () => {
           </div>
 
           {/* Removed feedback and next button - auto-advances after 2 seconds */}
+
+          {submitError && (
+            <div className="battle-submit-error" role="alert">
+              <span>{submitError}</span>
+              <button type="button" className="result-button" onClick={retrySubmitBattle} disabled={isSubmitting}>
+                {isSubmitting ? 'Retrying…' : 'Try again'}
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="battle-sidebar">

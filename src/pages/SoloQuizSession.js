@@ -30,6 +30,7 @@ const SoloQuizSession = () => {
   const [timingMode, setTimingMode] = useState('timed');
   const [showInstantFeedback, setShowInstantFeedback] = useState(false);
   const [instantFeedbackCorrect, setInstantFeedbackCorrect] = useState(false);
+  const [completionWarning, setCompletionWarning] = useState(false);
 
   
   useEffect(() => {
@@ -58,8 +59,8 @@ const SoloQuizSession = () => {
 
   
   useEffect(() => {
-    if (showResult || loading) return;
-    
+    if (showResult || loading || grading) return;
+
     if (timingMode === 'timed' && timeRemaining > 0) {
       const timer = setTimeout(() => {
         setTimeRemaining(prev => prev - 1);
@@ -73,7 +74,7 @@ const SoloQuizSession = () => {
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [timeRemaining, timeElapsed, showResult, loading, questions.length, timingMode]);
+  }, [timeRemaining, timeElapsed, showResult, loading, grading, questions.length, timingMode]);
 
   const handleAnswerSelect = (answerIndex) => {
     
@@ -210,11 +211,13 @@ const SoloQuizSession = () => {
         const prevQuestionId = String(prevQuestion?.id ?? (currentQuestionIndex - 1));
         if (userAnswers[prevQuestionId]) {
           const prevAnswer = userAnswers[prevQuestionId];
-          
+
           if (prevQuestion.question_type === 'multiple_choice') {
             setSelectedAnswer(prevAnswer.charCodeAt(0) - 65);
           } else if (prevQuestion.question_type === 'true_false') {
             setSelectedAnswer(prevAnswer === 'true' ? 0 : 1);
+          } else {
+            setSelectedAnswer(parseInt(prevAnswer, 10));
           }
         } else {
           setSelectedAnswer(null);
@@ -237,6 +240,8 @@ const SoloQuizSession = () => {
           setSelectedAnswer(answer.charCodeAt(0) - 65);
         } else if (question.question_type === 'true_false') {
           setSelectedAnswer(answer === 'true' ? 0 : 1);
+        } else {
+          setSelectedAnswer(parseInt(answer, 10));
         }
       } else {
         setSelectedAnswer(null);
@@ -265,8 +270,9 @@ const SoloQuizSession = () => {
       });
 
       setResults(gradeResponse);
+      setCompletionWarning(gradeResponse.completion_saved === false);
 
-      
+
       let performanceAnalysis = null;
       if (gradeResponse.results) {
         try {
@@ -420,6 +426,12 @@ const SoloQuizSession = () => {
             <h1>Quiz Complete!</h1>
           </div>
 
+          {completionWarning && (
+            <div className="battle-submit-error" role="alert">
+              <span>Your score was calculated but couldn't be saved to your account (connection issue). Points and progress from this quiz were not recorded.</span>
+            </div>
+          )}
+
           <div className="result-stats">
             <div className="result-stat">
               <span className="stat-label">Your Score</span>
@@ -487,10 +499,10 @@ const SoloQuizSession = () => {
                       <div className="answer-options-review">
                         {options.map((option, optIndex) => {
                           const optionLetter = String.fromCharCode(65 + optIndex);
-                          const correctAnswer = String(result.correct_answer || '').toUpperCase();
-                          const userAnswer = String(result.user_answer || '').toUpperCase();
-                          const isCorrectOption = optionLetter === correctAnswer || correctAnswer.startsWith(optionLetter);
-                          const isUserSelected = optionLetter === userAnswer || userAnswer.startsWith(optionLetter);
+                          const correctAnswerNum = Number(result.correct_answer);
+                          const userAnswerNum = Number(result.user_answer);
+                          const isCorrectOption = Number.isFinite(correctAnswerNum) && optIndex === correctAnswerNum;
+                          const isUserSelected = Number.isFinite(userAnswerNum) && optIndex === userAnswerNum;
                           const optionText = typeof option === 'string' ? option.replace(/^[A-D]\)\s*/, '') : option;
                           
                           return (

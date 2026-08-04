@@ -185,9 +185,10 @@ class QuizAgentService {
     const quizData = JSON.parse(sessionStorage.getItem('quizData') || '{}');
     const quiz_id = quizData.quiz_id;
 
+    let completionSaved = !quiz_id;
     if (quiz_id) {
       try {
-        
+
         await this.request('/complete_solo_quiz', {
           method: 'POST',
           body: JSON.stringify({
@@ -196,14 +197,16 @@ class QuizAgentService {
             answers: results
           })
         });
+        completionSaved = true;
       } catch (error) {
         console.error('Failed to submit quiz completion:', error);
-        
+        completionSaved = false;
       }
     }
 
     return {
       success: true,
+      completion_saved: completionSaved,
       total_questions: questions.length,
       correct_answers: correctCount,
       percentage,
