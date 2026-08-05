@@ -41,7 +41,7 @@ def _resolve_user_id(db: Session, user_id: str) -> int | None:
 def _get_topic_mastery(db: Session, user_id: int) -> list[dict]:
     records = db.query(models.TopicMastery).filter(
         models.TopicMastery.user_id == user_id
-    ).all()
+    ).order_by(models.TopicMastery.last_practiced.desc()).limit(500).all()
     result = []
     for r in records:
         accuracy = (r.correct_answers / r.questions_asked * 100) if r.questions_asked > 0 else 0.0
@@ -58,6 +58,16 @@ def _get_topic_mastery(db: Session, user_id: int) -> list[dict]:
             "excels_at": r.excels_at or [],
         })
     return result
+
+def _parse_iso_as_utc(value: str) -> datetime:
+    """last_practiced round-trips as a naive datetime through DateTime
+    columns without timezone=True (both SQLite and Postgres); treat a
+    naive isoformat string as UTC instead of crashing on comparison."""
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
 
 def _identify_weaknesses(topic_records: list[dict]) -> list[dict]:
     weaknesses = [t for t in topic_records if t["mastery_level"] < 0.5 or t["accuracy"] < 60]
@@ -678,7 +688,7 @@ async def get_daily_recommendations(
         review_topics = [
             t["topic"] for t in topic_records
             if t["mastery_level"] >= 0.5 and t["last_practiced"]
-            and (datetime.now(timezone.utc) - datetime.fromisoformat(t["last_practiced"])).days > 3
+            and (datetime.now(timezone.utc) - _parse_iso_as_utc(t["last_practiced"])).days > 3
         ][:2]
 
         active_plan = db.query(models.StudyPlan).filter(

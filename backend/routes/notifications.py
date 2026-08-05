@@ -261,7 +261,7 @@ async def debug_notifications(
 
         notifications = db.query(models.Notification).filter(
             models.Notification.user_id == user.id
-        ).all()
+        ).order_by(models.Notification.created_at.desc()).limit(200).all()
 
         return {
             "user_id": user.id,
@@ -319,8 +319,10 @@ async def clear_old_notifications(
         user = current_user
         logger.info(f"Clearing old notifications for user_id={user.id}")
 
+        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
         deleted = db.query(models.Notification).filter(
-            models.Notification.user_id == user.id
+            models.Notification.user_id == user.id,
+            models.Notification.created_at < thirty_days_ago,
         ).delete()
 
         db.commit()

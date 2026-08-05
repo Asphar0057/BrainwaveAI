@@ -586,7 +586,7 @@ async def get_reminders(
             models.Reminder.is_completed,
             models.Reminder.reminder_date.nullslast(),
             models.Reminder.sort_order,
-        ).all()
+        ).limit(2000).all()
 
         return [serialize_reminder(r) for r in reminders]
     except Exception as e:
@@ -849,6 +849,7 @@ async def search_reminders(
                 ),
             )
             .order_by(models.Reminder.reminder_date.nullslast())
+            .limit(200)
             .all()
         )
 

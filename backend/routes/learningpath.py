@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel
 import requests
+from sqlalchemy import case
 from sqlalchemy.orm import Session
 
 import models
@@ -1048,14 +1049,41 @@ async def complete_node(
             "completion_percentage": path.progress.completion_percentage if path.progress else 0,
         }
 
-    node_progress.status = "completed"
-    node_progress.progress_pct = 100
-    node_progress.evidence = request.evidence or {}
-    node_progress.completed_at = datetime.now(timezone.utc)
-    node_progress.updated_at = datetime.now(timezone.utc)
+    # Atomic conditional update guards against two concurrent requests (double
+    # click, client retry) both passing the status check above and double
+    # awarding XP for the same node.
+    claimed = db.query(models.LearningNodeProgress).filter(
+        models.LearningNodeProgress.id == node_progress.id,
+        models.LearningNodeProgress.status != "completed",
+    ).update({
+        models.LearningNodeProgress.status: "completed",
+        models.LearningNodeProgress.progress_pct: 100,
+        models.LearningNodeProgress.evidence: request.evidence or {},
+        models.LearningNodeProgress.completed_at: datetime.now(timezone.utc),
+        models.LearningNodeProgress.updated_at: datetime.now(timezone.utc),
+    })
+    if not claimed:
+        db.rollback()
+        db.refresh(node_progress)
+        return {
+            "success": True,
+            "status": node_progress.status,
+            "xp_earned": 0,
+            "completion_percentage": path.progress.completion_percentage if path.progress else 0,
+        }
+    db.refresh(node_progress)
 
-    path.completed_nodes = min(path.total_nodes, path.completed_nodes + 1)
-    path.updated_at = datetime.now(timezone.utc)
+    db.query(models.LearningPath).filter(models.LearningPath.id == path.id).update({
+        models.LearningPath.completed_nodes: case(
+            (
+                models.LearningPath.completed_nodes + 1 > models.LearningPath.total_nodes,
+                models.LearningPath.total_nodes,
+            ),
+            else_=models.LearningPath.completed_nodes + 1,
+        ),
+        models.LearningPath.updated_at: datetime.now(timezone.utc),
+    }, synchronize_session=False)
+    db.refresh(path)
 
     path_progress = (
         db.query(models.LearningPathProgress)

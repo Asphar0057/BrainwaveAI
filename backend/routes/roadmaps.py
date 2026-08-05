@@ -1155,7 +1155,7 @@ async def get_user_roadmaps(
 
         roadmaps = db.query(models.KnowledgeRoadmap).filter(
             models.KnowledgeRoadmap.user_id == user.id
-        ).order_by(models.KnowledgeRoadmap.last_accessed.desc()).all()
+        ).order_by(models.KnowledgeRoadmap.last_accessed.desc()).limit(500).all()
 
         roadmap_data = []
         for roadmap in roadmaps:
@@ -1188,7 +1188,7 @@ async def get_knowledge_roadmaps(
 
         roadmaps = db.query(models.KnowledgeRoadmap).filter(
             models.KnowledgeRoadmap.user_id == user.id
-        ).order_by(models.KnowledgeRoadmap.created_at.desc()).all()
+        ).order_by(models.KnowledgeRoadmap.created_at.desc()).limit(500).all()
 
         return {
             "roadmaps": [
