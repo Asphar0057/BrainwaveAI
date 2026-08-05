@@ -426,6 +426,13 @@ def detect_intent(state: TutorState) -> dict:
     previous_check = _previous_comprehension_check(chat_history)
     last_ai = _last_ai_message(chat_history)
 
+    # Slide Explorer supplies a bounded, source-grounded study prompt. Deck text
+    # can contain words such as "app", "tool", or "create" that otherwise look
+    # like a project-build request, so honor the explicit handoff before applying
+    # the generic project detector.
+    if "[[presentation_study_context]]" in text:
+        return {"intent": "question"}
+
     if _is_repetitive(text, chat_history):
         return {"intent": "repetitive"}
 

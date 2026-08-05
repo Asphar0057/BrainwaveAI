@@ -16,7 +16,7 @@ import {
   storeGoogleBackendSession,
 } from '../utils/authSession';
 import { clearBackendSession } from '../utils/backendSession';
-import { cacheAccountSession } from '../utils/institutionSession';
+import { fetchAccountSession } from '../utils/institutionSession';
 import { setLearnDestination } from '../utils/workspace';
 
 function Login() {
@@ -60,12 +60,8 @@ function Login() {
     );
 
     try {
-      const sessionResponse = await axios.get(`${API_URL}/institution/session`, {
-        headers: { 'Authorization': `Bearer ${requestToken}` }
-      });
+      const accountSession = await fetchAccountSession({ force: true });
       if (!accountIsStillActive()) return;
-      const accountSession = sessionResponse.data;
-      cacheAccountSession(accountSession);
 
       if (accountSession.role === 'student' || accountSession.role === 'educator') {
         window.location.replace(accountSession.landing_route);

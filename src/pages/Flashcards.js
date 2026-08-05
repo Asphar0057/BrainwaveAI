@@ -3995,23 +3995,57 @@ const Flashcards = () => {
                       <p className="fc-view-sub">Discover and copy flashcard sets shared by the community</p>
                     </div>
                     <div className="fc-explore-search-landing">
-                      <div className="fc-explore-searchbar">
+                      <form
+                        className="fc-explore-searchbar"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          searchPublicFlashcards();
+                        }}
+                      >
                         <span className="fc-explore-search-icon">{FC_ICONS.search}</span>
                         <input
                           type="text"
                           className="fc-explore-search-input"
+                          aria-label="Search public flashcard sets"
                           placeholder="Search public flashcard sets..."
                           value={publicSearchQuery}
                           onChange={(e) => setPublicSearchQuery(e.target.value)}
-                          onKeyPress={(e) => e.key === 'Enter' && searchPublicFlashcards()}
                         />
-                        <button className="fc-explore-search-btn" onClick={() => searchPublicFlashcards()} type="button">
+                        <button className="fc-explore-search-btn" type="submit">
                           Search
                         </button>
+                      </form>
+
+                      <div className="fc-explore-secondary-row">
+                        <span>Search by subject, topic, or deck title</span>
+                        <button className="fc-btn fc-btn-secondary fc-explore-browse-btn" onClick={loadAllPublicFlashcards} type="button">
+                          Browse All Public Sets
+                        </button>
                       </div>
-                      <button className="fc-btn fc-btn-secondary fc-explore-browse-btn" onClick={loadAllPublicFlashcards}>
-                        Browse All Public Sets
-                      </button>
+
+                      <div className="fc-explore-empty-state" role="status">
+                        <div className="fc-explore-empty-icon" aria-hidden="true">
+                          <Layers3 size={24} />
+                        </div>
+                        <h3>{publicSearchQuery.trim() ? 'No matching public sets' : 'No public sets available yet'}</h3>
+                        <p>
+                          {publicSearchQuery.trim()
+                            ? 'Try a broader topic or browse the complete public library.'
+                            : 'Shared decks will appear here as soon as the community publishes them.'}
+                        </p>
+                        {publicSearchQuery.trim() && (
+                          <button
+                            className="fc-btn fc-btn-secondary"
+                            type="button"
+                            onClick={() => {
+                              setPublicSearchQuery('');
+                              loadAllPublicFlashcards();
+                            }}
+                          >
+                            Clear Search
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </>
                 ) : (
@@ -4023,24 +4057,30 @@ const Flashcards = () => {
                     </div>
                     
                     <div className="fc-public-search-bar">
-                      <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                      <form
+                        className="fc-public-search-row"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          searchPublicFlashcards();
+                        }}
+                      >
                         <div className="fc-search fc-search-large">
                           <span className="fc-search-icon">{FC_ICONS.search}</span>
                           <input 
                             type="text"
+                            aria-label="Search public flashcard sets"
                             placeholder="Search public flashcard sets..."
                             value={publicSearchQuery}
                             onChange={(e) => setPublicSearchQuery(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && searchPublicFlashcards()}
                           />
                         </div>
-                        <button className="fc-btn fc-btn-primary" onClick={() => searchPublicFlashcards()}>
+                        <button className="fc-btn fc-btn-primary" type="submit">
                           Search
                         </button>
-                        <button className="fc-btn fc-btn-secondary" onClick={loadAllPublicFlashcards}>
+                        <button className="fc-btn fc-btn-secondary" onClick={loadAllPublicFlashcards} type="button">
                           Show All
                         </button>
-                      </div>
+                      </form>
                     </div>
                     
                     <div className="fc-grid">

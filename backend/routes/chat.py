@@ -1313,6 +1313,7 @@ async def ask_simple(
         user = current_user
         user_question = (original_question or question or "").strip()
         model_question = question
+        slide_study_context = "[[presentation_study_context]]" in model_question.lower()
         tutor_user_question = _strip_internal_graph_guidance(user_question or model_question)
         effective_tutor_input = tutor_user_question if tutor_mode else model_question
 
@@ -1369,7 +1370,7 @@ async def ask_simple(
                 chat_history=chat_history,
                 use_hs_context=bool(use_hs_context),
                 context_doc_ids=selected_doc_ids,
-                context_only=bool(selected_doc_ids),
+                context_only=bool(selected_doc_ids) or slide_study_context,
                 ml_addendum=ml_addendum,
                 tutor_mode=bool(tutor_mode),
                 tutor_reply_style=tutor_reply_style,

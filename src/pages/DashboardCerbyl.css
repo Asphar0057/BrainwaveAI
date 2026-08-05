@@ -485,7 +485,7 @@
   top: -9px;
   right: -8px;
   z-index: 1;
-  width: 390px;
+  width: 310px;
   min-height: 48px;
   display: grid;
   grid-template-columns: minmax(86px, 1fr) auto;
@@ -603,10 +603,6 @@
   transition-delay: 25ms;
 }
 
-.cb-profile-menu-wrap:focus-within .cb-profile-drawer-actions button:nth-child(3) {
-  transition-delay: 50ms;
-}
-
 .cb-profile-drawer-actions button:hover,
 .cb-profile-drawer-actions button:focus-visible {
   outline: none;
@@ -671,10 +667,6 @@
 
   .cb-profile-menu-wrap:hover .cb-profile-drawer-actions button:nth-child(2) {
     transition-delay: 25ms;
-  }
-
-  .cb-profile-menu-wrap:hover .cb-profile-drawer-actions button:nth-child(3) {
-    transition-delay: 50ms;
   }
 
   .cb-profile-menu-wrap:hover .cb-profile-drawer-actions button:hover,

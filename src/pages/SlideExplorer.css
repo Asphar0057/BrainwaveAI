@@ -680,9 +680,9 @@
 
 .se-slide-stepper {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: stretch;
-  gap: 0;
+  grid-template-columns: 132px minmax(360px, 1fr) 132px;
+  align-items: center;
+  gap: 8px;
   margin: 20px 0 12px;
   padding: 5px;
   border: 1px solid var(--se-border);
@@ -694,7 +694,7 @@
 .se-slide-position {
   position: relative;
   min-width: 0;
-  min-height: 56px;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -721,6 +721,7 @@
 }
 
 .se-slide-position {
+  min-height: 70px;
   flex-direction: column;
   border: 1px solid var(--se-border-strong);
   color: var(--text-primary);
@@ -752,7 +753,7 @@
 .se-slide-position strong {
   max-width: 100%;
   overflow: hidden;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 670;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -764,24 +765,20 @@
 }
 
 .se-analysis-grid {
+  min-height: 0;
+  flex: 1;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.35fr) minmax(360px, .85fr);
   align-items: stretch;
   gap: 12px;
-  animation: se-slide-change 260ms var(--se-ease-out) both;
-}
-
-@keyframes se-slide-change {
-  from { opacity: .45; transform: translateX(9px); clip-path: inset(0 10px 0 0 round 14px); }
-  to { opacity: 1; transform: translateX(0); clip-path: inset(0 round 14px); }
 }
 
 .se-slide-frame,
 .se-explanation-panel {
-  min-height: 460px;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  transition: border-color 175ms ease, transform 175ms var(--se-ease-out), box-shadow 175ms ease;
+  transition: border-color 150ms ease;
 }
 
 .se-card-heading {
@@ -835,7 +832,7 @@
 
 .se-slide-canvas {
   position: relative;
-  min-height: 330px;
+  min-height: 0;
   flex: 1;
   display: grid;
   place-items: center;
@@ -869,25 +866,6 @@
   gap: 12px;
 }
 
-.se-scan-line {
-  position: absolute;
-  z-index: 3;
-  top: 16px;
-  bottom: 16px;
-  left: 0;
-  width: 100%;
-  background: linear-gradient(90deg, transparent 48%, color-mix(in srgb, var(--accent) 70%, white) 50%, transparent 52%);
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(-100%);
-}
-
-@keyframes se-source-scan {
-  0% { opacity: 0; transform: translateX(-100%); }
-  15%, 80% { opacity: .7; }
-  100% { opacity: 0; transform: translateX(100%); }
-}
-
 .se-card-support {
   min-height: 48px;
   display: flex;
@@ -906,7 +884,84 @@
   display: flex;
   flex: 1;
   flex-direction: column;
+  overflow-y: auto;
   padding: 18px;
+}
+
+.se-analysis-workspace {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 24px;
+}
+
+/* Keep the page-level sidebar control authoritative even if the shared shell's
+   responsive state changes during the same render. */
+.se-sidebar-hidden .shc-body {
+  width: 100%;
+  max-width: none;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.se-sidebar-hidden .shc-sidebar {
+  display: none;
+}
+
+.se-focus-mode .shc-shell {
+  padding: 0;
+}
+
+.se-focus-mode .shc-topbar {
+  display: none;
+}
+
+.se-focus-mode .shc-body {
+  width: 100%;
+  max-width: none;
+}
+
+.se-focus-mode .shc-main {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.se-focus-mode .se-analysis-workspace {
+  padding: 18px 22px 22px;
+}
+
+.se-focus-mode .se-analysis-hero {
+  align-items: center;
+  padding-bottom: 16px;
+}
+
+.se-focus-mode .se-analysis-hero .se-kicker,
+.se-focus-mode .se-analysis-hero p,
+.se-focus-mode .se-hero-actions .se-compact-btn:first-child,
+.se-focus-mode .se-hero-actions .se-compact-btn:last-child {
+  display: none;
+}
+
+.se-focus-mode .se-analysis-hero h1 {
+  font-size: clamp(26px, 3vw, 42px);
+}
+
+.se-focus-mode .se-slide-stepper {
+  margin-top: 12px;
+}
+
+.se-focus-mode .se-analysis-grid {
+  grid-template-columns: minmax(0, 1.55fr) minmax(360px, .75fr);
+}
+
+.se-focus-mode .se-slide-frame,
+.se-focus-mode .se-explanation-panel {
+  min-height: 0;
+}
+
+.se-focus-mode .se-slide-canvas {
+  min-height: 0;
 }
 
 .se-markdown-content {
@@ -1156,8 +1211,6 @@
 
   .se-deck-card:hover,
   .se-upload-stage:hover,
-  .se-slide-frame:hover,
-  .se-explanation-panel:hover,
   .se-insight-section:hover {
     border-color: var(--se-border-strong);
     transform: translateY(-2px);
@@ -1166,8 +1219,6 @@
 
   .se-deck-card:hover::before,
   .se-upload-stage:hover::before,
-  .se-slide-frame:hover::before,
-  .se-explanation-panel:hover::before,
   .se-insight-section:hover::before {
     opacity: 1;
   }
@@ -1193,7 +1244,6 @@
   .se-upload-stage:hover .se-upload-orbit span:nth-child(2) { animation-delay: 80ms; }
   .se-upload-stage:hover .se-upload-orbit span:nth-child(3) { animation-delay: 160ms; }
 
-  .se-slide-frame:hover .se-scan-line { animation: se-source-scan 900ms var(--se-ease-out) both; }
 }
 
 @keyframes se-orbit-tick {
@@ -1214,6 +1264,7 @@
 @media (max-width: 1100px) {
   .se-workspace { padding: 22px; }
   .se-hero { gap: 24px; }
+  .se-analysis-workspace { display: block; overflow-y: auto; }
   .se-analysis-grid { grid-template-columns: 1fr; }
   .se-slide-frame,
   .se-explanation-panel { min-height: 420px; }
@@ -1244,7 +1295,7 @@
   .se-exam-questions { grid-template-columns: 1fr; }
 
   .se-deck-card { min-height: 360px; }
-  .se-slide-stepper { grid-template-columns: 74px minmax(0, 1fr) 74px; }
+  .se-slide-stepper { grid-template-columns: 48px minmax(0, 1fr) 48px; }
   .se-slide-stepper > button span { display: none; }
   .se-slide-position strong { font-size: 9px; }
   .se-slide-actions { grid-template-columns: 1fr; }
@@ -1267,11 +1318,9 @@
   .se-page :is(
     .se-view,
     .se-deck-card,
-    .se-analysis-grid,
     .se-insights-panel,
     .se-pulse-sq,
     .se-spinner,
-    .se-scan-line,
     .se-upload-orbit span
   ) {
     animation: none !important;

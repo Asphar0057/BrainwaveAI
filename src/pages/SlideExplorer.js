@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Loader, FileText, Trash2, ChevronLeft, ChevronRight, BookOpen, Tag, Lightbulb, UploadCloud, MessageSquare, Brain, Zap, Maximize2, Minimize2, ArrowUpRight, Layers3 } from 'lucide-react';
+import { Upload, Loader, FileText, Trash2, ChevronLeft, ChevronRight, BookOpen, Tag, Lightbulb, UploadCloud, MessageSquare, Brain, Zap, Maximize2, Minimize2, ArrowUpRight, Layers3, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import './SlideExplorer.css';
 import { API_URL } from '../config';
 import slideExplorerAgentService from '../services/slideExplorerAgentService';
 import { sanitizeHtml } from '../utils/sanitize';
 import SocialHubChrome from '../components/SocialHubChrome';
+import { buildSlideDiscussionHandoff } from '../utils/slideDiscussionContext';
 
 const getDeckTitle = (filename = 'Untitled presentation') => filename.replace(/\.(pdf|pptx|ppt)$/i, '');
 
@@ -115,6 +116,11 @@ const SlideExplorer = () => {
   const [focusMode, setFocusMode] = useState(false);
   const [showInsights, setShowInsights] = useState({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarHidden, setSidebarHidden] = useState(false);
+  const pageRef = useRef(null);
+  const handleSidebarCollapsedChange = useCallback((nextCollapsed) => {
+    setSidebarCollapsed(nextCollapsed);
+  }, []);
 
   const fetchUploadedSlides = useCallback(async () => {
     try {
@@ -269,7 +275,8 @@ const SlideExplorer = () => {
   };
 
   const goToSlide = (index) => {
-    if (index >= 0 && index < analyzedSlides.length) setCurrentSlideIndex(index);
+    if (index < 0 || index >= analyzedSlides.length || index === currentSlideIndex) return;
+    setCurrentSlideIndex(index);
   };
 
   const currentSlide = analyzedSlides[currentSlideIndex];
@@ -288,19 +295,58 @@ const SlideExplorer = () => {
         event.preventDefault();
         setCurrentSlideIndex(currentSlideIndex + 1);
       }
-      if (event.key === 'Escape' && focusMode) {
-        event.preventDefault();
-        setFocusMode(false);
-      }
     };
     window.addEventListener('keydown', handleSlideKeys);
     return () => window.removeEventListener('keydown', handleSlideKeys);
   }, [selectedSlide, analyzedSlides.length, currentSlideIndex, focusMode]);
 
+  useEffect(() => {
+    const syncFullscreen = () => {
+      if (!document.fullscreenElement) setFocusMode(false);
+    };
+    document.addEventListener('fullscreenchange', syncFullscreen);
+    return () => document.removeEventListener('fullscreenchange', syncFullscreen);
+  }, []);
+
+  const enterFocusMode = async () => {
+    setFocusMode(true);
+    try {
+      if (pageRef.current?.requestFullscreen && !document.fullscreenElement) {
+        await pageRef.current.requestFullscreen();
+      }
+    } catch {
+      // CSS focus mode still fills the viewport when browser fullscreen is unavailable.
+    }
+  };
+
+  const exitFocusMode = async () => {
+    setFocusMode(false);
+    try {
+      if (document.fullscreenElement && document.exitFullscreen) await document.exitFullscreen();
+    } catch {
+      // The visual focus mode has already been exited.
+    }
+  };
+
+  const handleDiscussWithAI = () => {
+    const handoff = buildSlideDiscussionHandoff({
+      presentation: selectedSlide,
+      slides: analyzedSlides,
+      currentSlideIndex,
+    });
+    navigate('/ai-chat', {
+      state: {
+        initialMessage: handoff.displayMessage,
+        initialModelMessage: handoff.modelMessage,
+        conversationContext: handoff.conversationContext,
+      },
+    });
+  };
+
   const leaveAnalysis = () => {
     setSelectedSlide(null);
     setAnalyzedSlides([]);
-    setFocusMode(false);
+    exitFocusMode();
   };
 
   const sidebarLead = (
@@ -355,12 +401,15 @@ const SlideExplorer = () => {
     }];
 
     return (
-      <div className={`se-page with-social-chrome se-analysis-page ${focusMode ? 'se-focus-mode' : ''}`}>
+      <div
+        ref={pageRef}
+        className={`se-page with-social-chrome se-analysis-page ${sidebarHidden ? 'se-sidebar-hidden' : ''} ${focusMode ? 'se-focus-mode' : ''}`}
+      >
         <SocialHubChrome
           brandKicker="Slides"
-          noSidebar={focusMode}
+          noSidebar={sidebarHidden || focusMode}
           collapsed={sidebarCollapsed}
-          onCollapsedChange={(nextCollapsed) => setSidebarCollapsed(nextCollapsed)}
+          onCollapsedChange={handleSidebarCollapsedChange}
           sidebarLead={(
             <button className="se-side-primary se-side-primary--quiet" type="button" onClick={leaveAnalysis}>
               <ChevronLeft size={15} />
@@ -377,7 +426,17 @@ const SlideExplorer = () => {
                 <p>Review the source slide beside its explanation, then reveal concepts and practice prompts when you need them.</p>
               </div>
               <div className="se-hero-actions">
-                <button className="se-compact-btn" type="button" onClick={() => setFocusMode(value => !value)}>
+                <button
+                  className="se-compact-btn"
+                  type="button"
+                  aria-pressed={sidebarHidden}
+                  aria-label={sidebarHidden ? 'Show presentation sidebar' : 'Hide presentation sidebar'}
+                  onClick={() => setSidebarHidden(value => !value)}
+                >
+                  {sidebarHidden ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
+                  <span>{sidebarHidden ? 'Show sidebar' : 'Hide sidebar'}</span>
+                </button>
+                <button className="se-compact-btn" type="button" aria-pressed={focusMode} onClick={focusMode ? exitFocusMode : enterFocusMode}>
                   {focusMode ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
                   <span>{focusMode ? 'Exit focus' : 'Focus mode'}</span>
                 </button>
@@ -412,7 +471,6 @@ const SlideExplorer = () => {
                     <small>{String(currentSlideIndex + 1).padStart(2, '0')}</small>
                   </div>
                   <div className="se-slide-canvas">
-                    <span className="se-scan-line" aria-hidden="true" />
                     <img
                       src={`${API_URL}/slide_image/${selectedSlide.id}/${currentSlide.slide_number}?token=${encodeURIComponent(token)}`}
                       alt={`Slide ${currentSlide.slide_number}: ${currentSlide.title || 'Untitled'}`}
@@ -456,7 +514,7 @@ const SlideExplorer = () => {
                         <button
                           className="se-action-btn se-action-discuss"
                           type="button"
-                          onClick={() => navigate(`/ai-chat?slideRef=${encodeURIComponent(`${selectedSlide.filename} — Slide ${currentSlide.slide_number}: ${currentSlide.title || ''}`)}`)}
+                          onClick={handleDiscussWithAI}
                         >
                           <MessageSquare size={15} />
                           Discuss with AI
@@ -560,7 +618,7 @@ const SlideExplorer = () => {
       <SocialHubChrome
         brandKicker="Slides"
         collapsed={sidebarCollapsed}
-        onCollapsedChange={(nextCollapsed) => setSidebarCollapsed(nextCollapsed)}
+        onCollapsedChange={handleSidebarCollapsedChange}
         sidebarLead={sidebarLead}
         sideSections={librarySections}
       >

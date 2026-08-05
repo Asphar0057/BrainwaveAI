@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowUpRight, Plus, ChevronLeft, ChevronRight, FileText, Mic, Library, Search, Pencil, X, Check, User, Bell, Sparkles, Trash2, Settings, LogOut } from 'lucide-react';
+import { ArrowUpRight, Plus, ChevronLeft, ChevronRight, FileText, Mic, Library, Search, Pencil, X, Check, User, Bell, Sparkles, Trash2, LogOut } from 'lucide-react';
 import { API_URL } from '../config/api';
 import ThemeSwitcher from '../components/ThemeSwitcher';
 import { useNotifications } from '../contexts/NotificationContext';
@@ -1798,10 +1798,6 @@ const DashboardCerbyl = () => {
                 <button type="button" role="menuitem" onClick={() => navigate('/profile')}>
                   <User size={14} />
                   <span>Profile</span>
-                </button>
-                <button type="button" role="menuitem" onClick={() => navigate('/customize-dashboard')}>
-                  <Settings size={14} />
-                  <span>Settings</span>
                 </button>
                 <button type="button" role="menuitem" className="cb-profile-drawer-signout" onClick={handleDashboardSignOut}>
                   <LogOut size={14} />

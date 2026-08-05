@@ -219,6 +219,20 @@ def test_greeting_plus_project_request_stays_in_delivery_mode():
     assert result["intent"] == "project_build"
 
 
+def test_slide_explorer_study_context_cannot_be_misrouted_as_project_build():
+    result = nodes.detect_intent(
+        {
+            "user_input": (
+                "[[PRESENTATION_STUDY_CONTEXT]] Teach me this deck. "
+                "One slide mentions an app, a tool, and how to create a chart."
+            ),
+            "chat_history": [],
+        }
+    )
+
+    assert result["intent"] == "question"
+
+
 def test_vague_project_response_is_marked_for_repair():
     response = (
         "You could consider React or Vue for the frontend and perhaps use a backend framework. "

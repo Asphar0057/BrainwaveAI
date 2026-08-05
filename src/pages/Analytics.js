@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Download, Zap, BookOpen, MessageSquare,
@@ -36,10 +36,30 @@ const fetchJson = async (url) => {
   return r.json();
 };
 
+const formatChartLabel = (point = {}, groupBy = 'day') => {
+  const rawDate = point.date || point.period;
+  if (rawDate) {
+    const parsed = new Date(`${rawDate}T00:00:00`);
+    if (!Number.isNaN(parsed.getTime())) {
+      return new Intl.DateTimeFormat('en', groupBy === 'month'
+        ? { month: 'short' }
+        : { month: 'short', day: 'numeric' }).format(parsed);
+    }
+  }
+  return String(point.label || point.day || '').slice(0, 7);
+};
+
+const getNiceChartMaximum = (value) => {
+  if (value <= 1) return 1;
+  const magnitude = 10 ** Math.floor(Math.log10(value));
+  const normalized = value / magnitude;
+  const step = normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+  return step * magnitude;
+};
+
 const Analytics = () => {
   const navigate = useNavigate();
   const userName = localStorage.getItem('username') || '';
-  const chartRef = useRef(null);
   const profile = useMemo(() => {
     try {
       return JSON.parse(localStorage.getItem('userProfile') || '{}') || {};
@@ -124,23 +144,32 @@ const Analytics = () => {
 
   const lineSvg = useMemo(() => {
     if (!historicalData.length) return null;
-    const W = 800, H = 200, pL = 0, pR = 0, pT = 20, pB = 30;
+    const W = 800, H = 224, pL = 48, pR = 16, pT = 14, pB = 34;
     const iW = W - pL - pR, iH = H - pT - pB;
-    const maxV = Math.max(1, ...historicalData.map(d => d.points || 0));
+    const maxV = getNiceChartMaximum(Math.max(1, ...historicalData.map(d => d.points || 0)));
     const step = iW / Math.max(1, historicalData.length - 1);
     const pts = historicalData.map((d, i) => ({
       x: pL + i * step,
       y: pT + iH - ((d.points || 0) / maxV) * iH,
       v: d.points || 0,
-      label: d.label || d.day || '',
+      label: formatChartLabel(d, periodStats.groupBy),
       date: d.date || '',
     }));
-    const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+    const path = pts.reduce((result, point, index) => {
+      if (index === 0) return `M ${point.x.toFixed(1)},${point.y.toFixed(1)}`;
+      const previous = pts[index - 1];
+      const midpoint = (previous.x + point.x) / 2;
+      return `${result} C ${midpoint.toFixed(1)},${previous.y.toFixed(1)} ${midpoint.toFixed(1)},${point.y.toFixed(1)} ${point.x.toFixed(1)},${point.y.toFixed(1)}`;
+    }, '');
     const area = pts.length > 1
       ? `${path} L ${pts[pts.length-1].x},${pT+iH} L ${pts[0].x},${pT+iH} Z`
       : '';
-    return { W, H, pT, pB, iH, pts, path, area };
-  }, [historicalData]);
+    const yTicks = [0, .25, .5, .75, 1].map(fraction => ({
+      value: Math.round(maxV * fraction),
+      y: pT + iH * (1 - fraction),
+    }));
+    return { W, H, pL, pR, pT, pB, iW, iH, pts, path, area, yTicks };
+  }, [historicalData, periodStats.groupBy]);
 
   const xp = gamStats.experience || gamStats.current_xp || 0;
   const nextXp = gamStats.next_level_xp || 1000;
@@ -158,6 +187,9 @@ const Analytics = () => {
 
   const breakdownColors = { ai_chats:'#3b82f6', notes:'#10b981', flashcards:'#f59e0b', quizzes:'#ef4444', battles:'#8b5cf6', other:'#6b7280' };
   const totalBkdn = useMemo(() => Object.values(breakdown).reduce((s, v) => s + (v.count || 0), 0), [breakdown]);
+  const breakdownEntries = useMemo(() => Object.entries(breakdown)
+    .filter(([, value]) => value.count > 0)
+    .sort((a, b) => b[1].count - a[1].count), [breakdown]);
   const displayName =
     profile.firstName ||
     profile.first_name ||
@@ -377,7 +409,7 @@ const Analytics = () => {
 
             <div className="an-trend-row">
               {}
-              <div className="an-chart-card" ref={chartRef} onMouseLeave={() => setChartHover(null)}>
+              <div className="an-chart-card" onMouseLeave={() => setChartHover(null)}>
                 <div className="an-chart-header">
                   <div>
                     <div className="an-chart-title">Points Over Time</div>
@@ -394,12 +426,15 @@ const Analytics = () => {
                   <svg
                     viewBox={`0 0 ${lineSvg.W} ${lineSvg.H}`}
                     className="an-line-svg"
-                    preserveAspectRatio="none"
+                    preserveAspectRatio="xMidYMid meet"
+                    role="img"
+                    aria-label="Points earned over time"
                     onMouseMove={(e) => {
-                      if (!chartRef.current || !lineSvg) return;
-                      const rect = chartRef.current.getBoundingClientRect();
+                      const rect = e.currentTarget.getBoundingClientRect();
                       const rx = e.clientX - rect.left;
-                      const idx = Math.round((rx / rect.width) * (lineSvg.pts.length - 1));
+                      const chartX = (rx / rect.width) * lineSvg.W;
+                      const progress = Math.max(0, Math.min(1, (chartX - lineSvg.pL) / lineSvg.iW));
+                      const idx = Math.round(progress * (lineSvg.pts.length - 1));
                       setChartHover(lineSvg.pts[Math.max(0, Math.min(idx, lineSvg.pts.length - 1))]);
                     }}
                   >
@@ -409,16 +444,20 @@ const Analytics = () => {
                         <stop offset="100%" stopColor="var(--accent)" stopOpacity="0"/>
                       </linearGradient>
                     </defs>
-                    {}
-                    {[0.25, 0.5, 0.75, 1].map((f, i) => (
-                      <line key={i}
-                        x1={0} y1={lineSvg.pT + lineSvg.iH * (1-f)}
-                        x2={lineSvg.W} y2={lineSvg.pT + lineSvg.iH * (1-f)}
-                        stroke="rgba(255,255,255,0.04)" strokeWidth="1"
-                      />
+                    {lineSvg.yTicks.map(tick => (
+                      <g key={tick.value}>
+                        <line
+                          x1={lineSvg.pL} y1={tick.y}
+                          x2={lineSvg.W - lineSvg.pR} y2={tick.y}
+                          className="an-chart-gridline"
+                        />
+                        <text x={lineSvg.pL - 10} y={tick.y + 3} textAnchor="end" className="an-axis-value">
+                          {tick.value}
+                        </text>
+                      </g>
                     ))}
                     <path d={lineSvg.area} fill="url(#an-area-grad)"/>
-                    <path d={lineSvg.path} fill="none" stroke="var(--accent)" strokeWidth="2.5"
+                    <path className="an-line-path" d={lineSvg.path} fill="none" stroke="var(--accent)" strokeWidth="3"
                       strokeLinecap="round" strokeLinejoin="round"/>
                     {}
                     {lineSvg.pts.map((p, i) => {
@@ -432,13 +471,12 @@ const Analytics = () => {
                       ) : null;
                     })}
                     {chartHover && (
-                      <line x1={chartHover.x} y1={lineSvg.pT} x2={chartHover.x} y2={lineSvg.pT+lineSvg.iH}
-                        stroke="var(--accent)" strokeWidth="1" strokeDasharray="4 3" opacity="0.4"/>
+                      <line className="an-chart-crosshair" x1={chartHover.x} y1={lineSvg.pT} x2={chartHover.x} y2={lineSvg.pT+lineSvg.iH}/>
                     )}
                     {}
                     {lineSvg.pts.filter((_, i) => lineSvg.pts.length <= 7 || i === 0 || i === lineSvg.pts.length-1 || (i % Math.ceil(lineSvg.pts.length/6) === 0)).map((p, i) => (
                       <text key={i} x={p.x} y={lineSvg.H-6} textAnchor="middle" className="an-axis-label">
-                        {(p.label || '').slice(0,3).toUpperCase()}
+                        {p.label}
                       </text>
                     ))}
                   </svg>
@@ -449,13 +487,29 @@ const Analytics = () => {
 
               {}
               <div className="an-breakdown-card">
-                <div className="an-chart-title">Activity Split</div>
-                <div className="an-chart-sub">{totalBkdn} total actions</div>
+                <div className="an-chart-header">
+                  <div>
+                    <div className="an-chart-title">Activity Split</div>
+                    <div className="an-chart-sub">{totalBkdn} total actions</div>
+                  </div>
+                  <span className="an-breakdown-total">{breakdownEntries.length} types</span>
+                </div>
+                {totalBkdn > 0 && (
+                  <div className="an-bk-stack" aria-label="Activity distribution">
+                    {breakdownEntries.map(([key, value]) => (
+                      <span
+                        key={key}
+                        style={{
+                          width: `${(value.count / totalBkdn) * 100}%`,
+                          background: breakdownColors[key] || '#6b7280',
+                        }}
+                        title={`${value.label}: ${value.count}`}
+                      />
+                    ))}
+                  </div>
+                )}
                 <div className="an-breakdown-rows">
-                  {Object.entries(breakdown)
-                    .filter(([, v]) => v.count > 0)
-                    .sort((a, b) => b[1].count - a[1].count)
-                    .map(([key, v]) => {
+                  {breakdownEntries.map(([key, v]) => {
                       const pct = totalBkdn > 0 ? (v.count / totalBkdn) * 100 : 0;
                       const col = breakdownColors[key] || '#6b7280';
                       return (
@@ -480,7 +534,7 @@ const Analytics = () => {
             {}
             <div className="an-section-label">
               <span className="an-sec-num">02</span>
-              <span className="an-sec-title">PROGRESS RINGS</span>
+              <span className="an-sec-title">LEARNING GOALS</span>
               <span className="an-sec-line" />
             </div>
 
@@ -495,19 +549,25 @@ const Analytics = () => {
                 const C = 2 * Math.PI * 52;
                 const dash = (pct / 100) * C;
                 return (
-                  <div key={r.label} className="an-ring-card">
-                    <div className="an-ring-deco" style={{ color: r.col }}>{r.icon}</div>
-                    <svg viewBox="0 0 128 128" className="an-ring-svg">
-                      <circle cx="64" cy="64" r="52" stroke="rgba(255,255,255,0.05)" strokeWidth="8" fill="none"/>
-                      <circle cx="64" cy="64" r="52"
-                        stroke={r.col} strokeWidth="8" fill="none"
-                        strokeDasharray={`${dash.toFixed(2)} ${C.toFixed(2)}`}
-                        strokeLinecap="round" transform="rotate(-90 64 64)"
-                      />
-                    </svg>
-                    <div className="an-ring-num">{r.val.toLocaleString()}</div>
-                    <div className="an-ring-pct" style={{ color: r.col }}>{pct.toFixed(0)}%</div>
-                    <div className="an-ring-lbl">{r.label}</div>
+                  <div key={r.label} className="an-ring-card" style={{ '--an-series': r.col }}>
+                    <div className="an-ring-visual">
+                      <svg viewBox="0 0 128 128" className="an-ring-svg" role="img" aria-label={`${r.label}: ${pct.toFixed(0)} percent of goal`}>
+                        <circle className="an-ring-track" cx="64" cy="64" r="52" strokeWidth="8" fill="none"/>
+                        <circle className="an-ring-progress" cx="64" cy="64" r="52"
+                          strokeWidth="8" fill="none"
+                          strokeDasharray={`${dash.toFixed(2)} ${C.toFixed(2)}`}
+                          strokeLinecap="round" transform="rotate(-90 64 64)"
+                        />
+                      </svg>
+                      <div className="an-ring-center">
+                        <strong>{r.val.toLocaleString()}</strong>
+                        <span>{pct.toFixed(0)}%</span>
+                      </div>
+                    </div>
+                    <div className="an-ring-meta">
+                      <div className="an-ring-label"><span>{r.icon}</span><strong>{r.label}</strong></div>
+                      <small>Goal {r.target.toLocaleString()}</small>
+                    </div>
                   </div>
                 );
               })}
@@ -524,7 +584,14 @@ const Analytics = () => {
             <div className="an-weekly-row">
               {}
               <div className="an-weekly-card">
-                <div className="an-weekly-bars">
+                <div className="an-chart-header">
+                  <div>
+                    <div className="an-chart-title">Daily Activity</div>
+                    <div className="an-chart-sub">Actions by study tool</div>
+                  </div>
+                </div>
+                {(weeklyData.daily_breakdown || []).length > 0 ? (
+                  <div className="an-weekly-bars">
                   {(weeklyData.daily_breakdown || []).map((d, i) => {
                     const total = (d.ai_chats||0) + (d.notes||0) + (d.flashcards||0) + (d.quizzes||0);
                     const max = Math.max(1, ...(weeklyData.daily_breakdown||[]).map(x => (x.ai_chats||0)+(x.notes||0)+(x.flashcards||0)+(x.quizzes||0)));
@@ -546,12 +613,17 @@ const Analytics = () => {
                       </div>
                     );
                   })}
-                </div>
-                <div className="an-wbar-legend">
-                  {[['#3b82f6','Chats'],['#10b981','Notes'],['#f59e0b','Flash'],['#ef4444','Quiz']].map(([col,lbl]) => (
-                    <span key={lbl} className="an-wbar-leg"><span style={{background:col}}/>{lbl}</span>
-                  ))}
-                </div>
+                  </div>
+                ) : (
+                  <div className="an-empty-chart"><BarChart3 size={24}/><p>No activity recorded this week</p></div>
+                )}
+                {(weeklyData.daily_breakdown || []).length > 0 && (
+                  <div className="an-wbar-legend">
+                    {[['#3b82f6','Chats'],['#10b981','Notes'],['#f59e0b','Flash'],['#ef4444','Quiz']].map(([col,lbl]) => (
+                      <span key={lbl} className="an-wbar-leg"><span style={{background:col}}/>{lbl}</span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {}

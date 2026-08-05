@@ -38,6 +38,7 @@ import contextService from '../services/contextService';
 import { enableChatDock } from '../utils/chatDock';
 import { queueChatCompletion, queueLegacyAIFileEndpoint, queuedAIJsonFetch, USE_AI_JOB_QUEUE } from '../services/aiJobService';
 import { formatUsageLimitMessage, getUsageLimitFromError, throwIfUsageLimitResponse } from '../utils/usageLimit';
+import { buildContextAwareMessage } from '../utils/slideDiscussionContext';
 
 const CONTEXT_SELECTION_KEY = 'ctx_selected_doc_ids';
 const chatContextSelectionKey = (chatId) => (
@@ -724,6 +725,7 @@ const AIChat = ({ sharedMode = false }) => {
   const [shareLinkCopied, setShareLinkCopied] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
+  const [conversationContext, setConversationContext] = useState(() => location.state?.conversationContext || '');
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(() => (
     typeof window === 'undefined' ? true : window.innerWidth > 720
@@ -1393,6 +1395,7 @@ const AIChat = ({ sharedMode = false }) => {
 
       setMessages([]);
       setInputMessage('');
+      setConversationContext('');
       clearAllFiles();
       setSelectedFolder(null);
       setSearchQuery('');
@@ -1420,6 +1423,7 @@ const AIChat = ({ sharedMode = false }) => {
     }
     chatLoadRequestRef.current += 1;
     setMessages([]);
+    setConversationContext(sessionStorage.getItem(`ai_chat_context:${chatUid || chatSessionId}`) || '');
     setIsChatSwitching(true);
     clearAllFiles();
     isLoadingRef.current = false;
@@ -1453,11 +1457,12 @@ const AIChat = ({ sharedMode = false }) => {
     
     
     const messageText = sanitizedMessage;
+    const contextAwareMessage = buildContextAwareMessage(conversationContext, messageText);
     const effectiveTutorMode = tutorMode || useOverride;
     const answeringComprehensionCheck = isAnsweringPreviousComprehensionCheck(messageText, messages);
     const answeringTutorStep = effectiveTutorMode && isAnsweringTutorStep(messageText, messages);
     const shouldUseGraphPrompt = !effectiveTutorMode && !answeringComprehensionCheck && !answeringTutorStep;
-    const messageForModel = shouldUseGraphPrompt ? buildGraphAwarePrompt(messageText) : messageText;
+    const messageForModel = shouldUseGraphPrompt ? buildGraphAwarePrompt(contextAwareMessage) : contextAwareMessage;
     const messagedFiles = useOverride ? [] : [...selectedFiles];
     
     if (!useOverride) {
@@ -2655,11 +2660,19 @@ const AIChat = ({ sharedMode = false }) => {
     }
   }, [userName]);
 
+  useEffect(() => {
+    if (!chatId || location.state?.conversationContext) return;
+    setConversationContext(sessionStorage.getItem(`ai_chat_context:${chatId}`) || '');
+  }, [chatId, location.state?.conversationContext]);
+
   // Handle initialMessage from SearchHub or other sources
   useEffect(() => {
     const initialMsg = location.state?.initialMessage;
+    const initialContext = location.state?.conversationContext || '';
+    const initialModelMessage = location.state?.initialModelMessage || buildContextAwareMessage(initialContext, initialMsg);
     
     if (initialMsg && userName && !loading) {
+      setConversationContext(initialContext);
             
       // Set the input message so user can see what they asked
       setInputMessage(initialMsg);
@@ -2673,11 +2686,18 @@ const AIChat = ({ sharedMode = false }) => {
                     setLoading(false);
           return;
         }
+
+        const { id: newNumericId, uid: newChatUid } = _newChatRef.current;
+        const resolvedChatId = newNumericId || newChatId;
         
                 
         // Set active chat and navigate
-        setActiveChatId(newChatId);
-        navigate(`/ai-chat/${newChatId}`, { replace: true });
+        setActiveChatId(resolvedChatId);
+        if (initialContext) {
+          sessionStorage.setItem(`ai_chat_context:${resolvedChatId}`, initialContext);
+          if (newChatUid) sessionStorage.setItem(`ai_chat_context:${newChatUid}`, initialContext);
+        }
+        navigate(`/ai-chat/${newChatUid || resolvedChatId}`, { replace: true });
         
         // Add user message to UI
         const userMessage = {
@@ -2696,10 +2716,10 @@ const AIChat = ({ sharedMode = false }) => {
           const token = localStorage.getItem('token');
           const formData = new FormData();
           formData.append('user_id', userName);
-          const initialMessageForModel = tutorMode ? initialMsg : buildGraphAwarePrompt(initialMsg);
+          const initialMessageForModel = tutorMode ? initialModelMessage : buildGraphAwarePrompt(initialModelMessage);
           formData.append('question', initialMessageForModel);
           formData.append('original_question', initialMsg);
-          formData.append('chat_id', newChatId.toString());
+          formData.append('chat_id', resolvedChatId.toString());
           formData.append('use_hs_context', hsMode.toString());
           formData.append('tutor_mode', tutorMode.toString());
           formData.append('tutor_reply_style', tutorReplyMode);
@@ -2708,7 +2728,7 @@ const AIChat = ({ sharedMode = false }) => {
             ? await queueChatCompletion({
                 prompt: initialMessageForModel,
                 user_message: initialMsg,
-                chat_session_id: newChatId,
+                chat_session_id: resolvedChatId,
                 use_hs_context: hsMode,
                 tutor_mode: tutorMode,
                 tutor_reply_style: tutorReplyMode,
@@ -2751,7 +2771,7 @@ const AIChat = ({ sharedMode = false }) => {
           setMessages(prev => [...prev, aiMessage]);
           
           // Auto-rename chat based on the question
-          await autoRenameChat(newChatId, initialMsg);
+          await autoRenameChat(resolvedChatId, initialMsg);
           
           // Reload chat sessions to show the new chat
           await loadChatSessions();
