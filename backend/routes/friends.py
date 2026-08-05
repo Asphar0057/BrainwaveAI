@@ -196,19 +196,23 @@ async def get_friend_requests(
         if not current_user:
             raise HTTPException(status_code=404, detail="Current user not found")
 
-        received_requests = db.query(models.FriendRequest).filter(
+        received_requests = db.query(models.FriendRequest).options(
+            joinedload(models.FriendRequest.sender)
+        ).filter(
             and_(
                 models.FriendRequest.receiver_id == current_user.id,
                 models.FriendRequest.status == "pending"
             )
-        ).all()
+        ).order_by(models.FriendRequest.created_at.desc()).all()
 
-        sent_requests = db.query(models.FriendRequest).filter(
+        sent_requests = db.query(models.FriendRequest).options(
+            joinedload(models.FriendRequest.receiver)
+        ).filter(
             and_(
                 models.FriendRequest.sender_id == current_user.id,
                 models.FriendRequest.status == "pending"
             )
-        ).all()
+        ).order_by(models.FriendRequest.created_at.desc()).all()
 
         received_result = []
         for req in received_requests:
@@ -346,9 +350,11 @@ async def get_friends(
         if not current_user:
             raise HTTPException(status_code=404, detail="Current user not found")
 
-        friendships = db.query(models.Friendship).filter(
+        friendships = db.query(models.Friendship).options(
+            joinedload(models.Friendship.friend)
+        ).filter(
             models.Friendship.user_id == current_user.id
-        ).all()
+        ).order_by(models.Friendship.created_at.desc()).all()
 
         friend_ids = [friendship.friend_id for friendship in friendships]
         comp_profiles_by_user = {

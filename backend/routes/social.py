@@ -12,7 +12,7 @@ import models
 from database import get_db
 from deps import (
     get_current_user,
-    call_ai,
+    call_ai_async,
     get_user_by_username,
     get_user_by_email,
     verify_token,
@@ -486,7 +486,7 @@ CRITICAL: Each option MUST contain the FULL ANSWER TEXT, not just letter labels.
 Use this exact structure:
 [{{"question": "...", "options": ["First option with full answer text", "Second option with full answer text", "Third option with full answer text", "Fourth option with full answer text"], "correct_answer": 0, "explanation": "..."}}]"""
 
-    content = call_ai(prompt, max_tokens=3000, temperature=0.7)
+    content = await call_ai_async(prompt, max_tokens=3000, temperature=0.7)
 
     start = content.find("[")
     end = content.rfind("]")

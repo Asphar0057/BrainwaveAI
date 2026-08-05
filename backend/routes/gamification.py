@@ -131,11 +131,16 @@ def get_user_achievements(user_id: str = Query(...), db: Session = Depends(get_d
             models.UserAchievement.user_id == user.id
         ).order_by(models.UserAchievement.earned_at.desc()).all()
 
+        achievement_ids = [ua.achievement_id for ua in user_achievements]
+        achievements_by_id = {
+            a.id: a for a in db.query(models.Achievement).filter(
+                models.Achievement.id.in_(achievement_ids)
+            ).all()
+        } if achievement_ids else {}
+
         achievements = []
         for ua in user_achievements:
-            achievement = db.query(models.Achievement).filter(
-                models.Achievement.id == ua.achievement_id
-            ).first()
+            achievement = achievements_by_id.get(ua.achievement_id)
 
             if achievement:
                 achievements.append({
@@ -472,7 +477,7 @@ async def get_weekly_activity_progress(
 @router.get("/get_recent_point_activities")
 async def get_recent_point_activities(
     user_id: str = Query(...),
-    limit: int = Query(10),
+    limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
     try:
@@ -535,7 +540,7 @@ async def get_daily_challenge(
 @router.get("/get_leaderboard")
 async def get_leaderboard(
     category: str = Query("global"),
-    limit: int = Query(50),
+    limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
     try:
