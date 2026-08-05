@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
@@ -127,6 +127,8 @@ async def share_content(
 
 @router.get("/shared_with_me")
 def get_shared_with_me(
+    limit: int = Query(100, ge=1, le=300),
+    offset: int = Query(0, ge=0),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -135,13 +137,28 @@ def get_shared_with_me(
 
         shared_items = db.query(models.SharedContent).filter(
             models.SharedContent.shared_with_id == current_user.id
-        ).order_by(models.SharedContent.shared_at.desc()).all()
+        ).order_by(models.SharedContent.shared_at.desc()).offset(offset).limit(limit).all()
 
         logger.info(f"Found {len(shared_items)} shared items for user {current_user.id}")
 
+        owner_ids = {item.owner_id for item in shared_items}
+        owners_by_id = {
+            u.id: u for u in db.query(models.User).filter(models.User.id.in_(owner_ids)).all()
+        } if owner_ids else {}
+
+        note_ids = {item.content_id for item in shared_items if item.content_type == "note"}
+        notes_by_id = {
+            n.id: n for n in db.query(models.Note).filter(models.Note.id.in_(note_ids)).all()
+        } if note_ids else {}
+
+        chat_ids = {item.content_id for item in shared_items if item.content_type == "chat"}
+        chats_by_id = {
+            c.id: c for c in db.query(models.ChatSession).filter(models.ChatSession.id.in_(chat_ids)).all()
+        } if chat_ids else {}
+
         result = []
         for item in shared_items:
-            owner = db.query(models.User).filter(models.User.id == item.owner_id).first()
+            owner = owners_by_id.get(item.owner_id)
             if not owner:
                 logger.warning(f"Owner not found for shared item {item.id}")
                 continue
@@ -150,14 +167,14 @@ def get_shared_with_me(
             content_exists = False
 
             if item.content_type == "note":
-                note = db.query(models.Note).filter(models.Note.id == item.content_id).first()
+                note = notes_by_id.get(item.content_id)
                 if note:
                     title = note.title or "Untitled Note"
                     content_exists = True
                 else:
                     title = "Deleted Note"
             elif item.content_type == "chat":
-                chat = db.query(models.ChatSession).filter(models.ChatSession.id == item.content_id).first()
+                chat = chats_by_id.get(item.content_id)
                 if chat:
                     title = chat.title or "Untitled Chat"
                     content_exists = True

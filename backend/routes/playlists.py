@@ -2,10 +2,10 @@ import logging
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, field_validator
 from sqlalchemy import and_, desc, func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 import models
 from deps import get_current_user, get_db, get_user_by_email, get_user_by_username
@@ -68,11 +68,13 @@ async def get_playlists(
     search: Optional[str] = None,
     my_playlists: bool = False,
     following: bool = False,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     try:
-        query = db.query(models.LearningPlaylist)
+        query = db.query(models.LearningPlaylist).options(joinedload(models.LearningPlaylist.creator))
 
         if my_playlists:
             query = query.filter(models.LearningPlaylist.creator_id == current_user.id)
@@ -98,34 +100,41 @@ async def get_playlists(
                 )
             )
 
-        playlists = query.order_by(desc(models.LearningPlaylist.created_at)).all()
+        playlists = query.order_by(desc(models.LearningPlaylist.created_at)).offset(offset).limit(limit).all()
+
+        playlist_ids = [p.id for p in playlists]
+        followers_by_playlist = {}
+        item_counts_by_playlist = {}
+        if playlist_ids:
+            followers_by_playlist = {
+                f.playlist_id: f
+                for f in db.query(models.PlaylistFollower).filter(
+                    and_(
+                        models.PlaylistFollower.playlist_id.in_(playlist_ids),
+                        models.PlaylistFollower.user_id == current_user.id,
+                    )
+                ).all()
+            }
+            item_counts_by_playlist = dict(
+                db.query(models.PlaylistItem.playlist_id, func.count(models.PlaylistItem.id))
+                .filter(models.PlaylistItem.playlist_id.in_(playlist_ids))
+                .group_by(models.PlaylistItem.playlist_id)
+                .all()
+            )
 
         result = []
         for p in playlists:
-            is_following = db.query(models.PlaylistFollower).filter(
-                and_(
-                    models.PlaylistFollower.playlist_id == p.id,
-                    models.PlaylistFollower.user_id == current_user.id,
-                )
-            ).first() is not None
+            follower = followers_by_playlist.get(p.id)
+            is_following = follower is not None
 
             user_progress = None
-            if is_following:
-                follower = db.query(models.PlaylistFollower).filter(
-                    and_(
-                        models.PlaylistFollower.playlist_id == p.id,
-                        models.PlaylistFollower.user_id == current_user.id,
-                    )
-                ).first()
-                if follower:
-                    user_progress = {
-                        "progress_percentage": follower.progress_percentage or 0,
-                        "completed_items": follower.completed_items or [],
-                    }
+            if follower:
+                user_progress = {
+                    "progress_percentage": follower.progress_percentage or 0,
+                    "completed_items": follower.completed_items or [],
+                }
 
-            item_count = db.query(models.PlaylistItem).filter(
-                models.PlaylistItem.playlist_id == p.id
-            ).count()
+            item_count = item_counts_by_playlist.get(p.id, 0)
 
             result.append({
                 "id": p.id,
