@@ -336,14 +336,24 @@ async def search_content(
                 if date_to_obj:
                     query_builder = query_builder.filter(models.FlashcardSet.created_at <= date_to_obj)
 
-                flashcard_sets = query_builder.all()
+                flashcard_sets = query_builder.limit(50).all()
+
+                fset_ids = [fset.id for fset in flashcard_sets]
+                card_counts_by_set = dict(
+                    db.query(models.Flashcard.set_id, func.count(models.Flashcard.id))
+                    .filter(models.Flashcard.set_id.in_(fset_ids))
+                    .group_by(models.Flashcard.set_id)
+                    .all()
+                ) if fset_ids else {}
+                fset_author_ids = {fset.user_id for fset in flashcard_sets}
+                fset_authors_by_id = {
+                    u.id: u for u in db.query(models.User).filter(models.User.id.in_(fset_author_ids)).all()
+                } if fset_author_ids else {}
 
                 for fset in flashcard_sets:
-                    card_count = db.query(models.Flashcard).filter(
-                        models.Flashcard.set_id == fset.id
-                    ).count()
+                    card_count = card_counts_by_set.get(fset.id, 0)
 
-                    author = db.query(models.User).filter(models.User.id == fset.user_id).first()
+                    author = fset_authors_by_id.get(fset.user_id)
                     author_name = author.username if author else "Unknown"
 
                     results.append({
@@ -388,12 +398,19 @@ async def search_content(
                 flashcards = query_builder.limit(50).all()
                 logger.info(f"Found {len(flashcards)} individual flashcards (own + public)")
 
-                for card in flashcards:
-                    fset = db.query(models.FlashcardSet).filter(
-                        models.FlashcardSet.id == card.set_id
-                    ).first()
+                card_set_ids = {card.set_id for card in flashcards}
+                card_fsets_by_id = {
+                    fs.id: fs for fs in db.query(models.FlashcardSet).filter(models.FlashcardSet.id.in_(card_set_ids)).all()
+                } if card_set_ids else {}
+                card_author_ids = {fs.user_id for fs in card_fsets_by_id.values()}
+                card_authors_by_id = {
+                    u.id: u for u in db.query(models.User).filter(models.User.id.in_(card_author_ids)).all()
+                } if card_author_ids else {}
 
-                    author = db.query(models.User).filter(models.User.id == fset.user_id).first() if fset else None
+                for card in flashcards:
+                    fset = card_fsets_by_id.get(card.set_id)
+
+                    author = card_authors_by_id.get(fset.user_id) if fset else None
                     author_name = author.username if author else "Unknown"
 
                     results.append({
@@ -438,8 +455,13 @@ async def search_content(
                 notes = query_builder.limit(50).all()
                 logger.info(f"Found {len(notes)} notes (own + public)")
 
+                note_author_ids = {note.user_id for note in notes}
+                note_authors_by_id = {
+                    u.id: u for u in db.query(models.User).filter(models.User.id.in_(note_author_ids)).all()
+                } if note_author_ids else {}
+
                 for note in notes:
-                    author = db.query(models.User).filter(models.User.id == note.user_id).first()
+                    author = note_authors_by_id.get(note.user_id)
                     author_name = author.username if author else "Unknown"
 
                     results.append({
@@ -478,10 +500,16 @@ async def search_content(
                 chats = query_builder.limit(50).all()
                 logger.info(f"Found {len(chats)} chat sessions")
 
+                chat_ids = [chat.id for chat in chats]
+                message_counts_by_chat = dict(
+                    db.query(models.ChatMessage.chat_session_id, func.count(models.ChatMessage.id))
+                    .filter(models.ChatMessage.chat_session_id.in_(chat_ids))
+                    .group_by(models.ChatMessage.chat_session_id)
+                    .all()
+                ) if chat_ids else {}
+
                 for chat in chats:
-                    message_count = db.query(models.ChatMessage).filter(
-                        models.ChatMessage.chat_session_id == chat.id
-                    ).count()
+                    message_count = message_counts_by_chat.get(chat.id, 0)
 
                     results.append({
                         "id": chat.id,
@@ -517,10 +545,16 @@ async def search_content(
                 question_sets = query_builder.limit(50).all()
                 logger.info(f"Found {len(question_sets)} question sets")
 
+                qset_ids = [qset.id for qset in question_sets]
+                question_counts_by_set = dict(
+                    db.query(models.Question.question_set_id, func.count(models.Question.id))
+                    .filter(models.Question.question_set_id.in_(qset_ids))
+                    .group_by(models.Question.question_set_id)
+                    .all()
+                ) if qset_ids else {}
+
                 for qset in question_sets:
-                    question_count = db.query(models.Question).filter(
-                        models.Question.question_set_id == qset.id
-                    ).count()
+                    question_count = question_counts_by_set.get(qset.id, 0)
 
                     results.append({
                         "id": qset.id,
@@ -1745,13 +1779,20 @@ async def get_weak_areas(
 
         flashcard_sets = db.query(models.FlashcardSet).filter(
             models.FlashcardSet.user_id == user.id
-        ).all()
+        ).limit(200).all()
 
-        for fset in flashcard_sets:
-            cards = db.query(models.Flashcard).filter(
-                models.Flashcard.set_id == fset.id,
+        fset_ids = [fset.id for fset in flashcard_sets]
+        reviewed_cards_by_set = {}
+        if fset_ids:
+            all_reviewed_cards = db.query(models.Flashcard).filter(
+                models.Flashcard.set_id.in_(fset_ids),
                 models.Flashcard.times_reviewed > 0
             ).all()
+            for card in all_reviewed_cards:
+                reviewed_cards_by_set.setdefault(card.set_id, []).append(card)
+
+        for fset in flashcard_sets:
+            cards = reviewed_cards_by_set.get(fset.id, [])
 
             if cards:
                 total_reviews = sum(c.times_reviewed for c in cards)
