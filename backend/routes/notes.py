@@ -868,6 +868,7 @@ def get_trash(user_id: str = Query(...), db: Session = Depends(get_db)):
             models.Note.deleted_at >= thirty_days_ago,
         )
         .order_by(models.Note.deleted_at.desc())
+        .limit(500)
         .all()
     )
 
@@ -1035,6 +1036,7 @@ def get_favorite_notes(user_id: str = Query(...), db: Session = Depends(get_db))
             models.Note.is_deleted == False,
         )
         .order_by(models.Note.updated_at.desc())
+        .limit(500)
         .all()
     )
 

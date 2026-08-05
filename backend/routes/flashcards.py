@@ -357,13 +357,17 @@ def get_flashcards_for_review(user_id: str = Query(None), db: Session = Depends(
         .all()
     )
 
+    set_ids = {card.set_id for card in cards}
+    set_titles_by_id = {
+        fs.id: fs.title for fs in db.query(models.FlashcardSet).filter(models.FlashcardSet.id.in_(set_ids)).all()
+    } if set_ids else {}
+
     sets_dict = {}
     for card in cards:
         if card.set_id not in sets_dict:
-            fs = db.query(models.FlashcardSet).filter(models.FlashcardSet.id == card.set_id).first()
             sets_dict[card.set_id] = {
                 "set_id": card.set_id,
-                "set_title": fs.title if fs else "Unknown",
+                "set_title": set_titles_by_id.get(card.set_id, "Unknown"),
                 "cards": [],
             }
         sets_dict[card.set_id]["cards"].append({
@@ -538,6 +542,7 @@ async def generate_flashcards_endpoint(
         card_count = int(card_count)
     except (TypeError, ValueError):
         card_count = 10
+    card_count = max(1, min(card_count, 100))
     if set_title is not None and not isinstance(set_title, str):
         set_title = None
 
@@ -788,6 +793,7 @@ async def generate_flashcards_endpoint(
     db.refresh(new_set)
 
     saved_cards = []
+    new_card_rows = []
     for card_data in flashcards_data:
         card = models.Flashcard(
             set_id=new_set.id,
@@ -797,7 +803,10 @@ async def generate_flashcards_endpoint(
             category=bandit_topic,
         )
         db.add(card)
-        db.commit()
+        new_card_rows.append((card, card_data))
+
+    db.commit()
+    for card, card_data in new_card_rows:
         db.refresh(card)
         saved_cards.append({
             **card_data,
@@ -981,7 +990,7 @@ class SRReviewRequest(BaseModel):
 @router.get("/flashcards/due")
 def get_due_flashcards(
     user_id: str = Query(...),
-    limit: int = Query(50),
+    limit: int = Query(50, ge=1, le=500),
     db: Session = Depends(get_db),
 ):
     user = get_user_by_username(db, user_id) or get_user_by_email(db, user_id)
@@ -1022,10 +1031,14 @@ def get_due_flashcards(
     learning_count = sum(1 for c in due_cards if c.sr_state == "learning")
     relearning_count = sum(1 for c in due_cards if c.sr_state == "relearning")
 
+    due_set_ids = {c.set_id for c in due_cards}
+    due_set_titles_by_id = {
+        fs.id: fs.title for fs in db.query(models.FlashcardSet).filter(models.FlashcardSet.id.in_(due_set_ids)).all()
+    } if due_set_ids else {}
+
     cards_data = []
     for c in due_cards:
-        fs = db.query(models.FlashcardSet).filter(models.FlashcardSet.id == c.set_id).first()
-        set_title = fs.title if fs else ""
+        set_title = due_set_titles_by_id.get(c.set_id, "")
 
         card_state = c.sr_state or "new"
         card_ease = c.ease_factor if c.ease_factor else 2.5
@@ -1328,6 +1341,14 @@ async def get_ai_suggestions(user_id: str = Query(...), db: Session = Depends(ge
 
     now = datetime.now(timezone.utc)
 
+    def _as_utc(dt):
+        # Flashcard datetime columns round-trip as naive (DateTime without
+        # timezone=True on both SQLite and Postgres); treat naive as UTC
+        # instead of crashing when compared against an aware `now`.
+        if dt and dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt
+
     state_counts = {"new": 0, "learning": 0, "review": 0, "relearning": 0}
     for c in all_cards:
         s = c.sr_state or "new"
@@ -1336,7 +1357,7 @@ async def get_ai_suggestions(user_id: str = Query(...), db: Session = Depends(ge
 
     due_today = sum(
         1 for c in all_cards
-        if (c.next_review_date and c.next_review_date <= now)
+        if (c.next_review_date and _as_utc(c.next_review_date) <= now)
         or (c.sr_state or "new") == "new"
     )
 
@@ -1349,15 +1370,20 @@ async def get_ai_suggestions(user_id: str = Query(...), db: Session = Depends(ge
     low_ease_cards = [c for c in all_cards if (c.ease_factor or 2.5) < 1.8]
     high_lapse_cards = [c for c in all_cards if (c.lapses or 0) >= 3]
 
+    problem_set_ids = {c.set_id for c in low_ease_cards + high_lapse_cards}
+    problem_titles_by_id = {
+        fs.id: fs.title for fs in db.query(models.FlashcardSet).filter(models.FlashcardSet.id.in_(problem_set_ids)).all()
+    } if problem_set_ids else {}
+
     problem_topics = set()
     for c in low_ease_cards + high_lapse_cards:
-        fs = db.query(models.FlashcardSet).filter(models.FlashcardSet.id == c.set_id).first()
-        if fs:
-            problem_topics.add(fs.title)
+        title = problem_titles_by_id.get(c.set_id)
+        if title:
+            problem_topics.add(title)
 
     reviewed_last_week = sum(
         1 for c in all_cards
-        if c.last_reviewed and (now - c.last_reviewed).days <= 7
+        if c.last_reviewed and (now - _as_utc(c.last_reviewed)).days <= 7
     )
 
     prompt = f"""You are a spaced repetition study coach. Analyze this student's flashcard data and provide personalized suggestions.

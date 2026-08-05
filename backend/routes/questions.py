@@ -309,7 +309,7 @@ async def generate_practice_questions(
     try:
         user_id = payload.get("user_id")
         topic = payload.get("topic") or payload.get("content", "")
-        question_count = int(payload.get("question_count", 10))
+        question_count = max(1, min(int(payload.get("question_count", 10)), 100))
         difficulty = payload.get("difficulty", "mixed")
         question_types = payload.get("question_types", ["multiple_choice"])
         title = payload.get("title", f"Practice: {topic[:50]}")
@@ -629,7 +629,7 @@ async def generate_questions(
         user_id = payload.get("user_id")
         chat_session_ids = payload.get("chat_session_ids", [])
         slide_ids = payload.get("slide_ids", [])
-        question_count = payload.get("question_count", 10)
+        question_count = max(1, min(int(payload.get("question_count", 10) or 10), 100))
         difficulty_mix = payload.get("difficulty_mix", {"easy": 3, "medium": 5, "hard": 2})
 
         user = get_user_by_username(db, user_id) or get_user_by_email(db, user_id)
@@ -796,6 +796,7 @@ def get_question_sets(user_id: str = Query(...), db: Session = Depends(get_db)):
             db.query(models.QuestionSet)
             .filter(models.QuestionSet.user_id == user.id)
             .order_by(models.QuestionSet.created_at.desc())
+            .limit(500)
             .all()
         )
 
@@ -1308,6 +1309,7 @@ def get_generated_questions(user_id: str = Query(...), db: Session = Depends(get
             db.query(models.QuestionSet)
             .filter(models.QuestionSet.user_id == user.id)
             .order_by(models.QuestionSet.created_at.desc())
+            .limit(500)
             .all()
         )
 
@@ -1540,6 +1542,7 @@ def get_quiz_history(user_id: str = Query(...), db: Session = Depends(get_db)):
                 db.query(models.QuizSession)
                 .filter(models.QuizSession.user_id == user.id)
                 .order_by(models.QuizSession.created_at.desc())
+                .limit(500)
                 .all()
             )
 
