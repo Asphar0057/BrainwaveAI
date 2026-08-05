@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 import models
 from database import get_db
 from deps import enforce_request_user_scope, get_user_by_email, get_user_by_username, verify_token
+from services.admin_analytics import check_admin
 
 logger = logging.getLogger(__name__)
 router = APIRouter(
@@ -639,7 +640,7 @@ async def get_rl_strategy_performance(
 @router.get("/rl/strategy-efficacy")
 async def get_rl_strategy_efficacy(
     db: Session = Depends(get_db),
-    token: str = Depends(verify_token),
+    _: str = Depends(check_admin),
 ):
     """Platform-wide: does StrategyBandit picking something other than the
     rule-based baseline actually correlate with better reward, or is the
@@ -654,7 +655,7 @@ async def get_rl_strategy_efficacy(
 @router.get("/rl/platform-insights")
 async def get_rl_platform_insights(
     db: Session = Depends(get_db),
-    token: str = Depends(verify_token),
+    _: str = Depends(check_admin),
 ):
     from services.rl_strategy_agent import STRATEGY_IDS
     from collections import defaultdict
@@ -662,6 +663,8 @@ async def get_rl_platform_insights(
     all_episodes = (
         db.query(models.BanditEpisodeLog)
         .filter(models.BanditEpisodeLog.reward_received.isnot(None))
+        .order_by(models.BanditEpisodeLog.id.desc())
+        .limit(50000)
         .all()
     )
 

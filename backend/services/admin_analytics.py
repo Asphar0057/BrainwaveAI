@@ -94,7 +94,7 @@ def check_admin(credentials: HTTPAuthorizationCredentials = Depends(_admin_beare
 
     raise HTTPException(status_code=403, detail="Admin access required")
 
-async def get_analytics_overview(days: int = 30):
+def get_analytics_overview(days: int = 30):
     try:
         ensure_activity_log_table()
         
@@ -544,7 +544,7 @@ async def get_analytics_overview(days: int = 30):
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal server error")
 
-async def get_user_analytics(days: int = 30):
+def get_user_analytics(days: int = 30):
     try:
         ensure_activity_log_table()
         
@@ -650,7 +650,7 @@ async def get_user_analytics(days: int = 30):
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal server error")
 
-async def get_user_detail(target_user_id: int):
+def get_user_detail(target_user_id: int):
     try:
         ensure_activity_log_table()
         
@@ -791,7 +791,7 @@ async def get_user_detail(target_user_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal server error")
 
-async def export_analytics_csv(days: int = 30):
+def export_analytics_csv(days: int = 30):
     try:
         ensure_activity_log_table()
         
@@ -856,7 +856,7 @@ async def export_analytics_csv(days: int = 30):
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal server error")
 
-async def export_user_csv(target_user_id: int):
+def export_user_csv(target_user_id: int):
     try:
         ensure_activity_log_table()
         

@@ -1124,21 +1124,30 @@ def end_session(
             )
             db.add(daily_metric)
         else:
-            daily_metric.time_spent_minutes += time_spent_minutes
-            daily_metric.sessions_completed = (daily_metric.sessions_completed or 0) + 1
+            db.query(models.DailyLearningMetrics).filter(
+                models.DailyLearningMetrics.id == daily_metric.id
+            ).update({
+                models.DailyLearningMetrics.time_spent_minutes: models.DailyLearningMetrics.time_spent_minutes + time_spent_minutes,
+                models.DailyLearningMetrics.sessions_completed: func.coalesce(models.DailyLearningMetrics.sessions_completed, 0) + 1,
+            })
 
         user_stats = db.query(models.UserStats).filter(
             models.UserStats.user_id == user.id
         ).first()
 
         if not user_stats:
-            user_stats = models.UserStats(user_id=user.id)
+            user_stats = models.UserStats(user_id=user.id, total_hours=time_spent_minutes / 60, last_activity=datetime.now(timezone.utc))
             db.add(user_stats)
-
-        user_stats.total_hours += (time_spent_minutes / 60)
-        user_stats.last_activity = datetime.now(timezone.utc)
+        else:
+            db.query(models.UserStats).filter(
+                models.UserStats.id == user_stats.id
+            ).update({
+                models.UserStats.total_hours: models.UserStats.total_hours + (time_spent_minutes / 60),
+                models.UserStats.last_activity: datetime.now(timezone.utc),
+            })
 
         db.commit()
+        db.refresh(daily_metric)
 
         if time_spent_minutes > 0:
             from services.gamification_system import award_points
@@ -1200,19 +1209,19 @@ def get_daily_goal_progress(user_id: str = Query(...), db: Session = Depends(get
 
 @router.get("/admin/analytics/overview")
 async def admin_analytics_overview(
-    days: int = Query(30),
+    days: int = Query(30, ge=1, le=365),
     _: str = Depends(check_admin),
 ):
     from services.admin_analytics import get_analytics_overview
-    return await get_analytics_overview(days)
+    return await run_in_threadpool(get_analytics_overview, days)
 
 @router.get("/admin/analytics/users")
 async def admin_analytics_users(
-    days: int = Query(30),
+    days: int = Query(30, ge=1, le=365),
     _: str = Depends(check_admin),
 ):
     from services.admin_analytics import get_user_analytics
-    return await get_user_analytics(days)
+    return await run_in_threadpool(get_user_analytics, days)
 
 @router.get("/admin/analytics/user/{target_user_id}")
 async def admin_analytics_user_detail(
@@ -1220,15 +1229,15 @@ async def admin_analytics_user_detail(
     _: str = Depends(check_admin),
 ):
     from services.admin_analytics import get_user_detail
-    return await get_user_detail(target_user_id)
+    return await run_in_threadpool(get_user_detail, target_user_id)
 
 @router.get("/admin/analytics/export/csv")
 async def admin_analytics_export_csv(
-    days: int = Query(30),
+    days: int = Query(30, ge=1, le=365),
     _: str = Depends(check_admin),
 ):
     from services.admin_analytics import export_analytics_csv
-    return await export_analytics_csv(days)
+    return await run_in_threadpool(export_analytics_csv, days)
 
 @router.get("/admin/analytics/export/user/{target_user_id}/csv")
 async def admin_analytics_export_user_csv(
@@ -1236,7 +1245,7 @@ async def admin_analytics_export_user_csv(
     _: str = Depends(check_admin),
 ):
     from services.admin_analytics import export_user_csv
-    return await export_user_csv(target_user_id)
+    return await run_in_threadpool(export_user_csv, target_user_id)
 
 @router.get("/admin/api-key-usage")
 @router.get("/admin/api_key_usage")
@@ -1342,10 +1351,17 @@ async def get_comprehensive_insights(
         mastered_flashcards = 0
         struggling_flashcards = []
 
-        for fset in flashcard_sets:
-            cards = db.query(models.Flashcard).filter(
-                models.Flashcard.set_id == fset.id
+        set_ids = [fset.id for fset in flashcard_sets]
+        cards_by_set = {}
+        if set_ids:
+            all_cards = db.query(models.Flashcard).filter(
+                models.Flashcard.set_id.in_(set_ids)
             ).all()
+            for card in all_cards:
+                cards_by_set.setdefault(card.set_id, []).append(card)
+
+        for fset in flashcard_sets:
+            cards = cards_by_set.get(fset.id, [])
             total_flashcards += len(cards)
 
             for card in cards:
@@ -1435,11 +1451,18 @@ async def get_comprehensive_insights(
             "average_accuracy": 0
         }
 
+        qset_ids = [qset.id for qset in question_sets]
+        questions_by_set = {}
+        if qset_ids:
+            all_questions = db.query(models.Question).filter(
+                models.Question.question_set_id.in_(qset_ids)
+            ).all()
+            for q in all_questions:
+                questions_by_set.setdefault(q.question_set_id, []).append(q)
+
         all_accuracies = []
         for qset in question_sets:
-            questions = db.query(models.Question).filter(
-                models.Question.question_set_id == qset.id
-            ).all()
+            questions = questions_by_set.get(qset.id, [])
             question_bank_stats["total_questions"] += len(questions)
 
             for q in questions:
@@ -2175,52 +2198,58 @@ def get_chat_details(user_id: str = Query(...), db: Session = Depends(get_db)):
             raise HTTPException(status_code=404, detail="User not found")
 
         total_chats = db.query(func.count(models.ChatSession.id)).filter_by(user_id=user.id).scalar() or 0
-        
+
         sessions = db.query(models.ChatSession).filter_by(user_id=user.id).all()
-        total_messages = 0
-        for session in sessions:
-            message_count = db.query(func.count(models.ChatMessage.id)).filter_by(
-                chat_session_id=session.id
-            ).scalar() or 0
-            total_messages += message_count
-        
+        session_ids = [session.id for session in sessions]
+
+        per_session_stats = {}
+        if session_ids:
+            per_session_stats = {
+                row.chat_session_id: row
+                for row in db.query(
+                    models.ChatMessage.chat_session_id.label("chat_session_id"),
+                    func.count(models.ChatMessage.id).label("message_count"),
+                    func.min(models.ChatMessage.timestamp).label("first_ts"),
+                    func.max(models.ChatMessage.timestamp).label("last_ts"),
+                ).filter(
+                    models.ChatMessage.chat_session_id.in_(session_ids)
+                ).group_by(models.ChatMessage.chat_session_id).all()
+            }
+
+        total_messages = sum(row.message_count for row in per_session_stats.values())
         avg_messages_per_chat = round(total_messages / total_chats, 1) if total_chats > 0 else 0
-        
+
         chat_days = {}
         for session in sessions:
             if session.created_at:
                 day = session.created_at.strftime("%A")
                 chat_days[day] = chat_days.get(day, 0) + 1
-        
+
         most_active_day = max(chat_days.items(), key=lambda x: x[1])[0] if chat_days else "N/A"
-        
+
         ml_logs = db.query(models.MessageMLLog).filter_by(user_id=user.id).all()
         intent_breakdown = {}
         for log in ml_logs:
             intent = log.intent_class or "unknown"
             intent_breakdown[intent] = intent_breakdown.get(intent, 0) + 1
-        
+
         concept_counts = {}
         for log in ml_logs:
             if log.concept_ids:
                 for concept_id in log.concept_ids:
                     concept_counts[concept_id] = concept_counts.get(concept_id, 0) + 1
-        
+
         top_concepts = [
             {"name": concept_id, "count": count}
             for concept_id, count in sorted(concept_counts.items(), key=lambda x: x[1], reverse=True)[:10]
         ]
-        
+
         session_durations = []
-        for session in sessions:
-            messages = db.query(models.ChatMessage).filter_by(
-                chat_session_id=session.id
-            ).order_by(models.ChatMessage.timestamp).all()
-            
-            if len(messages) >= 2:
-                duration = (messages[-1].timestamp - messages[0].timestamp).total_seconds() / 60
+        for row in per_session_stats.values():
+            if row.message_count >= 2 and row.first_ts and row.last_ts:
+                duration = (row.last_ts - row.first_ts).total_seconds() / 60
                 session_durations.append(duration)
-        
+
         avg_session_length = f"{int(sum(session_durations) / len(session_durations))}m" if session_durations else "0m"
 
         return {
