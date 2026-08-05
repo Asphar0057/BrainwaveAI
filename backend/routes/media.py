@@ -253,14 +253,16 @@ async def transcribe_audio(
             if not groq_client:
                 raise HTTPException(status_code=500, detail="Transcription service not configured")
 
-            with open(temp_audio_path, "rb") as f:
-                transcription = groq_client.audio.transcriptions.create(
-                    file=f,
-                    model="whisper-large-v3-turbo",
-                    response_format="json",
-                    language="en",
-                )
+            def _run_transcription():
+                with open(temp_audio_path, "rb") as f:
+                    return groq_client.audio.transcriptions.create(
+                        file=f,
+                        model="whisper-large-v3-turbo",
+                        response_format="json",
+                        language="en",
+                    )
 
+            transcription = await asyncio.to_thread(_run_transcription)
             transcript_text = transcription.text
             return {
                 "status": "success",
@@ -838,6 +840,80 @@ _SLIDE_MAGIC_BYTES = {
     b'\xd0\xcf\x11\xe0': 'ppt',
 }
 
+
+class _InvalidSlidePage(Exception):
+    pass
+
+
+def _render_pdf_page_png(file_path: str, page_number: int) -> bytes:
+    import fitz
+    doc = fitz.open(file_path)
+    try:
+        if page_number < 1 or page_number > len(doc):
+            raise _InvalidSlidePage(f"Invalid page number. File has {len(doc)} pages.")
+        page = doc[page_number - 1]
+        mat = fitz.Matrix(2.0, 2.0)
+        pix = page.get_pixmap(matrix=mat)
+        return pix.tobytes("png")
+    finally:
+        doc.close()
+
+
+def _write_and_extract_slide(file_content, filename, content_type, user_id, safe_filename, local_file_path):
+    """Runs off the event loop via asyncio.to_thread: disk write, optional
+    remote storage upload, and PDF/PPTX text extraction are all blocking."""
+    with open(local_file_path, "wb") as f:
+        f.write(file_content)
+
+    storage = StorageService.get_storage()
+    stored_file_path = str(local_file_path)
+    if getattr(storage, "storage_type", "local") != "local":
+        storage_key = f"slides/{user_id}/{safe_filename}"
+        storage.upload_bytes(file_content, storage_key, content_type or "application/octet-stream")
+        stored_file_path = (
+            storage.uri_for_path(storage_key)
+            if hasattr(storage, "uri_for_path")
+            else storage_key
+        )
+
+    page_count = 0
+    extracted_text = ""
+    lower_name = filename.lower()
+
+    if lower_name.endswith(".pdf"):
+        try:
+            pdf_reader = PyPDF2.PdfReader(io.BytesIO(file_content))
+            page_count = len(pdf_reader.pages)
+
+            for page in pdf_reader.pages[:10]:
+                page_text = page.extract_text() or ""
+                if page_text.strip():
+                    extracted_text += page_text + "\n"
+
+            extracted_text = extracted_text[:10000]
+        except Exception as e:
+            logger.error(f"Error extracting PDF text: {str(e)}")
+
+    elif lower_name.endswith((".ppt", ".pptx")):
+        try:
+            from pptx import Presentation
+            prs = Presentation(io.BytesIO(file_content))
+            page_count = len(prs.slides)
+
+            for slide_idx, ppt_slide in enumerate(prs.slides):
+                if slide_idx >= 10:
+                    break
+                for shape in ppt_slide.shapes:
+                    if hasattr(shape, "text") and shape.text:
+                        extracted_text += shape.text.strip() + "\n"
+
+            extracted_text = extracted_text[:10000]
+        except Exception as e:
+            logger.error(f"Error extracting PowerPoint content: {str(e)}")
+
+    return stored_file_path, page_count, extracted_text
+
+
 @router.post("/upload_slides")
 async def upload_slides(
     files: List[UploadFile] = File(...),
@@ -865,53 +941,15 @@ async def upload_slides(
             safe_filename = f"{user.id}_{timestamp}_{clean_name}"
             local_file_path = UPLOAD_DIR / safe_filename
 
-            with open(local_file_path, "wb") as f:
-                f.write(file_content)
-
-            storage = StorageService.get_storage()
-            stored_file_path = str(local_file_path)
-            if getattr(storage, "storage_type", "local") != "local":
-                storage_key = f"slides/{user.id}/{safe_filename}"
-                storage.upload_bytes(file_content, storage_key, file.content_type or "application/octet-stream")
-                stored_file_path = (
-                    storage.uri_for_path(storage_key)
-                    if hasattr(storage, "uri_for_path")
-                    else storage_key
-                )
-
-            page_count = 0
-            extracted_text = ""
-
-            if file.filename.lower().endswith(".pdf"):
-                try:
-                    pdf_reader = PyPDF2.PdfReader(io.BytesIO(file_content))
-                    page_count = len(pdf_reader.pages)
-
-                    for page in pdf_reader.pages[:10]:
-                        page_text = page.extract_text() or ""
-                        if page_text.strip():
-                            extracted_text += page_text + "\n"
-
-                    extracted_text = extracted_text[:10000]
-                except Exception as e:
-                    logger.error(f"Error extracting PDF text: {str(e)}")
-
-            elif file.filename.lower().endswith((".ppt", ".pptx")):
-                try:
-                    from pptx import Presentation
-                    prs = Presentation(io.BytesIO(file_content))
-                    page_count = len(prs.slides)
-
-                    for slide_idx, ppt_slide in enumerate(prs.slides):
-                        if slide_idx >= 10:
-                            break
-                        for shape in ppt_slide.shapes:
-                            if hasattr(shape, "text") and shape.text:
-                                extracted_text += shape.text.strip() + "\n"
-
-                    extracted_text = extracted_text[:10000]
-                except Exception as e:
-                    logger.error(f"Error extracting PowerPoint content: {str(e)}")
+            stored_file_path, page_count, extracted_text = await asyncio.to_thread(
+                _write_and_extract_slide,
+                file_content,
+                file.filename or "",
+                file.content_type,
+                user.id,
+                safe_filename,
+                local_file_path,
+            )
 
             slide = models.UploadedSlide(
                 user_id=user.id,
@@ -1179,26 +1217,12 @@ async def get_slide_image(
 
         if slide.original_filename.lower().endswith(".pdf"):
             try:
-                import fitz
-                doc = fitz.open(str(file_path))
-
-                if page_number < 1 or page_number > len(doc):
-                    doc.close()
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Invalid page number. File has {len(doc)} pages.",
-                    )
-
-                page = doc[page_number - 1]
-                mat = fitz.Matrix(2.0, 2.0)
-                pix = page.get_pixmap(matrix=mat)
-                img_bytes = pix.tobytes("png")
-                doc.close()
-
+                img_bytes = await asyncio.to_thread(_render_pdf_page_png, str(file_path), page_number)
                 return Response(content=img_bytes, media_type="image/png")
-
             except ImportError:
                 raise HTTPException(status_code=500, detail="PyMuPDF not installed for PDF rendering")
+            except _InvalidSlidePage as e:
+                raise HTTPException(status_code=400, detail=str(e))
             except HTTPException:
                 raise
             except Exception as e:

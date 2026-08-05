@@ -13,6 +13,7 @@ import requests
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session, joinedload
@@ -656,7 +657,8 @@ async def upload_document(
         )
         source_bytes = _read_context_original(storage_info, file_bytes)
 
-        result = process_upload(
+        result = await run_in_threadpool(
+            process_upload,
             file_bytes=source_bytes,
             filename=file.filename or "upload",
             subject=clean_subject,
@@ -936,6 +938,7 @@ def list_documents(
         .options(joinedload(models.ContextDocument.folder))
         .filter(models.ContextDocument.user_id == current_user.id)
         .order_by(models.ContextDocument.created_at.desc())
+        .limit(1000)
         .all()
     )
 
@@ -989,6 +992,7 @@ def list_documents(
             models.ContextDocument.status == "ready",
         )
         .order_by(models.ContextDocument.created_at.desc())
+        .limit(1000)
         .all()
     )
     hs_docs = [

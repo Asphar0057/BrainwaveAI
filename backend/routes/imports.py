@@ -1,3 +1,4 @@
+import asyncio
 import io
 import html
 import json
@@ -38,6 +39,51 @@ _ALLOWED_IMPORT_MIMES = {
     'application/octet-stream',
 }
 
+def _extract_import_text(content: bytes, file_extension: str) -> str:
+    """Runs off the event loop via asyncio.to_thread: PDF/DOCX parsing is CPU-bound."""
+    extracted_text = ""
+
+    if file_extension == 'pdf':
+        if content[:4] != b'%PDF':
+            raise HTTPException(status_code=400, detail="Invalid PDF file")
+        if PyPDF2 is None:
+            raise HTTPException(status_code=500, detail="PyPDF2 not installed")
+        pdf_file = io.BytesIO(content)
+        pdf_reader = PyPDF2.PdfReader(pdf_file)
+        if len(pdf_reader.pages) > _MAX_PDF_PAGES:
+            raise HTTPException(status_code=400, detail="PDF has too many pages")
+        for page in pdf_reader.pages:
+            extracted_text += (page.extract_text() or "") + "\n\n"
+            if len(extracted_text) > _MAX_EXTRACTED_TEXT:
+                raise HTTPException(status_code=400, detail="Extracted document text is too large")
+
+    elif file_extension == 'docx':
+        try:
+            import docx
+            with zipfile.ZipFile(io.BytesIO(content)) as archive:
+                members = archive.infolist()
+                if len(members) > _MAX_DOCX_FILES or sum(item.file_size for item in members) > _MAX_DOCX_UNCOMPRESSED:
+                    raise HTTPException(status_code=400, detail="DOCX archive is too large when expanded")
+            docx_file = io.BytesIO(content)
+            doc = docx.Document(docx_file)
+            for paragraph in doc.paragraphs:
+                extracted_text += paragraph.text + "\n"
+                if len(extracted_text) > _MAX_EXTRACTED_TEXT:
+                    raise HTTPException(status_code=400, detail="Extracted document text is too large")
+        except zipfile.BadZipFile:
+            raise HTTPException(status_code=400, detail="Invalid DOCX file")
+        except ImportError:
+            raise HTTPException(
+                status_code=500,
+                detail="python-docx not installed. Install with: pip install python-docx"
+            )
+
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported file type. Supported: PDF, DOCX")
+
+    return extracted_text
+
+
 @router.post("/import_document")
 async def import_document(
     file: UploadFile = File(...),
@@ -57,45 +103,7 @@ async def import_document(
         if file_extension not in _ALLOWED_IMPORT_EXTENSIONS:
             raise HTTPException(status_code=400, detail="Unsupported file type. Supported: PDF, DOCX")
 
-        extracted_text = ""
-
-        if file_extension == 'pdf':
-            if content[:4] != b'%PDF':
-                raise HTTPException(status_code=400, detail="Invalid PDF file")
-            if PyPDF2 is None:
-                raise HTTPException(status_code=500, detail="PyPDF2 not installed")
-            pdf_file = io.BytesIO(content)
-            pdf_reader = PyPDF2.PdfReader(pdf_file)
-            if len(pdf_reader.pages) > _MAX_PDF_PAGES:
-                raise HTTPException(status_code=400, detail="PDF has too many pages")
-            for page in pdf_reader.pages:
-                extracted_text += (page.extract_text() or "") + "\n\n"
-                if len(extracted_text) > _MAX_EXTRACTED_TEXT:
-                    raise HTTPException(status_code=400, detail="Extracted document text is too large")
-
-        elif file_extension == 'docx':
-            try:
-                import docx
-                with zipfile.ZipFile(io.BytesIO(content)) as archive:
-                    members = archive.infolist()
-                    if len(members) > _MAX_DOCX_FILES or sum(item.file_size for item in members) > _MAX_DOCX_UNCOMPRESSED:
-                        raise HTTPException(status_code=400, detail="DOCX archive is too large when expanded")
-                docx_file = io.BytesIO(content)
-                doc = docx.Document(docx_file)
-                for paragraph in doc.paragraphs:
-                    extracted_text += paragraph.text + "\n"
-                    if len(extracted_text) > _MAX_EXTRACTED_TEXT:
-                        raise HTTPException(status_code=400, detail="Extracted document text is too large")
-            except zipfile.BadZipFile:
-                raise HTTPException(status_code=400, detail="Invalid DOCX file")
-            except ImportError:
-                raise HTTPException(
-                    status_code=500,
-                    detail="python-docx not installed. Install with: pip install python-docx"
-                )
-
-        else:
-            raise HTTPException(status_code=400, detail="Unsupported file type. Supported: PDF, DOCX")
+        extracted_text = await asyncio.to_thread(_extract_import_text, content, file_extension)
 
         if not extracted_text.strip():
             raise HTTPException(status_code=400, detail="No text could be extracted from the file")
