@@ -1,6 +1,7 @@
 import os
 import logging
 import time
+from contextlib import contextmanager
 from threading import Lock
 from contextvars import copy_context
 from datetime import datetime, timezone, timedelta
@@ -45,7 +46,15 @@ optional_security = HTTPBearer(auto_error=False)
 _AUTH_USER_CACHE_TTL_SECONDS = max(0, int(os.getenv("AUTH_USER_CACHE_TTL_SECONDS", "30")))
 _auth_user_cache: dict[str, tuple[float, dict[str, Any]]] = {}
 _auth_user_cache_lock = Lock()
-_auth_user_lookup_locks: dict[str, Lock] = {}
+class _RefCountedLock:
+    __slots__ = ("lock", "refcount")
+
+    def __init__(self):
+        self.lock = Lock()
+        self.refcount = 0
+
+
+_auth_user_lookup_locks: dict[str, _RefCountedLock] = {}
 _auth_user_lookup_locks_guard = Lock()
 
 GEMINI_API_KEY = os.getenv("GOOGLE_GENERATIVE_AI_KEY") or os.getenv("GEMINI_API_KEY")
@@ -167,14 +176,29 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) 
 def _user_cache_key(subject: str) -> str:
     return (subject or "").strip().lower()
 
-def _auth_lookup_lock(subject: str) -> Lock:
+@contextmanager
+def _auth_lookup_lock(subject: str):
+    """Per-subject lock guarding the cache-miss DB lookup below, evicted from
+    _auth_user_lookup_locks once no other thread is still using it so this
+    dict doesn't grow forever with one entry per distinct username/email ever
+    authenticated."""
     key = _user_cache_key(subject)
     with _auth_user_lookup_locks_guard:
-        lock = _auth_user_lookup_locks.get(key)
-        if lock is None:
-            lock = Lock()
-            _auth_user_lookup_locks[key] = lock
-        return lock
+        entry = _auth_user_lookup_locks.get(key)
+        if entry is None:
+            entry = _RefCountedLock()
+            _auth_user_lookup_locks[key] = entry
+        entry.refcount += 1
+
+    entry.lock.acquire()
+    try:
+        yield
+    finally:
+        entry.lock.release()
+        with _auth_user_lookup_locks_guard:
+            entry.refcount -= 1
+            if entry.refcount <= 0 and _auth_user_lookup_locks.get(key) is entry:
+                del _auth_user_lookup_locks[key]
 
 def _serialize_user(user: models.User) -> dict[str, Any]:
     return {column.name: getattr(user, column.name) for column in models.User.__table__.columns}

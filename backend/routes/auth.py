@@ -13,6 +13,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Body, Depends, Form, HTTPException, Query, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import and_, bindparam, func, inspect, text
 from sqlalchemy.orm import Session
@@ -726,7 +727,7 @@ async def register(request: Request, payload: RegisterPayload, db: Session = Dep
     _validate_password(payload.password)
     username = _validate_username(payload.username)
     email = _validate_deliverable_email(payload.email)
-    _validate_mailbox_if_enabled(email)
+    await run_in_threadpool(_validate_mailbox_if_enabled, email)
 
     if get_user_by_username(db, username):
         raise HTTPException(status_code=400, detail="Username already registered")
@@ -770,7 +771,7 @@ async def register(request: Request, payload: RegisterPayload, db: Session = Dep
         models.RegistrationOTP.consumed == False,
     ).order_by(models.RegistrationOTP.created_at.desc()).first()
     try:
-        email_sent = _send_registration_otp_or_raise(email, otp)
+        email_sent = await run_in_threadpool(_send_registration_otp_or_raise, email, otp)
     except HTTPException as e:
         if pending and e.status_code == 400:
             pending.consumed = True
@@ -840,7 +841,7 @@ async def resend_registration_otp(request: Request, payload: RegisterResendPaylo
     db.commit()
 
     try:
-        email_sent = _send_registration_otp_or_raise(email, otp)
+        email_sent = await run_in_threadpool(_send_registration_otp_or_raise, email, otp)
     except HTTPException as e:
         if e.status_code == 400:
             pending.consumed = True
@@ -1008,7 +1009,7 @@ async def request_password_reset(
     db.commit()
 
     try:
-        email_sent = _send_password_reset_email(email, otp)
+        email_sent = await run_in_threadpool(_send_password_reset_email, email, otp)
     except Exception as e:
         logger.error("Failed to send password reset OTP to %s: %s", email, e)
         email_sent = False
@@ -1089,7 +1090,7 @@ async def request_account_deletion(
     db.commit()
 
     try:
-        email_sent = _send_account_deletion_email(email, otp)
+        email_sent = await run_in_threadpool(_send_account_deletion_email, email, otp)
     except Exception as e:
         logger.error("Failed to send account deletion OTP to %s: %s", email, e)
         email_sent = False

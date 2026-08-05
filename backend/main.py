@@ -816,13 +816,17 @@ build_dir = Path(__file__).parent.parent / "build"
 
 if build_dir.exists() and os.getenv("SERVE_REACT", "false").lower() == "true":
     app.mount("/static", StaticFiles(directory=build_dir / "static"), name="static")
+    _resolved_build_dir = build_dir.resolve()
 
     @app.get("/{full_path:path}")
     async def serve_react(full_path: str):
         if full_path.startswith("api/"):
             raise HTTPException(status_code=404, detail="API endpoint not found")
-        file_path = build_dir / full_path
-        if file_path.is_file():
+        file_path = (build_dir / full_path).resolve()
+        if (
+            file_path.is_relative_to(_resolved_build_dir)
+            and file_path.is_file()
+        ):
             return FileResponse(file_path)
         return FileResponse(build_dir / "index.html")
 else:
