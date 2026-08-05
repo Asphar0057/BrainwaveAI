@@ -7,11 +7,11 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy import and_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 import models
 from database import get_db
-from deps import get_current_user, call_ai, get_user_by_username, get_user_by_email, verify_token
+from deps import get_current_user, call_ai_async, get_user_by_username, get_user_by_email, verify_token
 from services.ai_json_parser import parse_json_array_response
 from services.websocket_manager import manager, notify_battle_challenge, notify_battle_accepted, notify_battle_declined, notify_battle_started, notify_battle_completed
 
@@ -19,7 +19,34 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["battles"])
 
-QUESTION_GENERATION_LOCKS: dict[int, asyncio.Lock] = {}
+class _KeyedLock:
+    __slots__ = ("lock", "refcount")
+
+    def __init__(self):
+        self.lock = asyncio.Lock()
+        self.refcount = 0
+
+
+QUESTION_GENERATION_LOCKS: dict[int, _KeyedLock] = {}
+
+
+def _reserve_generation_lock(lock_key: int) -> _KeyedLock:
+    entry = QUESTION_GENERATION_LOCKS.get(lock_key)
+    if entry is None:
+        entry = _KeyedLock()
+        QUESTION_GENERATION_LOCKS[lock_key] = entry
+    entry.refcount += 1
+    return entry
+
+
+def _release_generation_lock(lock_key: int, entry: "_KeyedLock") -> None:
+    """Releases the lock and, once no other coroutine is still holding a
+    reference to this entry, evicts it so QUESTION_GENERATION_LOCKS doesn't
+    grow forever with one entry per battle_id ever generated."""
+    entry.lock.release()
+    entry.refcount -= 1
+    if entry.refcount <= 0 and QUESTION_GENERATION_LOCKS.get(lock_key) is entry:
+        del QUESTION_GENERATION_LOCKS[lock_key]
 
 
 def _build_question_from_answer_snapshot(answer: dict, index: int) -> Optional[dict]:
@@ -193,7 +220,10 @@ async def get_quiz_battles(
         if not current_user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        query = db.query(models.QuizBattle).filter(
+        query = db.query(models.QuizBattle).options(
+            joinedload(models.QuizBattle.challenger),
+            joinedload(models.QuizBattle.opponent),
+        ).filter(
             (models.QuizBattle.challenger_id == current_user.id) |
             (models.QuizBattle.opponent_id == current_user.id)
         )
@@ -434,7 +464,7 @@ async def get_challenges(
         if not current_user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        query = db.query(models.Challenge)
+        query = db.query(models.Challenge).options(joinedload(models.Challenge.creator))
 
         if filter_type == "my_challenges":
             query = query.filter(models.Challenge.creator_id == current_user.id)
@@ -443,14 +473,20 @@ async def get_challenges(
 
         challenges = query.order_by(models.Challenge.created_at.desc()).all()
 
-        result = []
-        for challenge in challenges:
-            participation = db.query(models.ChallengeParticipation).filter(
+        challenge_ids = [challenge.id for challenge in challenges]
+        participations_by_challenge = {}
+        if challenge_ids:
+            participations = db.query(models.ChallengeParticipation).filter(
                 and_(
-                    models.ChallengeParticipation.challenge_id == challenge.id,
+                    models.ChallengeParticipation.challenge_id.in_(challenge_ids),
                     models.ChallengeParticipation.user_id == current_user.id
                 )
-            ).first()
+            ).all()
+            participations_by_challenge = {p.challenge_id: p for p in participations}
+
+        result = []
+        for challenge in challenges:
+            participation = participations_by_challenge.get(challenge.id)
 
             result.append({
                 "id": challenge.id,
@@ -517,7 +553,9 @@ async def join_challenge(
 
         challenge = db.query(models.Challenge).filter(models.Challenge.id == challenge_id).first()
         if challenge:
-            challenge.participant_count += 1
+            db.query(models.Challenge).filter(models.Challenge.id == challenge_id).update(
+                {models.Challenge.participant_count: models.Challenge.participant_count + 1}
+            )
             if challenge.creator_id != current_user.id:
                 join_notification = models.Notification(
                     user_id=challenge.creator_id,
@@ -662,9 +700,9 @@ async def generate_battle_questions(
             raise HTTPException(status_code=403, detail="Not authorized")
 
         lock_key = int(battle_id)
-        generation_lock = QUESTION_GENERATION_LOCKS.setdefault(lock_key, asyncio.Lock())
+        generation_lock_entry = _reserve_generation_lock(lock_key)
         generation_lock_acquired = False
-        await generation_lock.acquire()
+        await generation_lock_entry.lock.acquire()
         generation_lock_acquired = True
 
         existing = db.query(models.BattleQuestion).filter(
@@ -676,7 +714,7 @@ async def generate_battle_questions(
                 models.BattleQuestion.battle_id == battle_id
             ).order_by(models.BattleQuestion.id).all()
 
-            generation_lock.release()
+            _release_generation_lock(lock_key, generation_lock_entry)
             generation_lock_acquired = False
             return {
                 "questions": [{
@@ -743,7 +781,7 @@ Requirements:
 - Make questions engaging and educational
 - Return ONLY the JSON array, no additional text"""
 
-        content = call_ai(prompt, max_tokens=4000, temperature=0.7)
+        content = await call_ai_async(prompt, max_tokens=4000, temperature=0.7)
 
         if content.startswith("```json"):
             content = content[7:]
@@ -807,18 +845,18 @@ Requirements:
 
         db.commit()
 
-        generation_lock.release()
+        _release_generation_lock(lock_key, generation_lock_entry)
         generation_lock_acquired = False
         return {"questions": saved_questions}
 
     except json.JSONDecodeError as e:
         if locals().get("generation_lock_acquired"):
-            generation_lock.release()
+            _release_generation_lock(lock_key, generation_lock_entry)
         logger.error(f"JSON decode error: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to parse AI response")
     except Exception as e:
         if locals().get("generation_lock_acquired"):
-            generation_lock.release()
+            _release_generation_lock(lock_key, generation_lock_entry)
         db.rollback()
         logger.error(f"Error generating battle questions: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -961,7 +999,7 @@ Requirements:
 - Explanations should be concise (1-2 sentences)
 - Return ONLY the JSON array, no additional text"""
 
-        content = call_ai(prompt, max_tokens=4000, temperature=0.7)
+        content = await call_ai_async(prompt, max_tokens=4000, temperature=0.7)
 
         if content.startswith("```json"):
             content = content[7:]
