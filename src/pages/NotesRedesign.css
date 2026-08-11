@@ -88,8 +88,8 @@
   box-sizing: border-box;
 }
 
-.notes-redesign > :not(.shc-shell),
-.notes-redesign > :not(.shc-shell) *,
+.notes-redesign > :not(.shc-shell):not(.context-panel):not(.context-panel-overlay),
+.notes-redesign > :not(.shc-shell):not(.context-panel):not(.context-panel-overlay) *,
 .notes-redesign .nr-body,
 .notes-redesign .nr-body * {
   margin: 0;
@@ -5765,47 +5765,95 @@ h1.note-title ::-moz-selection,
   width: min(1120px, 100%);
   margin: 0 auto 14px;
   padding: 16px;
-  border: 1px solid var(--nr-paper-border);
+  color: #171717;
+  border: 1px solid #e7e5e4;
   border-radius: 16px;
-  background: color-mix(in srgb, var(--nr-paper) 92%, transparent);
-  box-shadow: 0 16px 42px rgba(15, 23, 42, 0.1);
+  background: #ffffff;
+  box-shadow: none;
 }
 
 .notes-redesign .editor-content.dark-mode .page-properties {
-  background: color-mix(in srgb, var(--nr-paper) 90%, transparent);
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.36);
+  color: #171717;
+  background: #ffffff;
+  box-shadow: none;
 }
 
 .notes-redesign .properties-header {
   padding-bottom: 12px;
-  border-bottom-color: color-mix(in srgb, var(--accent) 18%, transparent);
-  color: color-mix(in srgb, var(--accent) 84%, var(--text-primary));
+  border-bottom-color: #e7e5e4;
+  color: #1c1917;
+}
+
+.notes-redesign .properties-header svg,
+.notes-redesign .property-label svg {
+  color: var(--accent);
 }
 
 .notes-redesign .property-row {
   grid-template-columns: minmax(140px, 190px) minmax(0, 1fr);
   gap: 14px;
   padding: 10px 8px;
+  border-bottom: 1px solid #f0eeeb;
   border-radius: 12px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.notes-redesign .property-row:last-child {
+  border-bottom-color: transparent;
 }
 
 .notes-redesign .property-row:hover {
-  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  background: #faf9f7;
+}
+
+.notes-redesign .property-label {
+  color: #57534e;
+}
+
+.notes-redesign .property-value {
+  min-width: 0;
 }
 
 .notes-redesign .property-input,
 .notes-redesign .property-name-input,
 .notes-redesign .property-type-select {
   min-height: 38px;
+  color: #171717;
+  -webkit-text-fill-color: #171717;
   border-radius: 10px;
-  background: color-mix(in srgb, var(--nr-paper-muted) 88%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 14%, var(--nr-paper-border));
+  border: 1px solid #d6d3d1;
+  background: #ffffff;
+  box-shadow: none;
+  opacity: 1;
+  color-scheme: light;
+}
+
+.notes-redesign .property-input::placeholder,
+.notes-redesign .property-name-input::placeholder {
+  color: #78716c;
+  -webkit-text-fill-color: #78716c;
+  opacity: 1;
+}
+
+.notes-redesign .property-input:focus,
+.notes-redesign .property-name-input:focus,
+.notes-redesign .property-type-select:focus {
+  border-color: color-mix(in srgb, var(--accent) 72%, #78716c);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.notes-redesign .property-value-display {
+  color: #171717;
 }
 
 .notes-redesign .add-property-form {
   border-radius: 14px;
-  background: color-mix(in srgb, var(--nr-paper-muted) 90%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 16%, var(--nr-paper-border));
+  color: #171717;
+  background: #faf9f7;
+  border-color: #e7e5e4;
+  box-shadow: none;
 }
 
 .notes-redesign .add-btn,
@@ -5817,7 +5865,36 @@ h1.note-title ::-moz-selection,
 
 .notes-redesign .add-property-btn {
   min-height: 40px;
-  border-color: color-mix(in srgb, var(--accent) 22%, var(--nr-paper-border));
+  color: #57534e;
+  border-color: #d6d3d1;
+  background: transparent;
+  box-shadow: none;
+}
+
+.notes-redesign .add-property-btn:hover {
+  color: #171717;
+  border-color: color-mix(in srgb, var(--accent) 58%, #a8a29e);
+  background: color-mix(in srgb, var(--accent) 9%, #ffffff);
+}
+
+/* Keep the paper properties form flat despite the app-wide neumorphic controls. */
+#root .notes-redesign .properties-list,
+#root .notes-redesign .property-row,
+#root .notes-redesign .property-input,
+#root .notes-redesign .property-name-input,
+#root .notes-redesign .property-type-select,
+#root .notes-redesign .add-property-form,
+#root .notes-redesign .add-property-btn,
+#root .notes-redesign .add-btn,
+#root .notes-redesign .cancel-btn,
+#root .notes-redesign .delete-property-btn {
+  box-shadow: none !important;
+}
+
+#root .notes-redesign .property-input:focus,
+#root .notes-redesign .property-name-input:focus,
+#root .notes-redesign .property-type-select:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent) !important;
 }
 
 .notes-redesign .shortcuts-overlay {
@@ -7519,7 +7596,9 @@ h1.note-title ::-moz-selection,
 .notes-redesign .nre-context-control {
   display: grid;
   gap: 8px;
+  min-width: 0;
   padding: 11px;
+  overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--accent) 14%, transparent);
   border-radius: 11px;
   background:
@@ -7533,6 +7612,23 @@ h1.note-title ::-moz-selection,
   font-weight: 800;
   letter-spacing: .14em;
   text-transform: uppercase;
+}
+
+.notes-redesign .nre-context-control .context-selector-btn {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.notes-redesign .nre-context-control .cs-label {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .notes-redesign .nre-document-card {
@@ -8196,4 +8292,141 @@ h1.note-title ::-moz-selection,
   .notes-redesign.nr-note-selected > .shc-shell {
     padding: 8px !important;
   }
+}
+
+/* Keep the white paper editor neutral, even when the app shell uses a dark theme. */
+#root .notes-redesign .block-editor-container .block-content,
+#root .notes-redesign .block-editor-container.dark-mode .block-content,
+#root [data-theme-mode="dark"] .notes-redesign .block-editor-container .block-content {
+  color: #111111 !important;
+  caret-color: #111111 !important;
+  box-shadow: none !important;
+}
+
+#root .notes-redesign .block-editor-container .block-content:empty::before,
+#root .notes-redesign .block-editor-container.dark-mode .block-content:empty::before,
+#root [data-theme-mode="dark"] .notes-redesign .block-editor-container .block-content:empty::before {
+  color: #767676 !important;
+}
+
+#root .notes-redesign .block-editor-container .block-wrapper.focused,
+#root .notes-redesign .block-editor-container .block-wrapper:focus-within {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+#root .notes-redesign .block-editor-container [contenteditable="true"]:focus,
+#root .notes-redesign .block-editor-container [contenteditable="true"]:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+#root .notes-redesign .block-editor-container .block-controls {
+  width: auto !important;
+  height: 36px !important;
+  padding: 4px !important;
+  gap: 2px !important;
+  box-shadow: none !important;
+}
+
+#root .notes-redesign .block-editor-container .block-control-btn,
+#root .notes-redesign .block-editor-container .block-control-btn.drag-handle,
+#root .notes-redesign .block-editor-container .block-control-btn.canvas-action {
+  flex: 0 0 28px !important;
+  width: 28px !important;
+  min-width: 28px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #666666 !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  #root .notes-redesign .block-editor-container .block-control-btn:hover,
+  #root .notes-redesign .block-editor-container .block-control-btn.drag-handle:hover,
+  #root .notes-redesign .block-editor-container .block-control-btn.canvas-action:hover {
+    background: #f0f0f0 !important;
+    box-shadow: none !important;
+    color: #111111 !important;
+    transform: none !important;
+  }
+}
+
+/* Fullscreen is a true viewport takeover, not a wider dashboard card. */
+#root .notes-redesign.fullscreen-mode {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483000 !important;
+  width: 100vw !important;
+  width: 100dvw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  padding: 0 !important;
+  background: #090909 !important;
+}
+
+#root .notes-redesign.fullscreen-mode::before,
+#root .notes-redesign.fullscreen-mode::after,
+#root .notes-redesign.fullscreen-mode .shc-bg-fx,
+#root .notes-redesign.fullscreen-mode .shc-topbar,
+#root .notes-redesign.fullscreen-mode .shc-sidebar {
+  display: none !important;
+}
+
+#root .notes-redesign.fullscreen-mode > .shc-shell {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 0 !important;
+}
+
+#root .notes-redesign.fullscreen-mode .shc-body,
+#root .notes-redesign.fullscreen-mode .shc-body--no-sidebar,
+#root .notes-redesign.fullscreen-mode .shc-main,
+#root .notes-redesign.fullscreen-mode .nr-body,
+#root .notes-redesign.fullscreen-mode .nr-qb-shell,
+#root .notes-redesign.fullscreen-mode .nr-qb-main,
+#root .notes-redesign.fullscreen-mode .editor-content {
+  width: 100% !important;
+  max-width: none !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+
+#root .notes-redesign.fullscreen-mode .editor-content {
+  padding: 0 !important;
+  background: #090909 !important;
+}
+
+#root .notes-redesign.fullscreen-mode .nr-document-stage,
+#root .notes-redesign.fullscreen-mode .nre-document-card {
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 100% !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+#root .notes-redesign.fullscreen-mode .title-section,
+#root .notes-redesign.fullscreen-mode .nre-editor-toolbar,
+#root .notes-redesign.fullscreen-mode .formatting-toolbar-wrapper,
+#root .notes-redesign.fullscreen-mode .block-editor-wrapper,
+#root .notes-redesign.fullscreen-mode .note-footer,
+#root .notes-redesign.fullscreen-mode .nr-backlinks-wrap {
+  width: 100% !important;
+  max-width: none !important;
+  margin-inline: 0 !important;
+  border-radius: 0 !important;
 }

@@ -7860,6 +7860,10 @@
   gap: 12px;
 }
 
+.flashcards-page .fc-generator-workspace .fc-form-row:has(.fc-custom-dropdown) {
+  z-index: 10;
+}
+
 .flashcards-page .fc-generator-workspace .fc-number-input,
 .flashcards-page .fc-generator-workspace .fc-custom-select {
   box-sizing: border-box;
@@ -7922,6 +7926,10 @@
   position: relative;
   width: 100%;
   min-width: 0;
+}
+
+.flashcards-page .fc-generator-workspace .fc-custom-select-wrapper:has(.fc-custom-dropdown) {
+  z-index: 1;
 }
 
 .flashcards-page .fc-generator-workspace .fc-custom-select {

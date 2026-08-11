@@ -550,6 +550,7 @@ const NotesRedesign = ({ sharedMode = false }) => {
   const [showSmartFolders, setShowSmartFolders] = useState(false);
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const notesRootRef = useRef(null);
   
   
   const [showChatImport, setShowChatImport] = useState(false);
@@ -1690,8 +1691,33 @@ const NotesRedesign = ({ sharedMode = false }) => {
   
   
   
-  const toggleFullscreen = useCallback(() => {
-    setIsFullscreen((value) => !value);
+  const toggleFullscreen = useCallback(async () => {
+    if (isFullscreen) {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        try {
+          await document.exitFullscreen();
+        } catch (error) { /* CSS fullscreen fallback still exits below */ }
+      }
+      setIsFullscreen(false);
+      return;
+    }
+
+    setIsFullscreen(true);
+    const root = notesRootRef.current;
+    if (root?.requestFullscreen) {
+      try {
+        await root.requestFullscreen();
+      } catch (error) { /* fixed viewport fallback remains active */ }
+    }
+  }, [isFullscreen]);
+
+  useEffect(() => {
+    const syncFullscreenState = () => {
+      if (!document.fullscreenElement) setIsFullscreen(false);
+    };
+
+    document.addEventListener('fullscreenchange', syncFullscreenState);
+    return () => document.removeEventListener('fullscreenchange', syncFullscreenState);
   }, []);
 
   const keyboardHandlers = {
@@ -3039,7 +3065,7 @@ const NotesRedesign = ({ sharedMode = false }) => {
   );
 
   return (
-    <div className={`notes-redesign ${selectedNote ? "nr-note-selected" : ""} ${viewMode === "preview" ? "preview-mode" : ""} ${isFullscreen ? "fullscreen-mode" : ""}`}>
+    <div ref={notesRootRef} className={`notes-redesign ${selectedNote ? "nr-note-selected" : ""} ${viewMode === "preview" ? "preview-mode" : ""} ${isFullscreen ? "fullscreen-mode" : ""}`}>
       {QuickSwitcherComponent}
       
       {/* Slash Menu */}
