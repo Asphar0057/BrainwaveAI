@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,15 +9,9 @@ import { getFriendActivityFeed } from '../services/api';
 import HapticTouchable from '../components/HapticTouchable';
 import GeoBackground from '../components/GeoBackground';
 import { cbTileShadow } from '../components/NeumorphicTexture';
+import { useAppTheme } from '../contexts/ThemeContext';
 
-const GOLD_XL = '#EAECEF';
-const GOLD_L  = '#E5C9A8';
-const GOLD_M  = '#D7B38C';
-const GOLD_D  = '#9CA3AF';
-const DIM     = '#9CA3AF';
-const SURFACE = '#121110';
-const BORDER  = 'rgba(215, 179, 140, 0.14)';
-const BG      = ['#0a0a0b', '#0a0a0b', '#0f0e0d'] as const;
+type AppTheme = ReturnType<typeof useAppTheme>['selectedTheme'];
 
 const FILTERS = ['all', 'chat', 'note', 'flashcard', 'quiz'] as const;
 type Filter = typeof FILTERS[number];
@@ -40,12 +34,12 @@ function activityLabel(type: string): string {
   if (type.includes('chat'))  return 'ai chat';
   return 'activity';
 }
-function activityColor(type: string): string {
-  if (type.includes('quiz'))  return GOLD_XL;
-  if (type.includes('flash')) return GOLD_L;
-  if (type.includes('note'))  return GOLD_M;
-  if (type.includes('chat'))  return GOLD_D;
-  return DIM;
+function activityColor(type: string, theme: AppTheme): string {
+  if (type.includes('quiz'))  return theme.textPrimary;
+  if (type.includes('flash')) return theme.accentHover;
+  if (type.includes('note'))  return theme.accent;
+  if (type.includes('chat'))  return theme.textSecondary;
+  return theme.textSecondary;
 }
 function formatTime(dateStr: string): string {
   if (!dateStr) return '';
@@ -61,6 +55,12 @@ function formatTime(dateStr: string): string {
 }
 
 export default function ActivityTimelineScreen({ user, onBack }: Props) {
+  const { selectedTheme } = useAppTheme();
+  const GOLD_L = selectedTheme.accentHover;
+  const GOLD_D = selectedTheme.textSecondary;
+  const DIM = selectedTheme.textSecondary;
+  const BG = useMemo(() => [selectedTheme.bgTop, selectedTheme.bgTop, selectedTheme.bgBottom] as const, [selectedTheme]);
+  const s = useMemo(() => createStyles(selectedTheme), [selectedTheme]);
   const [fontsLoaded] = useFonts({ Inter_900Black, Inter_400Regular, Inter_600SemiBold });
   const [activities, setActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,7 +132,7 @@ export default function ActivityTimelineScreen({ user, onBack }: Props) {
             const type = activityType(item);
             const icon = activityIcon(type);
             const label = activityLabel(type);
-            const color = activityColor(type);
+            const color = activityColor(type, selectedTheme);
             const actor = item?.username || item?.user_username || item?.friend_username || user.first_name || user.username;
             const subject = item?.title || item?.subject || item?.content_title || item?.topic || '';
             const time = formatTime(item?.created_at || item?.timestamp || '');
@@ -162,29 +162,37 @@ export default function ActivityTimelineScreen({ user, onBack }: Props) {
   );
 }
 
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#0a0a0b' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 18, paddingBottom: 12 },
-  headerBack: { width: 42, height: 42, borderRadius: 16, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, alignItems: 'center', justifyContent: 'center', marginRight: 12, boxShadow: cbTileShadow(0.055) },
-  title: { fontFamily: 'Inter_900Black', fontSize: 32, color: GOLD_L, letterSpacing: -0.8 },
-  subtitle: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM, letterSpacing: 2.2, marginTop: 4, textTransform: 'uppercase' },
-  filterRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginBottom: 16 },
-  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, boxShadow: cbTileShadow(0.035) },
-  chipActive: { backgroundColor: GOLD_D + '33', borderColor: GOLD_D },
-  chipText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: DIM, textTransform: 'uppercase', letterSpacing: 1 },
-  chipTextActive: { color: GOLD_L },
-  list: { paddingHorizontal: 16, paddingBottom: 120 },
-  row: { flexDirection: 'row', gap: 12 },
-  lineCol: { alignItems: 'center', width: 30 },
-  dot: { width: 30, height: 30, borderRadius: 15, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  line: { flex: 1, width: 1.5, backgroundColor: BORDER, marginVertical: 4 },
-  card: { flex: 1, backgroundColor: SURFACE, borderRadius: 22, borderWidth: 1, borderColor: BORDER, padding: 14, marginBottom: 10, gap: 4, boxShadow: cbTileShadow(0.06) } as ViewStyle,
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  typeLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1.5 },
-  timeText: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM },
-  subject: { fontFamily: 'Inter_900Black', fontSize: 14, color: GOLD_L, letterSpacing: -0.2 },
-  actor: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingHorizontal: 40 },
-  emptyTitle: { fontFamily: 'Inter_900Black', fontSize: 18, color: GOLD_M },
-  emptyText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: DIM, textAlign: 'center', lineHeight: 19 },
-});
+function createStyles(theme: AppTheme) {
+  const GOLD_L  = theme.accentHover;
+  const GOLD_M  = theme.accent;
+  const GOLD_D  = theme.textSecondary;
+  const DIM     = theme.textSecondary;
+  const SURFACE = theme.panel;
+  const BORDER  = theme.border;
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: theme.bgTop },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 18, paddingBottom: 12 },
+    headerBack: { width: 42, height: 42, borderRadius: 16, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, alignItems: 'center', justifyContent: 'center', marginRight: 12, boxShadow: cbTileShadow(0.055) },
+    title: { fontFamily: 'Inter_900Black', fontSize: 32, color: GOLD_L, letterSpacing: -0.8 },
+    subtitle: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM, letterSpacing: 2.2, marginTop: 4, textTransform: 'uppercase' },
+    filterRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginBottom: 16 },
+    chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, boxShadow: cbTileShadow(0.035) },
+    chipActive: { backgroundColor: GOLD_D + '33', borderColor: GOLD_D },
+    chipText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: DIM, textTransform: 'uppercase', letterSpacing: 1 },
+    chipTextActive: { color: GOLD_L },
+    list: { paddingHorizontal: 16, paddingBottom: 120 },
+    row: { flexDirection: 'row', gap: 12 },
+    lineCol: { alignItems: 'center', width: 30 },
+    dot: { width: 30, height: 30, borderRadius: 15, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+    line: { flex: 1, width: 1.5, backgroundColor: BORDER, marginVertical: 4 },
+    card: { flex: 1, backgroundColor: SURFACE, borderRadius: 22, borderWidth: 1, borderColor: BORDER, padding: 14, marginBottom: 10, gap: 4, boxShadow: cbTileShadow(0.06) } as ViewStyle,
+    cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    typeLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1.5 },
+    timeText: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM },
+    subject: { fontFamily: 'Inter_900Black', fontSize: 14, color: GOLD_L, letterSpacing: -0.2 },
+    actor: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM },
+    empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingHorizontal: 40 },
+    emptyTitle: { fontFamily: 'Inter_900Black', fontSize: 18, color: GOLD_M },
+    emptyText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: DIM, textAlign: 'center', lineHeight: 19 },
+  });
+}
