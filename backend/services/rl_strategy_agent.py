@@ -508,12 +508,31 @@ class StrategyBandit:
         beta_inc = 1.0 - normalized
         now = datetime.now(timezone.utc)
 
+        # Uses a dialect-native atomic upsert (executed immediately, not staged
+        # via db.add()) for both sqlite and postgres. This used to fall back to
+        # a check-then-insert ORM pattern for postgres, which is only safe
+        # under autoflush -- but SessionLocal is autoflush=False (database.py),
+        # so within one measure_pending_rewards() batch, several queue items
+        # resolving to the same (owner_id, state_hash, strategy_id) -- e.g. the
+        # pooled __global__ row, which many students' episodes map onto --
+        # would each see "no existing row" and db.add() a duplicate, all
+        # flushed together at commit into one multi-row INSERT that violates
+        # uq_bandit_state. An immediately-executed ON CONFLICT DO UPDATE avoids
+        # that because each call is its own atomic statement against
+        # already-committed state.
         bind = db.get_bind()
-        if bind is not None and bind.dialect.name == "sqlite":
-            from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+        dialect_name = bind.dialect.name if bind is not None else None
 
+        if dialect_name == "sqlite":
+            from sqlalchemy.dialects.sqlite import insert as upsert_insert
+        elif dialect_name == "postgresql":
+            from sqlalchemy.dialects.postgresql import insert as upsert_insert
+        else:
+            upsert_insert = None
+
+        if upsert_insert is not None:
             table = models.BanditState.__table__
-            stmt = sqlite_insert(table).values(
+            stmt = upsert_insert(table).values(
                 student_id=owner_id,
                 state_hash=state_hash,
                 strategy_id=strategy_id,
@@ -540,6 +559,10 @@ class StrategyBandit:
             db.execute(stmt)
             return
 
+        # Fallback for any other dialect: flush first so a same-batch
+        # duplicate from an earlier call in this loop is already visible to
+        # this SELECT despite autoflush=False.
+        db.flush()
         existing = (
             db.query(models.BanditState)
             .filter_by(
@@ -569,6 +592,7 @@ class StrategyBandit:
                 last_updated=now,
             )
             db.add(new_row)
+        db.flush()
 
 def get_strategy_efficacy_report(db, min_episodes_for_signal: int = 20) -> dict:
     """Compares reward outcomes when the bandit's pick matched vs diverged from
