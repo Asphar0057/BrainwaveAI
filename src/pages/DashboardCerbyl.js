@@ -1657,7 +1657,7 @@ const DashboardCerbyl = () => {
             ) : (
               <>
                 <span className="cb-usage-row">
-                  <span className="cb-usage-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(usagePct)}>
+                  <span className="cb-usage-track" role="progressbar" aria-label="Daily token usage" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(usagePct)}>
                     <span className="cb-usage-fill" style={{ width: `${usagePct}%` }} />
                   </span>
                   <span className="cb-usage-subline">
@@ -2032,7 +2032,7 @@ const DashboardCerbyl = () => {
               </button>
             </div>
 
-            <div className="cb-xp-track" aria-label={`XP progress ${stats.xp} of ${stats.nextXp}`}>
+            <div className="cb-xp-track" role="progressbar" aria-label={`XP progress ${stats.xp} of ${stats.nextXp}`} aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(xpPct)}>
               <div className="cb-xp-fill" style={{ width: `${xpPct}%` }} />
             </div>
           </section>

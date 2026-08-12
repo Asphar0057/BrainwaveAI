@@ -3404,6 +3404,7 @@ const AIChat = ({ sharedMode = false }) => {
                       onClick={sendMessage}
                       disabled={loading || (!inputMessage.trim() && selectedFiles.length === 0)}
                       className="ac-send-btn"
+                      aria-label="Send message"
                     >
                       {Icons.send}
                     </button>
@@ -3826,6 +3827,7 @@ const AIChat = ({ sharedMode = false }) => {
                   onClick={sendMessage}
                   disabled={loading || (!inputMessage.trim() && selectedFiles.length === 0)}
                   className="ac-send-btn"
+                  aria-label="Send message"
                 >
                   {Icons.send}
                 </button>

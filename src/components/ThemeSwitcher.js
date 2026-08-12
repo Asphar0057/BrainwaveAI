@@ -356,7 +356,7 @@ const ThemeSwitcher = () => {
 
   return (
     <div className="ts-container">
-      <button className="ts-trigger-btn" onClick={() => setShowThemePanel(!showThemePanel)}>
+      <button className="ts-trigger-btn" onClick={() => setShowThemePanel(!showThemePanel)} aria-label="Change theme">
         <Palette size={20} />
       </button>
 
