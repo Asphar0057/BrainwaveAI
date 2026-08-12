@@ -3166,6 +3166,9 @@ const AIChat = ({ sharedMode = false }) => {
                           draggedChatId && draggedChatId !== session.id ? 'drag-source-dimmed' : ''
                         }`}
                         onClick={() => selectChat(session.id, session.uid)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectChat(session.id, session.uid); } }}
+                        role="button"
+                        tabIndex={0}
                         draggable
                         onDragStart={(event) => handleChatDragStart(event, session.id)}
                         onDragEnd={handleChatDragEnd}

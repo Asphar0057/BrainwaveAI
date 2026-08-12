@@ -726,6 +726,9 @@ const CustomizeDashboard = () => {
           draggable={!isLayoutLocked}
           onDragStart={(e) => handleDragStart(e, widget, 'grid')}
           onClick={handleWidgetClick}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleWidgetClick(); } }}
+          role="button"
+          tabIndex={0}
         >
           <div className="cd-widget-drag-handle">
             {isLayoutLocked ? <Lock size={16} /> : <GripVertical size={16} />}

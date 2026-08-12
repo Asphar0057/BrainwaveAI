@@ -1397,6 +1397,10 @@ const AddItemModal = ({ onClose, onAdd }) => {
                           key={note.id}
                           className={`resource-option-item ${formData.item_id === note.id ? 'selected' : ''}`}
                           onClick={() => handleResourceSelect(note.id, note.title)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleResourceSelect(note.id, note.title); } }}
+                          role="option"
+                          aria-selected={formData.item_id === note.id}
+                          tabIndex={0}
                         >
                           <FileText size={18} />
                           <span>{note.title}</span>
@@ -1408,6 +1412,10 @@ const AddItemModal = ({ onClose, onAdd }) => {
                           key={chat.id}
                           className={`resource-option-item ${formData.item_id === chat.id ? 'selected' : ''}`}
                           onClick={() => handleResourceSelect(chat.id, chat.title)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleResourceSelect(chat.id, chat.title); } }}
+                          role="option"
+                          aria-selected={formData.item_id === chat.id}
+                          tabIndex={0}
                         >
                           <MessageSquare size={18} />
                           <span>{chat.title}</span>
@@ -1419,6 +1427,10 @@ const AddItemModal = ({ onClose, onAdd }) => {
                           key={quiz.id}
                           className={`resource-option-item ${formData.item_id === quiz.id ? 'selected' : ''}`}
                           onClick={() => handleResourceSelect(quiz.id, quiz.title || quiz.name)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleResourceSelect(quiz.id, quiz.title || quiz.name); } }}
+                          role="option"
+                          aria-selected={formData.item_id === quiz.id}
+                          tabIndex={0}
                         >
                           <BookOpen size={18} />
                           <span>{quiz.title || quiz.name}</span>
@@ -1438,6 +1450,10 @@ const AddItemModal = ({ onClose, onAdd }) => {
                             key={flashcard.id}
                             className={`resource-option-item ${formData.item_id === flashcard.id ? 'selected' : ''}`}
                             onClick={() => handleResourceSelect(flashcard.id, cleanTitle)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleResourceSelect(flashcard.id, cleanTitle); } }}
+                            role="option"
+                            aria-selected={formData.item_id === flashcard.id}
+                            tabIndex={0}
                           >
                             <BookOpen size={18} />
                             <span>{cleanTitle}</span>

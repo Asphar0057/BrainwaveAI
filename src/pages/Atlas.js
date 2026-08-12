@@ -148,7 +148,10 @@ function UploadModal({ open, onClose, onDone }){
             <div className={`atl-drop-zone${drag?' atl-drop-zone--over':''}${file?' atl-drop-zone--has':''}`}
               onDragOver={e=>{e.preventDefault();setDrag(true);}} onDragLeave={()=>setDrag(false)}
               onDrop={e=>{e.preventDefault();setDrag(false);const f=e.dataTransfer.files[0];if(f)setFile(f);}}
-              onClick={()=>inputRef.current?.click()}>
+              onClick={()=>inputRef.current?.click()}
+              onKeyDown={e=>{ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inputRef.current?.click(); } }}
+              role="button"
+              tabIndex={0}>
               <input ref={inputRef} type="file" accept=".pdf,.txt,.md" style={{display:'none'}} onChange={e=>setFile(e.target.files[0])}/>
               {file?(
                 <div className="atl-drop-file"><FileText size={22}/><span>{file.name}</span><span className="atl-drop-size">{fmtBytes(file.size)}</span><button onClick={e=>{e.stopPropagation();setFile(null);}}><X size={12}/></button></div>
@@ -177,6 +180,9 @@ function DocCard({ doc, active, onToggle, onAsk, onDelete }){
     <div
       className={`atl-doc-card${active?' atl-doc-card--active':''}`}
       onClick={()=>onToggle(doc.doc_id)}
+      onKeyDown={(e)=>{ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(doc.doc_id); } }}
+      role="button"
+      tabIndex={0}
       title={active?'Click to remove from Oracle context':'Click to add to Oracle context'}
     >
       <div className="atl-doc-card-top">
@@ -1118,6 +1124,9 @@ export default function Atlas(){
               <div
                 className={`atl-vault-upload-strip${vaultDrag?' atl-vault-upload-strip--over':''}`}
                 onClick={()=>setUploadOpen(true)}
+                onKeyDown={(e)=>{ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setUploadOpen(true); } }}
+                role="button"
+                tabIndex={0}
                 onDragOver={e=>{e.preventDefault();setVaultDrag(true);}}
                 onDragLeave={()=>setVaultDrag(false)}
                 onDrop={e=>{e.preventDefault();setVaultDrag(false);setUploadOpen(true);}}

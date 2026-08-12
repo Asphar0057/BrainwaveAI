@@ -194,7 +194,7 @@ const CanvasHub = () => {
         ) : (
           <div className="ch-grid">
             {canvases.map(canvas => (
-              <div key={canvas.id} className="ch-card" onClick={() => setActiveCanvas(canvas)}>
+              <div key={canvas.id} className="ch-card" onClick={() => setActiveCanvas(canvas)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveCanvas(canvas); } }}>
                 <div className="ch-card-preview">
                   {canvas.preview ? (
                     <img src={canvas.preview} alt="" />

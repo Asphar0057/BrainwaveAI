@@ -79,7 +79,7 @@ const PublicFlashcardView = () => {
         ) : (
           <>
             <div className="pfv-counter">CARD {currentIndex + 1} OF {cards.length}</div>
-            <div className={`pfv-card ${isFlipped ? 'pfv-flipped' : ''}`} onClick={() => setIsFlipped((f) => !f)}>
+            <div className={`pfv-card ${isFlipped ? 'pfv-flipped' : ''}`} onClick={() => setIsFlipped((f) => !f)} role="button" tabIndex={0} aria-label="Flip flashcard" onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsFlipped((f) => !f); } }}>
               <div className="pfv-card-inner">
                 <div className="pfv-card-face pfv-card-front">
                   <span className="pfv-card-label">Question</span>

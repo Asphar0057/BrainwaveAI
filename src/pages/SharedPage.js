@@ -412,6 +412,9 @@ const SharedPage = () => {
                     key={item.id}
                     className="sp-content-item"
                     onClick={() => handleSelectItemToShare(item, item.type || (myContentFilter === 'notes' ? 'note' : 'chat'))}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelectItemToShare(item, item.type || (myContentFilter === 'notes' ? 'note' : 'chat')); } }}
+                    role="button"
+                    tabIndex={0}
                   >
                     <div className="sp-content-item-icon">
                       {(item.type === 'note' || myContentFilter === 'notes') ? (

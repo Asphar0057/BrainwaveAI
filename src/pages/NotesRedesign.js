@@ -3625,6 +3625,9 @@ const NotesRedesign = ({ sharedMode = false }) => {
             opacity: showAIButton ? 1 : 0,
           }}
           onClick={handleAIButtonClick}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleAIButtonClick(); } }}
+          role="button"
+          tabIndex={0}
         >
           <span className="ai-button-icon"></span>
           <span className="ai-button-text">Ask AI</span>

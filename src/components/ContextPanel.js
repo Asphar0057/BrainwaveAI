@@ -190,8 +190,10 @@ const ContextPanel = ({
                       key={id}
                       className={`cp-doc-item cp-doc-item--selectable ${sel ? 'cp-doc-item--selected' : ''}`}
                       onClick={() => toggleDoc(id, name)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleDoc(id, name); } }}
                       role="checkbox"
                       aria-checked={sel}
+                      tabIndex={0}
                     >
                       <span className="cp-doc-check">
                         {sel ? <CheckSquare size={15} /> : <Square size={15} />}
@@ -234,8 +236,10 @@ const ContextPanel = ({
                       key={id}
                       className={`cp-doc-item cp-doc-item--selectable ${sel ? 'cp-doc-item--selected' : ''}`}
                       onClick={() => toggleDoc(id, name)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleDoc(id, name); } }}
                       role="checkbox"
                       aria-checked={sel}
+                      tabIndex={0}
                     >
                       <span className="cp-doc-check">
                         {sel ? <CheckSquare size={15} /> : <Square size={15} />}

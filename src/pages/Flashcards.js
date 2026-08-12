@@ -3522,9 +3522,19 @@ const Flashcards = () => {
                             <div
                               key={session.id}
                               className={`fc-session-item ${selectedSessions.includes(session.id) ? 'selected' : ''}`}
-                              onClick={() => setSelectedSessions(prev => 
+                              onClick={() => setSelectedSessions(prev =>
                                 prev.includes(session.id) ? prev.filter(id => id !== session.id) : [...prev, session.id]
                               )}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault();
+                                  setSelectedSessions(prev =>
+                                    prev.includes(session.id) ? prev.filter(id => id !== session.id) : [...prev, session.id]
+                                  );
+                                }
+                              }}
+                              role="button"
+                              tabIndex={0}
                             >
                               <input 
                                 type="checkbox" 

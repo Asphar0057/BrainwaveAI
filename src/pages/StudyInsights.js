@@ -547,7 +547,9 @@ const StudyInsights = () => {
                 {insights.session_data.specific_topics.slice(0, 6).map((topic, idx) => (
                   <div key={idx} className="si-topic-row" onClick={() => navigate('/ai-chat', {
                     state: { initialMessage: `Help me practice ${topic.name}` }
-                  })}>
+                  })} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/ai-chat', {
+                    state: { initialMessage: `Help me practice ${topic.name}` }
+                  }); } }}>
                     <span className="si-topic-name">{topic.name}</span>
                     <span className="si-topic-count">{topic.count}</span>
                   </div>
@@ -562,7 +564,7 @@ const StudyInsights = () => {
               <span className="view-kicker si-bento-title">RECENT NOTES</span>
               <div className="si-notes-list">
                 {insights.notes.recent_notes.map((note) => (
-                  <div key={note.id} className="si-note-row" onClick={() => navigate(`/notes/editor/${note.id}`)}>
+                  <div key={note.id} className="si-note-row" onClick={() => navigate(`/notes/editor/${note.id}`)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/notes/editor/${note.id}`); } }}>
                     <span className="si-note-title">{note.title}</span>
                   </div>
                 ))}

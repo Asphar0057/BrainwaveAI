@@ -561,6 +561,9 @@ function UploadModal({ isOpen, onClose, curriculum, grade, subject, onUploaded }
                 onDragLeave={() => setDragOver(false)}
                 onDrop={handleDrop}
                 onClick={() => fileRef.current?.click()}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileRef.current?.click(); } }}
+                role="button"
+                tabIndex={0}
               >
                 <input
                   ref={fileRef}
@@ -675,6 +678,9 @@ function UploadView({ onSuccess }) {
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         onClick={() => !file && fileRef.current?.click()}
+        onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !file) { e.preventDefault(); fileRef.current?.click(); } }}
+        role="button"
+        tabIndex={0}
       >
         <input ref={fileRef} type="file" accept=".pdf,.txt,.md" style={{ display: 'none' }}
           onChange={e => { setFile(e.target.files[0]); setError(''); }} />

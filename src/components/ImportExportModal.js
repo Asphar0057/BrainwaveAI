@@ -366,6 +366,9 @@ const ImportExportModal = ({
                       key={item.id}
                       className={`iem-item-card ${selectedItems.includes(item.id) ? 'selected' : ''}`}
                       onClick={() => handleItemToggle(item.id)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleItemToggle(item.id); } }}
+                      role="button"
+                      tabIndex={0}
                     >
                       <div className="iem-item-checkbox">
                         {selectedItems.includes(item.id) && <CheckCircle size={20} />}
@@ -417,6 +420,24 @@ const ImportExportModal = ({
                         }));
                       }
                     }}
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Enter' && e.key !== ' ') return;
+                      e.preventDefault();
+                      setDestinationType(option.value);
+                      if (option.value === 'podcast') {
+                        setOptions((prev) => ({
+                          ...prev,
+                          difficulty: ['basic', 'intermediate', 'advanced'].includes(prev.difficulty)
+                            ? prev.difficulty
+                            : 'intermediate',
+                          voiceMode: prev.voiceMode || 'coach',
+                          voicePersona: prev.voicePersona || 'mentor',
+                          answerLanguage: prev.answerLanguage || 'en',
+                        }));
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
                   >
                     <div className="iem-conversion-icon">{option.icon}</div>
                     <h4>{option.label}</h4>

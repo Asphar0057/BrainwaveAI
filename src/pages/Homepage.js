@@ -7,7 +7,7 @@ const Homepage = () => {
   return (
     <div className="homepage">
       <div className="homepage-container">
-        <div className="login-trigger" onClick={() => navigate('/login')}>
+        <div className="login-trigger" onClick={() => navigate('/login')} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/login'); } }}>
           LOGIN
         </div>
         

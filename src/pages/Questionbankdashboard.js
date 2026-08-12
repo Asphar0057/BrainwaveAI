@@ -1569,6 +1569,9 @@ const QuestionBankDashboard = () => {
                     key={doc.id} 
                     className={`qbd-document-card ${isSelected ? 'selected' : ''}`}
                     onClick={() => togglePDFSelection(doc)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); togglePDFSelection(doc); } }}
+                    role="button"
+                    tabIndex={0}
                   >
                     <div className="qbd-source-check">
                       {isSelected && <CheckCircle size={20} />}
@@ -1903,6 +1906,9 @@ const QuestionBankDashboard = () => {
                   key={chat.id}
                   className={`qbd-source-card ${isSelected ? 'selected' : ''}`}
                   onClick={() => toggleSourceSelection('chat', chat.id, chat.title)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSourceSelection('chat', chat.id, chat.title); } }}
+                  role="button"
+                  tabIndex={0}
                 >
                   <div className="qbd-source-check">
                     {isSelected && <CheckCircle size={20} />}
@@ -1929,6 +1935,9 @@ const QuestionBankDashboard = () => {
                   key={slide.id}
                   className={`qbd-source-card ${isSelected ? 'selected' : ''}`}
                   onClick={() => toggleSourceSelection('slide', slide.id, slide.title)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSourceSelection('slide', slide.id, slide.title); } }}
+                  role="button"
+                  tabIndex={0}
                 >
                   <div className="qbd-source-check">
                     {isSelected && <CheckCircle size={20} />}

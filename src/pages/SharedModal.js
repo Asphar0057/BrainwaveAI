@@ -187,6 +187,10 @@ const ShareModal = ({ isOpen, onClose, itemType, itemId, itemTitle, onShare }) =
                         key={friend.id}
                         className={`friend-item ${selectedFriends.includes(friend.id) ? 'selected' : ''}`}
                         onClick={() => toggleFriendSelection(friend.id)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleFriendSelection(friend.id); } }}
+                        role="checkbox"
+                        aria-checked={selectedFriends.includes(friend.id)}
+                        tabIndex={0}
                       >
                         <div className="friend-avatar">
                           {friend.picture_url ? (

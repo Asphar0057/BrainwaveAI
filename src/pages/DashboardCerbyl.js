@@ -2045,6 +2045,7 @@ const DashboardCerbyl = () => {
               onMouseMove={handleTileMove}
               onMouseLeave={(e) => { stopChatCardHoverAnimation(e); handleTileLeave(e); }}
               onClick={() => navigate('/ai-chat')}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/ai-chat'); } }}
               role="button"
               tabIndex={0}
             >
@@ -2075,6 +2076,7 @@ const DashboardCerbyl = () => {
               onMouseMove={handleTileMove}
               onMouseLeave={(e) => { stopFlashcardsCardHoverAnimation(e); handleTileLeave(e); }}
               onClick={(e) => openFlashcardMasterTopic(e, recentSets[0]?.title || '')}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openFlashcardMasterTopic(e, recentSets[0]?.title || ''); } }}
               role="button"
               tabIndex={0}
             >
@@ -2126,6 +2128,7 @@ const DashboardCerbyl = () => {
               onMouseMove={handleTileMove}
               onMouseLeave={(e) => { stopNotesCardHoverAnimation(e); handleTileLeave(e); }}
               onClick={() => navigate('/notes')}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/notes'); } }}
               role="button"
               tabIndex={0}
             >
@@ -2152,6 +2155,15 @@ const DashboardCerbyl = () => {
                           e.stopPropagation();
                           navigate(`/notes/editor/${n.id}`);
                         }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            navigate(`/notes/editor/${n.id}`);
+                          }
+                        }}
+                        role="button"
+                        tabIndex={0}
                       >
                         <span className="cb-recent-icon"><FileText size={12}/></span>
                         <span className="cb-recent-title">
@@ -2176,6 +2188,15 @@ const DashboardCerbyl = () => {
                           e.stopPropagation();
                           navigate(`/notes/ai-media/${m.id}`);
                         }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            navigate(`/notes/ai-media/${m.id}`);
+                          }
+                        }}
+                        role="button"
+                        tabIndex={0}
                       >
                         <span className="cb-recent-icon"><Mic size={12}/></span>
                         <span className="cb-recent-title">
