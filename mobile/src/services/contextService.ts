@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from './api';
+import { getToken } from './tokenStorage';
 
 const HS_MODE_KEY = 'hs_mode_enabled';
 const SELECTED_DOC_IDS_KEY = 'ctx_selected_doc_ids';
@@ -30,7 +31,7 @@ export type HsSummary = {
 };
 
 async function authHeaders(): Promise<Record<string, string>> {
-  const token = await AsyncStorage.getItem('token');
+  const token = await getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 

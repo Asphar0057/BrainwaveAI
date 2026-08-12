@@ -4,9 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthUser } from '../services/auth';
 import { API_URL, getReminders, createReminder, updateReminder, deleteReminder, Reminder } from '../services/api';
+import { getToken } from '../services/tokenStorage';
 import HapticTouchable from '../components/HapticTouchable';
 import GeoBackground from '../components/GeoBackground';
 import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../components/NeumorphicTexture';
@@ -42,7 +42,7 @@ export default function CalendarScreen({ user, onBack }: Props) {
 
   const load = useCallback(async () => {
     try {
-      const token = await AsyncStorage.getItem('token');
+      const token = await getToken();
       const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
       const res = await fetch(`${API_URL}/get_activity_heatmap?user_id=${encodeURIComponent(user.username)}`, { headers });
       if (res.ok) {

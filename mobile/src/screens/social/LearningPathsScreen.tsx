@@ -13,13 +13,13 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../../services/auth';
 import { API_URL } from '../../services/api';
+import { getToken } from '../../services/tokenStorage';
 import GeoBackground from '../../components/GeoBackground';
 import SocialTileMaterial from '../../components/SocialTileMaterial';
 import HapticTouchable from '../../components/HapticTouchable';
@@ -69,7 +69,7 @@ type LearningPath = {
 type Props = { user: AuthUser; onBack: () => void };
 
 async function authHeaders(json = false) {
-  const token = await AsyncStorage.getItem('token');
+  const token = await getToken();
   const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
   if (json) headers['Content-Type'] = 'application/json';
   return headers;

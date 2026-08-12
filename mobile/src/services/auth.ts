@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { login as apiLogin, getMe, googleAuth } from './api';
+import { getToken, setToken, removeToken } from './tokenStorage';
 
 export type AuthUser = {
   id?: number;
@@ -13,19 +14,21 @@ export type AuthUser = {
 
 export async function signIn(username: string, password: string): Promise<AuthUser> {
   const data = await apiLogin(username, password);
-  await AsyncStorage.setItem('token', data.access_token);
+  await setToken(data.access_token);
   try {
     const me = await getMe();
     await AsyncStorage.setItem('user', JSON.stringify(me));
     return me;
   } catch (error) {
-    await AsyncStorage.multiRemove(['token', 'user']);
+    await removeToken();
+    await AsyncStorage.removeItem('user');
     throw error;
   }
 }
 
 export async function signOut() {
-  await AsyncStorage.multiRemove(['token', 'user']);
+  await removeToken();
+  await AsyncStorage.removeItem('user');
 }
 
 export async function getStoredUser(): Promise<AuthUser | null> {
@@ -41,23 +44,24 @@ export async function updateStoredUser(patch: Partial<AuthUser>): Promise<AuthUs
 }
 
 export async function updateStoredToken(accessToken: string) {
-  await AsyncStorage.setItem('token', accessToken);
+  await setToken(accessToken);
 }
 
 export async function isLoggedIn(): Promise<boolean> {
-  const token = await AsyncStorage.getItem('token');
+  const token = await getToken();
   return !!token;
 }
 
 export async function signInWithGoogle(idToken: string): Promise<AuthUser> {
   const data = await googleAuth(idToken);
-  await AsyncStorage.setItem('token', data.access_token);
+  await setToken(data.access_token);
   try {
     const me = await getMe();
     await AsyncStorage.setItem('user', JSON.stringify(me));
     return me;
   } catch (error) {
-    await AsyncStorage.multiRemove(['token', 'user']);
+    await removeToken();
+    await AsyncStorage.removeItem('user');
     throw error;
   }
 }

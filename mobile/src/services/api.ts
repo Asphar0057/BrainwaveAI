@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getToken } from './tokenStorage';
 
 const PRODUCTION_API_URL = 'https://cerbyl-api.yellowwave-ef452238.eastus.azurecontainerapps.io/api';
 
@@ -13,10 +13,6 @@ export const API_URL = normalizeApiUrl(process.env.EXPO_PUBLIC_API_URL ?? PRODUC
 // Public web app origin (for building shareable /chat/share/:token, /flashcards/share/:token links) —
 // matches backend's ALLOWED_ORIGINS default in main.py, not the API host.
 export const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL ?? 'https://cerbyl.com').replace(/\/+$/, '');
-
-async function getToken(): Promise<string | null> {
-  return AsyncStorage.getItem('token');
-}
 
 async function authHeaders(): Promise<Record<string, string>> {
   const token = await getToken();

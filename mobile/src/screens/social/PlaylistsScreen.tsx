@@ -9,7 +9,7 @@ import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_70
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../../services/auth';
 import { API_URL } from '../../services/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getToken } from '../../services/tokenStorage';
 import HapticTouchable from '../../components/HapticTouchable';
 import GeoBackground from '../../components/GeoBackground';
 import SocialTileMaterial from '../../components/SocialTileMaterial';
@@ -38,7 +38,7 @@ type Tab = 'discover' | 'following' | 'mine';
 type Props = { user: AuthUser; onBack: () => void };
 
 async function authHeaders() {
-  const token = await AsyncStorage.getItem('token');
+  const token = await getToken();
   return token ? ({ Authorization: `Bearer ${token}` } as Record<string, string>) : {};
 }
 
