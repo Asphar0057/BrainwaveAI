@@ -84,6 +84,22 @@ export function cbTileShadowExact(): ViewStyle['boxShadow'] {
   ];
 }
 
+// Recessed/"pressed-in" counterpart to cbTileShadow — for surfaces that sit
+// below the panel material (text inputs, the tab-switcher track, nested
+// sub-panels) rather than above it (buttons, cards). Dark shadow inset from
+// the top-left as if light from the same upper-left source is blocked by the
+// surrounding rim, warm gold-tinted highlight inset bottom-right (a plain
+// white highlight has ~zero contrast against a near-black brand surface —
+// the highlight itself has to carry the brand's gold, not just the edge
+// ring), plus the same thin gold edge ring used everywhere else.
+export function cbInsetShadow(strength: number = 1): ViewStyle['boxShadow'] {
+  return [
+    { offsetX: 6, offsetY: 6, blurRadius: 14 * strength, color: 'rgba(0, 0, 0, 0.68)', inset: true },
+    { offsetX: -6, offsetY: -6, blurRadius: 14 * strength, color: 'rgba(216, 179, 141, 0.16)', inset: true },
+    { offsetX: 0, offsetY: 0, blurRadius: 0, spreadDistance: 1, color: 'rgba(216, 179, 141, 0.24)', inset: true },
+  ];
+}
+
 export function NeumorphicLayer({ grainOpacity = 0.38 }: { grainOpacity?: number }) {
   return (
     <>

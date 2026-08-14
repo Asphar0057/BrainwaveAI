@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView, ViewStyle } from 'react-native';
+import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView, ViewStyle, LayoutAnimation, UIManager } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Inter_900Black, Inter_700Bold, Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
@@ -10,12 +10,43 @@ import { signIn, signInWithGoogle, AuthUser } from '../services/auth';
 import { confirmPasswordReset, register, requestPasswordReset, resendRegistrationOtp, verifyRegistration } from '../services/api';
 import HapticTouchable from '../components/HapticTouchable';
 import GeoBackground from '../components/GeoBackground';
-import NeumorphicTexture, { cbTileCardGradient, cbTileShadowExact, cbTileBorder, cbTileShadow } from '../components/NeumorphicTexture';
+import NeumorphicTexture, {
+  CB_CARD_TOP,
+  CB_CARD_BOTTOM,
+  CB_ACCENT,
+  cbTileCardGradient,
+} from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
-import { darkenColor, rgbaFromHex } from '../utils/theme';
+import { rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
 WebBrowser.maybeCompleteAuthSession();
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+// Card height changes (switching tabs, opening the reset panel, moving
+// between register/OTP steps) resize the whole panel on the same frame the
+// state flips — without this it just snaps. Called synchronously right
+// before the state update that changes layout, same tick, not in an effect
+// (an effect fires after the jump already happened).
+function animateLayout() {
+  LayoutAnimation.configureNext(LayoutAnimation.create(240, LayoutAnimation.Types.easeInEaseOut, LayoutAnimation.Properties.opacity));
+}
+
+// Plain single dark drop shadow — no light-corner counter-shadow, no
+// gold-tinted inset ring. Just enough to separate each surface from the
+// card behind it.
+function cardShadow(): ViewStyle['boxShadow'] {
+  return [{ offsetX: 10, offsetY: 10, blurRadius: 24, color: 'rgba(0, 0, 0, 0.55)' }];
+}
+function raisedShadow(): ViewStyle['boxShadow'] {
+  return [{ offsetX: 6, offsetY: 8, blurRadius: 16, color: 'rgba(0, 0, 0, 0.5)' }];
+}
+function pressedShadow(strength: number = 1): ViewStyle['boxShadow'] {
+  return [{ offsetX: 4, offsetY: 4, blurRadius: 10 * strength, color: 'rgba(0, 0, 0, 0.55)', inset: true }];
+}
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DEFAULT_WEB_GOOGLE_CLIENT_ID = '44446084594-8jc1vsg08qkt4d35npd2gn33b65b2638.apps.googleusercontent.com';
@@ -49,8 +80,8 @@ export default function LoginScreen({ onLogin }: Props) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [resetOpen, setResetOpen] = useState(false);
-  const [resetStep, setResetStep] = useState<'request' | 'confirm'>('request');
-  const [resetEmail, setResetEmail] = useState('');
+  const [resetStep, setResetStep] = useState<'contact' | 'otp' | 'password'>('contact');
+  const [resetIdentifier, setResetIdentifier] = useState('');
   const [resetOtp, setResetOtp] = useState('');
   const [resetPassword, setResetPassword] = useState('');
   const [resetConfirmPassword, setResetConfirmPassword] = useState('');
@@ -60,6 +91,7 @@ export default function LoginScreen({ onLogin }: Props) {
   const [regFirstName, setRegFirstName] = useState('');
   const [regLastName, setRegLastName]   = useState('');
   const [regEmail, setRegEmail]         = useState('');
+  const [regPhone, setRegPhone]         = useState('');
   const [regUsername, setRegUsername]   = useState('');
   const [regPassword, setRegPassword]   = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
@@ -139,10 +171,12 @@ export default function LoginScreen({ onLogin }: Props) {
         email,
         username:   regUsername.trim(),
         password:   regPassword,
+        ...(regPhone.trim() ? { phone_number: regPhone.trim() } : {}),
       }).then((data) => {
         const devOtp = data?.dev_otp ? ` Dev OTP: ${data.dev_otp}` : '';
         setSuccess(`${data?.message || 'verification OTP sent'}${devOtp}`);
       });
+      animateLayout();
       setVerificationPending(true);
       setRegistrationOtp('');
     } catch (e: any) {
@@ -170,6 +204,7 @@ export default function LoginScreen({ onLogin }: Props) {
       setUsername(regUsername.trim());
       setPassword(regPassword);
       setRegistrationOtp('');
+      animateLayout();
       setVerificationPending(false);
       setMode('login');
     } catch (e: any) {
@@ -201,19 +236,31 @@ export default function LoginScreen({ onLogin }: Props) {
     }
   };
 
+  const closeResetPanel = () => {
+    animateLayout();
+    setResetOpen(false);
+    setResetStep('contact');
+    setResetIdentifier('');
+    setResetOtp('');
+    setResetPassword('');
+    setResetConfirmPassword('');
+  };
+
+  // Step 1: email or phone -> send OTP.
   const handleRequestPasswordReset = async () => {
-    if (!resetEmail.trim()) {
-      setError('enter your account email');
+    if (!resetIdentifier.trim()) {
+      setError('enter your account email or phone number');
       return;
     }
     setResetLoading(true);
     setError('');
     setSuccess('');
     try {
-      const data = await requestPasswordReset(resetEmail.trim());
+      const data = await requestPasswordReset(resetIdentifier.trim());
       const devOtp = data?.dev_otp ? ` Dev OTP: ${data.dev_otp}` : '';
       setSuccess(`${data?.message || 'OTP sent if the account exists.'}${devOtp}`);
-      setResetStep('confirm');
+      animateLayout();
+      setResetStep('otp');
     } catch (e: any) {
       setError(e.message || 'could not send OTP');
     } finally {
@@ -221,9 +268,25 @@ export default function LoginScreen({ onLogin }: Props) {
     }
   };
 
+  // Step 2: enter the OTP. The backend only validates it together with the
+  // new password (there's no standalone verify-OTP endpoint for reset, unlike
+  // registration), so this step just checks the format and moves on — a
+  // wrong/expired OTP surfaces as an error on step 3 when it's actually sent.
+  const handleVerifyResetOtpStep = () => {
+    if (!/^\d{6}$/.test(resetOtp.trim())) {
+      setError('enter the 6-digit OTP');
+      return;
+    }
+    setError('');
+    setSuccess('');
+    animateLayout();
+    setResetStep('password');
+  };
+
+  // Step 3: new password + confirm -> actually submit identifier+otp+password.
   const handleConfirmPasswordReset = async () => {
-    if (!resetOtp.trim() || !resetPassword.trim() || !resetConfirmPassword.trim()) {
-      setError('enter OTP and new password');
+    if (!resetPassword.trim() || !resetConfirmPassword.trim()) {
+      setError('enter a new password');
       return;
     }
     if (resetPassword !== resetConfirmPassword) {
@@ -235,18 +298,13 @@ export default function LoginScreen({ onLogin }: Props) {
     setSuccess('');
     try {
       const data = await confirmPasswordReset({
-        email: resetEmail.trim(),
+        identifier: resetIdentifier.trim(),
         otp: resetOtp.trim(),
         new_password: resetPassword,
       });
       setSuccess(data?.message || 'password updated successfully');
       setPassword('');
-      setResetOpen(false);
-      setResetStep('request');
-      setResetEmail('');
-      setResetOtp('');
-      setResetPassword('');
-      setResetConfirmPassword('');
+      closeResetPanel();
     } catch (e: any) {
       setError(e.message || 'could not reset password');
     } finally {
@@ -255,6 +313,7 @@ export default function LoginScreen({ onLogin }: Props) {
   };
 
   const switchMode = (m: 'login' | 'register') => {
+    animateLayout();
     setMode(m);
     setResetOpen(false);
     setError('');
@@ -290,14 +349,16 @@ export default function LoginScreen({ onLogin }: Props) {
         >
           <View style={s.content}>
             <View style={s.panel}>
-              <NeumorphicTexture
-                grainOpacity={0.48}
-                grainVariant="skia"
-                baseFrequency={0.7}
-                gradientColors={cbTileCardGradient.colors}
-                gradientStart={cbTileCardGradient.start}
-                gradientEnd={cbTileCardGradient.end}
-              />
+              <View style={s.panelClip} pointerEvents="none">
+                <NeumorphicTexture
+                  grainVariant="skia"
+                  grainOpacity={0.16}
+                  baseFrequency={0.7}
+                  gradientColors={cbTileCardGradient.colors}
+                  gradientStart={cbTileCardGradient.start}
+                  gradientEnd={cbTileCardGradient.end}
+                />
+              </View>
               <View style={s.panelHeader}>
                 <Text style={s.heroWord}>cerbyl</Text>
                 {heroSubtitle ? <Text style={s.panelSubtitle}>{heroSubtitle}</Text> : null}
@@ -319,24 +380,29 @@ export default function LoginScreen({ onLogin }: Props) {
                 {mode === 'login' ? (
                   <>
                     <Text style={s.label}>username or email</Text>
-                    <TextInput style={s.input} value={username} onChangeText={setUsername} placeholder="enter username" placeholderTextColor={selectedTheme.textSecondary} autoCapitalize="none" autoCorrect={false} />
+                    <TextInput style={s.input} value={username} onChangeText={setUsername} placeholder="enter username" placeholderTextColor={rgbaFromHex(CB_ACCENT, 0.45)} autoCapitalize="none" autoCorrect={false} />
 
                     <Text style={[s.label, s.spacedLabel]}>password</Text>
-                    <TextInput style={s.input} value={password} onChangeText={setPassword} placeholder="enter password" placeholderTextColor={selectedTheme.textSecondary} secureTextEntry />
+                    <TextInput style={s.input} value={password} onChangeText={setPassword} placeholder="enter password" placeholderTextColor={rgbaFromHex(CB_ACCENT, 0.45)} secureTextEntry />
 
                     <HapticTouchable style={s.btnWrap} onPress={handleLogin} activeOpacity={0.88} disabled={loading} haptic="medium">
-                      <LinearGradient colors={[selectedTheme.accentHover, selectedTheme.accent]} start={{ x: 0.05, y: 0 }} end={{ x: 0.95, y: 1 }} style={s.btn}>
-                        {loading ? <ActivityIndicator color={selectedTheme.bgPrimary} /> : <Text style={s.btnText}>sign in</Text>}
-                      </LinearGradient>
+                      <View style={s.btn}>
+                        {loading ? <ActivityIndicator color={'#0a0a0b'} /> : <Text style={s.btnText}>sign in</Text>}
+                      </View>
                     </HapticTouchable>
 
                     <HapticTouchable
                       style={s.textButton}
                       onPress={() => {
-                        setResetOpen(prev => !prev);
-                        setError('');
-                        setSuccess('');
-                        setResetEmail(username.includes('@') ? username : resetEmail);
+                        animateLayout();
+                        if (resetOpen) {
+                          closeResetPanel();
+                        } else {
+                          setResetOpen(true);
+                          setError('');
+                          setSuccess('');
+                          setResetIdentifier(username.trim() || resetIdentifier);
+                        }
                       }}
                       activeOpacity={0.8}
                       disabled={loading}
@@ -347,37 +413,43 @@ export default function LoginScreen({ onLogin }: Props) {
 
                     {resetOpen ? (
                       <View style={s.resetPanel}>
-                        {resetStep === 'request' ? (
+                        {resetStep === 'contact' ? (
                           <>
-                            <Text style={s.label}>account email</Text>
-                            <TextInput style={s.input} value={resetEmail} onChangeText={setResetEmail} placeholder="you@example.com" placeholderTextColor={selectedTheme.textSecondary} autoCapitalize="none" keyboardType="email-address" />
+                            <Text style={s.label}>account email or phone</Text>
+                            <TextInput style={s.input} value={resetIdentifier} onChangeText={setResetIdentifier} placeholder="you@example.com or phone number" placeholderTextColor={rgbaFromHex(CB_ACCENT, 0.45)} autoCapitalize="none" />
                             <HapticTouchable style={s.secondaryBtn} onPress={handleRequestPasswordReset} activeOpacity={0.88} disabled={resetLoading} haptic="medium">
-                              {resetLoading ? <ActivityIndicator color={selectedTheme.textPrimary} /> : <Text style={s.secondaryBtnText}>send OTP</Text>}
+                              {resetLoading ? <ActivityIndicator color={CB_ACCENT} /> : <Text style={s.secondaryBtnText}>send OTP</Text>}
+                            </HapticTouchable>
+                          </>
+                        ) : resetStep === 'otp' ? (
+                          <>
+                            <Text style={s.label}>enter OTP</Text>
+                            <TextInput style={s.input} value={resetOtp} onChangeText={setResetOtp} placeholder="6-digit OTP" placeholderTextColor={rgbaFromHex(CB_ACCENT, 0.45)} keyboardType="number-pad" maxLength={6} />
+                            <HapticTouchable style={s.secondaryBtn} onPress={handleVerifyResetOtpStep} activeOpacity={0.88} haptic="medium">
+                              <Text style={s.secondaryBtnText}>continue</Text>
+                            </HapticTouchable>
+                            <HapticTouchable style={s.textButton} onPress={() => { animateLayout(); setResetStep('contact'); }} activeOpacity={0.8} haptic="selection">
+                              <Text style={s.textButtonLabel}>back</Text>
                             </HapticTouchable>
                           </>
                         ) : (
                           <>
-                            <Text style={s.label}>reset code</Text>
-                            <TextInput style={s.input} value={resetOtp} onChangeText={setResetOtp} placeholder="6-digit OTP" placeholderTextColor={selectedTheme.textSecondary} keyboardType="number-pad" maxLength={6} />
-                            <Text style={[s.label, s.spacedLabel]}>new password</Text>
-                            <TextInput style={s.input} value={resetPassword} onChangeText={setResetPassword} placeholder="new password" placeholderTextColor={selectedTheme.textSecondary} secureTextEntry />
+                            <Text style={s.label}>new password</Text>
+                            <TextInput style={s.input} value={resetPassword} onChangeText={setResetPassword} placeholder="new password" placeholderTextColor={rgbaFromHex(CB_ACCENT, 0.45)} secureTextEntry />
                             <Text style={[s.label, s.spacedLabel]}>confirm password</Text>
-                            <TextInput style={s.input} value={resetConfirmPassword} onChangeText={setResetConfirmPassword} placeholder="confirm password" placeholderTextColor={selectedTheme.textSecondary} secureTextEntry />
+                            <TextInput style={s.input} value={resetConfirmPassword} onChangeText={setResetConfirmPassword} placeholder="confirm password" placeholderTextColor={rgbaFromHex(CB_ACCENT, 0.45)} secureTextEntry />
                             <HapticTouchable style={s.secondaryBtn} onPress={handleConfirmPasswordReset} activeOpacity={0.88} disabled={resetLoading} haptic="medium">
-                              {resetLoading ? <ActivityIndicator color={selectedTheme.textPrimary} /> : <Text style={s.secondaryBtnText}>reset password</Text>}
+                              {resetLoading ? <ActivityIndicator color={CB_ACCENT} /> : <Text style={s.secondaryBtnText}>reset password</Text>}
+                            </HapticTouchable>
+                            <HapticTouchable style={s.textButton} onPress={() => { animateLayout(); setResetStep('otp'); }} activeOpacity={0.8} disabled={resetLoading} haptic="selection">
+                              <Text style={s.textButtonLabel}>back</Text>
                             </HapticTouchable>
                           </>
                         )}
                       </View>
                     ) : null}
 
-                    <View style={s.dividerRow}>
-                      <View style={s.dividerLine} />
-                      <Text style={s.dividerText}>or continue</Text>
-                      <View style={s.dividerLine} />
-                    </View>
-
-                    <HapticTouchable style={s.googleBtn} onPress={handleGoogleSignIn} activeOpacity={0.88} disabled={loading || !request} haptic="medium">
+                    <HapticTouchable style={[s.googleBtn, { marginTop: 16 }]} onPress={handleGoogleSignIn} activeOpacity={0.88} disabled={loading || !request} haptic="medium">
                       <Text style={s.googleIcon}>G</Text>
                       <Text style={s.googleText}>continue with google</Text>
                     </HapticTouchable>
@@ -390,15 +462,15 @@ export default function LoginScreen({ onLogin }: Props) {
                       value={registrationOtp}
                       onChangeText={setRegistrationOtp}
                       placeholder="6-digit OTP"
-                      placeholderTextColor={selectedTheme.textSecondary}
+                      placeholderTextColor={rgbaFromHex(CB_ACCENT, 0.45)}
                       keyboardType="number-pad"
                       maxLength={6}
                     />
 
                     <HapticTouchable style={s.btnWrap} onPress={handleVerifyRegistration} activeOpacity={0.88} disabled={loading} haptic="medium">
-                      <LinearGradient colors={[selectedTheme.accentHover, selectedTheme.accent]} start={{ x: 0.05, y: 0 }} end={{ x: 0.95, y: 1 }} style={s.btn}>
-                        {loading ? <ActivityIndicator color={selectedTheme.bgPrimary} /> : <Text style={s.btnText}>verify account</Text>}
-                      </LinearGradient>
+                      <View style={s.btn}>
+                        {loading ? <ActivityIndicator color={'#0a0a0b'} /> : <Text style={s.btnText}>verify account</Text>}
+                      </View>
                     </HapticTouchable>
 
                     <HapticTouchable
@@ -414,6 +486,7 @@ export default function LoginScreen({ onLogin }: Props) {
                     <HapticTouchable
                       style={[s.googleBtn, { marginTop: 12 }]}
                       onPress={() => {
+                        animateLayout();
                         setVerificationPending(false);
                         setRegistrationOtp('');
                         setError('');
@@ -431,30 +504,33 @@ export default function LoginScreen({ onLogin }: Props) {
                     <View style={s.row}>
                       <View style={s.half}>
                         <Text style={s.label}>first name</Text>
-                        <TextInput style={s.input} value={regFirstName} onChangeText={setRegFirstName} placeholder="first" placeholderTextColor={selectedTheme.textSecondary} autoCapitalize="words" />
+                        <TextInput style={s.input} value={regFirstName} onChangeText={setRegFirstName} placeholder="first" placeholderTextColor={rgbaFromHex(CB_ACCENT, 0.45)} autoCapitalize="words" />
                       </View>
                       <View style={s.half}>
                         <Text style={s.label}>last name</Text>
-                        <TextInput style={s.input} value={regLastName} onChangeText={setRegLastName} placeholder="last" placeholderTextColor={selectedTheme.textSecondary} autoCapitalize="words" />
+                        <TextInput style={s.input} value={regLastName} onChangeText={setRegLastName} placeholder="last" placeholderTextColor={rgbaFromHex(CB_ACCENT, 0.45)} autoCapitalize="words" />
                       </View>
                     </View>
 
                     <Text style={[s.label, s.spacedLabel]}>email</Text>
-                    <TextInput style={s.input} value={regEmail} onChangeText={setRegEmail} placeholder="you@example.com" placeholderTextColor={selectedTheme.textSecondary} autoCapitalize="none" keyboardType="email-address" />
+                    <TextInput style={s.input} value={regEmail} onChangeText={setRegEmail} placeholder="you@example.com" placeholderTextColor={rgbaFromHex(CB_ACCENT, 0.45)} autoCapitalize="none" keyboardType="email-address" />
+
+                    <Text style={[s.label, s.spacedLabel]}>phone number (optional)</Text>
+                    <TextInput style={s.input} value={regPhone} onChangeText={setRegPhone} placeholder="for logging in with your phone" placeholderTextColor={rgbaFromHex(CB_ACCENT, 0.45)} keyboardType="phone-pad" />
 
                     <Text style={[s.label, s.spacedLabel]}>username</Text>
-                    <TextInput style={s.input} value={regUsername} onChangeText={setRegUsername} placeholder="choose a username" placeholderTextColor={selectedTheme.textSecondary} autoCapitalize="none" autoCorrect={false} />
+                    <TextInput style={s.input} value={regUsername} onChangeText={setRegUsername} placeholder="choose a username" placeholderTextColor={rgbaFromHex(CB_ACCENT, 0.45)} autoCapitalize="none" autoCorrect={false} />
 
                     <Text style={[s.label, s.spacedLabel]}>password</Text>
-                    <TextInput style={s.input} value={regPassword} onChangeText={setRegPassword} placeholder="8+ chars, uppercase + symbol" placeholderTextColor={selectedTheme.textSecondary} secureTextEntry />
+                    <TextInput style={s.input} value={regPassword} onChangeText={setRegPassword} placeholder="8+ chars, uppercase + symbol" placeholderTextColor={rgbaFromHex(CB_ACCENT, 0.45)} secureTextEntry />
 
                     <Text style={[s.label, s.spacedLabel]}>confirm password</Text>
-                    <TextInput style={s.input} value={regConfirmPassword} onChangeText={setRegConfirmPassword} placeholder="re-enter password" placeholderTextColor={selectedTheme.textSecondary} secureTextEntry />
+                    <TextInput style={s.input} value={regConfirmPassword} onChangeText={setRegConfirmPassword} placeholder="re-enter password" placeholderTextColor={rgbaFromHex(CB_ACCENT, 0.45)} secureTextEntry />
 
                     <HapticTouchable style={s.btnWrap} onPress={handleRegister} activeOpacity={0.88} disabled={loading} haptic="medium">
-                      <LinearGradient colors={[selectedTheme.accentHover, selectedTheme.accent]} start={{ x: 0.05, y: 0 }} end={{ x: 0.95, y: 1 }} style={s.btn}>
-                        {loading ? <ActivityIndicator color={selectedTheme.bgPrimary} /> : <Text style={s.btnText}>create account</Text>}
-                      </LinearGradient>
+                      <View style={s.btn}>
+                        {loading ? <ActivityIndicator color={'#0a0a0b'} /> : <Text style={s.btnText}>create account</Text>}
+                      </View>
                     </HapticTouchable>
                   </>
                 )}
@@ -468,8 +544,7 @@ export default function LoginScreen({ onLogin }: Props) {
 }
 
 function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
-  const SHADOW = darkenColor(theme.primary, theme.isLight ? 72 : 4);
-  const contentMaxWidth = Math.min(layout.contentMaxWidth, 560);
+  const contentMaxWidth = Math.min(layout.contentMaxWidth, 600);
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: theme.bgPrimary },
     kav: { flex: 1 },
@@ -477,72 +552,89 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     scrollContent: {
       flexGrow: 1,
       justifyContent: layout.height < 760 ? 'flex-start' : 'center',
-      paddingTop: layout.height < 760 ? 18 : 28,
-      paddingBottom: 34,
+      paddingTop: layout.height < 760 ? 12 : 20,
+      paddingBottom: 22,
     },
     content: {
       width: '100%',
       maxWidth: contentMaxWidth,
       alignSelf: 'center',
-      paddingHorizontal: layout.isTablet ? 18 : 14,
+      paddingHorizontal: layout.isTablet ? 6 : 0,
     },
     panel: {
       width: '100%',
-      borderRadius: 28,
-      paddingHorizontal: 14,
-      paddingVertical: 20,
-      overflow: 'hidden',
-      boxShadow: cbTileShadowExact(),
-      ...cbTileBorder(0.22),
+      // Literal .cb-tile (Home.css:283-300): border-radius 26px, the same
+      // 155deg card gradient + dual cast shadow used for the team/problem/
+      // architecture tiles. Ring is the shadow's own inset entry, not a
+      // separate border — the site doesn't use a real border here either.
+      borderRadius: 26,
+      paddingHorizontal: 8,
+      paddingVertical: 16,
+      // Solid fallback under the gradient canvas: the Skia canvas re-measures
+      // on layout, but on the frame the card first grows taller (e.g.
+      // switching into "create account", which adds several fields), the
+      // gradient can lag a frame behind the new height and show a gap at the
+      // bottom before it catches up. This fill is the gradient's own darkest
+      // stop, so any such gap reads as part of the card, not a cutoff.
+      backgroundColor: CB_CARD_BOTTOM,
+      boxShadow: cardShadow(),
     } as ViewStyle,
+    panelClip: {
+      ...StyleSheet.absoluteFillObject,
+      borderRadius: 26,
+      overflow: 'hidden',
+    },
     panelHeader: {
       alignItems: 'center',
       marginBottom: 20,
     },
     heroWord: {
       fontFamily: 'Inter_900Black',
-      fontSize: 46,
-      lineHeight: 50,
-      color: theme.accentHover,
-      letterSpacing: -1.6,
+      fontSize: 40,
+      lineHeight: 44,
+      // Literal .cb-tile-title color (Home.css:428): var(--cb-accent).
+      color: CB_ACCENT,
+      letterSpacing: -1.4,
       textAlign: 'center',
     },
     panelSubtitle: {
       fontFamily: 'Inter_400Regular',
-      fontSize: 13,
-      lineHeight: 19,
-      color: theme.textSecondary,
+      fontSize: 12,
+      lineHeight: 18,
+      color: CB_ACCENT,
       marginTop: 10,
       textAlign: 'center',
     },
     tabs: {
       flexDirection: 'row',
-      backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.45 : 0.68),
-      borderRadius: 18,
-      borderWidth: 1,
-      borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.12 : 0.15),
+      // No literal source on the homepage for a segmented control — the
+      // marketing page has no form UI. Kept on the same card material
+      // (CB_CARD_TOP) and the already cb-tile-derived shadow helpers
+      // rather than inventing a new color family.
+      backgroundColor: CB_CARD_TOP,
+      borderRadius: 20,
       marginBottom: 18,
-      overflow: 'hidden',
       padding: 4,
-    },
+      boxShadow: pressedShadow(0.6),
+    } as ViewStyle,
     tab: {
       flex: 1,
       paddingVertical: 11,
       alignItems: 'center',
-      borderRadius: 14,
+      borderRadius: 16,
     },
     tabActive: {
-      backgroundColor: rgbaFromHex(theme.panelAlt, theme.isLight ? 0.86 : 0.78),
-      boxShadow: cbTileShadow(0.05),
+      backgroundColor: CB_CARD_TOP,
+      boxShadow: raisedShadow(),
     } as ViewStyle,
     tabText: {
       fontFamily: 'Inter_600SemiBold',
-      fontSize: 12,
-      color: theme.textSecondary,
+      fontSize: 11,
+      color: rgbaFromHex(CB_ACCENT, 0.55),
       letterSpacing: 0.7,
     },
     tabTextActive: {
-      color: theme.accentHover,
+      color: CB_ACCENT,
     },
 
     form: {},
@@ -552,25 +644,23 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     label: {
       fontFamily: 'Inter_700Bold',
       fontSize: 10,
-      color: theme.textSecondary,
+      color: rgbaFromHex(CB_ACCENT, 0.65),
       letterSpacing: 1.8,
       marginBottom: 8,
       textTransform: 'uppercase',
     },
     spacedLabel: { marginTop: 15 },
     input: {
-      backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.58 : 0.72),
-      borderWidth: 1,
-      borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.12 : 0.16),
-      borderTopColor: rgbaFromHex('#000000', theme.isLight ? 0.05 : 0.34),
-      borderLeftColor: rgbaFromHex('#000000', theme.isLight ? 0.035 : 0.22),
-      borderRadius: 18,
+      // Same caveat as tabs — no literal input on the homepage to copy from.
+      backgroundColor: CB_CARD_TOP,
+      borderRadius: 22,
       paddingHorizontal: 16,
-      paddingVertical: 14,
+      paddingVertical: 13,
       fontFamily: 'Inter_400Regular',
-      fontSize: 15,
-      color: theme.textPrimary,
-    },
+      fontSize: 14,
+      color: CB_ACCENT,
+      boxShadow: pressedShadow(),
+    } as ViewStyle,
 
     errorBox: {
       borderRadius: 16,
@@ -592,81 +682,72 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     error: {
       fontFamily: 'Inter_600SemiBold',
-      fontSize: 12,
+      fontSize: 11,
       color: theme.danger,
       letterSpacing: 0.2,
       textAlign: 'center',
     },
     success: {
       fontFamily: 'Inter_600SemiBold',
-      fontSize: 12,
+      fontSize: 11,
       color: theme.success,
       letterSpacing: 0.2,
       textAlign: 'center',
     },
 
+    // Literal .cb-modal-cta (Home.css:649-663): the one real filled-gold
+    // button on the site. Flat --cb-accent fill, near-black text (gold text
+    // on a gold button would be invisible — the source itself uses #0a0a0b
+    // here), border-radius 16px, single cast shadow only — no light
+    // counter-shadow, no inset ring, no gradient, no grain.
     btnWrap: {
       marginTop: 22,
-      borderRadius: 18,
-      overflow: 'hidden',
-      shadowColor: SHADOW,
-      shadowOffset: { width: 12, height: 14 },
-      shadowOpacity: theme.isLight ? 0.10 : 0.36,
-      shadowRadius: 24,
-      elevation: 12,
-    },
+      borderRadius: 16,
+      boxShadow: [{ offsetX: 8, offsetY: 8, blurRadius: 18, color: 'rgba(0, 0, 0, 0.62)' }] as ViewStyle['boxShadow'],
+    } as ViewStyle,
     btn: {
+      backgroundColor: CB_ACCENT,
+      borderRadius: 16,
+      overflow: 'hidden',
       paddingVertical: 16,
       alignItems: 'center',
       justifyContent: 'center',
     },
     btnText: {
       fontFamily: 'Inter_900Black',
-      fontSize: 14,
-      color: theme.bgPrimary,
+      fontSize: 13,
+      color: '#0a0a0b',
       letterSpacing: 0.6,
     },
 
     textButton: { alignItems: 'center', paddingTop: 14 },
     textButtonLabel: {
       fontFamily: 'Inter_600SemiBold',
-      fontSize: 12,
-      color: theme.accentHover,
+      fontSize: 11,
+      color: CB_ACCENT,
       letterSpacing: 0.2,
     },
 
     resetPanel: {
       marginTop: 16,
       padding: 14,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.12 : 0.16),
-      backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.36 : 0.48),
-    },
+      borderRadius: 22,
+      backgroundColor: CB_CARD_TOP,
+      boxShadow: pressedShadow(0.75),
+    } as ViewStyle,
     secondaryBtn: {
       marginTop: 16,
-      borderWidth: 1,
-      borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.18 : 0.24),
-      borderRadius: 18,
+      borderRadius: 22,
       paddingVertical: 14,
       alignItems: 'center',
-      backgroundColor: rgbaFromHex(theme.panelAlt, theme.isLight ? 0.86 : 0.74),
-      boxShadow: cbTileShadow(0.06),
+      backgroundColor: CB_CARD_TOP,
+      boxShadow: raisedShadow(),
     } as ViewStyle,
     secondaryBtnText: {
       fontFamily: 'Inter_900Black',
-      fontSize: 12,
-      color: theme.textPrimary,
-      letterSpacing: 0.7,
-    },
-
-    dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 19, gap: 12 },
-    dividerLine: { flex: 1, height: 1, backgroundColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.12 : 0.15) },
-    dividerText: {
-      fontFamily: 'Inter_400Regular',
       fontSize: 11,
-      color: theme.textSecondary,
-      letterSpacing: 1.3,
+      color: CB_ACCENT,
+      letterSpacing: 0.7,
     },
 
     googleBtn: {
@@ -674,18 +755,16 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       alignItems: 'center',
       justifyContent: 'center',
       gap: 10,
-      borderWidth: 1,
-      borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.16 : 0.20),
-      borderRadius: 18,
+      borderRadius: 22,
       paddingVertical: 15,
-      backgroundColor: rgbaFromHex(theme.panelAlt, theme.isLight ? 0.84 : 0.74),
-      boxShadow: cbTileShadow(0.055),
+      backgroundColor: CB_CARD_TOP,
+      boxShadow: raisedShadow(),
     } as ViewStyle,
-    googleIcon: { fontFamily: 'Inter_900Black', fontSize: 16, color: theme.accentHover },
+    googleIcon: { fontFamily: 'Inter_900Black', fontSize: 15, color: CB_ACCENT },
     googleText: {
       fontFamily: 'Inter_600SemiBold',
-      fontSize: 13,
-      color: theme.textPrimary,
+      fontSize: 12,
+      color: CB_ACCENT,
       letterSpacing: 0.2,
     },
   });

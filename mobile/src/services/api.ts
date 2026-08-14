@@ -2113,6 +2113,7 @@ export async function register(data: {
   email: string;
   username: string;
   password: string;
+  phone_number?: string;
 }) {
   let res: Response;
   try {
@@ -2160,11 +2161,12 @@ export async function resendRegistrationOtp(email: string) {
   return res.json();
 }
 
-export async function requestPasswordReset(email: string) {
+// identifier: an email address or a linked phone number
+export async function requestPasswordReset(identifier: string) {
   const res = await fetch(`${API_URL}/password-reset/request`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ identifier }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -2174,7 +2176,7 @@ export async function requestPasswordReset(email: string) {
 }
 
 export async function confirmPasswordReset(data: {
-  email: string;
+  identifier: string;
   otp: string;
   new_password: string;
 }) {
