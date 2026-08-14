@@ -5,7 +5,7 @@ import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_70
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser, signOut, updateStoredUser, updateStoredToken } from '../services/auth';
-import { changeUsername, changePassword, getComprehensiveProfile, updateComprehensiveProfile, ComprehensiveProfile } from '../services/api';
+import { changeUsername, changePassword, getComprehensiveProfile, updateComprehensiveProfile, ComprehensiveProfile, getNotifications } from '../services/api';
 import HapticTouchable from '../components/HapticTouchable';
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
@@ -19,7 +19,7 @@ type Props = {
   user: AuthUser;
   onLogout?: () => void;
   onUserUpdate?: (patch: Partial<AuthUser>) => void;
-  onNavigate?: (screen: 'settings') => void;
+  onNavigate?: (screen: 'settings' | 'notifications') => void;
   onRetakeQuiz?: () => void;
 };
 
@@ -41,6 +41,7 @@ export default function ProfileScreen({ user, onLogout, onUserUpdate, onNavigate
   const [fontsLoaded] = useFonts({ Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold });
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [editing, setEditing] = useState<EditField>(null);
   const [profile, setProfile] = useState<ComprehensiveProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -74,6 +75,12 @@ export default function ProfileScreen({ user, onLogout, onUserUpdate, onNavigate
   useEffect(() => {
     loadProfile();
   }, [loadProfile]);
+
+  useEffect(() => {
+    getNotifications(user.username).then((data) => {
+      setUnreadNotifications((data.notifications ?? []).filter((n) => !n.is_read).length);
+    }).catch(() => {});
+  }, [user.username]);
 
   const handleNotificationsToggle = async (value: boolean) => {
     setNotificationsEnabled(value);
@@ -175,6 +182,11 @@ export default function ProfileScreen({ user, onLogout, onUserUpdate, onNavigate
     onNavigate?.('settings');
   };
 
+  const handleOpenNotifications = () => {
+    triggerHaptic('selection');
+    onNavigate?.('notifications');
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFill} />
@@ -186,9 +198,19 @@ export default function ProfileScreen({ user, onLogout, onUserUpdate, onNavigate
           <View>
             <Text style={styles.pageTitle}>profile</Text>
           </View>
-          <HapticTouchable onPress={handleOpenSettings} activeOpacity={0.8} haptic="selection" style={styles.settingsButton}>
-            <Ionicons name="settings-outline" size={20} color={selectedTheme.textPrimary} />
-          </HapticTouchable>
+          <View style={styles.topBarActions}>
+            <HapticTouchable onPress={handleOpenNotifications} activeOpacity={0.8} haptic="selection" style={styles.settingsButton} accessibilityLabel="Notifications">
+              <Ionicons name="notifications-outline" size={20} color={selectedTheme.textPrimary} />
+              {unreadNotifications > 0 ? (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>{unreadNotifications > 9 ? '9+' : unreadNotifications}</Text>
+                </View>
+              ) : null}
+            </HapticTouchable>
+            <HapticTouchable onPress={handleOpenSettings} activeOpacity={0.8} haptic="selection" style={styles.settingsButton}>
+              <Ionicons name="settings-outline" size={20} color={selectedTheme.textPrimary} />
+            </HapticTouchable>
+          </View>
         </View>
 
         <View style={styles.heroCard}>
@@ -441,8 +463,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   const DIM    = theme.textSecondary;
   const BORDER = rgbaFromHex(GOLD_LIGHT, theme.isLight ? 0.16 : 0.18);
 
-  // Responsive horizontal padding: tighter on phone, more generous on tablet
-  const PAD = layout.isTablet ? layout.screenPadding : 12;
+  // Responsive horizontal padding: tighter on phone, more generous on tablet.
+  // 75% less than before, matching the home page's screen-edge inset.
+  const PAD = Math.round((layout.isTablet ? layout.screenPadding : 12) * 0.25);
 
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: 'transparent', overflow: 'hidden' },
@@ -461,14 +484,32 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       marginBottom: 12,
       // Stretch header to true screen edge so icon hugs the side
       marginHorizontal: -PAD,
-      paddingHorizontal: PAD - 4,
+      paddingHorizontal: Math.max(0, PAD - 4),
     },
+    topBarActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     settingsButton: {
       width: 42, height: 42, borderRadius: 16,
       borderWidth: 1, borderColor: rgbaFromHex(GOLD_LIGHT, theme.isLight ? 0.18 : 0.22),
       backgroundColor: rgbaFromHex(CARD_ALT, theme.isLight ? 0.88 : 0.74),
       alignItems: 'center', justifyContent: 'center',
       boxShadow: cbTileShadow(0.06),
+    },
+    bellBadge: {
+      position: 'absolute',
+      top: -3,
+      right: -3,
+      minWidth: 16,
+      height: 16,
+      borderRadius: 8,
+      paddingHorizontal: 3,
+      backgroundColor: theme.danger,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    bellBadgeText: {
+      fontFamily: 'Inter_900Black',
+      fontSize: 8.5,
+      color: '#fff',
     },
     pageTitle:    { fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 36 : 30, lineHeight: layout.isTablet ? 38 : 32, color: GOLD_LIGHT, letterSpacing: -0.8 },
     heroCard: {

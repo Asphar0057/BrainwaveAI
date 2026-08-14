@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView, ViewStyle, Animated, Easing } from 'react-native';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -39,8 +39,6 @@ type HubData = {
   friendList:     any[];
 };
 type Props = { user: AuthUser; onOpenLeaderboard?: () => void };
-const AnimatedView = Animated.createAnimatedComponent(View);
-
 function inits(name: string): string {
   return (name || '?').replace(/_/g, ' ').split(' ').map((p: string) => p[0] ?? '').join('').slice(0, 2).toUpperCase();
 }
@@ -110,7 +108,6 @@ export default function SocialScreen({ user, onOpenLeaderboard }: Props) {
   const [screen, setScreen] = useState<Section | null>(null);
   const [data, setData] = useState<HubData | null>(null);
   const [loading, setLoading] = useState(true);
-  const orbitPulse = useRef(new Animated.Value(0)).current;
 
   const accent  = selectedTheme.accentHover;
   const accentM = selectedTheme.accent;
@@ -159,16 +156,6 @@ export default function SocialScreen({ user, onOpenLeaderboard }: Props) {
   }, [user.username]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => {
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(orbitPulse, { toValue: 1, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(orbitPulse, { toValue: 0, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, [orbitPulse]);
   if (!fontsLoaded) return null;
 
   if (screen === 'friends')     return <FriendsScreen       user={user} onBack={() => setScreen(null)} />;
@@ -204,78 +191,55 @@ export default function SocialScreen({ user, onOpenLeaderboard }: Props) {
           <View style={s.loadingWrap}><ActivityIndicator color={accentM} size="large" /></View>
         ) : (
           <>
-            {/* ══ LEARNING ORBIT — a spatial social map, not a card list ══ */}
-            <View style={s.orbitStage}>
-              <SocialTileMaterial />
-              <Svg width="100%" height="100%" viewBox="0 0 360 285" style={StyleSheet.absoluteFillObject}>
-                <Path d="M28 142 C54 28 306 18 332 142 C306 260 54 266 28 142 Z" fill="none" stroke={rgbaFromHex(accent, 0.28)} strokeWidth="1" strokeDasharray="5 8" />
-                <Circle cx="180" cy="142" r="83" fill="none" stroke={rgbaFromHex(accentM, 0.12)} strokeWidth="1" />
-                <Circle cx="180" cy="142" r="116" fill="none" stroke={rgbaFromHex(accentM, 0.08)} strokeWidth="1" />
-              </Svg>
-
-              <View style={s.orbitHeader}>
-                <Text style={s.orbitKicker}>your learning orbit</Text>
-                <View style={s.orbitRankPill}>
-                  <Ionicons name="trophy-outline" size={12} color={accent} />
-                  <Text style={s.orbitRankText}>{data.myRank ? `#${data.myRank}` : 'unranked'}</Text>
+            {/* ══ YOUR CIRCLE — bento grid, same tile system as the rest of the page ══ */}
+            <SectionRow label="your circle" />
+            <View style={s.playfield}>
+              <TileGleam style={s.circleMain} onPress={() => setScreen('friends')} haptic="medium" activeOpacity={0.86} borderRadius={26}>
+                <SocialTileMaterial />
+                <View style={s.circleRankPill}>
+                  <Ionicons name="trophy-outline" size={11} color={accent} />
+                  <Text style={s.circleRankText}>{data.myRank ? `#${data.myRank}` : 'unranked'}</Text>
                 </View>
-              </View>
-
-              <AnimatedView
-                style={[
-                  s.orbitPulseHalo,
-                  {
-                    opacity: orbitPulse.interpolate({ inputRange: [0, 1], outputRange: [0.08, 0.28] }),
-                    transform: [{ scale: orbitPulse.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1.18] }) }],
-                  },
-                ]}
-              />
-              <AnimatedView
-                style={{
-                  position: 'absolute',
-                  left: '50%',
-                  top: 80,
-                  marginLeft: -43,
-                  transform: [{ scale: orbitPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.035] }) }],
-                }}
-              >
-                <LinearGradient colors={[accent, accentM]} style={s.orbitCenterRing}>
-                  <View style={s.orbitCenter}>
-                    <Text style={s.orbitCenterInitials}>{inits(user.first_name || user.username)}</Text>
-                    <Text style={s.orbitYou}>you</Text>
+                <Text style={s.circleBigNumber}>{String(data.friendCount).padStart(2, '0')}</Text>
+                <Text style={s.circleMainLabel}>{data.friendCount > 0 ? 'people in\nyour circle' : 'your circle\nis empty'}</Text>
+                <Ionicons name="chevron-forward" size={15} color="#D8B38D" style={s.battleArrow} />
+              </TileGleam>
+              <View style={s.playfieldRight}>
+                <TileGleam style={s.quizCapsule} onPress={onOpenLeaderboard} haptic="light" borderRadius={26}>
+                  <SocialTileMaterial />
+                  <Ionicons name="trophy-outline" size={20} color={accent} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.playMiniTitle}>{data.myRank ? `#${data.myRank}` : 'unranked'}</Text>
+                    <Text style={s.playMiniSub}>leaderboard rank</Text>
                   </View>
-                </LinearGradient>
-              </AnimatedView>
-
-              {data.friendList.slice(0, 4).map((f: any, fi: number) => {
-                const fname = f.username ?? f.friend_username ?? f.name ?? `user${fi}`;
-                const nodeStyles = [s.orbitNodeA, s.orbitNodeB, s.orbitNodeC, s.orbitNodeD];
-                return (
-                  <HapticTouchable key={`${fname}-${fi}`} style={[s.orbitNode, nodeStyles[fi]]} onPress={() => setScreen('friends')} haptic="light">
-                    <Text style={s.orbitNodeInitials}>{inits(fname)}</Text>
-                    <Text style={s.orbitNodeName} numberOfLines={1}>{fname}</Text>
-                  </HapticTouchable>
-                );
-              })}
-
-              {data.friendList.length === 0 && (
-                <>
-                  <HapticTouchable style={[s.orbitAddNode, s.orbitNodeA]} onPress={() => setScreen('friends')} haptic="light"><Ionicons name="add" size={19} color={accent} /></HapticTouchable>
-                  <HapticTouchable style={[s.orbitAddNode, s.orbitNodeB]} onPress={() => setScreen('friends')} haptic="light"><Ionicons name="add" size={19} color={accent} /></HapticTouchable>
-                  <HapticTouchable style={[s.orbitAddNode, s.orbitNodeC]} onPress={() => setScreen('friends')} haptic="light"><Ionicons name="add" size={19} color={accent} /></HapticTouchable>
-                </>
-              )}
-
-              <View style={s.orbitFooter}>
-                <View>
-                  <Text style={s.orbitFooterTitle}>{data.friendCount > 0 ? `${data.friendCount} people in your circle` : 'Your orbit is waiting'}</Text>
-                  <Text style={s.orbitFooterCopy}>{data.friendCount > 0 ? 'Tap a person to open your circle' : 'Add your first study partner'}</Text>
-                </View>
-                <HapticTouchable style={s.orbitFooterButton} onPress={() => setScreen('friends')} haptic="medium">
-                  <Ionicons name={data.friendCount > 0 ? 'people-outline' : 'person-add-outline'} size={17} color={accent} />
-                </HapticTouchable>
+                  <Ionicons name="chevron-forward" size={15} color="#D8B38D" />
+                </TileGleam>
+                <TileGleam style={s.quizCapsule} onPress={() => setScreen('friends')} haptic="light" borderRadius={26}>
+                  <SocialTileMaterial />
+                  <Ionicons name="person-add-outline" size={20} color={accent} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.playMiniTitle}>{data.friendCount > 0 ? 'manage' : 'invite'}</Text>
+                    <Text style={s.playMiniSub}>{data.friendCount > 0 ? 'your circle' : 'a friend'}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={15} color="#D8B38D" />
+                </TileGleam>
               </View>
             </View>
+
+            {data.friendList.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.signalRail}>
+                {data.friendList.map((f: any, fi: number) => {
+                  const fname = f.username ?? f.friend_username ?? f.name ?? `user${fi}`;
+                  return (
+                    <HapticTouchable key={`${fname}-${fi}`} style={s.friendCard} onPress={() => setScreen('friends')} haptic="light">
+                      <SocialTileMaterial />
+                      <View style={s.circleFriendAvatar}><Text style={s.friendAvatarText}>{inits(fname)}</Text></View>
+                      <Text style={s.friendCardName} numberOfLines={1}>{fname}</Text>
+                    </HapticTouchable>
+                  );
+                })}
+              </ScrollView>
+            )}
 
             {/* ══ FLOATING ACTION DOCK ══ */}
             <View style={s.actionDock}>
@@ -427,7 +391,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   const BDRS   = theme.borderStrong;
   const CB_CARD = '#0b0c0f';
   const CB_EDGE = 'rgba(216,179,141,0.22)';
-  const PAD    = layout.isTablet ? layout.screenPadding : 16;
+  // 75% less than before, matching the home page's screen-edge inset.
+  const PAD    = Math.round((layout.isTablet ? layout.screenPadding : 16) * 0.25);
 
   return StyleSheet.create({
     root:   { flex: 1, backgroundColor: BG },
@@ -464,85 +429,47 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     loadingWrap: { paddingTop: 80, alignItems: 'center' },
 
-    /* Spatial social orbit in the standard Cerbyl card */
-    orbitStage: {
-      height: layout.isTablet ? 330 : 285,
-      borderRadius: 24,
-      overflow: 'hidden',
-      borderWidth: 1,
-      borderColor: CB_EDGE,
+    /* "Your circle" bento — same asymmetric tile grid as the playfield
+       section below (one large tile + two stacked smaller ones), Swiss-style
+       oversized numeral as the primary content instead of a spatial map. */
+    circleMain: {
+      flex: 1.1, minHeight: 190, padding: 17,
+      borderRadius: 26,
+      overflow: 'hidden', borderWidth: 1, borderColor: CB_EDGE,
+      backgroundColor: CB_CARD,
     },
-    orbitHeader: {
-      position: 'absolute', top: 21, left: 20, right: 34, zIndex: 4,
-      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    },
-    orbitKicker: {
-      fontFamily: 'Inter_600SemiBold', fontSize: 9, color: GOLD,
-      letterSpacing: 2.1, textTransform: 'uppercase',
-    },
-    orbitRankPill: {
-      flexDirection: 'row', alignItems: 'center', gap: 5,
+    circleRankPill: {
+      flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start',
       borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5,
       borderWidth: 1, borderColor: rgbaFromHex(GOLD, 0.32),
       backgroundColor: rgbaFromHex(SURF, 0.98),
-      boxShadow: [
-        { offsetX: 0, offsetY: 5, blurRadius: 12, color: 'rgba(0,0,0,0.35)' },
-      ],
     },
-    orbitRankText: { fontFamily: 'Inter_600SemiBold', fontSize: 8, color: GOLD },
-    orbitCenterRing: {
-      width: 86, height: 86, borderRadius: 43, padding: 3,
-      alignItems: 'center', justifyContent: 'center',
+    circleRankText: { fontFamily: 'Inter_600SemiBold', fontSize: 8, color: GOLD },
+    circleBigNumber: {
+      marginTop: 22, fontFamily: 'Inter_900Black', fontSize: 46,
+      lineHeight: 44, color: TXT, letterSpacing: -1.5,
     },
-    orbitPulseHalo: {
-      position: 'absolute', left: '50%', top: 72, marginLeft: -51,
-      width: 102, height: 102, borderRadius: 51,
-      backgroundColor: GOLD,
+    circleMainLabel: {
+      marginTop: 4, fontFamily: 'Inter_600SemiBold', fontSize: 10.5,
+      lineHeight: 14, color: DIM, textTransform: 'uppercase', letterSpacing: 0.4,
     },
-    orbitCenter: {
-      width: 80, height: 80, borderRadius: 40, alignItems: 'center',
-      justifyContent: 'center', backgroundColor: BG,
-      borderWidth: 1, borderColor: rgbaFromHex(GOLD, 0.18),
+    /* Horizontal friend-preview rail — reuses signalRail's sizing so it
+       handles any number of friends instead of a hardcoded node count. */
+    friendCard: {
+      width: 92, minHeight: 92, padding: 12, alignItems: 'center',
+      borderRadius: 18,
+      borderWidth: 1, borderColor: CB_EDGE,
+      backgroundColor: CB_CARD,
     },
-    orbitCenterInitials: {
-      fontFamily: 'Inter_900Black', fontSize: 22, color: GOLD, letterSpacing: -0.5,
+    circleFriendAvatar: {
+      width: 40, height: 40, borderRadius: 20, alignItems: 'center',
+      justifyContent: 'center', borderWidth: 1, borderColor: rgbaFromHex(GOLD, 0.32),
+      backgroundColor: rgbaFromHex(GOLDM, 0.1),
     },
-    orbitYou: {
-      marginTop: 1, fontFamily: 'Inter_600SemiBold', fontSize: 7, color: DIM,
-      letterSpacing: 1.3, textTransform: 'uppercase',
-    },
-    orbitNode: {
-      position: 'absolute', width: 52, height: 52, borderRadius: 26,
-      alignItems: 'center', justifyContent: 'center',
-      borderWidth: 1.5, borderColor: rgbaFromHex(GOLD, 0.38),
-      backgroundColor: SURFA,
-    },
-    orbitNodeA: { left: 27, top: 91 },
-    orbitNodeB: { right: 29, top: 75 },
-    orbitNodeC: { left: 49, top: 161 },
-    orbitNodeD: { right: 43, top: 160 },
-    orbitNodeInitials: { fontFamily: 'Inter_900Black', fontSize: 12, color: GOLD },
-    orbitNodeName: {
-      position: 'absolute', top: 55, width: 68, textAlign: 'center',
-      fontFamily: 'Inter_400Regular', fontSize: 7.5, color: DIM,
-    },
-    orbitAddNode: {
-      position: 'absolute', width: 44, height: 44, borderRadius: 22,
-      alignItems: 'center', justifyContent: 'center',
-      borderWidth: 1.5, borderStyle: 'dashed',
-      borderColor: rgbaFromHex(GOLD, 0.34), backgroundColor: rgbaFromHex(BG, 0.56),
-    },
-    orbitFooter: {
-      position: 'absolute', left: 20, right: 26, bottom: 34, zIndex: 4,
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    },
-    orbitFooterTitle: { fontFamily: 'Inter_900Black', fontSize: 12, color: TXT },
-    orbitFooterCopy: { marginTop: 3, fontFamily: 'Inter_400Regular', fontSize: 8.5, color: DIM },
-    orbitFooterButton: {
-      width: 36, height: 36, borderRadius: 12, alignItems: 'center',
-      justifyContent: 'center', borderWidth: 1,
-      borderColor: rgbaFromHex(GOLD, 0.36),
-      backgroundColor: rgbaFromHex(SURF, 0.96),
+    friendAvatarText: { fontFamily: 'Inter_900Black', fontSize: 13, color: GOLD },
+    friendCardName: {
+      marginTop: 8, fontFamily: 'Inter_600SemiBold', fontSize: 9.5, color: TXT,
+      textAlign: 'center',
     },
 
     /* Overlapping action dock */
@@ -689,67 +616,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     discoveryNumberText: { fontFamily: 'Inter_900Black', fontSize: 8, color: GOLD },
     discoveryTitle: { fontFamily: 'Inter_900Black', fontSize: 12.5, color: TXT },
     discoveryCopy: { marginTop: 3, fontFamily: 'Inter_400Regular', fontSize: 8.5, color: DIM },
-
-    /* Circle identity panel */
-    circlePanel: {
-      minHeight: 190, padding: 18, borderRadius: 24, overflow: 'hidden',
-      borderWidth: 1, borderColor: BDRS,
-      backgroundColor: rgbaFromHex(SURF, 0.97),
-    },
-    circleTopRow: {
-      flexDirection: 'row', alignItems: 'flex-start',
-      justifyContent: 'space-between', gap: 14,
-    },
-    circleEyebrow: {
-      fontFamily: 'Inter_600SemiBold', fontSize: 9, color: GOLD,
-      letterSpacing: 1.9, textTransform: 'uppercase',
-    },
-    circleTitle: {
-      maxWidth: layout.isTablet ? 430 : 245, marginTop: 6,
-      fontFamily: 'Inter_900Black', fontSize: 20, lineHeight: 24,
-      color: TXT, letterSpacing: -0.55,
-    },
-    circleManage: {
-      width: 36, height: 36, borderRadius: 12, alignItems: 'center',
-      justifyContent: 'center', borderWidth: 1, borderColor: BDR,
-      backgroundColor: rgbaFromHex(GOLDM, 0.07),
-    },
-    avatarStackRow: {
-      minHeight: 54, flexDirection: 'row', alignItems: 'center', marginTop: 17,
-    },
-    stackAdd: {
-      width: 46, height: 46, borderRadius: 23, alignItems: 'center',
-      justifyContent: 'center', borderWidth: 1.5, borderStyle: 'dashed',
-      borderColor: rgbaFromHex(GOLD, 0.45), backgroundColor: rgbaFromHex(GOLDM, 0.06),
-    },
-    stackAvatar: {
-      width: 46, height: 46, borderRadius: 23, marginLeft: 7,
-      alignItems: 'center', justifyContent: 'center',
-      borderWidth: 2, borderColor: rgbaFromHex(GOLD, 0.4),
-    },
-    stackAvatarOverlap: { marginLeft: -10 },
-    stackInitials: { fontFamily: 'Inter_900Black', fontSize: 12, color: GOLD },
-    stackMore: { backgroundColor: SURFA },
-    stackMoreText: { fontFamily: 'Inter_900Black', fontSize: 10, color: DIM },
-    circleEmptyHint: {
-      flex: 1, marginLeft: 13, fontFamily: 'Inter_400Regular',
-      fontSize: 10.5, lineHeight: 16, color: DIM,
-    },
-    circleMetaRow: {
-      minHeight: 36, flexDirection: 'row', alignItems: 'center',
-      marginTop: 13, paddingTop: 12, borderTopWidth: 1, borderTopColor: BDR,
-    },
-    circleMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    circleMetaValue: { fontFamily: 'Inter_900Black', fontSize: 11, color: TXT },
-    circleMetaLabel: {
-      fontFamily: 'Inter_400Regular', fontSize: 8, color: DIM,
-      letterSpacing: 0.8, textTransform: 'uppercase',
-    },
-    circleMetaDivider: { width: 1, height: 14, backgroundColor: BDR, marginHorizontal: 10 },
-    circleOpenText: {
-      fontFamily: 'Inter_600SemiBold', fontSize: 9, color: GOLD,
-      letterSpacing: 0.7, textTransform: 'uppercase',
-    },
 
     /* Context-aware activation card */
     nextMoveCard: {

@@ -11,7 +11,7 @@ import NeumorphicTexture, { cbCardGradient, cbTileShadow, cbTileCardGradient, cb
 import CerbylMark from '../components/CerbylMark';
 import XpLineChart from '../components/XpLineChart';
 import { AuthUser } from '../services/auth';
-import { getEnhancedStats, getFriendActivityFeed, getXpHistory, XpHistory, getPersonalizedPrompts, PersonalizedPrompt, runSearchHubCommand, getNotifications } from '../services/api';
+import { getEnhancedStats, getFriendActivityFeed, getXpHistory, XpHistory, getPersonalizedPrompts, PersonalizedPrompt, runSearchHubCommand } from '../services/api';
 import { triggerHaptic } from '../utils/haptics';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
@@ -85,7 +85,6 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [recommendedPrompts, setRecommendedPrompts] = useState<PersonalizedPrompt[]>([]);
   const [actingPrompt, setActingPrompt] = useState<string | null>(null);
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [heroIndex, setHeroIndex] = useState(0);
   const heroSwap = useRef(new Animated.Value(1)).current;
   const heroAnimating = useRef(false);
@@ -152,9 +151,6 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
     }).catch(() => {});
     getPersonalizedPrompts().then((data) => {
       setRecommendedPrompts(Array.isArray(data?.prompts) ? data.prompts : []);
-    }).catch(() => {});
-    getNotifications(user.username).then((data) => {
-      setUnreadNotifications((data.notifications ?? []).filter((n) => !n.is_read).length);
     }).catch(() => {});
   }, [user.username, loadStats, loadXp]);
 
@@ -352,14 +348,6 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
             <Text style={styles.appName}>cerbyl</Text>
             <Text style={styles.greeting}>{greeting}, {firstName}</Text>
           </View>
-          <HapticTouchable onPress={() => onNavigate?.('notifications')} style={styles.bellBtn} haptic="selection" accessibilityLabel="Notifications">
-            <Ionicons name="notifications-outline" size={18} color={GOLD_L} />
-            {unreadNotifications > 0 ? (
-              <View style={styles.bellBadge}>
-                <Text style={styles.bellBadgeText}>{unreadNotifications > 9 ? '9+' : unreadNotifications}</Text>
-              </View>
-            ) : null}
-          </HapticTouchable>
           <View style={styles.topLogoWrap}>
             <CerbylMark size={90} color={GOLD_L} />
           </View>
@@ -572,7 +560,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   const DIM = theme.textSecondary;
   const CARD_BORDER = theme.border;
   const SHADOW = darkenColor(theme.primary, theme.isLight ? 72 : 4);
-  const horizontalPadding = layout.isTablet ? 20 : 16;
+  // 75% less than the original 20/16 — applies to every section on this
+  // page (hero, stats, everything), not just one card.
+  const horizontalPadding = Math.round((layout.isTablet ? 20 : 16) * 0.25);
   const heroMinHeight = layout.isLandscape
     ? Math.min(440, Math.max(330, layout.height * 0.68))
     : Math.min(380, Math.max(310, layout.height * 0.42));
@@ -613,34 +603,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     justifyContent: 'center',
     marginRight: -10,
     transform: [{ translateX: 16 }],
-  },
-  bellBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.18 : 0.22),
-    backgroundColor: rgbaFromHex(theme.panelAlt, theme.isLight ? 0.84 : 0.72),
-    marginRight: 6,
-  },
-  bellBadge: {
-    position: 'absolute',
-    top: -3,
-    right: -3,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    paddingHorizontal: 3,
-    backgroundColor: theme.danger,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bellBadgeText: {
-    fontFamily: 'Inter_900Black',
-    fontSize: 8.5,
-    color: '#fff',
   },
   topTextWrap: {
     justifyContent: 'center',

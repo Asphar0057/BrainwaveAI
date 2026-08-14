@@ -827,7 +827,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   const accentInk = theme.isLight ? darkenColor(theme.accent, 38) : theme.bgPrimary;
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bgPrimary },
-    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 18, paddingTop: Math.max(topInset + 12, 52), paddingBottom: 118, gap: 14 },
+    // 75% less than the original 18px — matches the home page, applies to
+    // every card on this page (hero and everything below it).
+    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: Math.round(18 * 0.25), paddingTop: Math.max(topInset + 12, 52), paddingBottom: 118, gap: 14 },
     topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     iconBtn: { width: 40, height: 40, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.06) },
     hsToggle: { height: 40, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 7, boxShadow: cbTileShadow(0.055) },
