@@ -151,8 +151,8 @@ function MainTabs({ user, onLogout, onUserUpdate, onRetakeQuiz, onNavigate, requ
                     accessibilityLabel={`${t.label} tab`}
                     accessibilityState={{ selected: active }}
                   >
-                    <View style={[s.iconWrap, active && s.iconWrapActive]}>
-                      <Ionicons name={active ? t.activeIcon : t.icon} size={18} color={active ? selectedTheme.bgPrimary : selectedTheme.textSecondary} />
+                    <View style={s.iconWrap}>
+                      <Ionicons name={active ? t.activeIcon : t.icon} size={18} color={active ? selectedTheme.accentHover : selectedTheme.textSecondary} />
                     </View>
                     <Text allowFontScaling={false} style={[s.tabLabel, s.tabLabelRail, { color: active ? selectedTheme.textPrimary : selectedTheme.textSecondary }]}>{t.label}</Text>
                   </HapticTouchable>
@@ -200,8 +200,8 @@ function MainTabs({ user, onLogout, onUserUpdate, onRetakeQuiz, onNavigate, requ
                         accessibilityLabel={`${t.label} tab`}
                         accessibilityState={{ selected: active }}
                       >
-                        <View style={[s.iconWrap, active && s.iconWrapActive]}>
-                          <Ionicons name={active ? t.activeIcon : t.icon} size={18} color={active ? selectedTheme.bgPrimary : selectedTheme.textSecondary} />
+                        <View style={s.iconWrap}>
+                          <Ionicons name={active ? t.activeIcon : t.icon} size={18} color={active ? selectedTheme.accentHover : selectedTheme.textSecondary} />
                         </View>
                         <Text allowFontScaling={false} style={[s.tabLabel, { color: active ? selectedTheme.textPrimary : selectedTheme.textSecondary }]}>{t.label}</Text>
                       </HapticTouchable>
@@ -463,13 +463,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     iconWrap: {
       width: 34,
       height: 34,
-      borderRadius: 12,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: theme.panelAlt,
-    },
-    iconWrapActive: {
-      backgroundColor: theme.accent,
     },
     tabLabel: {
       fontFamily: 'Inter_700Bold',
