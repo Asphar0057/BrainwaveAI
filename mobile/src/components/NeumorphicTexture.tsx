@@ -100,6 +100,21 @@ export function cbInsetShadow(strength: number = 1): ViewStyle['boxShadow'] {
   ];
 }
 
+// Plain single dark drop shadow — no light-corner counter-shadow, no
+// gold-tinted inset ring (a visible ring reads as a border/outline once
+// it's actually rendering on a phone, not as shadow). This is the shared
+// depth treatment for every cb-tile-styled surface app-wide — cards, panels,
+// buttons, inputs — so they all read as one consistent material.
+export function cbPlainCardShadow(): ViewStyle['boxShadow'] {
+  return [{ offsetX: 10, offsetY: 10, blurRadius: 24, color: 'rgba(0, 0, 0, 0.55)' }];
+}
+export function cbPlainRaisedShadow(): ViewStyle['boxShadow'] {
+  return [{ offsetX: 6, offsetY: 8, blurRadius: 16, color: 'rgba(0, 0, 0, 0.5)' }];
+}
+export function cbPlainPressedShadow(strength: number = 1): ViewStyle['boxShadow'] {
+  return [{ offsetX: 4, offsetY: 4, blurRadius: 10 * strength, color: 'rgba(0, 0, 0, 0.55)', inset: true }];
+}
+
 export function NeumorphicLayer({ grainOpacity = 0.38 }: { grainOpacity?: number }) {
   return (
     <>

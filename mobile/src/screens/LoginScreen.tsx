@@ -15,6 +15,9 @@ import NeumorphicTexture, {
   CB_CARD_BOTTOM,
   CB_ACCENT,
   cbTileCardGradient,
+  cbPlainCardShadow,
+  cbPlainRaisedShadow,
+  cbPlainPressedShadow,
 } from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { rgbaFromHex } from '../utils/theme';
@@ -33,19 +36,6 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 // (an effect fires after the jump already happened).
 function animateLayout() {
   LayoutAnimation.configureNext(LayoutAnimation.create(240, LayoutAnimation.Types.easeInEaseOut, LayoutAnimation.Properties.opacity));
-}
-
-// Plain single dark drop shadow — no light-corner counter-shadow, no
-// gold-tinted inset ring. Just enough to separate each surface from the
-// card behind it.
-function cardShadow(): ViewStyle['boxShadow'] {
-  return [{ offsetX: 10, offsetY: 10, blurRadius: 24, color: 'rgba(0, 0, 0, 0.55)' }];
-}
-function raisedShadow(): ViewStyle['boxShadow'] {
-  return [{ offsetX: 6, offsetY: 8, blurRadius: 16, color: 'rgba(0, 0, 0, 0.5)' }];
-}
-function pressedShadow(strength: number = 1): ViewStyle['boxShadow'] {
-  return [{ offsetX: 4, offsetY: 4, blurRadius: 10 * strength, color: 'rgba(0, 0, 0, 0.55)', inset: true }];
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -577,7 +567,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       // bottom before it catches up. This fill is the gradient's own darkest
       // stop, so any such gap reads as part of the card, not a cutoff.
       backgroundColor: CB_CARD_BOTTOM,
-      boxShadow: cardShadow(),
+      boxShadow: cbPlainCardShadow(),
     } as ViewStyle,
     panelClip: {
       ...StyleSheet.absoluteFillObject,
@@ -615,7 +605,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       borderRadius: 20,
       marginBottom: 18,
       padding: 4,
-      boxShadow: pressedShadow(0.6),
+      boxShadow: cbPlainPressedShadow(0.6),
     } as ViewStyle,
     tab: {
       flex: 1,
@@ -625,7 +615,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     tabActive: {
       backgroundColor: CB_CARD_TOP,
-      boxShadow: raisedShadow(),
+      boxShadow: cbPlainRaisedShadow(),
     } as ViewStyle,
     tabText: {
       fontFamily: 'Inter_600SemiBold',
@@ -659,7 +649,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       fontFamily: 'Inter_400Regular',
       fontSize: 14,
       color: CB_ACCENT,
-      boxShadow: pressedShadow(),
+      boxShadow: cbPlainPressedShadow(),
     } as ViewStyle,
 
     errorBox: {
@@ -733,7 +723,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       padding: 14,
       borderRadius: 22,
       backgroundColor: CB_CARD_TOP,
-      boxShadow: pressedShadow(0.75),
+      boxShadow: cbPlainPressedShadow(0.75),
     } as ViewStyle,
     secondaryBtn: {
       marginTop: 16,
@@ -741,7 +731,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       paddingVertical: 14,
       alignItems: 'center',
       backgroundColor: CB_CARD_TOP,
-      boxShadow: raisedShadow(),
+      boxShadow: cbPlainRaisedShadow(),
     } as ViewStyle,
     secondaryBtnText: {
       fontFamily: 'Inter_900Black',
@@ -758,7 +748,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       borderRadius: 22,
       paddingVertical: 15,
       backgroundColor: CB_CARD_TOP,
-      boxShadow: raisedShadow(),
+      boxShadow: cbPlainRaisedShadow(),
     } as ViewStyle,
     googleIcon: { fontFamily: 'Inter_900Black', fontSize: 15, color: CB_ACCENT },
     googleText: {
