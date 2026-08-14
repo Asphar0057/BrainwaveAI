@@ -9,31 +9,103 @@ import { AuthUser } from '../services/auth';
 import { saveCompleteProfile, setWeeklyGoals } from '../services/api';
 import HapticTouchable from '../components/HapticTouchable';
 import GeoBackground from '../components/GeoBackground';
-import NeumorphicTexture, { cbTileCardGradient, cbTileShadowExact, cbTileBorder, cbTileShadow } from '../components/NeumorphicTexture';
+import NeumorphicTexture, {
+  cbTileCardGradient,
+  cbPlainCardShadow,
+  cbPlainRaisedShadow,
+  cbPlainPressedShadow,
+} from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
 const COMMON_SUBJECTS = [
-  'Computer Science', 'Mathematics', 'Physics', 'Chemistry', 'Biology',
-  'Engineering', 'Business Administration', 'Economics', 'Psychology', 'Sociology',
-  'English Literature', 'History', 'Political Science', 'Philosophy', 'Art History',
-  'Music', 'Theater', 'Communications', 'Journalism', 'Marketing',
-  'Accounting', 'Finance', 'Statistics', 'Data Science', 'Information Technology',
-  'Mechanical Engineering', 'Electrical Engineering', 'Civil Engineering', 'Chemical Engineering',
-  'Biochemistry', 'Molecular Biology', 'Genetics', 'Neuroscience', 'Medicine',
-  'Nursing', 'Public Health', 'Environmental Science', 'Geography', 'Anthropology',
-  'Architecture', 'Graphic Design', 'Film Studies', 'Creative Writing', 'Linguistics',
-  'Foreign Languages', 'Spanish', 'French', 'German', 'Chinese', 'Japanese',
-  'Calculus', 'Algebra', 'Geometry', 'Trigonometry', 'Linear Algebra',
-  'Organic Chemistry', 'Physical Chemistry', 'Analytical Chemistry', 'Inorganic Chemistry',
-  'Quantum Physics', 'Thermodynamics', 'Electromagnetism', 'Optics', 'Mechanics',
-  'Cell Biology', 'Ecology', 'Microbiology', 'Zoology', 'Botany',
-  'Software Engineering', 'Web Development', 'Mobile Development', 'Artificial Intelligence',
-  'Machine Learning', 'Cybersecurity', 'Database Management', 'Network Administration',
-  'Game Development', 'UI/UX Design', 'Digital Marketing', 'Social Media Marketing',
-  'Human Resources', 'Operations Management', 'Supply Chain Management', 'Project Management',
-  'Law', 'Criminal Justice', 'International Relations', 'Education', 'Special Education',
+  // Computing & technology
+  'Computer Science', 'Software Engineering', 'Web Development', 'Mobile Development',
+  'Artificial Intelligence', 'Machine Learning', 'Deep Learning', 'Natural Language Processing',
+  'Computer Vision', 'Data Science', 'Data Engineering', 'Data Analytics', 'Big Data',
+  'Cybersecurity', 'Information Security', 'Cryptography', 'Ethical Hacking',
+  'Cloud Computing', 'DevOps', 'Site Reliability Engineering', 'Systems Administration',
+  'Database Management', 'Database Systems', 'Network Administration', 'Computer Networks',
+  'Distributed Systems', 'Operating Systems', 'Computer Architecture', 'Embedded Systems',
+  'Game Development', 'Game Design', 'Robotics', 'Human-Computer Interaction',
+  'UI/UX Design', 'Product Design', 'Blockchain', 'Quantum Computing', 'Information Technology',
+  'Computer Engineering', 'Algorithms', 'Data Structures', 'Compilers', 'Programming Languages',
+
+  // Mathematics & statistics
+  'Mathematics', 'Calculus', 'Algebra', 'Linear Algebra', 'Abstract Algebra', 'Geometry',
+  'Trigonometry', 'Discrete Mathematics', 'Number Theory', 'Combinatorics', 'Topology',
+  'Real Analysis', 'Complex Analysis', 'Differential Equations', 'Numerical Analysis',
+  'Probability', 'Statistics', 'Mathematical Statistics', 'Actuarial Science', 'Operations Research',
+  'Applied Mathematics', 'Mathematical Logic', 'Game Theory',
+
+  // Physics & astronomy
+  'Physics', 'Classical Mechanics', 'Quantum Physics', 'Quantum Mechanics', 'Thermodynamics',
+  'Statistical Mechanics', 'Electromagnetism', 'Optics', 'Astrophysics', 'Astronomy',
+  'Particle Physics', 'Nuclear Physics', 'Condensed Matter Physics', 'Relativity', 'Cosmology',
+  'Fluid Dynamics', 'Acoustics',
+
+  // Chemistry
+  'Chemistry', 'Organic Chemistry', 'Inorganic Chemistry', 'Physical Chemistry',
+  'Analytical Chemistry', 'Biochemistry', 'Environmental Chemistry', 'Polymer Chemistry',
+  'Medicinal Chemistry', 'Materials Chemistry',
+
+  // Biology & life sciences
+  'Biology', 'Cell Biology', 'Molecular Biology', 'Genetics', 'Genomics', 'Ecology',
+  'Evolutionary Biology', 'Microbiology', 'Virology', 'Immunology', 'Zoology', 'Botany',
+  'Marine Biology', 'Neuroscience', 'Physiology', 'Anatomy', 'Biotechnology', 'Bioinformatics',
+  'Biophysics', 'Developmental Biology', 'Entomology', 'Systems Biology',
+
+  // Earth, environment & agriculture
+  'Environmental Science', 'Environmental Engineering', 'Sustainability', 'Geology',
+  'Geophysics', 'Meteorology', 'Oceanography', 'Geography', 'GIS / Geospatial Science',
+  'Agriculture', 'Agricultural Science', 'Forestry', 'Horticulture', 'Soil Science',
+
+  // Engineering
+  'Engineering', 'Mechanical Engineering', 'Electrical Engineering', 'Civil Engineering',
+  'Chemical Engineering', 'Aerospace Engineering', 'Biomedical Engineering',
+  'Industrial Engineering', 'Materials Science', 'Materials Engineering', 'Petroleum Engineering',
+  'Nuclear Engineering', 'Marine Engineering', 'Automotive Engineering', 'Structural Engineering',
+  'Systems Engineering', 'Mechatronics', 'Manufacturing Engineering', 'Architecture',
+  'Urban Planning', 'Construction Management',
+
+  // Medicine & health sciences
+  'Medicine', 'Nursing', 'Pharmacy', 'Pharmacology', 'Dentistry', 'Veterinary Medicine',
+  'Public Health', 'Epidemiology', 'Nutrition', 'Dietetics', 'Physical Therapy',
+  'Occupational Therapy', 'Kinesiology', 'Sports Science', 'Exercise Physiology',
+  'Speech-Language Pathology', 'Radiology', 'Optometry', 'Health Informatics',
+  'Emergency Medical Services', 'Gerontology',
+
+  // Business, economics & law
+  'Business Administration', 'Economics', 'Finance', 'Accounting', 'Marketing',
+  'Digital Marketing', 'Social Media Marketing', 'Management', 'Entrepreneurship',
+  'Supply Chain Management', 'Operations Management', 'Human Resources', 'Project Management',
+  'Real Estate', 'Insurance', 'International Business', 'Business Analytics',
+  'Investment Banking', 'Risk Management', 'Law', 'Criminal Justice', 'Criminology',
+  'Paralegal Studies', 'Forensic Science', 'Public Policy',
+
+  // Social sciences
+  'Psychology', 'Sociology', 'Anthropology', 'Political Science', 'International Relations',
+  'Social Work', 'Cognitive Science', 'Behavioral Science', 'Demography',
+
+  // Humanities
+  'History', 'Philosophy', 'Religious Studies', 'Theology', 'Classics', 'Archaeology',
+  'Ethics', 'Linguistics', 'English Literature', 'Comparative Literature', 'Creative Writing',
+  'Rhetoric', 'Library Science',
+
+  // Languages
+  'Foreign Languages', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Mandarin Chinese',
+  'Japanese', 'Korean', 'Arabic', 'Russian', 'Hindi', 'Latin', 'Greek', 'American Sign Language',
+
+  // Arts & media
+  'Art History', 'Fine Art', 'Graphic Design', 'Photography', 'Animation', 'Fashion Design',
+  'Interior Design', 'Industrial Design', 'Music', 'Music Theory', 'Music Performance',
+  'Music Composition', 'Theater', 'Drama', 'Dance', 'Film Studies', 'Film Production',
+  'Media Studies', 'Journalism', 'Communications', 'Public Relations',
+
+  // Education
+  'Education', 'Early Childhood Education', 'Special Education', 'Educational Psychology',
+  'Curriculum and Instruction', 'Higher Education Administration',
 ];
 
 const LEARNING_STAGES = [
@@ -126,11 +198,38 @@ type Answers = {
   learningStage: string;
   subjects: string[];
   mainSubject: string;
-  brainwaveGoal: string;
+  brainwaveGoals: string[];
   learningPreferences: Record<string, string[]>;
 };
 
 type Props = { user: AuthUser; onDone: () => void };
+
+// Module-level, not defined inside the screen component: a component
+// re-created on every render gets a new type identity, so React unmounts
+// and remounts every Panel instance (and anything focused inside it, like a
+// TextInput) on every keystroke — which is what was closing the keyboard
+// after one letter.
+function Panel({ panelStyle, panelClipStyle, children }: { panelStyle: ViewStyle; panelClipStyle: ViewStyle; children: React.ReactNode }) {
+  return (
+    // Shadow lives on the outer view (overflow: visible, the default) —
+    // RN clips a view's own boxShadow the same way it clips shadowOffset
+    // when overflow:'hidden' is set, so the raised drop-shadow would vanish
+    // if it were on the same view as the texture's rounded-corner clip.
+    <View style={panelStyle}>
+      <View style={panelClipStyle} pointerEvents="none">
+        <NeumorphicTexture
+          grainOpacity={0.16}
+          grainVariant="skia"
+          baseFrequency={0.7}
+          gradientColors={cbTileCardGradient.colors}
+          gradientStart={cbTileCardGradient.start}
+          gradientEnd={cbTileCardGradient.end}
+        />
+      </View>
+      {children}
+    </View>
+  );
+}
 
 export default function OnboardingQuizScreen({ user, onDone }: Props) {
   const { selectedTheme } = useAppTheme();
@@ -143,7 +242,7 @@ export default function OnboardingQuizScreen({ user, onDone }: Props) {
     learningStage: '',
     subjects: [],
     mainSubject: '',
-    brainwaveGoal: '',
+    brainwaveGoals: [],
     learningPreferences: { q1: [], q2: [], q3: [], q4: [], q5: [] },
   });
   const [weeklyPreset, setWeeklyPreset] = useState<WeeklyPresetKey>('regular');
@@ -154,7 +253,11 @@ export default function OnboardingQuizScreen({ user, onDone }: Props) {
 
   const userId = user.username;
 
-  const mainSubjectSuggestions = answers.mainSubject.length >= 2
+  // Once the box holds an exact match (typed in full, or picked from this
+  // very list) there's nothing left to suggest — without this check, picking
+  // a suggestion never made the dropdown go away, since the chosen value
+  // still matched itself via .includes().
+  const mainSubjectSuggestions = answers.mainSubject.length >= 2 && !COMMON_SUBJECTS.includes(answers.mainSubject)
     ? COMMON_SUBJECTS.filter(sub => sub.toLowerCase().includes(answers.mainSubject.toLowerCase())).slice(0, 6)
     : [];
   const otherSubjectSuggestions = subjectInput.length >= 2
@@ -173,7 +276,16 @@ export default function OnboardingQuizScreen({ user, onDone }: Props) {
     setAnswers(prev => ({ ...prev, subjects: prev.subjects.filter(s => s !== subject) }));
   };
 
-  const isProfileValid = Boolean(answers.learningStage && answers.subjects.length > 0 && answers.mainSubject && answers.brainwaveGoal);
+  const toggleGoal = (value: string) => {
+    setAnswers(prev => {
+      const next = prev.brainwaveGoals.includes(value)
+        ? prev.brainwaveGoals.filter(v => v !== value)
+        : [...prev.brainwaveGoals, value];
+      return { ...prev, brainwaveGoals: next };
+    });
+  };
+
+  const isProfileValid = Boolean(answers.learningStage && answers.subjects.length > 0 && answers.mainSubject && answers.brainwaveGoals.length > 0);
   const isPreferencesValid = PREFERENCE_QUESTIONS.every(q => answers.learningPreferences[q.id]?.length > 0);
 
   const togglePreference = (questionId: string, value: string) => {
@@ -201,7 +313,11 @@ export default function OnboardingQuizScreen({ user, onDone }: Props) {
                 learning_stage: answers.learningStage,
                 preferred_subjects: answers.subjects,
                 main_subject: answers.mainSubject,
-                brainwave_goal: answers.brainwaveGoal,
+                // Backend column is a single String(100) — multiple picks are
+                // comma-joined rather than adding a new list column/migration
+                // for what's a small UI change; values are short slugs so
+                // even all 6 selected fits comfortably.
+                brainwave_goal: answers.brainwaveGoals.join(','),
                 quiz_completed: false,
                 quiz_skipped: true,
               });
@@ -227,7 +343,7 @@ export default function OnboardingQuizScreen({ user, onDone }: Props) {
         learning_stage: answers.learningStage,
         preferred_subjects: answers.subjects,
         main_subject: answers.mainSubject,
-        brainwave_goal: answers.brainwaveGoal,
+        brainwave_goal: answers.brainwaveGoals.join(','),
         learning_preferences: answers.learningPreferences,
         quiz_completed: true,
         quiz_skipped: false,
@@ -246,19 +362,6 @@ export default function OnboardingQuizScreen({ user, onDone }: Props) {
     }
   };
 
-  const Panel = ({ children }: { children: React.ReactNode }) => (
-    <View style={s.panel}>
-      <NeumorphicTexture
-        grainOpacity={0.42}
-        grainVariant="skia"
-        baseFrequency={0.7}
-        gradientColors={cbTileCardGradient.colors}
-        gradientStart={cbTileCardGradient.start}
-        gradientEnd={cbTileCardGradient.end}
-      />
-      {children}
-    </View>
-  );
 
   if (step === 'welcome') {
     return (
@@ -268,7 +371,7 @@ export default function OnboardingQuizScreen({ user, onDone }: Props) {
           <GeoBackground />
         </View>
         <View style={s.welcomeWrap}>
-          <Panel>
+          <Panel panelStyle={s.panel} panelClipStyle={s.panelClip}>
             <Text style={s.heroWord}>cerbyl</Text>
             <Text style={s.heroTagline}>learning unified</Text>
             <Text style={s.welcomeBody}>
@@ -301,7 +404,7 @@ export default function OnboardingQuizScreen({ user, onDone }: Props) {
           <GeoBackground />
         </View>
         <View style={s.welcomeWrap}>
-          <Panel>
+          <Panel panelStyle={s.panel} panelClipStyle={s.panelClip}>
             <Ionicons name="checkmark-circle" size={40} color={selectedTheme.accentHover} style={{ alignSelf: 'center', marginBottom: 10 }} />
             <Text style={s.heroWord}>all set!</Text>
             <Text style={s.welcomeBody}>Your AI tutor is now personalized to match your unique learning preferences.</Text>
@@ -338,7 +441,7 @@ export default function OnboardingQuizScreen({ user, onDone }: Props) {
               <Text style={s.pageTitle}>profile</Text>
               <Text style={s.pageSub}>customize your ai learning experience</Text>
 
-              <Panel>
+              <Panel panelStyle={s.panel} panelClipStyle={s.panelClip}>
                 <Text style={s.sectionLabel}>01 · what best describes your learning journey?</Text>
                 <View style={s.choiceList}>
                   {LEARNING_STAGES.map(stage => {
@@ -359,7 +462,7 @@ export default function OnboardingQuizScreen({ user, onDone }: Props) {
                 </View>
               </Panel>
 
-              <Panel>
+              <Panel panelStyle={s.panel} panelClipStyle={s.panelClip}>
                 <Text style={s.sectionLabel}>02 · what's your main subject or field of study?</Text>
                 <TextInput
                   style={s.input}
@@ -387,23 +490,11 @@ export default function OnboardingQuizScreen({ user, onDone }: Props) {
                 ) : null}
               </Panel>
 
-              <Panel>
+              <Panel panelStyle={s.panel} panelClipStyle={s.panelClip}>
                 <Text style={s.sectionLabel}>03 · what other subjects are you interested in?</Text>
-                {answers.subjects.length > 0 ? (
-                  <View style={s.tags}>
-                    {answers.subjects.map(subject => (
-                      <View key={subject} style={s.tag}>
-                        <Text style={s.tagText}>{subject}</Text>
-                        <HapticTouchable onPress={() => removeSubject(subject)} haptic="light">
-                          <Ionicons name="close" size={12} color={selectedTheme.textSecondary} />
-                        </HapticTouchable>
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
                 <TextInput
                   style={s.input}
-                  placeholder="e.g., Calculus, Organic Chemistry, Data Structures..."
+                  placeholder={answers.subjects.length > 0 ? '' : 'e.g., Calculus, Organic Chemistry, Data Structures...'}
                   placeholderTextColor={selectedTheme.textSecondary}
                   value={subjectInput}
                   onChangeText={setSubjectInput}
@@ -423,18 +514,31 @@ export default function OnboardingQuizScreen({ user, onDone }: Props) {
                     ))}
                   </View>
                 ) : null}
+                {answers.subjects.length > 0 ? (
+                  <View style={s.tags}>
+                    {answers.subjects.map(subject => (
+                      <View key={subject} style={s.tag}>
+                        <Text style={s.tagText}>{subject}</Text>
+                        <HapticTouchable onPress={() => removeSubject(subject)} haptic="light">
+                          <Ionicons name="close" size={12} color={selectedTheme.textSecondary} />
+                        </HapticTouchable>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
               </Panel>
 
-              <Panel>
+              <Panel panelStyle={s.panel} panelClipStyle={s.panelClip}>
                 <Text style={s.sectionLabel}>04 · what's your main goal?</Text>
+                <Text style={s.hint}>select all that apply</Text>
                 <View style={s.choiceList}>
                   {BRAINWAVE_GOALS.map(goal => {
-                    const selected = answers.brainwaveGoal === goal.value;
+                    const selected = answers.brainwaveGoals.includes(goal.value);
                     return (
                       <HapticTouchable
                         key={goal.value}
                         style={[s.choice, selected && s.choiceSelected]}
-                        onPress={() => setAnswers(prev => ({ ...prev, brainwaveGoal: goal.value }))}
+                        onPress={() => toggleGoal(goal.value)}
                         activeOpacity={0.85}
                         haptic="selection"
                       >
@@ -446,7 +550,7 @@ export default function OnboardingQuizScreen({ user, onDone }: Props) {
                 </View>
               </Panel>
 
-              <Panel>
+              <Panel panelStyle={s.panel} panelClipStyle={s.panelClip}>
                 <Text style={s.sectionLabel}>05 · weekly activity goals</Text>
                 <Text style={s.hint}>how much do you plan to study each week?</Text>
                 <View style={s.presetRow}>
@@ -478,7 +582,7 @@ export default function OnboardingQuizScreen({ user, onDone }: Props) {
                 haptic="medium"
               >
                 <LinearGradient colors={[selectedTheme.accentHover, selectedTheme.accent]} start={{ x: 0.05, y: 0 }} end={{ x: 0.95, y: 1 }} style={s.btn}>
-                  <Text style={s.btnText}>continue to learning preferences</Text>
+                  <Text style={s.btnText}>learning preferences</Text>
                   <Ionicons name="chevron-forward" size={16} color={selectedTheme.bgPrimary} />
                 </LinearGradient>
               </HapticTouchable>
@@ -493,7 +597,7 @@ export default function OnboardingQuizScreen({ user, onDone }: Props) {
               <Text style={s.pageSub}>help us personalize your learning experience</Text>
 
               {PREFERENCE_QUESTIONS.map((q, qIdx) => (
-                <Panel key={q.id}>
+                <Panel key={q.id} panelStyle={s.panel} panelClipStyle={s.panelClip}>
                   <Text style={s.sectionLabel}>{String(qIdx + 1).padStart(2, '0')} · {q.question}</Text>
                   <Text style={s.hint}>select all that apply</Text>
                   <View style={s.choiceList}>
@@ -552,9 +656,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   const contentMaxWidth = Math.min(layout.contentMaxWidth, 640);
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: theme.bgPrimary },
-    welcomeWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
+    welcomeWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
     scrollContent: { flexGrow: 1, paddingTop: 14, paddingBottom: 48 },
-    content: { width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center', paddingHorizontal: layout.isTablet ? 18 : 14 },
+    content: { width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center', paddingHorizontal: layout.isTablet ? 10 : 6 },
 
     steps: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
     stepChip: { fontFamily: 'Inter_700Bold', fontSize: 10, letterSpacing: 1.4, color: theme.textSecondary },
@@ -569,13 +673,16 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     panel: {
       width: '100%',
       borderRadius: 24,
-      paddingHorizontal: 16,
-      paddingVertical: 18,
-      overflow: 'hidden',
-      marginBottom: 16,
-      boxShadow: cbTileShadowExact(),
-      ...cbTileBorder(0.2),
+      paddingHorizontal: 12,
+      paddingVertical: 14,
+      marginBottom: 14,
+      boxShadow: cbPlainCardShadow(),
     } as ViewStyle,
+    panelClip: {
+      ...StyleSheet.absoluteFillObject,
+      borderRadius: 24,
+      overflow: 'hidden',
+    },
 
     heroWord: { fontFamily: 'Inter_900Black', fontSize: 38, color: theme.accentHover, letterSpacing: -1.2, textAlign: 'center' },
     heroTagline: { fontFamily: 'Inter_600SemiBold', fontSize: 11, letterSpacing: 2, color: theme.textSecondary, textAlign: 'center', marginTop: 6, textTransform: 'uppercase' },
@@ -592,14 +699,13 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       paddingHorizontal: 14,
       paddingVertical: 12,
       borderRadius: 14,
-      borderWidth: 1,
-      borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.14 : 0.18),
       backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.4 : 0.55),
+      boxShadow: cbPlainRaisedShadow(),
     } as ViewStyle,
     choiceSelected: {
-      borderColor: rgbaFromHex(theme.accentHover, 0.5),
       backgroundColor: rgbaFromHex(theme.accent, theme.isLight ? 0.14 : 0.18),
-    },
+      boxShadow: cbPlainPressedShadow(0.7),
+    } as ViewStyle,
     choiceText: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 13, color: theme.textPrimary },
     choiceTextSelected: { color: theme.accentHover, fontFamily: 'Inter_600SemiBold' },
     optionText: { lineHeight: 18 },
@@ -631,7 +737,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     suggestionText: { fontFamily: 'Inter_400Regular', fontSize: 12.5, color: theme.textPrimary },
 
-    tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+    tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
     tag: {
       flexDirection: 'row', alignItems: 'center', gap: 6,
       paddingHorizontal: 10, paddingVertical: 7, borderRadius: 12,
@@ -643,24 +749,37 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     presetRow: { gap: 8, marginTop: 4 },
     presetCard: {
       paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14,
-      borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.14 : 0.18),
       backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.4 : 0.55),
+      boxShadow: cbPlainRaisedShadow(),
       gap: 3,
     } as ViewStyle,
     presetCardSelected: {
-      borderColor: rgbaFromHex(theme.accentHover, 0.5),
       backgroundColor: rgbaFromHex(theme.accent, theme.isLight ? 0.14 : 0.18),
-    },
+      boxShadow: cbPlainPressedShadow(0.7),
+    } as ViewStyle,
     presetLabel: { fontFamily: 'Inter_700Bold', fontSize: 13, color: theme.textPrimary },
     presetStats: { fontFamily: 'Inter_400Regular', fontSize: 11, color: theme.textSecondary },
 
-    btnWrap: { marginTop: 6, borderRadius: 16, overflow: 'hidden' },
+    // Shadow on the wrapper (overflow: visible); btn is the inner clipped
+    // gradient layer — same split as the panel above, for the same reason.
+    btnWrap: { marginTop: 6, borderRadius: 16, boxShadow: cbPlainRaisedShadow() } as ViewStyle,
     btnDisabled: { opacity: 0.5 },
     btn: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+      borderRadius: 16,
+      overflow: 'hidden',
       paddingVertical: 15,
+      paddingHorizontal: 22,
     },
-    btnText: { fontFamily: 'Inter_900Black', fontSize: 13, color: theme.bgPrimary, letterSpacing: 0.4, textTransform: 'uppercase' },
+    btnText: {
+      fontFamily: 'Inter_900Black',
+      fontSize: 12.5,
+      color: theme.bgPrimary,
+      letterSpacing: 0.3,
+      textTransform: 'uppercase',
+      textAlign: 'center',
+      flexShrink: 1,
+    },
     btnSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: theme.textSecondary, letterSpacing: 0.2, textAlign: 'center', marginTop: 10 },
 
     skipBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 14, paddingVertical: 8 },
