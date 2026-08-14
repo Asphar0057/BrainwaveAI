@@ -22,6 +22,7 @@ class User(Base):
     last_name = Column(String(50), nullable=True)
     email = Column(String(100), unique=True, index=True)
     username = Column(String(50), unique=True, index=True)
+    phone_number = Column(String(32), unique=True, index=True, nullable=True)
     hashed_password = Column(String(255))
     account_role = Column(String(20), nullable=False, default="learner", index=True)
     age = Column(Integer, nullable=True)

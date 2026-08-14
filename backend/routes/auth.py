@@ -30,6 +30,7 @@ from deps import (
     get_db,
     get_password_hash,
     get_user_by_email,
+    get_user_by_phone,
     get_user_by_username,
     invalidate_cached_auth_user,
     unified_ai,
@@ -148,6 +149,7 @@ class RegisterPayload(BaseModel):
     email: str
     username: str
     password: str
+    phone_number: Optional[str] = None
     age: Optional[int] = None
     field_of_study: Optional[str] = None
     learning_style: Optional[str] = None
@@ -182,10 +184,10 @@ class GoogleAuth(BaseModel):
     token: str
 
 class PasswordResetRequest(BaseModel):
-    email: EmailStr
+    identifier: str  # email address or linked phone number
 
 class PasswordResetConfirm(BaseModel):
-    email: EmailStr
+    identifier: str  # same value submitted to /password-reset/request
     otp: str
     new_password: str
 
@@ -233,6 +235,20 @@ def _env_flag(name: str, default: str = "false") -> bool:
 
 def _normalize_email(email: str) -> str:
     return (email or "").strip().lower()
+
+def _looks_like_email(identifier: str) -> bool:
+    return "@" in (identifier or "")
+
+def _normalize_phone(phone: str) -> str:
+    # Keep a leading '+' (country code) and digits only.
+    raw = (phone or "").strip()
+    return re.sub(r"[^\d+]", "", raw)
+
+def _validate_phone(phone: str) -> str:
+    normalized = _normalize_phone(phone)
+    if not re.fullmatch(r"\+?\d{7,15}", normalized):
+        raise HTTPException(status_code=400, detail="Enter a valid phone number.")
+    return normalized
 
 def _validate_deliverable_email(email: str) -> str:
     try:
@@ -384,13 +400,33 @@ def _send_account_deletion_email(to_email: str, otp: str) -> bool:
         log_label="Account deletion",
     )
 
-def _password_reset_response(email_sent: bool) -> dict:
-    response = {"message": "If an account exists for that email, an OTP has been sent."}
+def _send_sms_otp(to_phone: str, otp: str, *, log_label: str) -> bool:
+    # No SMS provider is wired up yet (Twilio, AWS SNS, etc. all need an
+    # account + credentials this codebase doesn't have). This mirrors
+    # _send_otp_email's "not configured" path exactly: log it and return
+    # False, so the caller falls back to returning dev_otp in non-prod —
+    # same graceful-degradation contract, just no provider plugged in below.
+    sms_provider = os.getenv("SMS_PROVIDER")
+    if not sms_provider:
+        logger.warning("%s SMS OTP not sent to %s because no SMS provider is configured (set SMS_PROVIDER)", log_label, to_phone)
+        return False
+    logger.warning("%s SMS provider '%s' has no send implementation wired up yet", log_label, sms_provider)
+    return False
+
+def _send_password_reset_sms(to_phone: str, otp: str) -> bool:
+    return _send_sms_otp(to_phone, otp, log_label="Password reset")
+
+def _password_reset_response(email_sent: bool, channel: str = "email") -> dict:
+    response = {"message": f"If an account exists for that {channel}, an OTP has been sent."}
     if _is_production():
         return response
     response["email_sent"] = email_sent
     if not email_sent:
-        response["message"] = "OTP generated. Configure SMTP_HOST and SMTP_FROM_EMAIL to send real email."
+        response["message"] = (
+            "OTP generated. Configure SMS_PROVIDER to send real SMS."
+            if channel == "phone number"
+            else "OTP generated. Configure SMTP_HOST and SMTP_FROM_EMAIL to send real email."
+        )
     return response
 
 def _otp_response(email_sent: bool, message: str) -> dict:
@@ -735,6 +771,10 @@ async def register(request: Request, payload: RegisterPayload, db: Session = Dep
     if get_user_by_email(db, email):
         raise HTTPException(status_code=400, detail="Email already registered")
 
+    phone_number = _validate_phone(payload.phone_number) if payload.phone_number else None
+    if phone_number and get_user_by_phone(db, phone_number):
+        raise HTTPException(status_code=400, detail="Phone number already registered")
+
     otp = f"{secrets.randbelow(1000000):06d}"
     registration_data = {
         "first_name": payload.first_name,
@@ -742,6 +782,7 @@ async def register(request: Request, payload: RegisterPayload, db: Session = Dep
         "email": email,
         "username": username,
         "hashed_password": get_password_hash(payload.password),
+        "phone_number": phone_number,
         "age": payload.age,
         "field_of_study": payload.field_of_study,
         "learning_style": payload.learning_style,
@@ -900,6 +941,10 @@ async def verify_registration(request: Request, payload: RegisterVerifyPayload, 
     if get_user_by_email(db, email):
         raise HTTPException(status_code=400, detail="Email already registered")
 
+    phone_number = registration_data.get("phone_number")
+    if phone_number and get_user_by_phone(db, phone_number):
+        raise HTTPException(status_code=400, detail="Phone number already registered")
+
     max_retries = 2
     for attempt in range(max_retries):
         try:
@@ -909,6 +954,7 @@ async def verify_registration(request: Request, payload: RegisterVerifyPayload, 
                 email=email,
                 username=username,
                 hashed_password=registration_data.get("hashed_password"),
+                phone_number=registration_data.get("phone_number"),
                 age=registration_data.get("age"),
                 field_of_study=registration_data.get("field_of_study"),
                 learning_style=registration_data.get("learning_style"),
@@ -987,16 +1033,19 @@ async def request_password_reset(
     db: Session = Depends(get_db),
 ):
     _check_auth_rate_limit(request, max_attempts=3, window_seconds=300)
-    email = _normalize_email(payload.email)
-    user = get_user_by_email(db, email)
+    raw = (payload.identifier or "").strip()
+    via_email = _looks_like_email(raw)
+    identifier = _normalize_email(raw) if via_email else _normalize_phone(raw)
+    channel = "email" if via_email else "phone number"
+    user = get_user_by_email(db, identifier) if via_email else get_user_by_phone(db, identifier)
 
     if not user:
-        return _password_reset_response(email_sent=True)
+        return _password_reset_response(email_sent=True, channel=channel)
 
     otp = f"{secrets.randbelow(1000000):06d}"
     reset_otp = models.PasswordResetOTP(
         user_id=user.id,
-        email=email,
+        email=identifier,
         otp_hash=get_password_hash(otp),
         expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
     )
@@ -1009,12 +1058,15 @@ async def request_password_reset(
     db.commit()
 
     try:
-        email_sent = await run_in_threadpool(_send_password_reset_email, email, otp)
+        if via_email:
+            email_sent = await run_in_threadpool(_send_password_reset_email, identifier, otp)
+        else:
+            email_sent = await run_in_threadpool(_send_password_reset_sms, identifier, otp)
     except Exception as e:
-        logger.error("Failed to send password reset OTP to %s: %s", email, e)
+        logger.error("Failed to send password reset OTP to %s: %s", identifier, e)
         email_sent = False
 
-    response = _password_reset_response(email_sent=email_sent)
+    response = _password_reset_response(email_sent=email_sent, channel=channel)
     if not email_sent and not _is_production():
         response["dev_otp"] = otp
     return response
@@ -1026,19 +1078,20 @@ async def confirm_password_reset(
     db: Session = Depends(get_db),
 ):
     _check_auth_rate_limit(request, max_attempts=5, window_seconds=300)
-    email = _normalize_email(payload.email)
+    raw = (payload.identifier or "").strip()
+    via_email = _looks_like_email(raw)
+    identifier = _normalize_email(raw) if via_email else _normalize_phone(raw)
     otp = (payload.otp or "").strip()
     if not re.fullmatch(r"\d{6}", otp):
         raise HTTPException(status_code=400, detail="Enter the 6-digit OTP.")
     _validate_password(payload.new_password)
 
-    user = get_user_by_email(db, email)
+    user = get_user_by_email(db, identifier) if via_email else get_user_by_phone(db, identifier)
     if not user:
         raise HTTPException(status_code=400, detail="Invalid or expired OTP.")
 
     reset_otp = db.query(models.PasswordResetOTP).filter(
         models.PasswordResetOTP.user_id == user.id,
-        models.PasswordResetOTP.email == email,
         models.PasswordResetOTP.consumed == False,
     ).order_by(models.PasswordResetOTP.created_at.desc()).first()
 
@@ -1057,10 +1110,17 @@ async def confirm_password_reset(
             db.commit()
         raise HTTPException(status_code=400, detail="Invalid or expired OTP.")
 
+    # `user` may be a transient object hydrated from the auth cache (see
+    # get_user_by_email/_get_or_query_user_for_subject), not one attached to
+    # this request's session — mutating and committing it directly is a
+    # silent no-op in that case (same reason change_username/change_password
+    # below call db.merge() first). Re-attach before writing the new hash.
+    user = db.merge(user)
     user.hashed_password = get_password_hash(payload.new_password)
     user.google_user = False if user.google_user is None else user.google_user
     reset_otp.consumed = True
     db.commit()
+    invalidate_cached_auth_user(user)
 
     return {"message": "Password updated successfully. You can sign in with your new password."}
 

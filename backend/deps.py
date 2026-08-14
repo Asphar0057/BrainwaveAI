@@ -241,6 +241,8 @@ def _find_user_for_subject(db: Session, subject: str) -> models.User | None:
     user = db.query(models.User).filter(models.User.username == subject).first()
     if not user:
         user = db.query(models.User).filter(models.User.email == subject).first()
+    if not user and subject:
+        user = db.query(models.User).filter(models.User.phone_number == subject).first()
     return user
 
 def invalidate_cached_auth_user(user: models.User, extra_subjects: tuple[str, ...] = ()) -> None:
@@ -380,6 +382,11 @@ def get_user_by_username(db: Session, username: str):
 
 def get_user_by_email(db: Session, email: str):
     return _get_or_query_user_for_subject(db, email)
+
+def get_user_by_phone(db: Session, phone: str):
+    if not phone:
+        return None
+    return db.query(models.User).filter(models.User.phone_number == phone).first()
 
 def authenticate_user(db: Session, username: str, password: str):
     user = get_user_by_username(db, username)
