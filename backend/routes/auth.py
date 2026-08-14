@@ -118,6 +118,8 @@ def _sync_google_profile_fields(user: models.User, *, first_name: Optional[str] 
     return changed
 
 def _check_auth_rate_limit(request: Request, max_attempts: int = 5, window_seconds: int = 60) -> None:
+    if not _is_production():
+        return
     ip = get_client_ip(request)
     now = datetime.now(timezone.utc).timestamp()
     cutoff = now - window_seconds

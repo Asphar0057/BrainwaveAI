@@ -128,6 +128,10 @@ _lua_sha: Optional[str] = None
 _mem_lock = threading.Lock()
 _mem_store: dict[str, deque] = defaultdict(deque)
 
+def _is_production() -> bool:
+    environment = os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or "development"
+    return environment.strip().lower() == "production"
+
 _SECRET_KEY: str = os.getenv("SECRET_KEY", "")
 _ALGORITHM = "HS256"
 _JWT_AUDIENCE = "brainwave-client"
@@ -436,6 +440,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         if request.method == "OPTIONS":
+            return await call_next(request)
+
+        if not _is_production():
             return await call_next(request)
 
         path = request.url.path
