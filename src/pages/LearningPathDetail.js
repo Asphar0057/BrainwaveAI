@@ -82,6 +82,10 @@ const PATH_PANEL_MAX_WIDTH = 560;
 const PATH_PANEL_DEFAULT_WIDTH = 380;
 const PATH_PANEL_STORAGE_KEY = 'learningPathDetailPathPanelWidth';
 
+// Older completion quizzes may include answer-key prefixes from the original
+// fallback generator. Never reveal those labels while the learner is answering.
+const displayQuizOption = (option) => String(option || '').replace(/^\s*(?:correct|incorrect)\s*:\s*/i, '');
+
 const LearningPathDetail = () => {
   const navigate = useNavigate();
   const { pathId } = useParams();
@@ -1827,7 +1831,7 @@ const LearningPathDetail = () => {
                           onClick={() => handleQuizAnswer(currentQuizQuestion, idx)}
                         >
                           <span className="lpd-option-letter">{String.fromCharCode(65 + idx)}</span>
-                          <span className="lpd-option-text">{option}</span>
+                          <span className="lpd-option-text">{displayQuizOption(option)}</span>
                         </button>
                       ))}
                     </div>
@@ -1910,8 +1914,8 @@ const LearningPathDetail = () => {
                         <p className="lpd-quiz-item-question">{q.question}</p>
                         {!isCorrect && (
                           <div className="lpd-quiz-item-answer">
-                            <p><strong>Your answer:</strong> {q.options[userAnswer]}</p>
-                            <p><strong>Correct answer:</strong> {q.options[q.correct_answer]}</p>
+                            <p><strong>Your answer:</strong> {displayQuizOption(q.options[userAnswer])}</p>
+                            <p><strong>Correct answer:</strong> {displayQuizOption(q.options[q.correct_answer])}</p>
                             {q.explanation && <MathRenderer content={q.explanation} className="lpd-explanation" />}
                           </div>
                         )}

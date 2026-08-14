@@ -161,6 +161,10 @@ const QuestionBankDashboard = () => {
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportSetId, setExportSetId] = useState(null);
   const [includeAnswers, setIncludeAnswers] = useState(false);
+  const [renamingSetId, setRenamingSetId] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [renameSaving, setRenameSaving] = useState(false);
+  const [renameError, setRenameError] = useState('');
 
   
   const [weakAreas, setWeakAreas] = useState([]);
@@ -1052,6 +1056,55 @@ const QuestionBankDashboard = () => {
     }
   };
 
+  const beginRenameQuestionSet = (set) => {
+    setRenamingSetId(set.id);
+    setRenameValue(set.title || '');
+    setRenameError('');
+  };
+
+  const cancelRenameQuestionSet = () => {
+    if (renameSaving) return;
+    setRenamingSetId(null);
+    setRenameValue('');
+    setRenameError('');
+  };
+
+  const saveQuestionSetName = async (setId) => {
+    const title = renameValue.trim().replace(/\s+/g, ' ');
+    if (!title) {
+      setRenameError('Enter a name for this question set.');
+      return;
+    }
+
+    setRenameSaving(true);
+    setRenameError('');
+    try {
+      const response = await fetch(
+        `${API_URL}/qb/question_sets/${setId}/title?user_id=${encodeURIComponent(userId)}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ title }),
+        }
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.detail || 'Unable to rename this question set.');
+
+      setQuestionSets((sets) => sets.map((set) => (
+        set.id === setId ? { ...set, title: payload.title, updated_at: payload.updated_at || set.updated_at } : set
+      )));
+      setRenamingSetId(null);
+      setRenameValue('');
+    } catch (error) {
+      setRenameError(error.message || 'Unable to rename this question set.');
+    } finally {
+      setRenameSaving(false);
+    }
+  };
+
   const exportQuestionSetPdf = async (setId, withAnswers = false) => {
     try {
       setExportingPdf(setId);
@@ -1108,6 +1161,9 @@ const QuestionBankDashboard = () => {
     setIncludeAnswers(false);
     setShowExportModal(true);
   };
+
+  const exportSet = questionSets.find((set) => String(set.id) === String(exportSetId));
+  const exportQuestionCount = exportSet?.question_count || exportSet?.questions_count || exportSet?.questions?.length || null;
 
   const toggleSourceSelection = (type, id, title) => {
     if (id === undefined || id === null || id === '') {
@@ -2516,9 +2572,58 @@ const QuestionBankDashboard = () => {
                       </button>
                       <div className="qbd-qh-set-copy">
                         <div className="qbd-qh-set-title-line">
-                          <h3>{set.title || 'Untitled question set'}</h3>
+                          {renamingSetId === set.id ? (
+                            <div className="qbd-qh-rename-editor">
+                              <input
+                                value={renameValue}
+                                onChange={(event) => {
+                                  setRenameValue(event.target.value);
+                                  if (renameError) setRenameError('');
+                                }}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Enter') saveQuestionSetName(set.id);
+                                  if (event.key === 'Escape') cancelRenameQuestionSet();
+                                }}
+                                aria-label="Question set name"
+                                autoFocus
+                                maxLength={120}
+                              />
+                              <button
+                                className="qbd-qh-rename-confirm"
+                                onClick={() => saveQuestionSetName(set.id)}
+                                disabled={renameSaving}
+                                aria-label="Save question set name"
+                                type="button"
+                              >
+                                {renameSaving ? <Loader className="qbd-spin" size={15} /> : <Check size={15} />}
+                              </button>
+                              <button
+                                className="qbd-qh-rename-cancel"
+                                onClick={cancelRenameQuestionSet}
+                                disabled={renameSaving}
+                                aria-label="Cancel renaming question set"
+                                type="button"
+                              >
+                                <X size={15} />
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <h3>{set.title || 'Untitled question set'}</h3>
+                              <button
+                                className="qbd-qh-title-edit"
+                                onClick={() => beginRenameQuestionSet(set)}
+                                aria-label={`Rename ${set.title || 'question set'}`}
+                                title="Rename set"
+                                type="button"
+                              >
+                                <Edit3 size={14} />
+                              </button>
+                            </>
+                          )}
                           <span className={`qbd-qh-status qbd-qh-status--${status.tone}`}>{status.label}</span>
                         </div>
+                        {renamingSetId === set.id && renameError ? <span className="qbd-qh-rename-error" role="alert">{renameError}</span> : null}
                         <p>{set.description || 'No description added yet.'}</p>
                         <div className="qbd-qh-set-meta">
                           <span>{formatDocumentType(set.source_type)}</span>
@@ -3342,11 +3447,20 @@ const QuestionBankDashboard = () => {
               <div className="qbd-export-modal-icon">
                 <FileDown size={32} />
               </div>
-              <h2>Export Question Set</h2>
-              <p>Generate a professionally formatted PDF document</p>
+              <span className="qbd-export-kicker">Ready for print</span>
+              <h2>Export question set</h2>
+              <p>A clear, print-ready PDF with room to think and review.</p>
             </div>
             
             <div className="qbd-export-modal-content">
+              <div className="qbd-export-document" aria-label="Selected question set">
+                <div>
+                  <span>Question set</span>
+                  <strong>{exportSet?.title || 'Selected question set'}</strong>
+                </div>
+                <small>{exportQuestionCount ? `${exportQuestionCount} questions` : 'Practice set'} · PDF</small>
+              </div>
+
               <div className="qbd-export-option">
                 <label className="qbd-export-checkbox">
                   <input
@@ -3363,13 +3477,12 @@ const QuestionBankDashboard = () => {
               </div>
               
               <div className="qbd-export-features">
-                <h4>PDF Features:</h4>
+                <h4>Inside your PDF</h4>
                 <ul>
-                  <li><CheckCircle size={14} /> Professional academic formatting</li>
-                  <li><CheckCircle size={14} /> LaTeX math expression support</li>
-                  <li><CheckCircle size={14} /> Difficulty level indicators</li>
-                  <li><CheckCircle size={14} /> Topic categorization</li>
-                  <li><CheckCircle size={14} /> Page numbers and headers</li>
+                  <li><CheckCircle size={14} /> A focused cover and question metadata</li>
+                  <li><CheckCircle size={14} /> Generous response space and readable options</li>
+                  <li><CheckCircle size={14} /> Topic and difficulty markers for every question</li>
+                  <li><CheckCircle size={14} /> Consistent headers, dates, and page numbers</li>
                 </ul>
               </div>
             </div>

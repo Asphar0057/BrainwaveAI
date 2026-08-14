@@ -248,8 +248,12 @@ def _normalize_phone(phone: str) -> str:
 
 def _validate_phone(phone: str) -> str:
     normalized = _normalize_phone(phone)
-    if not re.fullmatch(r"\+?\d{7,15}", normalized):
-        raise HTTPException(status_code=400, detail="Enter a valid phone number.")
+    # Twilio requires an E.164 destination (for example +14155552671).
+    if not re.fullmatch(r"\+\d{7,15}", normalized):
+        raise HTTPException(
+            status_code=400,
+            detail="Enter a phone number in international format, for example +14155552671.",
+        )
     return normalized
 
 def _validate_deliverable_email(email: str) -> str:
@@ -403,41 +407,60 @@ def _send_account_deletion_email(to_email: str, otp: str) -> bool:
     )
 
 def _send_sms_otp(to_phone: str, otp: str, *, log_label: str) -> bool:
-    # No SMS provider is wired up yet (Twilio, AWS SNS, etc. all need an
-    # account + credentials this codebase doesn't have). This mirrors
-    # _send_otp_email's "not configured" path exactly: log it and return
-    # False, so the caller falls back to returning dev_otp in non-prod —
-    # same graceful-degradation contract, just no provider plugged in below.
-    sms_provider = os.getenv("SMS_PROVIDER")
-    if not sms_provider:
-        logger.warning("%s SMS OTP not sent to %s because no SMS provider is configured (set SMS_PROVIDER)", log_label, to_phone)
+    account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+    from_number = os.getenv("TWILIO_PHONE_NUMBER")
+    if not all((account_sid, auth_token, from_number)):
+        logger.warning(
+            "%s SMS OTP not sent because Twilio is not configured "
+            "(set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER)",
+            log_label,
+        )
         return False
-    logger.warning("%s SMS provider '%s' has no send implementation wired up yet", log_label, sms_provider)
-    return False
+
+    try:
+        from twilio.rest import Client
+    except ImportError:
+        logger.error("%s SMS OTP not sent because the Twilio SDK is not installed", log_label)
+        return False
+
+    try:
+        message = Client(account_sid, auth_token).messages.create(
+            body=(
+                f"Your Cerbyl {log_label.lower()} OTP is {otp}. "
+                "It expires in 10 minutes. Do not share this code."
+            ),
+            from_=from_number,
+            to=to_phone,
+        )
+        logger.info("%s SMS OTP sent via Twilio (SID: %s)", log_label, message.sid)
+        return True
+    except Exception as e:
+        logger.error("Failed to send %s SMS OTP via Twilio: %s", log_label, e)
+        return False
 
 def _send_password_reset_sms(to_phone: str, otp: str) -> bool:
     return _send_sms_otp(to_phone, otp, log_label="Password reset")
 
-def _password_reset_response(email_sent: bool, channel: str = "email") -> dict:
+def _password_reset_response(email_sent: bool, sms_sent: bool, channel: str = "email") -> dict:
     response = {"message": f"If an account exists for that {channel}, an OTP has been sent."}
     if _is_production():
         return response
     response["email_sent"] = email_sent
-    if not email_sent:
+    response["sms_sent"] = sms_sent
+    if not email_sent and not sms_sent:
         response["message"] = (
-            "OTP generated. Configure SMS_PROVIDER to send real SMS."
-            if channel == "phone number"
-            else "OTP generated. Configure SMTP_HOST and SMTP_FROM_EMAIL to send real email."
+            "OTP generated. Configure SMTP and Twilio to send real email and SMS."
         )
     return response
 
-def _otp_response(email_sent: bool, message: str) -> dict:
-    response = {"message": message, "email_sent": email_sent}
-    if not email_sent and not _is_production():
-        response["message"] = "OTP generated. Configure SMTP_HOST and SMTP_FROM_EMAIL to send real email."
+def _otp_response(email_sent: bool, sms_sent: bool, message: str) -> dict:
+    response = {"message": message, "email_sent": email_sent, "sms_sent": sms_sent}
+    if not email_sent and not sms_sent and not _is_production():
+        response["message"] = "OTP generated. Configure SMTP and Twilio to send real email and SMS."
     return response
 
-def _send_registration_otp_or_raise(email: str, otp: str) -> bool:
+def _send_registration_otp_or_raise(email: str, phone_number: str, otp: str) -> tuple[bool, bool]:
     try:
         email_sent = _send_registration_email(email, otp)
     except smtplib.SMTPRecipientsRefused as e:
@@ -458,12 +481,13 @@ def _send_registration_otp_or_raise(email: str, otp: str) -> bool:
         logger.error("Failed to send registration OTP to %s: %s", email, e)
         email_sent = False
 
-    if not email_sent and _is_production():
+    sms_sent = _send_sms_otp(phone_number, otp, log_label="Registration verification")
+    if (not email_sent or not sms_sent) and _is_production():
         raise HTTPException(
             status_code=503,
-            detail="Could not send verification email right now. Please try again later.",
+            detail="Could not send verification codes by email and SMS right now. Please try again later.",
         )
-    return email_sent
+    return email_sent, sms_sent
 
 def _quote_identifier(name: str) -> str:
     return f'"{name.replace(chr(34), chr(34) + chr(34))}"'
@@ -773,8 +797,10 @@ async def register(request: Request, payload: RegisterPayload, db: Session = Dep
     if get_user_by_email(db, email):
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    phone_number = _validate_phone(payload.phone_number) if payload.phone_number else None
-    if phone_number and get_user_by_phone(db, phone_number):
+    if not payload.phone_number:
+        raise HTTPException(status_code=400, detail="A phone number is required for SMS verification.")
+    phone_number = _validate_phone(payload.phone_number)
+    if get_user_by_phone(db, phone_number):
         raise HTTPException(status_code=400, detail="Phone number already registered")
 
     otp = f"{secrets.randbelow(1000000):06d}"
@@ -814,7 +840,7 @@ async def register(request: Request, payload: RegisterPayload, db: Session = Dep
         models.RegistrationOTP.consumed == False,
     ).order_by(models.RegistrationOTP.created_at.desc()).first()
     try:
-        email_sent = await run_in_threadpool(_send_registration_otp_or_raise, email, otp)
+        email_sent, sms_sent = await run_in_threadpool(_send_registration_otp_or_raise, email, phone_number, otp)
     except HTTPException as e:
         if pending and e.status_code == 400:
             pending.consumed = True
@@ -823,7 +849,8 @@ async def register(request: Request, payload: RegisterPayload, db: Session = Dep
 
     response = _otp_response(
         email_sent=email_sent,
-        message="Verification OTP sent. Enter it to finish creating your account.",
+        sms_sent=sms_sent,
+        message="Verification OTP sent by email and SMS. Enter it to finish creating your account.",
     )
     response["verification_required"] = True
     if not email_sent and not _is_production():
@@ -884,7 +911,8 @@ async def resend_registration_otp(request: Request, payload: RegisterResendPaylo
     db.commit()
 
     try:
-        email_sent = await run_in_threadpool(_send_registration_otp_or_raise, email, otp)
+        phone_number = _validate_phone(registration_data.get("phone_number") or "")
+        email_sent, sms_sent = await run_in_threadpool(_send_registration_otp_or_raise, email, phone_number, otp)
     except HTTPException as e:
         if e.status_code == 400:
             pending.consumed = True
@@ -893,7 +921,8 @@ async def resend_registration_otp(request: Request, payload: RegisterResendPaylo
 
     response = _otp_response(
         email_sent=email_sent,
-        message="New verification OTP sent. Use the latest code to finish creating your account.",
+        sms_sent=sms_sent,
+        message="New verification OTP sent by email and SMS. Use the latest code to finish creating your account.",
     )
     if not email_sent and not _is_production():
         response["dev_otp"] = otp
@@ -1042,12 +1071,12 @@ async def request_password_reset(
     user = get_user_by_email(db, identifier) if via_email else get_user_by_phone(db, identifier)
 
     if not user:
-        return _password_reset_response(email_sent=True, channel=channel)
+        return _password_reset_response(email_sent=True, sms_sent=True, channel=channel)
 
     otp = f"{secrets.randbelow(1000000):06d}"
     reset_otp = models.PasswordResetOTP(
         user_id=user.id,
-        email=identifier,
+        email=_normalize_email(user.email),
         otp_hash=get_password_hash(otp),
         expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
     )
@@ -1060,16 +1089,18 @@ async def request_password_reset(
     db.commit()
 
     try:
-        if via_email:
-            email_sent = await run_in_threadpool(_send_password_reset_email, identifier, otp)
-        else:
-            email_sent = await run_in_threadpool(_send_password_reset_sms, identifier, otp)
+        email_sent = await run_in_threadpool(_send_password_reset_email, _normalize_email(user.email), otp)
+        sms_sent = (
+            await run_in_threadpool(_send_password_reset_sms, user.phone_number, otp)
+            if user.phone_number else False
+        )
     except Exception as e:
         logger.error("Failed to send password reset OTP to %s: %s", identifier, e)
         email_sent = False
+        sms_sent = False
 
-    response = _password_reset_response(email_sent=email_sent, channel=channel)
-    if not email_sent and not _is_production():
+    response = _password_reset_response(email_sent=email_sent, sms_sent=sms_sent, channel=channel)
+    if not email_sent and not sms_sent and not _is_production():
         response["dev_otp"] = otp
     return response
 
@@ -1153,15 +1184,21 @@ async def request_account_deletion(
 
     try:
         email_sent = await run_in_threadpool(_send_account_deletion_email, email, otp)
+        sms_sent = (
+            await run_in_threadpool(_send_sms_otp, current_user.phone_number, otp, log_label="Account deletion")
+            if current_user.phone_number else False
+        )
     except Exception as e:
         logger.error("Failed to send account deletion OTP to %s: %s", email, e)
         email_sent = False
+        sms_sent = False
 
     response = _otp_response(
         email_sent=email_sent,
-        message="Account deletion OTP sent to your email.",
+        sms_sent=sms_sent,
+        message="Account deletion OTP sent by email and SMS." if current_user.phone_number else "Account deletion OTP sent to your email.",
     )
-    if not email_sent and not _is_production():
+    if not email_sent and not sms_sent and not _is_production():
         response["dev_otp"] = otp
     return response
 

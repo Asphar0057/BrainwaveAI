@@ -15,6 +15,7 @@ function Register() {
     firstName: '',
     lastName: '',
     email: '',
+    phoneNumber: '',
     username: '',
     password: '',
     confirmPassword: ''
@@ -81,7 +82,7 @@ function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.username ||
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.phoneNumber || !formData.username ||
         !formData.password || !formData.confirmPassword) {
       alert('Please fill in all fields');
       return;
@@ -90,6 +91,11 @@ function Register() {
     const email = formData.email.trim();
     if (!EMAIL_PATTERN.test(email)) {
       alert('Enter a valid email address.');
+      return;
+    }
+
+    if (!/^\+\d{7,15}$/.test(formData.phoneNumber.replace(/[\s()-]/g, ''))) {
+      alert('Enter your phone number in international format, for example +14155552671.');
       return;
     }
 
@@ -113,6 +119,7 @@ function Register() {
           first_name: formData.firstName,
           last_name: formData.lastName,
           email,
+          phone_number: formData.phoneNumber.replace(/[\s()-]/g, ''),
           username: formData.username.trim(),
           password: formData.password
         })
@@ -308,6 +315,21 @@ function Register() {
                     />
                   </div>
                   <div className="lg-field">
+                    <label className="lg-label" htmlFor="rg-phone">Phone number</label>
+                    <input
+                      id="rg-phone"
+                      type="tel"
+                      name="phoneNumber"
+                      value={formData.phoneNumber}
+                      onChange={handleChange}
+                      className="lg-input"
+                      placeholder="+14155552671"
+                      autoComplete="tel"
+                      required
+                      disabled={disabled}
+                    />
+                  </div>
+                  <div className="lg-field">
                     <label className="lg-label" htmlFor="rg-username">Username</label>
                     <input
                       id="rg-username"
@@ -359,7 +381,7 @@ function Register() {
             {verificationStep === 'verify' && (
               <form onSubmit={handleVerifyRegistration} className="lg-form">
                 <div className="lg-field">
-                  <label className="lg-label" htmlFor="rg-otp">6-digit OTP</label>
+                  <label className="lg-label" htmlFor="rg-otp">6-digit OTP (sent by email and SMS)</label>
                   <input
                     id="rg-otp"
                     type="text"

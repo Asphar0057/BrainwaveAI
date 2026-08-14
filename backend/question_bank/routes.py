@@ -1552,6 +1552,63 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
+    @app.patch("/api/qb/question_sets/{set_id}/title", dependencies=_QB_AUTH_DEPENDENCIES)
+    async def rename_question_set(
+        set_id: int,
+        payload: dict = Body(...),
+        user_id: str = Query(...),
+        db: Session = Depends(get_db_func),
+    ):
+        """Rename a question set while enforcing ownership through the request user."""
+        try:
+            import models
+
+            title = " ".join(str(payload.get("title") or "").split())
+            if not title:
+                raise HTTPException(status_code=422, detail="A question set name is required")
+            if len(title) > 120:
+                raise HTTPException(status_code=422, detail="Keep the question set name under 120 characters")
+
+            user_query = db.query(models.User)
+            if str(user_id).isdigit():
+                user = user_query.filter(
+                    (models.User.id == int(user_id)) |
+                    (models.User.username == user_id) |
+                    (models.User.email == user_id)
+                ).first()
+            else:
+                user = user_query.filter(
+                    (models.User.username == user_id) | (models.User.email == user_id)
+                ).first()
+
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
+
+            question_set = db.query(models.QuestionSet).filter(
+                models.QuestionSet.id == set_id,
+                models.QuestionSet.user_id == user.id,
+            ).first()
+            if not question_set:
+                raise HTTPException(status_code=404, detail="Question set not found")
+
+            question_set.title = title
+            question_set.updated_at = datetime.now(timezone.utc)
+            db.commit()
+            db.refresh(question_set)
+
+            return {
+                "status": "success",
+                "id": question_set.id,
+                "title": question_set.title,
+                "updated_at": question_set.updated_at.isoformat(),
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error renaming question set: {e}")
+            db.rollback()
+            raise HTTPException(status_code=500, detail="Unable to rename question set")
+
     @app.post("/api/qb/submit_answers", dependencies=_QB_AUTH_DEPENDENCIES)
     async def submit_answers(
         request: AnswerSubmission,

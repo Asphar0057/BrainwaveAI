@@ -43,9 +43,10 @@
   border-radius: 14px;
   border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
   color: var(--text-primary);
+  /* Reuse the dashboard sidebar material for global notification popups. */
   background:
-    radial-gradient(ellipse 72% 110% at 100% 100%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 68%),
-    linear-gradient(140deg, color-mix(in srgb, var(--accent) 8%, #1a1b1d), #121315 52%, #0e0f11 100%);
+    radial-gradient(ellipse 72% 110% at 100% 100%, rgba(93, 119, 158, .12), transparent 68%),
+    linear-gradient(155deg, #0b0c0f 0%, #050506 100%);
   box-shadow:
     12px 14px 32px rgba(0, 0, 0, .38),
     -6px -6px 17px rgba(255, 255, 255, .022),
@@ -129,7 +130,7 @@
   height: 34px;
   border-radius: 10px;
   border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
-  background: color-mix(in srgb, var(--accent) 7%, #131416);
+  background: color-mix(in srgb, var(--accent) 7%, #0b0c0f);
   color: color-mix(in srgb, var(--accent) 78%, var(--text-primary)) !important;
   display: flex;
   align-items: center;
@@ -179,7 +180,7 @@
   height: 32px;
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
-  background: #101113;
+  background: #0b0c0f;
   color: var(--text-secondary);
   cursor: pointer;
   display: flex;
@@ -193,7 +194,7 @@
 .slide-notif-close:hover {
   color: var(--text-primary);
   border-color: color-mix(in srgb, var(--accent) 42%, transparent);
-  background: color-mix(in srgb, var(--accent) 8%, #121315);
+  background: color-mix(in srgb, var(--accent) 8%, #0b0c0f);
   transform: rotate(4deg);
 }
 

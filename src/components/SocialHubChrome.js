@@ -129,7 +129,6 @@ const REACTIVE_SURFACE_SELECTOR = [
   '.battle-quiz-flow .question-comparison-item',
   '.qbd-hub .qbd-qh-focus',
   '.qbd-hub .qbd-qh-set-list',
-  '.qbd-hub .qbd-qh-set-row',
   '.qbd-hub .qbd-document-card',
   '.qbd-hub .qbd-source-card',
   '.qbd-hub .qbd-custom-card',

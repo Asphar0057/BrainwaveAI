@@ -29,7 +29,7 @@ function Login() {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetStatus, setResetStatus] = useState('');
   const [resetForm, setResetForm] = useState({
-    email: '',
+    identifier: '',
     otp: '',
     newPassword: '',
     confirmPassword: ''
@@ -224,8 +224,8 @@ function Login() {
 
   const requestResetOtp = async (e) => {
     e.preventDefault();
-    if (!resetForm.email.trim()) {
-      setResetStatus('Enter your account email.');
+    if (!resetForm.identifier.trim()) {
+      setResetStatus('Enter your account email or phone number.');
       return;
     }
 
@@ -233,7 +233,7 @@ function Login() {
     setResetStatus('');
     try {
       const response = await axios.post(`${API_URL}/password-reset/request`, {
-        email: resetForm.email.trim()
+        identifier: resetForm.identifier.trim()
       });
       const devOtp = response.data?.dev_otp ? ` Dev OTP: ${response.data.dev_otp}` : '';
       setResetStatus(`${response.data?.message || 'OTP sent if the account exists.'}${devOtp}`);
@@ -256,14 +256,14 @@ function Login() {
     setResetStatus('');
     try {
       const response = await axios.post(`${API_URL}/password-reset/confirm`, {
-        email: resetForm.email.trim(),
+        identifier: resetForm.identifier.trim(),
         otp: resetForm.otp.trim(),
         new_password: resetForm.newPassword
       });
       setResetStatus(response.data?.message || 'Password updated successfully.');
       setPassword('');
       setResetStep('request');
-      setResetForm({ email: '', otp: '', newPassword: '', confirmPassword: '' });
+      setResetForm({ identifier: '', otp: '', newPassword: '', confirmPassword: '' });
       setTimeout(() => setResetOpen(false), 1200);
     } catch (err) {
       setResetStatus(err.response?.data?.detail || 'Could not reset password. Try again.');
@@ -372,14 +372,14 @@ function Login() {
                 {resetStep === 'request' ? (
                   <form onSubmit={requestResetOtp} className="lg-form">
                     <div className="lg-field">
-                      <label className="lg-label" htmlFor="lg-reset-email">Account email</label>
+                      <label className="lg-label" htmlFor="lg-reset-identifier">Account email or phone number</label>
                       <input
-                        id="lg-reset-email"
-                        type="email"
-                        value={resetForm.email}
-                        onChange={e => handleResetChange('email', e.target.value)}
+                        id="lg-reset-identifier"
+                        type="text"
+                        value={resetForm.identifier}
+                        onChange={e => handleResetChange('identifier', e.target.value)}
                         className="lg-input"
-                        placeholder="you@example.com"
+                        placeholder="you@example.com or +14155552671"
                         required
                         disabled={resetLoading}
                       />

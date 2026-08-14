@@ -3644,6 +3644,7 @@ html {
 .lpd-resource-rating-row {
   display: grid;
   gap: 6px;
+  align-self: end;
   color: var(--text-secondary);
   font-size: 10px;
   font-weight: 900;
@@ -3653,22 +3654,32 @@ html {
 
 .lpd-resource-stars {
   display: flex;
+  align-items: center;
+  height: 34px;
   gap: 3px;
 }
 
 .lpd-resource-stars button {
-  width: 22px;
-  min-height: 22px;
+  flex: 0 0 30px;
+  width: 30px;
+  min-height: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
   padding: 0;
-  border: 0;
-  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--lpd-line) 82%, transparent);
+  border-radius: 9px;
+  background: rgba(5, 5, 5, .42);
   color: color-mix(in srgb, var(--text-secondary) 50%, transparent);
+  line-height: 1;
+  cursor: pointer;
 }
 
 .lpd-resource-stars button.active,
 .lpd-resource-stars button:hover {
   color: #f59e0b;
-  background: transparent;
+  border-color: color-mix(in srgb, #f59e0b 52%, transparent);
+  background: color-mix(in srgb, #f59e0b 11%, transparent);
 }
 
 .lpd-resource-done {
@@ -5568,7 +5579,113 @@ body.lpd-is-resizing * {
 
 .lpd-loading-overlay,
 .lpd-quiz-overlay { position: fixed; inset: 0; z-index: 80; background: rgba(3, 3, 3, .76); backdrop-filter: blur(7px); }
-.lpd-quiz-modal { width: min(660px, calc(100vw - 32px)); max-height: min(760px, calc(100dvh - 32px)); padding: 22px; overflow-y: auto; }
+.lpd-quiz-modal {
+  position: relative;
+  isolation: isolate;
+  width: min(660px, calc(100vw - 32px));
+  max-height: min(760px, calc(100dvh - 32px));
+  padding: 22px;
+  overflow-y: auto;
+  background: linear-gradient(155deg, #0b0c0f 0%, #050506 100%);
+  box-shadow:
+    18px 20px 38px rgba(0, 0, 0, .68),
+    -12px -12px 28px rgba(255, 238, 216, .075),
+    inset 7px 7px 14px rgba(0, 0, 0, .62),
+    inset -5px -5px 11px rgba(255, 237, 215, .04);
+}
+
+.lpd-quiz-modal::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background-image:
+    radial-gradient(circle at 88% 94%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 55%),
+    repeating-linear-gradient(115deg, transparent 0 22px, color-mix(in srgb, var(--accent) 5.5%, transparent) 22px 23px),
+    repeating-linear-gradient(25deg, transparent 0 26px, color-mix(in srgb, var(--accent) 3.5%, transparent) 26px 27px);
+}
+
+.lpd-quiz-modal::after {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  z-index: 0;
+  width: 140%;
+  height: 140%;
+  pointer-events: none;
+  opacity: .16;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+}
+
+.lpd-quiz-modal > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Notes: keep the editor and its action inside one bounded, usable column. */
+.lpd-section-panel--notes > .lpd-block:first-child {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.lpd-section-panel--notes .lpd-notes-section {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 14px;
+}
+
+.lpd-section-panel--notes .lpd-notes-textarea {
+  min-height: 260px;
+  height: auto;
+}
+
+.lpd-section-panel--notes .lpd-btn-save-note {
+  min-height: 44px;
+  padding: 0 18px;
+  border-color: rgba(221, 181, 137, .42);
+  background: linear-gradient(145deg, rgba(221, 181, 137, .2), rgba(83, 65, 47, .54));
+  box-shadow:
+    6px 7px 14px rgba(0, 0, 0, .38),
+    -3px -3px 8px rgba(255, 238, 216, .045),
+    inset 1px 1px 0 rgba(255, 242, 225, .16);
+  color: #f7e4ce;
+}
+
+/* Exports are actions, not dashboard tiles: one clear row per destination. */
+.lpd-section-panel--notes .lpd-export-buttons {
+  grid-template-columns: 1fr;
+  gap: 9px;
+}
+
+.lpd-section-panel--notes .lpd-export-btn {
+  min-height: 50px;
+  justify-content: flex-start;
+  gap: 11px;
+  padding: 0 14px;
+  border-color: rgba(221, 181, 137, .2);
+  background: linear-gradient(145deg, rgba(33, 28, 23, .68), rgba(8, 8, 7, .7));
+  color: #e8e2db;
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-align: left;
+  box-shadow:
+    5px 6px 12px rgba(0, 0, 0, .3),
+    -2px -2px 6px rgba(255, 238, 216, .025);
+}
+
+.lpd-section-panel--notes .lpd-export-btn svg {
+  width: 17px;
+  height: 17px;
+  color: var(--lpd-route-accent);
+}
 .lpd-quiz-option { min-height: 50px; border: 1px solid rgba(221, 181, 137, .14); border-radius: 11px; background: rgba(5, 5, 5, .24); }
 .lpd-quiz-option.selected { border-color: rgba(221, 181, 137, .42); background: rgba(221, 181, 137, .085); box-shadow: inset 0 -1px var(--lpd-route-accent); }
 

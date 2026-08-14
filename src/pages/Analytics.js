@@ -57,6 +57,12 @@ const getNiceChartMaximum = (value) => {
   return step * magnitude;
 };
 
+const formatLearningLabel = (value) => String(value || 'This topic')
+  .replace(/[_-]+/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .replace(/^./, character => character.toUpperCase());
+
 const Analytics = () => {
   const navigate = useNavigate();
   const userName = localStorage.getItem('username') || '';
@@ -205,6 +211,34 @@ const Analytics = () => {
     localStorage.getItem('cerbyl.defaultPfp') ||
     '';
   const initial = (displayName[0] || 'A').toUpperCase();
+  const masteryConcepts = useMemo(() => (
+    Array.isArray(mlStats?.top_mastery_concepts) ? mlStats.top_mastery_concepts : []
+  ), [mlStats]);
+  const focusConcept = useMemo(() => (
+    masteryConcepts.reduce((lowest, concept) => (
+      !lowest || Number(concept.mastery || 0) < Number(lowest.mastery || 0) ? concept : lowest
+    ), null)
+  ), [masteryConcepts]);
+  const strongestConcept = useMemo(() => (
+    masteryConcepts.reduce((strongest, concept) => (
+      !strongest || Number(concept.mastery || 0) > Number(strongest.mastery || 0) ? concept : strongest
+    ), null)
+  ), [masteryConcepts]);
+  const recentFrustration = useMemo(() => {
+    const trend = Array.isArray(mlStats?.frustration_trend) ? mlStats.frustration_trend : [];
+    if (!trend.length) return 0;
+    return trend.reduce((total, value) => total + Number(value || 0), 0) / trend.length;
+  }, [mlStats]);
+  const learningSummary = useMemo(() => {
+    if (!mlStats) return '';
+    if (focusConcept && Number(focusConcept.mastery || 0) < 0.7) {
+      return `Your next useful move is a short review of ${formatLearningLabel(focusConcept.name)}. A little targeted practice here will build confidence fastest.`;
+    }
+    if (strongestConcept) {
+      return `You are building a dependable base in ${formatLearningLabel(strongestConcept.name)}. Keep it fresh with a short recall session before moving on.`;
+    }
+    return 'Keep completing practice activities to unlock a clearer, topic-by-topic study recommendation.';
+  }, [mlStats, focusConcept, strongestConcept]);
 
   const exportData = () => {
     const csv = [
@@ -828,10 +862,37 @@ const Analytics = () => {
 
             {mlStats ? (
               <>
-                {}
+                <section className="an-ml-next" aria-labelledby="ml-next-steps-title">
+                  <div className="an-ml-next-copy">
+                    <span className="an-ml-eyebrow">Your learning picture</span>
+                    <h3 id="ml-next-steps-title">What to do next</h3>
+                    <p>{learningSummary}</p>
+                    {recentFrustration >= 0.45 && (
+                      <div className="an-ml-gentle-note">
+                        <Info size={14} aria-hidden="true" />
+                        <span>Recent practice looked challenging. Try one focused topic at a time and ask for an example when you get stuck.</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="an-ml-actions" aria-label="Recommended study actions">
+                    <button type="button" className="an-ml-action an-ml-action--primary" onClick={() => navigate('/weakness-practice')}>
+                      <Target size={16} aria-hidden="true" />
+                      <span><strong>Practice a weak area</strong><small>{focusConcept ? `Start with ${formatLearningLabel(focusConcept.name)}` : 'Build evidence with a focused practice set'}</small></span>
+                    </button>
+                    <button type="button" className="an-ml-action" onClick={() => navigate('/flashcards')}>
+                      <Brain size={16} aria-hidden="true" />
+                      <span><strong>Do a quick recall review</strong><small>Strengthen what you have already learned</small></span>
+                    </button>
+                    <button type="button" className="an-ml-action" onClick={() => navigate('/ai-chat')}>
+                      <MessageSquare size={16} aria-hidden="true" />
+                      <span><strong>Ask the AI tutor</strong><small>Get a simpler explanation or worked example</small></span>
+                    </button>
+                  </div>
+                </section>
+
                 <div className="an-section-label an-section-label--top">
                   <span className="an-sec-num">01</span>
-                  <span className="an-sec-title">BAYESIAN KNOWLEDGE TRACING</span>
+                  <span className="an-sec-title">YOUR TOPIC CONFIDENCE</span>
                   <span className="an-sec-line" />
                 </div>
                 <div className="an-deep-card">
@@ -845,15 +906,19 @@ const Analytics = () => {
                   </div>
                   {mlStats.top_mastery_concepts?.map((c, i) => (
                     <div key={i} className="an-ds-row">
-                      <span className="an-ds-lbl">{c.name}</span>
+                      <span className="an-ds-lbl" title={formatLearningLabel(c.name)}>{formatLearningLabel(c.name)}</span>
                       <div className="an-ds-bar-bg">
                         <div className="an-ds-bar-fill" style={{width:`${c.mastery*100}%`,background:c.mastery>0.7?'#10b981':c.mastery>0.4?'#f59e0b':'#ef4444'}}/>
                       </div>
                       <span className="an-ds-val">{Math.round(c.mastery*100)}%</span>
                     </div>
                   ))}
+                  <div className="an-ml-plain-note">
+                    <CheckCircle size={14} aria-hidden="true" />
+                    <p>These percentages estimate how confidently you can recall each topic. They improve as you answer, review, and correct mistakes.</p>
+                  </div>
                   <div className="an-param-row">
-                    {[['P(Learn)',mlStats.bkt_p_learn||'0.09','Per-interaction learning prob'],['P(Slip)',mlStats.bkt_p_slip||'0.10','Error despite knowledge'],['P(Guess)',mlStats.bkt_p_guess||'0.20','Correct despite no knowledge']].map(([n,v,d]) => (
+                    {[['Learning speed',mlStats.bkt_p_learn||'0.09','How quickly new practice tends to stick'],['Occasional mistakes',mlStats.bkt_p_slip||'0.10','Errors that can happen even when you know a topic'],['Lucky correct answers',mlStats.bkt_p_guess||'0.20','Correct answers before a topic is fully learned']].map(([n,v,d]) => (
                       <div key={n} className="an-param-card">
                         <span className="an-param-name">{n}</span>
                         <span className="an-param-val">{v}</span>
@@ -866,21 +931,21 @@ const Analytics = () => {
                 {}
                 <div className="an-section-label">
                   <span className="an-sec-num">02</span>
-                  <span className="an-sec-title">RL STRATEGY AGENT</span>
+                  <span className="an-sec-title">HOW CERBYL ADAPTS YOUR PRACTICE</span>
                   <span className="an-sec-line" />
                 </div>
                 <div className="an-deep-card">
                   <div className="an-deep-metrics">
                     {[['Episodes',mlStats.rl_total_episodes||0],['Exploration',mlStats.rl_exploration_rate||'0%'],['Best Strategy',mlStats.rl_best_strategy||'N/A']].map(([l,v]) => (
                       <div key={l} className="an-deep-metric">
-                        <span className="an-dm-val">{v}</span>
+                        <span className="an-dm-val">{l === 'Best Strategy' ? formatLearningLabel(v) : v}</span>
                         <span className="an-dm-lbl">{l}</span>
                       </div>
                     ))}
                   </div>
                   {mlStats.strategy_performance?.map((s,i) => (
                     <div key={i} className="an-strategy-row">
-                      <span className="an-str-name">{s.name}</span>
+                      <span className="an-str-name">{formatLearningLabel(s.name)}</span>
                       <div className="an-str-stats">
                         <span>Uses: {s.use_count}</span>
                         <span>Success: {s.success_rate}%</span>
@@ -888,13 +953,13 @@ const Analytics = () => {
                       </div>
                     </div>
                   ))}
-                  <div className="an-info-note"><Info size={14}/><p>Thompson Sampling balances exploration of new strategies vs. exploitation of proven ones.</p></div>
+                  <div className="an-info-note"><Info size={14}/><p>We compare different study approaches and gradually favour the ones that help you learn best. You can always choose a different activity.</p></div>
                 </div>
 
                 {}
                 <div className="an-section-label">
                   <span className="an-sec-num">03</span>
-                  <span className="an-sec-title">AFFECT DETECTION</span>
+                  <span className="an-sec-title">YOUR STUDY EXPERIENCE</span>
                   <span className="an-sec-line" />
                 </div>
                 <div className="an-deep-card">
@@ -927,7 +992,7 @@ const Analytics = () => {
 
                 <div className="an-transparency-note">
                   <AlertCircle size={14}/>
-                  <span>All ML models train exclusively on your data and are never shared with third parties.</span>
+                  <span>These suggestions are based on your own learning activity. Your learning data is not shared with third parties.</span>
                 </div>
               </>
             ) : (

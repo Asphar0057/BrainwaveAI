@@ -21,6 +21,7 @@ from graphs.learningpath_graph import (
     create_learningpath_graph,
     get_learningpath_graph,
     _default_outline,
+    _normalize_content_plan,
     _normalize_core_sections,
     _normalize_node_title,
     _normalize_topic_prompt,
@@ -345,7 +346,10 @@ def _auto_discover_node_resources(topic: str, node_data: Dict[str, Any]) -> List
 
     max_results = _env_int("LEARNING_PATH_AUTO_RESOURCE_MAX_RESULTS", 5, 1, 8)
     provider = os.getenv("LEARNING_PATH_AUTO_RESOURCE_PROVIDER", "auto")
-    query = f"{title} {topic} tutorial guide video documentation".strip()
+    objectives = node_data.get("objectives") if isinstance(node_data.get("objectives"), list) else []
+    keywords = node_data.get("keywords") if isinstance(node_data.get("keywords"), list) else []
+    focus = " ".join(str(item) for item in (keywords[:4] or objectives[:2]))
+    query = f"{title} {topic} {focus} tutorial guide video documentation".strip()
 
     resources, errors = _search_learning_resources(
         query,
@@ -442,6 +446,12 @@ def _serialize_node(node, db: Session, user_id: int) -> dict:
         applications=applications,
         difficulty=path_difficulty,
     )
+    content_plan = _normalize_content_plan(
+        node.content_plan,
+        node_title=node_title,
+        difficulty=path_difficulty,
+        length="medium",
+    )
 
     return {
         "id": node.id,
@@ -475,7 +485,7 @@ def _serialize_node(node, db: Session, user_id: int) -> dict:
         "supplementary_resources": node.supplementary_resources,
         "practice_resources": node.practice_resources,
         "estimated_minutes": node.estimated_minutes,
-        "content_plan": node.content_plan,
+        "content_plan": content_plan,
         "concept_mapping": node.concept_mapping,
         "scenarios": node.scenarios,
         "hands_on_projects": node.hands_on_projects,
@@ -486,9 +496,16 @@ def _serialize_node(node, db: Session, user_id: int) -> dict:
     }
 
 def _build_notes(node, topic: str) -> str:
-    sections = node.core_sections or []
-    if not isinstance(sections, list):
-        sections = []
+    sections = _normalize_core_sections(
+        node.core_sections,
+        node_title=_normalize_node_title(node.title, topic),
+        topic=topic,
+        objectives=node.objectives if isinstance(node.objectives, list) else [],
+        prerequisites=node.prerequisites if isinstance(node.prerequisites, list) else [],
+        keywords=node.keywords if isinstance(node.keywords, list) else [],
+        applications=node.real_world_applications if isinstance(node.real_world_applications, list) else [],
+        difficulty=getattr(node.path, "difficulty", "intermediate"),
+    )
     lines = [f"# {node.title}", "", f"Topic: {topic}", "", node.introduction or "", ""]
     for section in sections:
         title = section.get("title", "Section")
@@ -526,7 +543,18 @@ def _build_flashcards(node, topic: str, count: int, difficulty: str) -> list[dic
     objectives = node.objectives or []
     if not isinstance(objectives, list):
         objectives = [str(objectives)]
-    prompts = summary_items + objectives
+    sections = _normalize_core_sections(
+        node.core_sections,
+        node_title=_normalize_node_title(node.title, topic),
+        topic=topic,
+        objectives=objectives,
+        prerequisites=node.prerequisites if isinstance(node.prerequisites, list) else [],
+        keywords=node.keywords if isinstance(node.keywords, list) else [],
+        applications=node.real_world_applications if isinstance(node.real_world_applications, list) else [],
+        difficulty=difficulty,
+    )
+    section_prompts = [section.get("title") for section in sections if isinstance(section, dict) and section.get("title")]
+    prompts = section_prompts + summary_items + objectives
     if not prompts:
         prompts = [f"Define {node.title}", f"Why is {node.title} important?"]
 
@@ -546,16 +574,27 @@ def _build_completion_quiz(node, topic: str, count: int, difficulty: str) -> lis
     summary_items = node.summary or []
     if not isinstance(summary_items, list):
         summary_items = [str(summary_items)]
-    base = summary_items if summary_items else [f"{node.title} concept"]
+    sections = _normalize_core_sections(
+        node.core_sections,
+        node_title=_normalize_node_title(node.title, topic),
+        topic=topic,
+        objectives=node.objectives if isinstance(node.objectives, list) else [],
+        prerequisites=node.prerequisites if isinstance(node.prerequisites, list) else [],
+        keywords=node.keywords if isinstance(node.keywords, list) else [],
+        applications=node.real_world_applications if isinstance(node.real_world_applications, list) else [],
+        difficulty=difficulty,
+    )
+    section_topics = [section.get("title") for section in sections if isinstance(section, dict) and section.get("title")]
+    base = section_topics + summary_items if (section_topics or summary_items) else [f"{node.title} concept"]
 
     questions = []
     for idx in range(min(count, 10)):
         stem = base[idx % len(base)]
         options = [
-            f"Incorrect: {stem} without context",
-            f"Correct: {stem} applied with evidence",
-            f"Incorrect: avoid {stem} details",
-            f"Incorrect: skip validation steps",
+            f"Apply {stem} without considering its context",
+            f"Apply {stem} with evidence and clear reasoning",
+            f"Avoid examining the details of {stem}",
+            f"Skip validation before using {stem}",
         ]
         questions.append(
             {
@@ -572,7 +611,18 @@ def _build_question_bank_quiz(node, topic: str, count: int, difficulty: str) -> 
     summary_items = node.summary or []
     if not isinstance(summary_items, list):
         summary_items = [str(summary_items)]
-    base = summary_items if summary_items else [f"{node.title} concept"]
+    sections = _normalize_core_sections(
+        node.core_sections,
+        node_title=_normalize_node_title(node.title, topic),
+        topic=topic,
+        objectives=node.objectives if isinstance(node.objectives, list) else [],
+        prerequisites=node.prerequisites if isinstance(node.prerequisites, list) else [],
+        keywords=node.keywords if isinstance(node.keywords, list) else [],
+        applications=node.real_world_applications if isinstance(node.real_world_applications, list) else [],
+        difficulty=difficulty,
+    )
+    section_topics = [section.get("title") for section in sections if isinstance(section, dict) and section.get("title")]
+    base = section_topics + summary_items if (section_topics or summary_items) else [f"{node.title} concept"]
 
     questions = []
     for idx in range(min(count, 8)):

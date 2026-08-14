@@ -48,6 +48,8 @@ const CATEGORY = {
   improving: { label: 'Improving', tone: 'green' },
 };
 
+const PRIORITY_PAGE_SIZE = 4;
+
 const Weaknesses = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
@@ -267,7 +269,21 @@ const Weaknesses = () => {
                   <h2>How Cerbyl formed this diagnosis.</h2>
                   <p>Long-term mastery, study frequency, and repeated mistakes appear here once enough evidence has accumulated.</p>
                 </header>
-                <WeaknessTracker userId={userName} token={token} onNavigate={navigate} />
+                <WeaknessTracker
+                  userId={userName}
+                  token={token}
+                  onNavigate={navigate}
+                  emptyFallback={(
+                    <IntelligenceFallback
+                      areas={allAreas}
+                      totalCount={totalCount}
+                      criticalCount={criticalCount}
+                      needsPracticeCount={needsPracticeCount}
+                      onPractice={(topic) => navigate(`/weakness-tips/${encodeURIComponent(topic)}`)}
+                      onPracticeAll={() => navigate('/weakness-practice')}
+                    />
+                  )}
+                />
               </section>
             )}
 
@@ -292,6 +308,79 @@ const Weaknesses = () => {
   );
 };
 
+const IntelligenceFallback = ({
+  areas,
+  totalCount,
+  criticalCount,
+  needsPracticeCount,
+  onPractice,
+  onPracticeAll,
+}) => {
+  const signals = areas.filter((area) => String(area?.topic || '').trim()).slice(0, 3);
+  const attempts = areas.reduce((sum, area) => sum + (Number(area?.total_attempts) || 0), 0);
+  const wrongAnswers = areas.reduce((sum, area) => sum + (Number(area?.total_wrong) || 0), 0);
+
+  if (!totalCount) {
+    return (
+      <section className="wa-intelligence-fallback wa-intelligence-fallback--empty">
+        <div className="wa-intelligence-empty-icon"><Cpu size={24} /></div>
+        <div>
+          <span className="wa-intelligence-eyebrow">Building your pattern map</span>
+          <h3>Keep learning to unlock intelligence.</h3>
+          <p>Cerbyl needs a few more answered questions before it can identify reliable learning patterns.</p>
+        </div>
+        <button type="button" className="wa-intelligence-primary" onClick={onPracticeAll}>Practice now <ArrowUpRight size={16} /></button>
+      </section>
+    );
+  }
+
+  return (
+    <section className="wa-intelligence-fallback">
+      <div className="wa-intelligence-status">
+        <div>
+          <span className="wa-intelligence-eyebrow">Live diagnosis signals</span>
+          <h3>Your pattern profile is taking shape.</h3>
+          <p>These signals are already strong enough to guide your next recovery session. Deeper trend analysis appears as your study history grows.</p>
+        </div>
+        <button type="button" className="wa-intelligence-primary" onClick={onPracticeAll}>Practice priority gaps <ArrowUpRight size={16} /></button>
+      </div>
+
+      <div className="wa-intelligence-stats" aria-label="Current intelligence signals">
+        <div><span>Active signals</span><strong>{totalCount}</strong></div>
+        <div><span>Critical gaps</span><strong>{criticalCount}</strong></div>
+        <div><span>Needs practice</span><strong>{needsPracticeCount}</strong></div>
+        <div><span>Evidence captured</span><strong>{attempts} <small>attempts</small></strong></div>
+      </div>
+
+      <div className="wa-intelligence-list">
+        <div className="wa-intelligence-list-heading">
+          <span>Strongest current signals</span>
+          <span>{wrongAnswers} missed responses</span>
+        </div>
+        {signals.map((area, index) => {
+          const accuracy = Number.isFinite(Number(area?.accuracy)) ? Math.round(Number(area.accuracy)) : null;
+          const category = CATEGORY[area?.category] || CATEGORY.critical;
+          return (
+            <article className="wa-intelligence-signal" key={`${area?.topic || 'signal'}-${index}`}>
+              <span className={`wa-intelligence-severity ${category.tone}`}>{String(index + 1).padStart(2, '0')}</span>
+              <div>
+                <span className={`wa-status ${category.tone}`}>{category.label}</span>
+                <h4>{area.topic}</h4>
+                <p>{area.evidence || `${area.total_attempts || 0} attempts have flagged this topic for focused recovery.`}</p>
+              </div>
+              <div className="wa-intelligence-accuracy">
+                <span>Accuracy</span>
+                <strong>{accuracy === null ? '—' : `${accuracy}%`}</strong>
+              </div>
+              <button type="button" aria-label={`Practice ${area.topic}`} onClick={() => onPractice(area.topic)}><ArrowUpRight size={17} /></button>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
+
 const DiagnosisView = ({
   loading,
   failed,
@@ -308,6 +397,7 @@ const DiagnosisView = ({
   onStartLearning,
   onRetry,
 }) => {
+  const [queuePage, setQueuePage] = useState(0);
   if (loading) return <LoadingState label="Analyzing your performance" />;
   if (failed) return <RequestErrorState label="We could not read your diagnosis." onRetry={onRetry} />;
 
@@ -322,6 +412,14 @@ const DiagnosisView = ({
       />
     );
   }
+
+  const pageCount = Math.max(1, Math.ceil(areas.length / PRIORITY_PAGE_SIZE));
+  const currentPage = Math.min(queuePage, pageCount - 1);
+  const visibleAreas = areas.slice(currentPage * PRIORITY_PAGE_SIZE, (currentPage + 1) * PRIORITY_PAGE_SIZE);
+  const changeFilter = (nextFilter) => {
+    setQueuePage(0);
+    onFilter(nextFilter);
+  };
 
   return (
     <div className="wa-diagnosis">
@@ -358,7 +456,7 @@ const DiagnosisView = ({
               ['needs_practice', 'Practice', needsPracticeCount],
               ['improving', 'Improving', improvingCount],
             ].map(([key, label, count]) => (
-              <button key={key} type="button" className={filter === key ? 'active' : ''} onClick={() => onFilter(key)} aria-pressed={filter === key}>
+              <button key={key} type="button" className={filter === key ? 'active' : ''} onClick={() => changeFilter(key)} aria-pressed={filter === key}>
                 {label}<small>{count}</small>
               </button>
             ))}
@@ -366,12 +464,21 @@ const DiagnosisView = ({
         </header>
 
         <div className="wa-queue-list">
-          {areas.length ? areas.map((area, index) => (
-            <WeaknessRow key={`${area.topic}-${index}`} area={area} index={index} onPractice={() => onPractice(area.topic)} />
+          {areas.length ? visibleAreas.map((area, index) => (
+            <WeaknessRow key={`${area.topic}-${currentPage * PRIORITY_PAGE_SIZE + index}`} area={area} index={currentPage * PRIORITY_PAGE_SIZE + index} onPractice={() => onPractice(area.topic)} />
           )) : (
             <div className="wa-filter-empty"><CheckCircle2 size={24} /><span>No topics match this diagnosis filter.</span></div>
           )}
         </div>
+        {areas.length > PRIORITY_PAGE_SIZE && (
+          <footer className="wa-queue-pagination" aria-label="Priority queue pages">
+            <span>{currentPage * PRIORITY_PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PRIORITY_PAGE_SIZE, areas.length)} of {areas.length}</span>
+            <div>
+              <button type="button" onClick={() => setQueuePage((page) => Math.max(0, page - 1))} disabled={currentPage === 0}>Previous</button>
+              <button type="button" onClick={() => setQueuePage((page) => Math.min(pageCount - 1, page + 1))} disabled={currentPage === pageCount - 1}>Next</button>
+            </div>
+          </footer>
+        )}
       </section>
     </div>
   );

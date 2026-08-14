@@ -107,6 +107,7 @@ pycountry>=22.3.5
 
 # Environment & Config
 python-dotenv>=1.0.0
+twilio>=9.0.0,<10.0.0
 
 # Validation
 # Was capped below 2.10 while fastapi was still 0.104.1 (which crashed on

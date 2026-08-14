@@ -385,31 +385,60 @@ def _default_node_titles(topic: str, count: int, difficulty: str) -> list[str]:
     }
     return title_sets[difficulty][:count]
 
+def _node_phase(node_title: str) -> str:
+    title = _clean_text(node_title).lower()
+    if any(term in title for term in ("orientation", "vocabulary", "foundation", "fundamental")):
+        return "foundation"
+    if any(term in title for term in ("core concept", "architecture", "deep technique")):
+        return "model"
+    if any(term in title for term in ("technique", "workflow", "working with", "guided practice")):
+        return "workflow"
+    if any(term in title for term in ("pitfall", "mistake", "failure mode", "edge case")):
+        return "diagnostic"
+    if any(term in title for term in ("project", "application", "real-world", "system")):
+        return "build"
+    if any(term in title for term in ("advanced", "optimization", "scaling", "evaluation", "benchmark")):
+        return "optimize"
+    if any(term in title for term in ("capstone", "portfolio", "next step", "review")):
+        return "synthesis"
+    return "practice"
+
+
 def _default_content_plan(node_title: str, difficulty: str, length: str) -> list[dict]:
     length_profile = _length_profile(length)
     difficulty_profile = _difficulty_profile(difficulty)
     flashcard_count = max(3, length_profile["flashcards"] + difficulty_profile["flashcard_delta"])
     quiz_count = max(3, length_profile["quiz"] + difficulty_profile["quiz_delta"])
-    practice_style = difficulty_profile["practice_style"]
+    phase = _node_phase(node_title)
+    activity_copy = {
+        "foundation": ("Create a concise concept map that defines each term and shows how the ideas connect.", "Recall the essential vocabulary and explain each term in your own words.", "Test whether you can distinguish the core definitions in realistic examples.", "Ask for a plain-language explanation of any concept that still feels abstract."),
+        "model": ("Build a mechanism note: inputs, components, flow, outputs, and the assumptions that connect them.", "Practice the relationships between the model's components and their roles.", "Reason through a scenario by tracing cause and effect through the model.", "Challenge the model with a counterexample or an alternative design."),
+        "workflow": ("Write a step-by-step operating checklist, including the decision points and validation signals.", "Review the sequence, tools, and checks required at each stage.", "Choose the next action for a realistic workflow and justify it.", "Walk through a workflow problem and identify where it can fail."),
+        "diagnostic": ("Document failure modes, their early warning signals, and the recovery action for each.", "Memorize the mistake-to-symptom-to-fix relationships.", "Diagnose a flawed example and select the strongest corrective action.", "Review a failure case and ask for help tracing it back to its root cause."),
+        "build": ("Draft an applied solution with requirements, constraints, implementation steps, and success criteria.", "Practice the components and tradeoffs needed to build the solution.", "Make design choices for a project scenario and defend them with evidence.", "Get feedback on your proposed implementation plan before building."),
+        "optimize": ("Create an evaluation brief with a baseline, constraints, metrics, and improvement hypotheses.", "Review the tradeoffs, metrics, and failure modes that shape optimization.", "Compare competing approaches under production-like constraints.", "Critique an optimization decision and test its assumptions."),
+        "synthesis": ("Produce a one-page synthesis linking the major decisions, evidence, and outcomes from this path.", "Recall the concepts that should guide an independent solution.", "Solve an end-to-end scenario that combines prior concepts and tradeoffs.", "Use the tutor as a reviewer for your final reasoning and next-step plan."),
+        "practice": (f"Write a focused study note for {node_title} that states the decision, evidence, and tradeoffs.", "Review the key concepts and the relationships between them.", f"Apply {node_title} through {difficulty_profile['practice_style']}.", "Ask focused follow-up questions about the hardest assumption."),
+    }[phase]
 
     return [
         {
             "type": "notes",
-            "description": f"Build structured notes for {node_title} with the right level of detail for {difficulty}: {difficulty_profile['description']}.",
+            "description": activity_copy[0],
         },
         {
             "type": "flashcards",
-            "description": "Lock in vocabulary and key facts with spaced repetition cards.",
+            "description": activity_copy[1],
             "count": flashcard_count,
         },
         {
             "type": "quiz",
-            "description": f"Check understanding through {practice_style}.",
+            "description": activity_copy[2],
             "question_count": quiz_count,
         },
         {
             "type": "chat",
-            "description": "Ask follow-up questions and resolve unclear assumptions before moving on.",
+            "description": activity_copy[3],
         },
     ]
 
@@ -426,7 +455,15 @@ def _normalize_content_plan(plan: Any, node_title: str, difficulty: str, length:
     normalized = []
     for default in defaults:
         item_type = default["type"]
-        merged = {**default, **by_type.get(item_type, {})}
+        incoming = by_type.get(item_type, {})
+        description = _clean_text(str(incoming.get("description", "")))
+        generic_description = any(marker in description.lower() for marker in (
+            "build structured notes",
+            "lock in vocabulary and key facts",
+            "check understanding through",
+            "ask follow-up questions and resolve",
+        ))
+        merged = {**default, **({} if generic_description else incoming)}
         if item_type == "flashcards":
             merged["count"] = default["count"]
         if item_type == "quiz":
@@ -575,10 +612,21 @@ def _normalize_core_sections(
     return normalized or _topic_specific_core_sections(node_title, topic, objectives, prerequisites, keywords, applications, difficulty=difficulty)
 
 def _default_summary(node_title: str) -> list[str]:
+    phase = _node_phase(node_title)
+    focus = {
+        "foundation": "definitions, distinctions, and the language needed for later work",
+        "model": "components, mechanisms, and the causal relationships between them",
+        "workflow": "sequence, decision points, validation signals, and handoffs",
+        "diagnostic": "failure modes, observable symptoms, root causes, and recovery actions",
+        "build": "requirements, constraints, implementation choices, and success criteria",
+        "optimize": "baselines, metrics, tradeoffs, and evidence for improvement",
+        "synthesis": "how prior concepts combine into one defensible end-to-end solution",
+        "practice": "the decisions, evidence, and tradeoffs needed to apply the concept",
+    }[phase]
     return [
-        f"Define and explain the core components of {node_title}.",
-        "Apply the ideas to a realistic mini-task.",
-        "Identify typical mistakes and how to avoid them.",
+        f"Use {node_title} to reason about {focus}.",
+        f"Apply {node_title} to a concrete scenario instead of recalling it as isolated vocabulary.",
+        f"Explain the evidence that would show whether your {node_title} decision is working.",
     ]
 
 def _default_applications(topic: str) -> list[str]:
@@ -589,19 +637,30 @@ def _default_applications(topic: str) -> list[str]:
     ]
 
 def _default_scenarios(topic: str, node_title: str) -> list[dict]:
+    phase = _node_phase(node_title)
+    scenario_copy = {
+        "foundation": ("A teammate confuses two foundational terms.", "Clarify each definition and show the boundary between them."),
+        "model": ("A result changes unexpectedly after one component is adjusted.", "Trace the mechanism from the changed component to the observed outcome."),
+        "workflow": ("A team needs to choose the next step in a multi-stage task.", "Use the workflow's decision point and validation signal to choose the next action."),
+        "diagnostic": ("A system shows a symptom that could have several causes.", "Use evidence to isolate the root cause before applying a fix."),
+        "build": ("A stakeholder gives requirements with real constraints.", "Turn the requirements into an implementation plan with measurable success criteria."),
+        "optimize": ("Two approaches improve different metrics but add different risks.", "Compare the tradeoffs against a baseline and choose the option supported by evidence."),
+        "synthesis": ("You must defend an end-to-end solution to a reviewer.", "Connect the design choices, constraints, evidence, and expected outcomes."),
+        "practice": ("You are asked to make a practical decision.", "Link the decision to constraints, reasoning, and expected outcomes."),
+    }[phase]
     return [
         {
             "title": f"{node_title} quick check",
-            "description": f"You are asked to explain a {topic} decision to a teammate.",
-            "question": "Which option best supports your explanation?",
+            "description": f"{scenario_copy[0]} The setting is {topic}.",
+            "question": f"What is the strongest way to apply {node_title}?",
             "options": [
-                "State the decision without context",
-                "Link the decision to constraints and expected outcomes",
-                "Avoid specifics to keep it short",
-                "Focus only on tools, not reasoning",
+                "Make a choice without checking the situation",
+                scenario_copy[1],
+                "Skip the evidence and rely on a generic rule",
+                "Focus on terminology without explaining the decision",
             ],
             "correct": 1,
-            "explanation": "Strong explanations connect constraints, reasoning, and outcomes.",
+            "explanation": f"{scenario_copy[1]} This is the transferable skill for {node_title}.",
         }
     ]
 
