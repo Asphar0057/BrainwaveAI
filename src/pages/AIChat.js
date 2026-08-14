@@ -29,6 +29,7 @@ import { signOutAppSession } from '../utils/authSession';
 import gamificationService from '../services/gamificationService';
 import MathRenderer from '../components/MathRenderer';
 import GraphRenderer, { detectGraphLanguage } from '../components/GraphRenderer';
+import ConversationMap from '../components/ConversationMap';
 
 import './AIChat.css';
 import ContextSelector from '../components/ContextSelector';
@@ -37,8 +38,15 @@ import GeometricGrid from '../components/GeometricGrid';
 import contextService from '../services/contextService';
 import { enableChatDock } from '../utils/chatDock';
 import { queueChatCompletion, queueLegacyAIFileEndpoint, queuedAIJsonFetch, USE_AI_JOB_QUEUE } from '../services/aiJobService';
+import { parseNumericChatRouteId } from '../utils/chatSession';
+import { getConversationPrompts } from '../utils/conversationMap';
 import { formatUsageLimitMessage, getUsageLimitFromError, throwIfUsageLimitResponse } from '../utils/usageLimit';
 import { buildContextAwareMessage } from '../utils/slideDiscussionContext';
+import {
+  getTutorContinuation,
+  isAnsweringPreviousComprehensionCheck,
+  isAnsweringTutorStep,
+} from '../utils/tutorConversation';
 
 const CONTEXT_SELECTION_KEY = 'ctx_selected_doc_ids';
 const chatContextSelectionKey = (chatId) => (
@@ -137,7 +145,7 @@ const INTENT_KEYWORDS = {
 const TOPIC_PATTERN = /\b(?:about|on|for|of|regarding)\s+([a-zA-Z0-9\s\-_,]{3,80})/i;
 const GRAPH_REQUEST_RE = /\b(graph|chart|plot|diagram|flowchart|mindmap|visuali[sz]e|trendline|trend line)\b/i;
 const CARTESIAN_GRAPH_RE = /\b(x[\s-]?axis|y[\s-]?axis|linear regression|scatter|line graph|slope|intercept|coordinate|cartesian)\b/i;
-const GRAPH_WORTHY_RE = /\b(compare|comparison|trend|distribution|correlation|relationship|growth|decline|over time|ratio|proportion|probability|frequency|histogram|timeline|forecast|projection|metrics|analytics|performance)\b/i;
+const GRAPH_WORTHY_RE = /\b(trend|distribution|correlation|relationship|growth|decline|over time|ratio|proportion|probability|frequency|histogram|timeline|forecast|projection|metrics|analytics|performance)\b/i;
 const STEM_GRAPH_DOMAIN_RE = /\b(algebra|geometry|trigonometry|calculus|statistics|probability|equation|matrix|vector|derivative|integral|function|regression|optimization|economics?|gdp|inflation|interest rate|demand|supply|elasticity|market|finance|revenue|cost|profit|physics|mechanics|thermodynamics|electromagnetism|optics|quantum|force|velocity|acceleration|energy|momentum)\b/i;
 const INTERNAL_GRAPH_GUIDANCE_MARKERS = [
   'if a visual would materially improve understanding,',
@@ -185,56 +193,6 @@ function stripInternalGraphGuidance(text = '') {
 
 
   return raw.slice(0, cutAt).replace(/\n{2,}$/g, '').trim();
-}
-
-const COMPREHENSION_CHECK_RE = /\b(comprehension\s+check|check\s+your\s+understanding|quick\s+(?:understanding\s+)?check|to\s+ensure\s+you'?re\s+following\s+along|can\s+you\s+(?:briefly\s+)?(?:describe|explain|summari[sz]e|integrate|differentiate|solve|calculate|compute|find|apply)|how\s+(?:would|do)\s+you\s+(?:explain|describe|understand|solve|calculate|compute|find|apply)|what\s+do\s+you\s+understand|try\s+(?:answering|explaining|summari[sz]ing|solving|calculating|computing|finding|integrating|differentiating))\b/i;
-const MATH_ATTEMPT_RE = /(?:\d|[a-z]\s*(?:\^|\*\*|²|³)|\\frac|\\int|[=+\-*/^()])/i;
-const NEW_QUESTION_START_RE = /^\s*(what|why|how|when|where|who|which|can|could|would|should|please|explain|tell|show|give|quiz|make|create|generate)\b/i;
-
-function getLastAiMessage(messages = []) {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (message?.type === 'ai' && message.content) {
-      return message.content;
-    }
-  }
-  return '';
-}
-
-function looksLikeComprehensionAnswer(text = '') {
-  const trimmed = String(text || '').trim();
-  if (trimmed.length < 1) return false;
-
-  const lower = trimmed.toLowerCase();
-  if (NEW_QUESTION_START_RE.test(trimmed)) return false;
-  if (trimmed.endsWith('?') && /\b(what|why|how|can|could|explain|tell|show)\b/i.test(trimmed)) {
-    return false;
-  }
-
-  if (/\b(i\s+don'?t\s+know|not\s+sure|no\s+idea|idk)\b/i.test(lower)) return true;
-  if (MATH_ATTEMPT_RE.test(trimmed) && trimmed.length <= 80) return true;
-  const words = trimmed.match(/[a-z][a-z'-]*/gi) || [];
-  if (words.length >= 5) return true;
-
-  return /\b(it|this|that|they|wave|particle|means?)\b/i.test(trimmed);
-}
-
-function isAnsweringPreviousComprehensionCheck(text = '', messages = []) {
-  const previousAiMessage = getLastAiMessage(messages);
-  return COMPREHENSION_CHECK_RE.test(previousAiMessage) && looksLikeComprehensionAnswer(text);
-}
-
-function isAnsweringTutorStep(text = '', messages = []) {
-  const trimmed = String(text || '').trim();
-  if (!looksLikeComprehensionAnswer(trimmed)) return false;
-
-  const previousAi = [...messages].reverse().find((message) => message?.type === 'ai');
-  if (!previousAi) return false;
-  if (previousAi.tutorMode || previousAi.tutorState || (Array.isArray(previousAi.tutorOptions) && previousAi.tutorOptions.length > 0)) {
-    return true;
-  }
-
-  return COMPREHENSION_CHECK_RE.test(previousAi.content || '');
 }
 
 function stripTutorOptionMarkers(text = '') {
@@ -761,6 +719,14 @@ const AIChat = ({ sharedMode = false }) => {
   const activeChatIdRef = useRef(null);
   const messagesRef = useRef([]);
 
+  useEffect(() => {
+    // Failed Mermaid renders can leave raw error SVGs as direct body children.
+    // They are not visible, but pollute accessibility output and survive chat switches.
+    document
+      .querySelectorAll('body > [id^="chat_graph_"], body > [id^="dchat_graph_"]')
+      .forEach((node) => node.remove());
+  }, []);
+
   const handleFolderCreation = async () => {
     if (!folderName.trim()) return;
     
@@ -890,6 +856,7 @@ const AIChat = ({ sharedMode = false }) => {
   
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  const promptMessageRefs = useRef(new window.Map());
   const sidebarNavRef = useRef(null);
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -912,6 +879,7 @@ const AIChat = ({ sharedMode = false }) => {
   const [copiedCode, setCopiedCode] = useState(null);
   const [showScrollToTop, setShowScrollToTop] = useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const [activePromptId, setActivePromptId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   const greetings = CHAT_GREETINGS;
@@ -974,6 +942,20 @@ const AIChat = ({ sharedMode = false }) => {
   }, [messages]);
 
   useEffect(() => {
+    const prompts = getConversationPrompts(messages);
+    const promptIds = new Set(prompts.map((prompt) => prompt.id));
+    promptMessageRefs.current.forEach((_node, promptId) => {
+      if (!promptIds.has(promptId)) promptMessageRefs.current.delete(promptId);
+    });
+
+    if (prompts.length === 0) {
+      setActivePromptId(null);
+    } else if (!promptIds.has(String(activePromptId))) {
+      setActivePromptId(prompts[prompts.length - 1].id);
+    }
+  }, [messages, activePromptId]);
+
+  useEffect(() => {
     contextService.listDocuments()
       .then(d => setUserDocCount(d.user_docs?.length || 0))
       .catch(() => {});
@@ -1000,7 +982,8 @@ const AIChat = ({ sharedMode = false }) => {
   
   const handleScroll = () => {
     if (messagesContainerRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+      const container = messagesContainerRef.current;
+      const { scrollTop, scrollHeight, clientHeight } = container;
       
       
       setShowScrollToTop(scrollTop > 200);
@@ -1008,6 +991,22 @@ const AIChat = ({ sharedMode = false }) => {
       
       const isAtBottom = scrollTop + clientHeight >= scrollHeight - 30;
       setShowScrollToBottom(!isAtBottom && messages.length > 3);
+
+      const prompts = getConversationPrompts(messages);
+      if (prompts.length > 0) {
+        const containerTop = container.getBoundingClientRect().top;
+        const readingLine = containerTop + Math.min(180, clientHeight * 0.28);
+        let nextActiveId = prompts[0].id;
+
+        prompts.forEach((prompt) => {
+          const node = promptMessageRefs.current.get(prompt.id);
+          if (node?.isConnected && node.getBoundingClientRect().top <= readingLine) {
+            nextActiveId = prompt.id;
+          }
+        });
+
+        setActivePromptId((current) => current === nextActiveId ? current : nextActiveId);
+      }
     }
   };
 
@@ -1027,6 +1026,22 @@ const AIChat = ({ sharedMode = false }) => {
         }
       }, 500);
     }
+  };
+
+  const scrollToPrompt = (promptId) => {
+    const container = messagesContainerRef.current;
+    const node = promptMessageRefs.current.get(String(promptId));
+    if (!container || !node) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const nodeRect = node.getBoundingClientRect();
+    const targetTop = container.scrollTop + nodeRect.top - containerRect.top - 22;
+    container.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
+    setActivePromptId(String(promptId));
+
+    window.setTimeout(() => {
+      node.focus({ preventScroll: true });
+    }, 360);
   };
 
   const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
@@ -1240,7 +1255,22 @@ const AIChat = ({ sharedMode = false }) => {
         if (chatLoadRequestRef.current !== requestId) {
           return;
         }
-        setMessages((Array.isArray(messagesArray) ? messagesArray : []).map(normalizeLoadedMessage));
+        const loadedMessages = (Array.isArray(messagesArray) ? messagesArray : []).map(normalizeLoadedMessage);
+        setMessages(loadedMessages);
+
+        // Tutor state belongs to the conversation, not only to the browser's
+        // last global toggle. Reopening a tutor chat must keep the next student
+        // reply inside the pending lesson/check.
+        const tutorContinuation = getTutorContinuation(loadedMessages);
+        if (tutorContinuation.enabled) {
+          setTutorMode(true);
+          localStorage.setItem(TUTOR_MODE_KEY, 'true');
+          const restoredReplyMode = tutorContinuation.replyMode;
+          if (TUTOR_REPLY_MODES.some((mode) => mode.id === restoredReplyMode)) {
+            setTutorReplyMode(restoredReplyMode);
+            localStorage.setItem(TUTOR_REPLY_MODE_KEY, restoredReplyMode);
+          }
+        }
         
         setTimeout(() => {
           scrollToLatestMessage();
@@ -1442,8 +1472,8 @@ const AIChat = ({ sharedMode = false }) => {
 
     let currentChatId;
     if (chatId) {
-      const numericId = Number.parseInt(chatId, 10);
-      if (Number.isFinite(numericId) && numericId > 0) {
+      const numericId = parseNumericChatRouteId(chatId);
+      if (numericId) {
         currentChatId = numericId;
       } else {
         const match = chatSessions.find(s => s.uid === chatId || String(s.id) === chatId);
@@ -2801,9 +2831,9 @@ const AIChat = ({ sharedMode = false }) => {
   }, [location.state?.initialMessage, userName]);
 
   useEffect(() => {
-    const numericChatId = chatId ? parseInt(chatId, 10) : null;
+    const numericChatId = parseNumericChatRouteId(chatId);
 
-    if (numericChatId && !isNaN(numericChatId)) {
+    if (numericChatId) {
       // Skip reload if we just sent a message (to preserve messages and action buttons)
       if (justSentMessageRef.current && activeChatId === numericChatId) {
         justSentMessageRef.current = false;
@@ -2818,7 +2848,7 @@ const AIChat = ({ sharedMode = false }) => {
         setMessages([]);
         loadChatMessages(numericChatId);
       }
-    } else if (chatId && isNaN(numericChatId)) {
+    } else if (chatId) {
       // uid string - resolve to numeric via chatSessions
       const match = chatSessions.find(s => s.uid === chatId || String(s.id) === chatId);
       if (match) {
@@ -3417,6 +3447,9 @@ const AIChat = ({ sharedMode = false }) => {
             ) : (
               <div className="ac-messages" ref={messagesContainerRef} onScroll={handleScroll}>
                 {messages.map((message, messageIndex) => {
+                  const promptId = message.type === 'user'
+                    ? String(message.id || `prompt-${messageIndex}`)
+                    : null;
                   const tutorOptions = Array.isArray(message.tutorOptions) ? message.tutorOptions : [];
                   const tutorState = normalizeTutorState(message.tutorState, message.tutorReplyMode);
                   const isTutorMessage = Boolean(message.tutorMode || tutorState || tutorOptions.length > 0);
@@ -3431,7 +3464,17 @@ const AIChat = ({ sharedMode = false }) => {
                     message.usageLimit ? 'is-usage-limit' : '',
                   ].filter(Boolean).join(' ');
                   return (
-                  <div key={message.id} className={messageClasses}>
+                  <div
+                    key={message.id}
+                    className={messageClasses}
+                    ref={(node) => {
+                      if (!promptId) return;
+                      if (node) promptMessageRefs.current.set(promptId, node);
+                      else promptMessageRefs.current.delete(promptId);
+                    }}
+                    data-prompt-id={promptId || undefined}
+                    tabIndex={promptId ? -1 : undefined}
+                  >
                     <div className="ac-message-bubble">
                       <div className="ac-message-content">
                         {renderMessageContent(message.content)}
@@ -3757,6 +3800,12 @@ const AIChat = ({ sharedMode = false }) => {
             )}
           </div>
 
+          <ConversationMap
+            messages={messages}
+            activePromptId={activePromptId}
+            onNavigate={scrollToPrompt}
+          />
+
           {actionNotice && (
             <div className="ac-action-notice" role="status" aria-live="polite">
               {actionNotice}
@@ -3768,6 +3817,8 @@ const AIChat = ({ sharedMode = false }) => {
             <button 
               className="ac-scroll-btn top"
               onClick={scrollToTop}
+              type="button"
+              aria-label="Scroll to top"
               title="Scroll to top"
             >
               {Icons.arrowUp}
@@ -3778,6 +3829,8 @@ const AIChat = ({ sharedMode = false }) => {
             <button 
               className="ac-scroll-btn bottom"
               onClick={scrollToBottom}
+              type="button"
+              aria-label="Scroll to bottom"
               title="Scroll to bottom"
             >
               {Icons.arrowDown}

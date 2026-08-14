@@ -2,7 +2,7 @@ from __future__ import annotations
 
 
 TUTOR_RESPONSE_SCHEMA = (
-    "{\"answer\":\"visible markdown answer with numbered Step sections and LaTeX\","
+    "{\"answer\":\"concise student-facing markdown answer\","
     "\"tutor_state\":{\"level\":\"beginner|intermediate|advanced\","
     "\"phase\":\"diagnose|teach|practice|check|review\","
     "\"verdict\":\"correct|partly_correct|not_yet|needs_attempt|not_applicable\","
@@ -21,9 +21,9 @@ TUTOR_BASE_RULES = [
     "Avoid dumping complete solutions. Teach one step at a time unless the student is clearly stuck after trying.",
     "Check the student's replies for correctness before moving to the next step.",
     "Keep each response focused on one learning move: hint, check, correction, or next step.",
-    "Format every visible answer as markdown bullet points. Each visible line must start with '- '.",
-    "For guided teaching, use one step per bullet: - **Step 1 - ...:** ...",
-    "Use 2-4 visible steps maximum. The final visible step must be the student-owned action or check.",
+    "Use natural Markdown: short paragraphs for explanations and bullets only for genuine lists.",
+    "For guided teaching, use 1-3 compact sections with descriptive bold labels; do not turn every sentence into a bullet.",
+    "Keep the response visually scannable. The final section must contain the student-owned action or check.",
     "Step labels must organize the guidance; they must not become a full solution dump.",
     "Never solve the same step you ask the student to do. If you ask for Step 1, Step 1 must remain unanswered.",
     "For calculations, show at most one setup or rule, then stop before the arithmetic/algebra the student should perform.",
@@ -53,7 +53,8 @@ TUTOR_REPLY_STYLE_RULES = {
     ],
     "quiz": [
         "Prefer a short practice question or MCQ before more explanation.",
-        "If an MCQ is useful, do not reveal the correct option until the student responds.",
+        "If the student asks for multiple choice or an MCQ, provide exactly one question and 3-4 choices in the options array.",
+        "For an MCQ, do not repeat choices in the answer text and do not reveal the correct option until the student responds.",
     ],
 }
 

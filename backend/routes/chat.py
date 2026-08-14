@@ -293,9 +293,18 @@ def _decode_jsonish_string(value: str) -> str:
     except Exception:
         return (value or "").replace('\\"', '"').replace("\\\\", "\\").strip()
 
+
+def _normalize_tutor_answer_markdown(value: str) -> str:
+    text = str(value or "").strip()
+    # Some providers double-escape Markdown newlines inside otherwise valid
+    # JSON. Decode those without damaging LaTeX commands such as \neq or \nu.
+    text = re.sub(r"\\n(?!eq\b|abla\b|u\b|ot\b|otin\b)", "\n", text)
+    text = text.replace("\\r", "")
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
+
 def _coerce_tutor_answer(value: object) -> str:
     if isinstance(value, str):
-        return value.strip()
+        return _normalize_tutor_answer_markdown(value)
     if isinstance(value, list):
         return "\n".join(
             str(item or "").strip()
@@ -589,7 +598,7 @@ def _parse_tutor_response(
     if parsed:
         try:
             payload = TutorResponsePayload(**parsed)
-            answer = (payload.answer or "").strip()
+            answer = _normalize_tutor_answer_markdown(payload.answer or "")
             tutor_state = _normalize_tutor_state(
                 _pydantic_to_dict(payload.tutor_state),
                 reply_style=reply_style,
@@ -716,13 +725,46 @@ def _apply_attempt_evaluation(
             misconceptions.append(misconception)
         state["misconceptions"] = misconceptions[-12:]
     answer = response_text or ""
-    if verdict == "correct" and not re.search(r"\b(correct|right|exactly|yes)\b", answer, flags=re.I):
+    contradicts_correct_verdict = verdict == "correct" and bool(
+        re.search(r"(?is)(?:^|\n)\s*(?:#{1,6}\s*)?(?:verdict\s*\n+\s*)?(?:partly\s+correct|not\s+yet|incorrect)\b", answer[:500])
+    )
+    if contradicts_correct_verdict:
+        reason = _trim_tutor_text(data.get("rationale"), "that matches the requested step", 140)
+        next_action = _trim_tutor_text(data.get("next_action"), "Continue to the next small step", 140)
+        answer = f"## Verdict\n\nCorrect — {reason}.\n\n## Next step\n\n{next_action}."
+    elif verdict == "correct" and not re.search(r"\b(correct|right|exactly|yes)\b", answer, flags=re.I):
         reason = _trim_tutor_text(data.get("rationale"), "that matches the requested step", 140)
         answer = f"Correct — {reason}.\n\n{answer}".strip()
-    elif verdict in {"partly_correct", "not_yet"} and re.search(r"\b(correct|exactly)\b", answer, flags=re.I):
-        answer = re.sub(r"\bCorrect\b\s*[—:-]?\s*", "", answer, count=1, flags=re.I).strip()
+    elif verdict in {"partly_correct", "not_yet"} and re.match(
+        r"^\s*(?:#{1,6}\s*)?(?:correct|exactly)\b", answer, flags=re.I
+    ):
+        answer = re.sub(
+            r"^\s*((?:#{1,6}\s*)?)(?:Correct|Exactly)\b\s*[—:-]?\s*",
+            r"\1",
+            answer,
+            count=1,
+            flags=re.I,
+        ).strip()
 
-    return answer, state
+    return _normalize_tutor_answer_markdown(answer), state
+
+
+def _ensure_quiz_question(
+    response_text: str,
+    tutor_options: list[dict],
+    reply_style: str,
+    user_question: str,
+) -> str:
+    """Keep clickable drill choices from appearing without a visible question."""
+    answer = _normalize_tutor_answer_markdown(response_text or "")
+    if (reply_style or "").strip().lower() != "quiz" or not tutor_options or "?" in answer:
+        return answer
+
+    topic_match = re.search(r"(?i)\b(?:about|on)\s+(.+?)(?:[.?!]|$)", user_question or "")
+    topic = _trim_tutor_text(topic_match.group(1) if topic_match else "", "this topic", 80)
+    topic = re.sub(r"(?i)\b(?:with|using)\s+(?:one\s+)?multiple[- ]choice.*$", "", topic).strip()
+    question_line = f"**Question:** Which option best answers this check about {topic}?"
+    return f"{question_line}\n\n{answer}".strip()
 
 def _tutor_state_row_to_payload(row: models.ChatTutorState | None) -> Optional[dict]:
     if not row:
@@ -1163,6 +1205,9 @@ async def ask_ai(
                     tutor_state,
                     result.get("attempt_evaluation"),
                 )
+                response_text = _ensure_quiz_question(
+                    response_text, tutor_options, tutor_reply_style, question
+                )
             else:
                 tutor_options = []
                 tutor_state = None
@@ -1389,6 +1434,9 @@ async def ask_simple(
                     response_text,
                     tutor_state,
                     result.get("attempt_evaluation"),
+                )
+                response_text = _ensure_quiz_question(
+                    response_text, tutor_options, tutor_reply_style, question
                 )
             else:
                 tutor_options = []

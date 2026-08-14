@@ -23,14 +23,17 @@ export function extractMathPlaceholders(text, { prefix = 'ZMATH' } = {}) {
     mathStore.push({ tex: m.trim(), display: true });
     return placeholder(mathStore.length - 1);
   });
-  // Inline: $...$ (single-line only)
+  // Inline: $...$ (single-line only). Keep this conservative so ordinary
+  // currency such as "$20 and $30" is not mistaken for math.
   src = src.replace(/\$([^\n$]{1,300}?)\$/g, (_, m) => {
     mathStore.push({ tex: m.trim(), display: false });
     return placeholder(mathStore.length - 1);
   });
-  // Inline: \(...\)
-  src = src.replace(/\\\(([^\n]{1,300}?)\\\)/g, (_, m) => {
-    mathStore.push({ tex: m.trim(), display: false });
+  // Inline: \(...\). Models commonly wrap a long inline expression across
+  // lines. Capture it before Markdown sees a leading `+`/`-` on the next line
+  // and turns the equation into a list.
+  src = src.replace(/\\\(([\s\S]{1,1200}?)\\\)/g, (_, m) => {
+    mathStore.push({ tex: m.replace(/\s*\n\s*/g, ' ').trim(), display: false });
     return placeholder(mathStore.length - 1);
   });
 
@@ -113,11 +116,16 @@ export function renderMarkdownWithMath(text, options = {}) {
   const { preprocess, tutorStepList = false, highlightKeywords = false } = options;
 
   let src = String(text);
-  if (typeof preprocess === 'function') {
-    src = preprocess(src);
-  }
 
-  const { text: withPlaceholders, mathStore } = extractMathPlaceholders(src);
+  // Protect math before any page-specific Markdown cleanup. Several legacy
+  // normalizers split inline ` + 4` / ` - 4` sequences into list items; when
+  // that runs inside \(...\), a correct equation is visibly changed.
+  let extracted = extractMathPlaceholders(src);
+  let withPlaceholders = extracted.text;
+  const mathStore = extracted.mathStore;
+  if (typeof preprocess === 'function') {
+    withPlaceholders = preprocess(withPlaceholders);
+  }
   const renderer = buildRenderer({ tutorStepList });
 
   let html;

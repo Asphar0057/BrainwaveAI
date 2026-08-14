@@ -43,9 +43,12 @@
   border-radius: 14px;
   border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
   color: var(--text-primary);
-  /* Reuse the dashboard sidebar material for global notification popups. */
+  /* Exact dashboard sidebar texture, reproduced here because these popups
+     render outside the dashboard tree. */
   background:
-    radial-gradient(ellipse 72% 110% at 100% 100%, rgba(93, 119, 158, .12), transparent 68%),
+    radial-gradient(circle at 88% 94%, rgba(216, 179, 141, 0.18), transparent 55%),
+    repeating-linear-gradient(115deg, transparent 0 22px, rgba(216, 179, 141, 0.055) 22px 23px),
+    repeating-linear-gradient(25deg, transparent 0 26px, rgba(216, 179, 141, 0.035) 26px 27px),
     linear-gradient(155deg, #0b0c0f 0%, #050506 100%);
   box-shadow:
     12px 14px 32px rgba(0, 0, 0, .38),
@@ -90,8 +93,9 @@
   inset: 0;
   z-index: -2;
   pointer-events: none;
-  opacity: .1;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.72' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.65'/%3E%3C/svg%3E");
+  opacity: .16;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
   mix-blend-mode: overlay;
 }
 

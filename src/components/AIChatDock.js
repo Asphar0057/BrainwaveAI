@@ -9,11 +9,16 @@ import { renderMarkdownWithMath } from '../utils/mathMarkdown';
 import GraphRenderer, { detectGraphLanguage } from './GraphRenderer';
 import { disableChatDock, getChatDockState, listenChatDockUpdates } from '../utils/chatDock';
 import { formatUsageLimitMessage, getUsageLimitFromError, throwIfUsageLimitResponse } from '../utils/usageLimit';
+import {
+  getTutorContinuation,
+  isAnsweringPreviousComprehensionCheck,
+  isAnsweringTutorStep,
+} from '../utils/tutorConversation';
 import './AIChatDock.css';
 
 const GRAPH_REQUEST_RE = /\b(graph|chart|plot|diagram|flowchart|mindmap|visuali[sz]e|trendline|trend line)\b/i;
 const CARTESIAN_GRAPH_RE = /\b(x[\s-]?axis|y[\s-]?axis|linear regression|scatter|line graph|slope|intercept|coordinate|cartesian)\b/i;
-const GRAPH_WORTHY_RE = /\b(compare|comparison|trend|distribution|correlation|relationship|growth|decline|over time|ratio|proportion|probability|frequency|histogram|timeline|forecast|projection|metrics|analytics|performance)\b/i;
+const GRAPH_WORTHY_RE = /\b(trend|distribution|correlation|relationship|growth|decline|over time|ratio|proportion|probability|frequency|histogram|timeline|forecast|projection|metrics|analytics|performance)\b/i;
 const STEM_GRAPH_DOMAIN_RE = /\b(algebra|geometry|trigonometry|calculus|statistics|probability|equation|matrix|vector|derivative|integral|function|regression|optimization|economics?|gdp|inflation|interest rate|demand|supply|elasticity|market|finance|revenue|cost|profit|physics|mechanics|thermodynamics|electromagnetism|optics|quantum|force|velocity|acceleration|energy|momentum)\b/i;
 const INTERNAL_GRAPH_GUIDANCE_MARKERS = [
   'if a visual would materially improve understanding,',
@@ -24,9 +29,6 @@ const INTERNAL_GRAPH_GUIDANCE_MARKERS = [
   'only include graphjson when necessary.',
   'do not include any graph or diagram block unless the user explicitly asks for one.',
 ];
-const COMPREHENSION_CHECK_RE = /\b(comprehension\s+check|check\s+your\s+understanding|quick\s+(?:understanding\s+)?check|to\s+ensure\s+you'?re\s+following\s+along|can\s+you\s+briefly\s+(?:describe|explain|summari[sz]e)|how\s+(?:would|do)\s+you\s+(?:explain|describe|understand)|what\s+do\s+you\s+understand|try\s+(?:answering|explaining|summari[sz]ing))\b/i;
-const NEW_QUESTION_START_RE = /^\s*(what|why|how|when|where|who|which|can|could|would|should|please|explain|tell|show|give|quiz|make|create|generate)\b/i;
-
 const stripInternalGraphGuidance = (text = '') => {
   const raw = String(text || '').replace(/\r\n/g, '\n');
   if (!raw) return raw;
@@ -50,6 +52,10 @@ const toUiMessages = (messages) =>
         ? stripInternalGraphGuidance(m.content || '')
         : m.content,
       timestamp: m.timestamp,
+      tutorMode: Boolean(m.tutorMode || m.tutor_mode),
+      tutorReplyMode: m.tutorReplyMode || m.tutor_reply_style || null,
+      tutorState: m.tutorState || m.tutor_state || null,
+      tutorOptions: m.tutorOptions || m.tutor_options || [],
     }));
 
 function stripThinking(text) {
@@ -79,29 +85,6 @@ function buildGraphAwarePrompt(userText = '') {
     return `${base}\n\n${proactiveInstruction}\n${graphJsonHint}`;
   }
   return `${base}\n\nDo not include any graph or diagram block unless the user explicitly asks for one.`;
-}
-
-function getLastAiMessage(messages = []) {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (message?.type === 'ai' && message.content) return message.content;
-  }
-  return '';
-}
-
-function looksLikeComprehensionAnswer(text = '') {
-  const trimmed = String(text || '').trim();
-  if (trimmed.length < 3 || !/[a-z]/i.test(trimmed)) return false;
-  if (NEW_QUESTION_START_RE.test(trimmed)) return false;
-  if (trimmed.endsWith('?') && /\b(what|why|how|can|could|explain|tell|show)\b/i.test(trimmed)) return false;
-  if (/\b(i\s+don'?t\s+know|not\s+sure|no\s+idea|idk)\b/i.test(trimmed)) return true;
-  const words = trimmed.match(/[a-z][a-z'-]*/gi) || [];
-  if (words.length >= 5) return true;
-  return /\b(it|this|that|they|wave|particle|means?)\b/i.test(trimmed);
-}
-
-function isAnsweringPreviousComprehensionCheck(text = '', messages = []) {
-  return COMPREHENSION_CHECK_RE.test(getLastAiMessage(messages)) && looksLikeComprehensionAnswer(text);
 }
 
 const renderDockMarkdownWithMath = (text) => renderMarkdownWithMath(text, {
@@ -219,6 +202,10 @@ const AIChatDock = () => {
     setSending(true);
 
     try {
+      const tutorContinuation = getTutorContinuation(messages);
+      const previousAi = tutorContinuation.message;
+      const continuingTutorMode = tutorContinuation.enabled;
+      const answeringTutorStep = continuingTutorMode && isAnsweringTutorStep(text, messages);
       const formData = new FormData();
       formData.append('user_id', userName);
       const messageForModel = isAnsweringPreviousComprehensionCheck(text, messages)
@@ -228,6 +215,9 @@ const AIChatDock = () => {
       formData.append('original_question', text);
       formData.append('chat_id', String(chatId));
       formData.append('use_hs_context', String(localStorage.getItem('hs_mode_enabled') === 'true'));
+      formData.append('tutor_mode', String(continuingTutorMode));
+      formData.append('tutor_reply_style', previousAi?.tutorReplyMode || 'guided');
+      if (answeringTutorStep) formData.append('tutor_choice', text);
 
       let data;
       if (USE_AI_JOB_QUEUE) {
@@ -236,6 +226,9 @@ const AIChatDock = () => {
           user_message: text,
           chat_session_id: Number(chatId),
           use_hs_context: localStorage.getItem('hs_mode_enabled') === 'true',
+          tutor_mode: continuingTutorMode,
+          tutor_reply_style: previousAi?.tutorReplyMode || 'guided',
+          tutor_choice: answeringTutorStep ? text : null,
         });
       } else {
         const response = await fetch(`${API_URL}/ask_simple/`, {
@@ -258,6 +251,10 @@ const AIChatDock = () => {
           type: 'ai',
           content: data?.answer || 'No response received.',
           timestamp: new Date().toISOString(),
+          tutorMode: Boolean(data?.tutor_mode || continuingTutorMode),
+          tutorReplyMode: data?.tutor_reply_style || previousAi?.tutorReplyMode || 'guided',
+          tutorState: data?.tutor_state || null,
+          tutorOptions: data?.tutor_options || [],
         },
       ]);
     } catch (error) {

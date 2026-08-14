@@ -761,17 +761,6 @@
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.cb-notif-texture {
-  opacity: .54;
-}
-
-.cb-notif-texture::before {
-  background-image:
-    radial-gradient(circle at 91% 96%, rgba(93, 119, 158, .12), transparent 49%),
-    repeating-linear-gradient(115deg, transparent 0 22px, rgba(216, 179, 141, .035) 22px 23px),
-    repeating-linear-gradient(25deg, transparent 0 26px, rgba(216, 179, 141, .025) 26px 27px);
-}
-
 .cb-notif-panel-head {
   position: relative;
   z-index: 1;

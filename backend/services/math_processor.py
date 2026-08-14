@@ -48,7 +48,10 @@ def _protect(text: str):
     text = re.sub(r'\$\$[\s\S]+?\$\$', save, text)
     text = re.sub(r'\$(?!\s)[^\n$]+?(?<!\s)\$', save, text)
     text = re.sub(r'\\\[[\s\S]+?\\\]', save, text)
-    text = re.sub(r'\\\(.+?\\\)', save, text)
+    # Inline LaTeX may be wrapped across lines by the model. Protect the whole
+    # expression so a leading + or - on a continuation line is not later
+    # interpreted as a Markdown list item by the client.
+    text = re.sub(r'\\\([\s\S]+?\\\)', save, text)
 
     def restore(t: str) -> str:
         for i, content in enumerate(saved):

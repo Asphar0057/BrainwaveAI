@@ -3,6 +3,7 @@ import renderMathInElement from 'katex/contrib/auto-render';
 import 'katex/dist/katex.min.css';
 import './MathRenderer.css';
 import { sanitizeHtml } from '../utils/sanitize';
+import { renderMarkdownWithMath } from '../utils/mathMarkdown';
 
 const KATEX_OPTS = {
   delimiters: [
@@ -28,7 +29,13 @@ const MathRenderer = memo(({ content, className = '' }) => {
   useEffect(() => {
     if (!containerRef.current || !content) return;
 
-    containerRef.current.innerHTML = sanitizeHtml(content);
+    // Some surfaces provide already-rendered HTML while others provide raw AI
+    // text. Route raw text through the same Markdown/LaTeX sheet used by Ask
+    // Simple so every MathRenderer consumer gets identical delimiter handling.
+    const source = String(content);
+    const hasHtmlMarkup = /<[a-z][\s\S]*?>/i.test(source);
+    const renderedContent = hasHtmlMarkup ? source : renderMarkdownWithMath(source);
+    containerRef.current.innerHTML = sanitizeHtml(renderedContent);
 
     try {
       renderMathInElement(containerRef.current, KATEX_OPTS);

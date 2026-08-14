@@ -226,6 +226,9 @@ const MermaidGraph = ({ source, compact = false }) => {
 
     const render = async () => {
       try {
+        document
+          .querySelectorAll('body > [id^="chat_graph_"], body > [id^="dchat_graph_"]')
+          .forEach((node) => node.remove());
         setIsRendering(true);
         setRenderError('');
         setZoom(1);
@@ -237,7 +240,15 @@ const MermaidGraph = ({ source, compact = false }) => {
 
         const renderAttempt = async (attemptSource) => {
           const id = `chat_graph_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
-          return mermaidApi.render(id, attemptSource);
+          try {
+            return await mermaidApi.render(id, attemptSource);
+          } finally {
+            // Mermaid can leave an off-screen error SVG attached to <body> after
+            // a rejected render. Besides leaking DOM, screen readers announce
+            // its raw "Syntax error" text long after the chat has moved on.
+            document.getElementById(id)?.remove();
+            document.getElementById(`d${id}`)?.remove();
+          }
         };
 
         try {

@@ -1827,8 +1827,8 @@ html:has(.ai-chat-page) {
 }
 
 .ac-scroll-btn {
-  position: relative;
-  right: 30px;
+  position: absolute;
+  right: 20px;
   width: 40px;
   height: 40px;
   background: var(--ac-accent);
@@ -1851,11 +1851,11 @@ html:has(.ai-chat-page) {
 }
 
 .ac-scroll-btn.top {
-  bottom: 140px;
+  bottom: 202px;
 }
 
 .ac-scroll-btn.bottom {
-  bottom: 90px;
+  bottom: 154px;
 }
 
 .ac-scroll-btn.hidden {
@@ -6928,4 +6928,410 @@ sub {
 
 .ai-chat-page.ac-qb-page .ac-session-actions {
   flex: 0 0 auto;
+}
+
+/* Response typography: keep long-form answers readable and editorial, while
+   preserving the existing warm graphite visual system. */
+.ai-chat-page .ac-message.ai .ac-message-content {
+  width: min(100%, 72ch);
+  max-width: 72ch;
+  font-size: 16px;
+  line-height: 1.62;
+  letter-spacing: -0.008em;
+}
+
+.ai-chat-page .ac-message.ai .ac-message-content p {
+  margin: 0 0 13px;
+}
+
+.ai-chat-page .ac-message.ai .ac-message-content h1,
+.ai-chat-page .ac-message.ai .ac-message-content h2,
+.ai-chat-page .ac-message.ai .ac-message-content h3,
+.ai-chat-page .ac-message.ai .ac-message-content h4 {
+  margin: 24px 0 8px;
+  color: var(--ac-text-primary);
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  font-weight: 720;
+  letter-spacing: -0.018em;
+  text-transform: none;
+}
+
+.ai-chat-page .ac-message.ai .ac-message-content h1 { font-size: 1.38rem; }
+.ai-chat-page .ac-message.ai .ac-message-content h2 { font-size: 1.22rem; }
+.ai-chat-page .ac-message.ai .ac-message-content h3,
+.ai-chat-page .ac-message.ai .ac-message-content h4 { font-size: 1.05rem; }
+
+.ai-chat-page .ac-message.ai .ac-message-content ul,
+.ai-chat-page .ac-message.ai .ac-message-content ol {
+  margin: 8px 0 15px;
+  padding-left: 1.35rem;
+}
+
+.ai-chat-page .ac-message.ai .ac-message-content li {
+  margin: 4px 0;
+  padding-left: 3px;
+  line-height: 1.55;
+}
+
+.ai-chat-page .ac-message.ai .ac-message-content li:hover,
+.ai-chat-page .ac-message.ai .ac-message-content blockquote:hover,
+.ai-chat-page .ac-message.ai .ac-message-content table:hover,
+.ai-chat-page .ac-message.ai .ac-message-content code:hover {
+  transform: none;
+}
+
+.ai-chat-page .ac-message.ai .ac-message-content li::before {
+  content: none;
+}
+
+.ai-chat-page .ac-message-content .ac-tutor-step-list {
+  gap: 10px;
+}
+
+.ai-chat-page .ac-message-content .ac-tutor-step-item {
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--ac-accent) 26%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ac-bg-secondary) 82%, transparent);
+  line-height: 1.55;
+}
+
+@media (max-width: 768px) {
+  .ai-chat-page .ac-message.ai .ac-message-content {
+    width: 100%;
+    max-width: 100%;
+    font-size: 15.5px;
+    line-height: 1.58;
+  }
+}
+
+/* Conversation map — a quiet thread spine that expands into prompt-level
+   navigation without competing with the reading surface. */
+.ac-thread-map {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  z-index: 12;
+  transform: translateY(-50%);
+  color: var(--ac-text-primary);
+}
+
+.ac-thread-map::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -12px;
+  width: 12px;
+}
+
+.ac-thread-map-rail {
+  position: relative;
+  display: flex;
+  width: 44px;
+  max-height: min(62vh, 520px);
+  padding: 12px 5px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  border: 1px solid color-mix(in srgb, var(--ac-accent) 20%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--ac-bg-secondary) 94%, #000 6%);
+  box-shadow: 7px 9px 22px rgba(0, 0, 0, 0.3);
+}
+
+.ac-thread-map-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.ac-thread-map-track {
+  position: absolute;
+  top: 18px;
+  bottom: 18px;
+  left: 50%;
+  width: 1px;
+  background: color-mix(in srgb, var(--ac-accent) 13%, transparent);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.ac-thread-map-marker {
+  position: relative;
+  display: grid;
+  width: 34px;
+  min-height: 20px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ac-thread-map-marker > span {
+  position: relative;
+  width: 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--ac-text-secondary) 62%, transparent);
+  transition:
+    width 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    height 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 160ms ease,
+    box-shadow 180ms ease;
+}
+
+.ac-thread-map-marker:hover > span,
+.ac-thread-map-marker:focus-visible > span {
+  width: 25px;
+  background: color-mix(in srgb, var(--ac-accent) 72%, var(--ac-text-primary));
+}
+
+.ac-thread-map-marker.is-active > span {
+  width: 29px;
+  height: 3px;
+  background: var(--ac-accent);
+  box-shadow: 4px 5px 12px color-mix(in srgb, var(--ac-accent) 24%, transparent);
+}
+
+.ac-thread-map-marker:focus-visible,
+.ac-thread-map-toggle:focus-visible,
+.ac-thread-map-list button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--ac-accent) 88%, white);
+  outline-offset: 2px;
+}
+
+.ac-thread-map-panel {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 10px);
+  width: min(350px, calc(100vw - 390px));
+  max-height: min(70vh, 620px);
+  padding: 16px;
+  overflow: hidden;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--ac-accent) 24%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--ac-bg-secondary) 97%, #000 3%);
+  box-shadow: 14px 18px 42px rgba(0, 0, 0, 0.48);
+  transform: translate(10px, -50%) scale(0.985);
+  transform-origin: right center;
+  transition:
+    opacity 150ms ease,
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 150ms;
+}
+
+.ac-thread-map.is-open .ac-thread-map-panel {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(0, -50%) scale(1);
+}
+
+.ac-thread-map-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 1px 2px 13px;
+  border-bottom: 1px solid color-mix(in srgb, var(--ac-accent) 13%, transparent);
+}
+
+.ac-thread-map-header > div {
+  display: grid;
+  gap: 3px;
+}
+
+.ac-thread-map-header strong {
+  color: var(--ac-text-primary);
+  font-size: 14px;
+  font-weight: 720;
+  letter-spacing: -0.012em;
+}
+
+.ac-thread-map-header span,
+.ac-thread-map-hint {
+  color: color-mix(in srgb, var(--ac-text-secondary) 82%, transparent);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.ac-thread-map-position {
+  min-width: 30px;
+  padding: 4px 7px;
+  border: 1px solid color-mix(in srgb, var(--ac-accent) 25%, transparent);
+  border-radius: 8px;
+  color: var(--ac-accent) !important;
+  text-align: center;
+  font-weight: 700;
+}
+
+.ac-thread-map-list {
+  display: grid;
+  max-height: min(52vh, 450px);
+  margin: 8px -6px 0;
+  padding: 0 6px;
+  gap: 2px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ac-accent) 32%, transparent) transparent;
+  list-style: none;
+}
+
+.ac-thread-map-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.ac-thread-map-list::-webkit-scrollbar-thumb {
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--ac-accent) 32%, transparent);
+}
+
+.ac-thread-map-list li {
+  margin: 0;
+  padding: 0;
+}
+
+.ac-thread-map-list button {
+  display: grid;
+  width: 100%;
+  min-height: 48px;
+  padding: 9px 10px;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ac-text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ac-thread-map-list button:hover {
+  border-color: color-mix(in srgb, var(--ac-accent) 16%, transparent);
+  background: color-mix(in srgb, var(--ac-accent) 8%, transparent);
+  transform: translateX(-2px);
+}
+
+.ac-thread-map-list button.is-active {
+  border-color: color-mix(in srgb, var(--ac-accent) 28%, transparent);
+  background: color-mix(in srgb, var(--ac-accent) 12%, transparent);
+}
+
+.ac-thread-map-number {
+  color: var(--ac-accent);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.015em;
+}
+
+.ac-thread-map-copy {
+  display: -webkit-box;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--ac-text-primary) 90%, var(--ac-text-secondary));
+  font-size: 12.5px;
+  line-height: 1.38;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.ac-thread-map-reading {
+  color: color-mix(in srgb, var(--ac-accent) 82%, white);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.ac-thread-map-hint {
+  margin: 10px 2px 0;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--ac-accent) 11%, transparent);
+}
+
+.ac-thread-map-toggle {
+  display: none;
+}
+
+.ac-message.user[data-prompt-id]:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--ac-accent) 58%, transparent);
+  outline-offset: 7px;
+}
+
+@media (max-width: 1100px) {
+  .ac-thread-map {
+    right: 8px;
+  }
+
+  .ac-thread-map-panel {
+    width: min(320px, calc(100vw - 92px));
+  }
+}
+
+@media (max-width: 720px) {
+  .ac-thread-map {
+    top: 12px;
+    right: 12px;
+    transform: none;
+  }
+
+  .ac-thread-map-rail {
+    display: none;
+  }
+
+  .ac-thread-map-toggle {
+    display: inline-flex;
+    min-height: 36px;
+    padding: 0 10px;
+    align-items: center;
+    gap: 5px;
+    border: 1px solid color-mix(in srgb, var(--ac-accent) 24%, transparent);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--ac-bg-secondary) 96%, #000 4%);
+    color: var(--ac-text-primary);
+    box-shadow: 5px 7px 18px rgba(0, 0, 0, 0.3);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .ac-thread-map-toggle-label {
+    color: var(--ac-accent);
+  }
+
+  .ac-thread-map-panel {
+    top: calc(100% + 8px);
+    right: 0;
+    width: min(320px, calc(100vw - 40px));
+    max-height: calc(100vh - 170px);
+    transform: translateY(-8px) scale(0.985);
+    transform-origin: top right;
+  }
+
+  .ac-thread-map.is-open .ac-thread-map-panel {
+    transform: translateY(0) scale(1);
+  }
+
+  .ac-thread-map-list {
+    max-height: calc(100vh - 280px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ac-thread-map-panel,
+  .ac-thread-map-marker > span,
+  .ac-thread-map-list button {
+    transition: none;
+  }
 }

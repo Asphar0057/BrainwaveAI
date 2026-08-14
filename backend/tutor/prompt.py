@@ -22,6 +22,7 @@ def build_tutor_prompt(state: TutorState) -> str:
     intent             = state.get("intent", "")
     context_only       = bool(state.get("context_only"))
     tutor_mode         = bool(state.get("tutor_mode")) and intent != "project_build"
+    tutor_reply_style  = (state.get("tutor_reply_style") or "guided").strip().lower()
 
     is_greeting = intent in ("greeting", "returning_greeting")
 
@@ -41,7 +42,7 @@ def build_tutor_prompt(state: TutorState) -> str:
                 sections.append(_rag_section(rag_sources or rag_context))
             else:
                 logger.info("[TUTOR PROMPT] CONTEXT-ONLY mode with no RAG chunks")
-            if selected_style and intent != "project_build":
+            if tutor_mode and tutor_reply_style == "guided" and selected_style and intent != "project_build":
                 sections.append(_style_section(selected_style))
         else:
             if chat_history:
@@ -59,7 +60,7 @@ def build_tutor_prompt(state: TutorState) -> str:
                 conf_section = _confidence_section(analysis)
                 if conf_section:
                     sections.append(conf_section)
-            if selected_style and intent != "project_build":
+            if tutor_mode and tutor_reply_style == "guided" and selected_style and intent != "project_build":
                 sections.append(_style_section(selected_style))
 
     if tutor_mode and not is_greeting:
@@ -89,14 +90,16 @@ def _student_section(s: StudentState | None, intent: str = "", context_only: boo
 def _chat_history_section(history: list[dict]) -> str:
     lines = [
         "[CURRENT CHAT HISTORY (recent messages from this conversation only)]",
-        "Use this history to resolve short follow-ups such as 'give more', 'explain that', or 'continue'.",
+        "This is the authoritative conversation record. Use it to resolve references such as 'it', 'that', "
+        "'what did I ask', 'give more', 'explain that', or 'continue'.",
+        "Never replace the topic in this history with a topic from profile data, retrieved memory, examples, or prior chats.",
         "If the student's current message clearly introduces a new topic, answer the new topic and do not force the old topic into it.",
     ]
     for msg in history[-6:]:
         lines.append(f"Student: {msg.get('user', '')}")
         ai_resp = msg.get("ai", "")
-        if len(ai_resp) > 200:
-            ai_resp = ai_resp[:200] + "..."
+        if len(ai_resp) > 700:
+            ai_resp = ai_resp[:700] + "..."
         lines.append(f"Cerbyl: {ai_resp}")
     lines.append("---")
     return "\n".join(lines)
