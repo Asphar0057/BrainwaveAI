@@ -292,8 +292,11 @@ def get_xp_history(
                 key = _tz_aware(t.created_at).date().isoformat()
                 if key in buckets:
                     buckets[key] += t.points_earned
+            # First letter of the weekday collides for Tue/Thu ("T") and
+            # Sat/Sun ("S") -- two-letter abbreviation keeps every day
+            # distinguishable on the chart's x-axis.
             points = [
-                {"date": k, "label": datetime.fromisoformat(k).strftime("%a")[0], "xp": v}
+                {"date": k, "label": datetime.fromisoformat(k).strftime("%a")[:2], "xp": v}
                 for k, v in buckets.items()
             ]
 
