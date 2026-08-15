@@ -11,6 +11,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as DocumentPicker from 'expo-document-picker';
 import { AudioModule, RecordingPresets, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import HapticTouchable from '../components/HapticTouchable';
+import TileGleam from '../components/TileGleam';
+import NeumorphicTexture, { cbTileShadow, cbModalShadow, cbTileBorder } from '../components/NeumorphicTexture';
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
 import { AuthUser } from '../services/auth';
@@ -562,6 +564,7 @@ function AIMediaHub({
 
           {mode === 'youtube' && (
             <View style={s.inputCard}>
+              <NeumorphicTexture grainVariant="fine" grainOpacity={0.1} />
               <View style={s.inputCardInner}>
                 <Text style={s.inputCardLabel}>YOUTUBE URL</Text>
 
@@ -605,6 +608,7 @@ function AIMediaHub({
 
           {mode === 'record' && (
             <View style={s.inputCard}>
+              <NeumorphicTexture grainVariant="fine" grainOpacity={0.1} />
               <View style={s.recordInner}>
                 <Text style={s.inputCardLabel}>AUDIO RECORDING</Text>
                 <Text style={s.recordHint}>
@@ -655,6 +659,7 @@ function AIMediaHub({
 
           {mode === 'upload' && (
             <View style={s.inputCard}>
+              <NeumorphicTexture grainVariant="fine" grainOpacity={0.1} />
               <View style={s.recordInner}>
                 <Text style={s.inputCardLabel}>UPLOAD AUDIO FILE</Text>
                 <Text style={s.recordHint}>
@@ -718,7 +723,8 @@ function AIMediaHub({
             </View>
           ) : (
             history.slice(0, 8).map(item => (
-              <HapticTouchable key={item.id} style={s.histRow} activeOpacity={0.8} haptic="light">
+              <TileGleam key={item.id} style={s.histRow} borderRadius={16} haptic="light">
+                <NeumorphicTexture grainVariant="fine" grainOpacity={0.08} />
                 <View style={s.histIconBox}>
                   <Text style={s.histIconText}>N</Text>
                 </View>
@@ -731,7 +737,7 @@ function AIMediaHub({
                   )}
                 </View>
                 <Text style={s.histDate}>{fmtDate(item.created_at)}</Text>
-              </HapticTouchable>
+              </TileGleam>
             ))
           )}
         </ScrollView>
@@ -1354,16 +1360,11 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   // Input card (shared)
   inputCard: {
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: CARD_BORDER,
     backgroundColor: SURFACE,
     overflow: 'hidden',
     position: 'relative',
-    shadowColor: GOLD_D,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.14,
-    shadowRadius: 20,
-    elevation: 8,
+    boxShadow: cbModalShadow(0.1),
+    ...cbTileBorder(0.18),
   },
   inputCardInner: { padding: 18, gap: 14, zIndex: 1 },
   inputCardLabel: {
@@ -1471,16 +1472,11 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     gap: 12,
     backgroundColor: SURFACE,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: CARD_BORDER,
     padding: 14,
     overflow: 'hidden',
     position: 'relative',
-    shadowColor: GOLD_D,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 4,
+    boxShadow: cbTileShadow(0.06),
+    ...cbTileBorder(0.14),
   },
   histIconBox: {
     width: 36, height: 36, borderRadius: 10,
