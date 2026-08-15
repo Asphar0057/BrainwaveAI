@@ -118,8 +118,13 @@ def calculate_solo_quiz_points(difficulty: str, question_count: int, score_perce
 
 LEVEL_THRESHOLDS = [0, 100, 282, 500, 800, 1200, 1700, 2300, 3000]
 
-def get_week_start():
-    today = datetime.now(timezone.utc).date()
+def get_week_start(tz_name: str = None):
+    """Monday of the current week, in the given local timezone. Mirrors
+    _today_local's day-boundary logic for streaks: comparing against a raw
+    UTC date meant users west of UTC (most of the Americas) rolled into the
+    "new week" several hours before their local Monday, silently zeroing
+    weekly stats on Sunday afternoon/evening."""
+    today = _today_local(tz_name) if tz_name else datetime.now(timezone.utc).date()
     return today - timedelta(days=today.weekday())
 
 def calculate_level_from_xp(xp: int) -> int:
@@ -302,7 +307,8 @@ def record_daily_check_in(db: Session, user_id: int, tz_name: str = None):
     return streak
 
 def check_and_reset_weekly_stats(stats):
-    week_start = get_week_start()
+    tz_name = getattr(stats, 'timezone_name', None) or DEFAULT_STREAK_TZ
+    week_start = get_week_start(tz_name)
     if stats.week_start_date is None:
         needs_reset = True
     elif hasattr(stats.week_start_date, 'date'):

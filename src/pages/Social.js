@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, MessageSquare, Share2, TrendingUp, Search, UserPlus, Check, X, UserMinus, FileText, Eye, Edit3, Trash2, Clock, Plus, Gamepad2, Activity, BookOpen, Home, Inbox } from 'lucide-react';
+import { Users, MessageSquare, Share2, TrendingUp, Search, UserPlus, Check, X, UserMinus, FileText, Eye, Edit3, Trash2, Clock, Plus, Gamepad2, Activity, BookOpen, Home, Inbox, Trophy, ArrowUpRight } from 'lucide-react';
 import ShareModal from './SharedModal';
 import './Social.css';
 import SocialHubChrome from '../components/SocialHubChrome';
@@ -29,6 +29,10 @@ const Social = () => {
   const [showMyContentModal, setShowMyContentModal] = useState(false);
   const [myContentFilter, setMyContentFilter] = useState('all');
 
+  const [friendsLeaderboard, setFriendsLeaderboard] = useState([]);
+  const [myLeaderboardRank, setMyLeaderboardRank] = useState(null);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(true);
+
   
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -45,7 +49,24 @@ const Social = () => {
     fetchFriendRequests();
     fetchFriends();
     fetchSharedContent();
+    fetchFriendsLeaderboard();
   }, [token]);
+
+  const fetchFriendsLeaderboard = async () => {
+    setLeaderboardLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/leaderboard?category=friends&limit=3`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setFriendsLeaderboard(data.leaderboard || []);
+        setMyLeaderboardRank(data.current_user_rank || null);
+      }
+    } catch (error) { /* silenced */ } finally {
+      setLeaderboardLoading(false);
+    }
+  };
 
   const fetchUserProfile = async () => {
     try {
@@ -286,15 +307,6 @@ const Social = () => {
 
   const bentoCards = [
     {
-      id: 'welcome',
-      size: 'large-square',
-      icon: null,
-      title: 'cerbyl',
-      subtitle: 'SOCIAL HUB',
-      onClick: null,
-      className: 'welcome-card'
-    },
-    {
       id: 'friends',
       size: 'medium-horizontal',
       icon: Users,
@@ -347,15 +359,6 @@ const Social = () => {
       subtitle: 'LEARNING CONTENT',
       onClick: () => navigate('/shared'),
       className: 'shared-card'
-    },
-    {
-      id: 'leaderboards',
-      size: 'large-horizontal',
-      icon: TrendingUp,
-      title: 'Global Leaderboards',
-      subtitle: 'TOP PERFORMERS',
-      onClick: () => navigate('/leaderboards'),
-      className: 'leaderboards-card'
     }
   ];
 
@@ -470,6 +473,95 @@ const Social = () => {
       >
         {activeTab === 'hub' ? (
           <div className="bento-container">
+            <div
+              className="bento-card leaderboard-hero-card"
+              onClick={() => navigate('/leaderboards')}
+              onMouseMove={handleTileMove}
+              onMouseLeave={handleTileLeave}
+            >
+              <div className="cb-tile-texture" aria-hidden="true" />
+              <div className="bento-geo-lines" aria-hidden="true">
+                <span></span><span></span><span></span><span></span>
+              </div>
+              <div className="lh-header">
+                <div className="lh-heading">
+                  <span className="lh-kicker">Friends Leaderboard</span>
+                  <h2 className="lh-title">Top of Your Circle</h2>
+                </div>
+                <span className="lh-view-all">
+                  View All <ArrowUpRight size={12} />
+                </span>
+              </div>
+
+              {leaderboardLoading ? (
+                <div className="lh-loading">Loading leaderboard...</div>
+              ) : friendsLeaderboard.length === 0 ? (
+                <div className="lh-empty">
+                  <Trophy size={30} strokeWidth={1.2} />
+                  <p>Add friends to start competing on the leaderboard.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="lh-podium">
+                    {friendsLeaderboard.slice(0, 3).map(entry => {
+                      const picture = entry.picture_url || entry.picture || entry.photoURL || entry.photo_url;
+                      const name = entry.first_name && entry.last_name
+                        ? `${entry.first_name} ${entry.last_name}`
+                        : entry.username;
+                      const initial = (entry.first_name?.[0] || entry.username?.[0] || '?').toUpperCase();
+                      return (
+                        <div
+                          key={entry.user_id}
+                          className={`lh-row lh-rank-${entry.rank} ${entry.is_current_user ? 'lh-is-you' : ''}`}
+                        >
+                          <span className="lh-rank-badge">{entry.rank}</span>
+                          <div className="lh-avatar">
+                            {picture && (
+                              <img
+                                src={picture}
+                                alt={name}
+                                referrerPolicy="no-referrer"
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                              />
+                            )}
+                            <div className="lh-avatar-placeholder">{initial}</div>
+                          </div>
+                          <span className="lh-entry-name">
+                            {name}
+                            {entry.is_current_user && <span className="lh-you-tag">You</span>}
+                          </span>
+                          <span className="lh-entry-xp">{Number(entry.score || 0).toLocaleString()} XP</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {myLeaderboardRank && myLeaderboardRank.rank > 3 && (
+                    <div className="lh-row lh-your-rank">
+                      <span className="lh-rank-badge lh-rank-badge--you">#{myLeaderboardRank.rank}</span>
+                      <div className="lh-avatar">
+                        {myLeaderboardRank.picture_url && (
+                          <img
+                            src={myLeaderboardRank.picture_url}
+                            alt={userName}
+                            referrerPolicy="no-referrer"
+                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                          />
+                        )}
+                        <div className="lh-avatar-placeholder">
+                          {(myLeaderboardRank.first_name?.[0] || myLeaderboardRank.username?.[0] || '?').toUpperCase()}
+                        </div>
+                      </div>
+                      <span className="lh-entry-name">
+                        You
+                        <span className="lh-you-tag">You</span>
+                      </span>
+                      <span className="lh-entry-xp">{Number(myLeaderboardRank.score || 0).toLocaleString()} XP</span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
             {bentoCards.map(card => {
               const IconComponent = card.icon;
               return (

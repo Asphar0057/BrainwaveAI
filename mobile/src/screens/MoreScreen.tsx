@@ -15,7 +15,7 @@ import { useAppTheme } from '../contexts/ThemeContext';
 import { rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
-type ExploreTarget = 'flashcards' | 'notes' | 'aimedia' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'weaknessPractice' | 'topicsHub' | 'learningPaths' | 'leaderboard';
+type ExploreTarget = 'flashcards' | 'notes' | 'aimedia' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'weaknessPractice' | 'topicsHub' | 'learningPaths';
 type Props = { user: AuthUser; onNavigate?: (screen: ExploreTarget) => void; onNavigateToAI?: () => void };
 
 function BentoMini({
@@ -164,24 +164,6 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
         <View style={s.bentoRow}>
           <BentoMini index="15" title="timeline" styles={s} onPress={() => setSubScreen('activity')} />
         </View>
-        <TileGleam style={s.rankCard} onPress={() => onNavigate?.('leaderboard')} haptic="medium">
-          <NeumorphicTexture
-            grainVariant="skia"
-            grainOpacity={0.44}
-            baseFrequency={0.7}
-            gradientColors={[rgbaFromHex(selectedTheme.accent, 0.24), selectedTheme.panel]}
-            gradientStart={{ x: 0, y: 0 }}
-            gradientEnd={{ x: 1, y: 1 }}
-          />
-          <View>
-            <Text style={s.fcIndex}>15</Text>
-            <Text style={s.rankTitle}>leaderboard</Text>
-            <Text style={s.fcCaption}>global and friends rankings</Text>
-          </View>
-          <View style={s.rankIcon}>
-            <Ionicons name="trophy" size={22} color={selectedTheme.accentHover} />
-          </View>
-        </TileGleam>
       </ScrollView>
     </SafeAreaView>
   );
@@ -254,14 +236,5 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     backgroundColor: rgbaFromHex(GOLD_L, 0.14), overflow: 'hidden',
   },
   fcProgressFill: { height: '100%', borderRadius: 2, backgroundColor: GOLD_L },
-  rankCard: {
-    minHeight: 118, borderRadius: 26, overflow: 'hidden', padding: 20,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-  } as ViewStyle,
-  rankTitle: { fontFamily: 'Inter_900Black', fontSize: 27, color: GOLD_L, letterSpacing: -1 },
-  rankIcon: {
-    width: 54, height: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: rgbaFromHex(GOLD_L, 0.24), backgroundColor: rgbaFromHex(GOLD_L, 0.08),
-  },
 });
 }
