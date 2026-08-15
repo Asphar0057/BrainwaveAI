@@ -146,7 +146,7 @@ export default function AchievementsScreen({ user, onBack }: Props) {
             {earned.length === 0 ? (
               <Text style={s.emptyInline}>no badges earned yet — keep studying to unlock your first one.</Text>
             ) : (
-              <View style={{ gap: 8 }}>
+              <View style={{ gap: 4 }}>
                 {earned.map((a) => (
                   <View key={a.id} style={s.achievementRow}>
                     <View style={[s.achievementIconWrap, { borderColor: rgbaFromHex(RARITY_COLOR[a.rarity] || selectedTheme.accentHover, 0.4) }]}>
@@ -168,7 +168,7 @@ export default function AchievementsScreen({ user, onBack }: Props) {
                 <View style={[s.sectionHeadRow, { marginTop: 20 }]}>
                   <Text style={s.sectionTitle}>next up</Text>
                 </View>
-                <View style={{ gap: 8 }}>
+                <View style={{ gap: 4 }}>
                   {missed.map((a) => (
                     <View key={a.id} style={[s.achievementRow, s.achievementRowLocked]}>
                       <View style={[s.achievementIconWrap, s.achievementIconWrapLocked]}>
@@ -198,23 +198,23 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bgPrimary },
     scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 4, paddingTop: Math.max(topInset + 10, 50), paddingBottom: 110, gap: 4 },
-    header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
+    header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 },
     iconBtn: { width: 42, height: 42, borderRadius: 15, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), alignItems: 'center', justifyContent: 'center' },
     headerCopy: { flex: 1 },
     kicker: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 8, letterSpacing: 1.7 },
     title: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 28, lineHeight: 32, letterSpacing: -0.6 },
-    pointsBadge: { paddingHorizontal: 3, paddingVertical: 2, borderRadius: 12, backgroundColor: rgbaFromHex(theme.accent, theme.isLight ? 0.12 : 0.16) },
+    pointsBadge: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, backgroundColor: rgbaFromHex(theme.accent, theme.isLight ? 0.12 : 0.16) },
     pointsBadgeText: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 12 },
     accentInk: { color: accentInk },
 
-    errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 14, borderWidth: 1, borderColor: rgbaFromHex(theme.danger, 0.3), backgroundColor: rgbaFromHex(theme.danger, 0.1), paddingHorizontal: 4, paddingVertical: 3, marginBottom: 16 } as ViewStyle,
+    errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 14, borderWidth: 1, borderColor: rgbaFromHex(theme.danger, 0.3), backgroundColor: rgbaFromHex(theme.danger, 0.1), paddingHorizontal: 14, paddingVertical: 10, marginBottom: 16 } as ViewStyle,
     errorBannerText: { fontFamily: 'Inter_600SemiBold', color: theme.danger, fontSize: 12 },
-    challengeCard: { borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.9), padding: 4, gap: 10, marginBottom: 20, boxShadow: cbTileShadow(0.07) } as ViewStyle,
-    challengeTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    challengeCard: { borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.9), padding: 16, gap: 4, marginBottom: 20, boxShadow: cbTileShadow(0.07) } as ViewStyle,
+    challengeTop: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     challengeIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center' },
     challengeKicker: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 8, letterSpacing: 1.4 },
     challengeTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 16, marginTop: 2 },
-    rewardPill: { paddingHorizontal: 2, paddingVertical: 1, borderRadius: 9, backgroundColor: rgbaFromHex(theme.success, 0.14) },
+    rewardPill: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 9, backgroundColor: rgbaFromHex(theme.success, 0.14) },
     rewardPillText: { fontFamily: 'Inter_700Bold', color: theme.success, fontSize: 10.5 },
     challengeDesc: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, lineHeight: 17 },
     challengeTrack: { height: 6, borderRadius: 3, backgroundColor: rgbaFromHex(theme.accent, 0.12), overflow: 'hidden' },
@@ -224,9 +224,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     sectionHeadRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 },
     sectionTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 15, letterSpacing: -0.2 },
     sectionMeta: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 11 },
-    emptyInline: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, lineHeight: 18, paddingVertical: 2 },
+    emptyInline: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, lineHeight: 18, paddingVertical: 6 },
 
-    achievementRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 18, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.9), paddingHorizontal: 4, paddingVertical: 3 } as ViewStyle,
+    achievementRow: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 18, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.9), paddingHorizontal: 14, paddingVertical: 12 } as ViewStyle,
     achievementRowLocked: { opacity: 0.62 },
     achievementIconWrap: { width: 40, height: 40, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.5 : 0.6) },
     achievementIconWrapLocked: { borderColor: border },

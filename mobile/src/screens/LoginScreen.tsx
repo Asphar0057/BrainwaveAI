@@ -543,7 +543,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       flexGrow: 1,
       justifyContent: layout.height < 760 ? 'flex-start' : 'center',
       paddingTop: layout.height < 760 ? 12 : 20,
-      paddingBottom: 6,
+      paddingBottom: 22,
     },
     content: {
       width: '100%',
@@ -558,8 +558,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       // architecture tiles. Ring is the shadow's own inset entry, not a
       // separate border — the site doesn't use a real border here either.
       borderRadius: 26,
-      paddingHorizontal: 2,
-      paddingVertical: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 16,
       // Solid fallback under the gradient canvas: the Skia canvas re-measures
       // on layout, but on the frame the card first grows taller (e.g.
       // switching into "create account", which adds several fields), the
@@ -604,12 +604,12 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       backgroundColor: CB_CARD_TOP,
       borderRadius: 20,
       marginBottom: 18,
-      padding: 1,
+      padding: 4,
       boxShadow: cbPlainPressedShadow(0.6),
     } as ViewStyle,
     tab: {
       flex: 1,
-      paddingVertical: 3,
+      paddingVertical: 11,
       alignItems: 'center',
       borderRadius: 16,
     },
@@ -628,7 +628,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
 
     form: {},
-    row: { flexDirection: layout.width < 420 ? 'column' : 'row', gap: 12 },
+    row: { flexDirection: layout.width < 420 ? 'column' : 'row', gap: 4 },
     half: { flex: 1 },
 
     label: {
@@ -644,8 +644,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       // Same caveat as tabs — no literal input on the homepage to copy from.
       backgroundColor: CB_CARD_TOP,
       borderRadius: 22,
-      paddingHorizontal: 4,
-      paddingVertical: 3,
+      paddingHorizontal: 16,
+      paddingVertical: 13,
       fontFamily: 'Inter_400Regular',
       fontSize: 14,
       color: CB_ACCENT,
@@ -657,8 +657,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       borderWidth: 1,
       borderColor: rgbaFromHex(theme.danger, 0.30),
       backgroundColor: rgbaFromHex(theme.danger, 0.08),
-      paddingHorizontal: 3,
-      paddingVertical: 3,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
       marginBottom: 14,
     },
     successBox: {
@@ -666,8 +666,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       borderWidth: 1,
       borderColor: rgbaFromHex(theme.success, 0.28),
       backgroundColor: rgbaFromHex(theme.success, 0.08),
-      paddingHorizontal: 3,
-      paddingVertical: 3,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
       marginBottom: 14,
     },
     error: {
@@ -699,7 +699,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       backgroundColor: CB_ACCENT,
       borderRadius: 16,
       overflow: 'hidden',
-      paddingVertical: 4,
+      paddingVertical: 16,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -710,7 +710,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       letterSpacing: 0.6,
     },
 
-    textButton: { alignItems: 'center', paddingTop: 4 },
+    textButton: { alignItems: 'center', paddingTop: 14 },
     textButtonLabel: {
       fontFamily: 'Inter_600SemiBold',
       fontSize: 11,
@@ -720,7 +720,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
 
     resetPanel: {
       marginTop: 16,
-      padding: 4,
+      padding: 14,
       borderRadius: 22,
       backgroundColor: CB_CARD_TOP,
       boxShadow: cbPlainPressedShadow(0.75),
@@ -728,7 +728,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     secondaryBtn: {
       marginTop: 16,
       borderRadius: 22,
-      paddingVertical: 4,
+      paddingVertical: 14,
       alignItems: 'center',
       backgroundColor: CB_CARD_TOP,
       boxShadow: cbPlainRaisedShadow(),
@@ -744,9 +744,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 10,
+      gap: 4,
       borderRadius: 22,
-      paddingVertical: 4,
+      paddingVertical: 15,
       backgroundColor: CB_CARD_TOP,
       boxShadow: cbPlainRaisedShadow(),
     } as ViewStyle,

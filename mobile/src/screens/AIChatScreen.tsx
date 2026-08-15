@@ -147,7 +147,7 @@ function TypingDots() {
 }
 
 const td = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 5, alignItems: 'center', paddingVertical: 2 },
+  row: { flexDirection: 'row', gap: 4, alignItems: 'center', paddingVertical: 6 },
   dot: { width: 7, height: 7, borderRadius: 4 },
 });
 
@@ -826,7 +826,7 @@ export default function AIChatScreen({ user }: Props) {
               <HapticTouchable style={StyleSheet.absoluteFill} onPress={closeSidebar} activeOpacity={1} haptic="none" />
               <Animated.View style={[s.sidebar, { transform: [{ translateX: slideAnim }] }]} {...closePanResponder.panHandlers}>
                 <LinearGradient colors={[darkenColor(selectedTheme.bgTop, selectedTheme.isLight ? 4 : 0), selectedTheme.panelAlt, selectedTheme.bgPrimary]} style={StyleSheet.absoluteFill} />
-                <SafeAreaView style={{ flex: 1, paddingTop: 2, paddingBottom: 2 }} edges={[]}>
+                <SafeAreaView style={{ flex: 1, paddingTop: 6, paddingBottom: 6 }} edges={[]}>
                   <View style={s.sidebarHero}>
                     <NeumorphicLayer grainOpacity={0.22} />
                     <Text style={s.sidebarGhost}>01</Text>
@@ -835,7 +835,7 @@ export default function AIChatScreen({ user }: Props) {
                         <Text style={s.sidebarTitle}>chats</Text>
                         <Text style={s.sidebarSub}>{sessions.length} conversation{sessions.length === 1 ? '' : 's'}</Text>
                       </View>
-                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <View style={{ flexDirection: 'row', gap: 4 }}>
                         <HapticTouchable
                           onPress={() => setNewFolderModalOpen(true)}
                           style={s.sidebarSearchBtn}
@@ -879,7 +879,7 @@ export default function AIChatScreen({ user }: Props) {
                       <Text style={s.sidebarEmpty}>{sidebarSearch ? 'No matches' : 'No chats yet'}</Text>
                     </View>
                   ) : (
-                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 2, paddingBottom: 5 }}>
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 6, paddingBottom: 20 }}>
                       {foldersWithSessions.map(({ folder, sessions: folderSessions }) => (
                         folderSessions.length > 0 || !sidebarSearch ? (
                           <View key={folder.id} style={{ marginBottom: 4 }}>
@@ -1098,9 +1098,9 @@ function createStyles(
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 2,
-    paddingTop: 4,
-    paddingBottom: 3,
+    paddingHorizontal: 6,
+    paddingTop: 14,
+    paddingBottom: 10,
   },
   headerBtn: {
     width: 40,
@@ -1113,8 +1113,8 @@ function createStyles(
     justifyContent: 'center',
   },
   headerCenter: { flex: 1, marginLeft: 12 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   headerTitle: { fontFamily: 'Inter_900Black', fontSize: 24, color: GOLD_L, letterSpacing: -0.8 },
   onlineDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: GOLD_M },
 
@@ -1123,9 +1123,9 @@ function createStyles(
     width: '100%',
     maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
-    paddingHorizontal: 2,
+    paddingHorizontal: 6,
     justifyContent: 'center',
-    gap: 18,
+    gap: 5,
   },
   emptyBrand: {
     alignItems: 'center',
@@ -1156,16 +1156,16 @@ function createStyles(
     maxWidth: '92%',
   },
   promptGrid: {
-    gap: 8,
+    gap: 4,
   },
   promptChip: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10,
+    gap: 4,
     borderRadius: 16,
-    paddingHorizontal: 4,
-    paddingVertical: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
   } as ViewStyle,
   promptText: {
     fontFamily: 'Inter_600SemiBold',
@@ -1179,9 +1179,9 @@ function createStyles(
     maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
     paddingHorizontal: 2,
-    paddingTop: 2,
-    paddingBottom: 5,
-    gap: 14,
+    paddingTop: 8,
+    paddingBottom: 18,
+    gap: 4,
   },
   aiRow: { alignSelf: 'stretch', maxWidth: layout.isLandscape ? '82%' : '92%' },
   userRow: { alignSelf: 'flex-end', maxWidth: layout.isLandscape ? '72%' : '88%', alignItems: 'flex-end' },
@@ -1196,8 +1196,8 @@ function createStyles(
   },
   bubble: {
     borderRadius: 14,
-    paddingHorizontal: 4,
-    paddingVertical: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     overflow: 'hidden',
   },
   aiBubble: {
@@ -1239,20 +1239,20 @@ function createStyles(
     width: '100%',
     maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
-    paddingHorizontal: 2,
+    paddingHorizontal: 6,
     paddingTop: 0,
     paddingBottom: 0,
   },
   composerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
     borderRadius: 28,
     borderWidth: 1,
     borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.18 : 0.24),
     backgroundColor: rgbaFromHex(CARD_ALT, 0.96),
-    paddingHorizontal: 2,
-    paddingVertical: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     shadowColor: SHADOW,
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: theme.isLight ? 0.07 : 0.25,
@@ -1269,8 +1269,8 @@ function createStyles(
   input: {
     flex: 1,
     backgroundColor: 'transparent',
-    paddingHorizontal: 2,
-    paddingVertical: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
     minHeight: 30,
     fontFamily: 'Inter_400Regular',
     fontSize: 14,
@@ -1283,10 +1283,10 @@ function createStyles(
   sendGrad: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   attachmentPreview: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
     borderRadius: 12, borderWidth: 1, borderColor: BORDER,
     backgroundColor: rgbaFromHex(CARD_ALT, 0.94),
-    paddingHorizontal: 2, paddingVertical: 2, marginBottom: 6,
+    paddingHorizontal: 8, paddingVertical: 8, marginBottom: 6,
   },
   attachmentThumb: { width: 32, height: 32, borderRadius: 8 },
   attachmentName: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 12, color: DIM },
@@ -1310,7 +1310,7 @@ function createStyles(
     marginTop: 12,
     marginBottom: 10,
     borderRadius: 22,
-    padding: 4,
+    padding: 16,
     overflow: 'hidden',
     boxShadow: cbModalShadow(0.14),
   } as ViewStyle,
@@ -1338,10 +1338,10 @@ function createStyles(
     backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.32 : 0.42),
   },
   sidebarSearchBtnActive: { backgroundColor: theme.accent, borderColor: theme.accent },
-  folderHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 4, paddingVertical: 2 },
+  folderHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 16, paddingVertical: 8 },
   folderHeaderText: { fontFamily: 'Inter_700Bold', fontSize: 10.5, color: GOLD_L, letterSpacing: 0.6, flex: 1 },
   folderHeaderCount: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM },
-  folderHeaderText2: { fontFamily: 'Inter_700Bold', fontSize: 10.5, color: DIM, letterSpacing: 0.6, paddingHorizontal: 4, paddingVertical: 2, textTransform: 'uppercase' },
+  folderHeaderText2: { fontFamily: 'Inter_700Bold', fontSize: 10.5, color: DIM, letterSpacing: 0.6, paddingHorizontal: 16, paddingVertical: 8, textTransform: 'uppercase' },
   sidebarSearchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1351,16 +1351,16 @@ function createStyles(
     borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.16 : 0.2),
     borderRadius: 14,
     backgroundColor: rgbaFromHex(CARD_ALT, 0.85),
-    paddingHorizontal: 3,
-    gap: 8,
+    paddingHorizontal: 12,
+    gap: 4,
   },
   sidebarSearchIcon: { flexShrink: 0 },
   sidebarSearchInput: {
     flex: 1,
-    paddingVertical: 3,
+    paddingVertical: 10,
     fontFamily: 'Inter_400Regular', fontSize: 13, color: GOLD_L,
   },
-  sidebarEmptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  sidebarEmptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 },
   sidebarEmpty: { fontFamily: 'Inter_400Regular', fontSize: 13, color: DIM },
   sessionCard: {
     marginHorizontal: 10,
@@ -1372,10 +1372,10 @@ function createStyles(
   },
   sessionRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 4,
     alignItems: 'center',
-    paddingHorizontal: 3,
-    paddingVertical: 3,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
   },
   sessionAvatar: {
     width: 30, height: 30, borderRadius: 15,
@@ -1392,7 +1392,7 @@ function createStyles(
   sessionTitleActive: { color: theme.accentHover, fontFamily: 'Inter_600SemiBold' },
   sessionDate: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM, marginTop: 3, letterSpacing: 0.4 },
 
-  centerOverlay: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 6 },
+  centerOverlay: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 24 },
   centerCard: {
     width: '100%',
     maxWidth: 380,
@@ -1400,8 +1400,8 @@ function createStyles(
     borderWidth: 1,
     borderColor: BORDER,
     backgroundColor: CARD,
-    padding: 5,
-    gap: 12,
+    padding: 20,
+    gap: 4,
     boxShadow: cbModalShadow(0.2),
   } as ViewStyle,
   centerCardTitle: { fontFamily: 'Inter_700Bold', fontSize: 15, color: GOLD_L },
@@ -1410,23 +1410,23 @@ function createStyles(
     borderWidth: 1,
     borderColor: BORDER,
     borderRadius: 12,
-    paddingHorizontal: 4,
-    paddingVertical: 3,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     fontFamily: 'Inter_400Regular',
     fontSize: 13.5,
     color: GOLD_XL,
     backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.5 : 0.6),
     textAlignVertical: 'top',
   },
-  centerCardActions: { flexDirection: 'row', gap: 10, justifyContent: 'flex-end' },
-  centerCardCancel: { paddingHorizontal: 4, paddingVertical: 3, borderRadius: 12 },
+  centerCardActions: { flexDirection: 'row', gap: 4, justifyContent: 'flex-end' },
+  centerCardCancel: { paddingHorizontal: 16, paddingVertical: 11, borderRadius: 12 },
   centerCardCancelText: { fontFamily: 'Inter_600SemiBold', fontSize: 12.5, color: DIM },
-  centerCardSave: { paddingHorizontal: 5, paddingVertical: 3, borderRadius: 12, backgroundColor: theme.accent, minWidth: 72, alignItems: 'center' },
+  centerCardSave: { paddingHorizontal: 18, paddingVertical: 11, borderRadius: 12, backgroundColor: theme.accent, minWidth: 72, alignItems: 'center' },
   centerCardSaveText: { fontFamily: 'Inter_700Bold', fontSize: 12.5, color: theme.isLight ? darkenColor(theme.accent, 32) : theme.bgPrimary },
 
-  shareLinkRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 3, paddingHorizontal: 3, borderRadius: 12, borderWidth: 1, borderColor: BORDER, backgroundColor: rgbaFromHex(theme.accent, theme.isLight ? 0.08 : 0.12) },
+  shareLinkRow: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: BORDER, backgroundColor: rgbaFromHex(theme.accent, theme.isLight ? 0.08 : 0.12) },
   shareLinkText: { fontFamily: 'Inter_600SemiBold', fontSize: 12.5, color: GOLD_L },
-  friendRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 2 },
+  friendRow: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 9 },
   friendRowText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: GOLD_XL },
 });
 }

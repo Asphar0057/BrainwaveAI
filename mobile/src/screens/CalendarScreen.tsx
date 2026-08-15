@@ -248,7 +248,7 @@ export default function CalendarScreen({ user, onBack }: Props) {
             )}
 
             {(remindersByDate[selected] ?? []).length > 0 ? (
-              <View style={{ gap: 8, marginTop: 4 }}>
+              <View style={{ gap: 4, marginTop: 4 }}>
                 {(remindersByDate[selected] ?? []).map((reminder) => (
                   <HapticTouchable
                     key={reminder.id}
@@ -328,20 +328,20 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
   const INK     = theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary;
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: theme.bgTop },
-    scroll: { paddingHorizontal: 4, paddingBottom: 120, gap: 14, paddingTop: 0 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 5, paddingTop: 5, paddingBottom: 3 },
+    scroll: { paddingHorizontal: 4, paddingBottom: 120, gap: 4, paddingTop: 0 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 18, paddingBottom: 12 },
     headerBack: { width: 42, height: 42, borderRadius: 16, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, alignItems: 'center', justifyContent: 'center', marginRight: 12, boxShadow: cbTileShadow(0.055) },
     title: { fontFamily: 'Inter_900Black', fontSize: 32, color: GOLD_L, letterSpacing: -0.8 },
     subtitle: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM, letterSpacing: 2.2, marginTop: 4, textTransform: 'uppercase' },
     monthNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
     navBtn: { width: 38, height: 38, borderRadius: 16, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.055) },
     monthLabel: { fontFamily: 'Inter_900Black', fontSize: 16, color: GOLD_L, letterSpacing: -0.3 },
-    calendarPanel: { borderRadius: 30, padding: 4, overflow: 'hidden', boxShadow: cbModalShadow(0.14) } as ViewStyle,
+    calendarPanel: { borderRadius: 30, padding: 14, overflow: 'hidden', boxShadow: cbModalShadow(0.14) } as ViewStyle,
     panelGhost: { position: 'absolute', right: 15, top: -2, fontFamily: 'Inter_900Black', fontSize: 76, lineHeight: 82, color: rgbaFromHex(GOLD_XL, 0.055), letterSpacing: -4 },
     dayHeaders: { flexDirection: 'row' },
-    dayHeader: { flex: 1, textAlign: 'center', fontFamily: 'Inter_600SemiBold', fontSize: 10, color: DIM, letterSpacing: 1.2, paddingVertical: 2 },
+    dayHeader: { flex: 1, textAlign: 'center', fontFamily: 'Inter_600SemiBold', fontSize: 10, color: DIM, letterSpacing: 1.2, paddingVertical: 8 },
     grid: { flexDirection: 'row', flexWrap: 'wrap' },
-    cell: { width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 8, padding: 1 },
+    cell: { width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 8, padding: 2 },
     cellToday: { borderWidth: 1, borderColor: GOLD_D },
     cellSelected: { borderWidth: 1.5, borderColor: GOLD_L },
     cellNum: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: GOLD_D },
@@ -349,34 +349,34 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
     cellNumSel: { color: GOLD_XL },
     dot: { width: 4, height: 4, borderRadius: 2, marginTop: 2 },
     reminderDot: { position: 'absolute', top: 4, right: 6, width: 4, height: 4, borderRadius: 2, backgroundColor: '#7fb8e0' },
-    legend: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4 },
+    legend: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 4 },
     legendLabel: { fontFamily: 'Inter_400Regular', fontSize: 9, color: DIM },
     legendBox: { width: 12, height: 12, borderRadius: 3, borderWidth: 1, borderColor: BORDER },
-    dayDetail: { backgroundColor: SURFACE, borderRadius: 24, borderWidth: 1, borderColor: BORDER, padding: 4, gap: 8, boxShadow: cbTileShadow(0.08) } as ViewStyle,
+    dayDetail: { backgroundColor: SURFACE, borderRadius: 24, borderWidth: 1, borderColor: BORDER, padding: 16, gap: 4, boxShadow: cbTileShadow(0.08) } as ViewStyle,
     dayDetailHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     dayDetailTitle: { fontFamily: 'Inter_900Black', fontSize: 15, color: GOLD_L },
     addReminderBtn: { width: 28, height: 28, borderRadius: 10, borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center' },
-    dayDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    dayDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     dayDetailText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: GOLD_M },
     dayDetailEmpty: { fontFamily: 'Inter_400Regular', fontSize: 13, color: DIM },
-    reminderRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+    reminderRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     reminderText: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 13, color: GOLD_XL },
     reminderTextDone: { color: DIM, textDecorationLine: 'line-through' },
     reminderHint: { fontFamily: 'Inter_400Regular', fontSize: 9.5, color: DIM, marginTop: 2 },
-    infoRow: { flexDirection: 'row', gap: 10 },
-    infoCard: { flex: 1, backgroundColor: SURFACE, borderRadius: 20, borderWidth: 1, borderColor: BORDER, paddingVertical: 4, alignItems: 'center', boxShadow: cbTileShadow(0.055) } as ViewStyle,
+    infoRow: { flexDirection: 'row', gap: 4 },
+    infoCard: { flex: 1, backgroundColor: SURFACE, borderRadius: 20, borderWidth: 1, borderColor: BORDER, paddingVertical: 14, alignItems: 'center', boxShadow: cbTileShadow(0.055) } as ViewStyle,
     infoVal: { fontFamily: 'Inter_900Black', fontSize: 20, color: GOLD_L },
     infoLbl: { fontFamily: 'Inter_400Regular', fontSize: 9, color: DIM, textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 3 },
 
-    modalOverlay: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 6 },
-    modalCard: { width: '100%', maxWidth: 380, borderRadius: 20, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, padding: 5, gap: 12, boxShadow: cbModalShadow(0.2) } as ViewStyle,
+    modalOverlay: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 24 },
+    modalCard: { width: '100%', maxWidth: 380, borderRadius: 20, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, padding: 20, gap: 4, boxShadow: cbModalShadow(0.2) } as ViewStyle,
     modalTitle: { fontFamily: 'Inter_900Black', fontSize: 16, color: GOLD_L },
     modalSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM, marginTop: -8 },
-    modalInput: { borderWidth: 1, borderColor: BORDER, borderRadius: 12, paddingHorizontal: 4, paddingVertical: 3, fontFamily: 'Inter_400Regular', fontSize: 13.5, color: GOLD_XL, backgroundColor: theme.bgTop },
-    modalActions: { flexDirection: 'row', gap: 10, justifyContent: 'flex-end' },
-    modalCancel: { paddingHorizontal: 4, paddingVertical: 3, borderRadius: 12 },
+    modalInput: { borderWidth: 1, borderColor: BORDER, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontFamily: 'Inter_400Regular', fontSize: 13.5, color: GOLD_XL, backgroundColor: theme.bgTop },
+    modalActions: { flexDirection: 'row', gap: 4, justifyContent: 'flex-end' },
+    modalCancel: { paddingHorizontal: 16, paddingVertical: 11, borderRadius: 12 },
     modalCancelText: { fontFamily: 'Inter_600SemiBold', fontSize: 12.5, color: DIM },
-    modalSave: { paddingHorizontal: 5, paddingVertical: 3, borderRadius: 12, backgroundColor: GOLD_M, minWidth: 64, alignItems: 'center' },
+    modalSave: { paddingHorizontal: 18, paddingVertical: 11, borderRadius: 12, backgroundColor: GOLD_M, minWidth: 64, alignItems: 'center' },
     modalSaveText: { fontFamily: 'Inter_700Bold', fontSize: 12.5, color: INK },
   });
 }

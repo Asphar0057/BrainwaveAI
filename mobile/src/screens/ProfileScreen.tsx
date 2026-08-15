@@ -374,7 +374,7 @@ export default function ProfileScreen({ user, onLogout, onUserUpdate, onNavigate
               {profile?.preferredSubjects && profile.preferredSubjects.length > 0 ? (
                 <View style={[styles.editBlock, styles.rowDivider]}>
                   <Text style={styles.editTitle}>Other Subjects</Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
                     {profile.preferredSubjects.map((subject) => (
                       <View key={subject} style={styles.subjectChip}>
                         <Text style={styles.subjectChipText}>{subject}</Text>
@@ -474,7 +474,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       maxWidth: layout.contentMaxWidth,
       alignSelf: 'center',
       paddingHorizontal: PAD,
-      paddingTop: 5,
+      paddingTop: 18,
       paddingBottom: 120,
     },
     topBar: {
@@ -486,7 +486,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       marginHorizontal: -PAD,
       paddingHorizontal: Math.max(0, PAD - 4),
     },
-    topBarActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    topBarActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     settingsButton: {
       width: 42, height: 42, borderRadius: 16,
       borderWidth: 1, borderColor: rgbaFromHex(GOLD_LIGHT, theme.isLight ? 0.18 : 0.22),
@@ -501,7 +501,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       minWidth: 16,
       height: 16,
       borderRadius: 8,
-      paddingHorizontal: 1,
+      paddingHorizontal: 3,
       backgroundColor: theme.danger,
       alignItems: 'center',
       justifyContent: 'center',
@@ -514,11 +514,11 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     pageTitle:    { fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 36 : 30, lineHeight: layout.isTablet ? 38 : 32, color: GOLD_LIGHT, letterSpacing: -0.8 },
     heroCard: {
       borderRadius: 30,
-      padding: 5,
+      padding: 20,
       overflow: 'hidden',
       marginBottom: 22,
       alignItems: 'center',
-      gap: 6,
+      gap: 4,
       boxShadow: cbModalShadow(0.14),
     } as ViewStyle,
     heroGhost: {
@@ -560,16 +560,16 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       alignItems: 'center', justifyContent: 'center',
       boxShadow: [{ offsetX: 0, offsetY: 0, blurRadius: 0, spreadDistance: 1, color: rgbaFromHex(GOLD_LIGHT, 0.08), inset: true }],
     },
-    prefRow:   { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, paddingVertical: 4, gap: 12 },
+    prefRow:   { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 4 },
     prefLabel: { fontFamily: 'Inter_400Regular', fontSize: 14, color: GOLD_LIGHT, flex: 1 },
-    linkRow:   { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, paddingVertical: 4, gap: 12 },
+    linkRow:   { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 15, gap: 4 },
     linkLabel: { fontFamily: 'Inter_400Regular', fontSize: 14, color: GOLD_LIGHT, flex: 1 },
     linkSubLabel: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM, marginTop: 2 },
     linkDanger: { color: theme.danger },
-    editBlock: { paddingHorizontal: 4, paddingVertical: 4, gap: 10 },
+    editBlock: { paddingHorizontal: 16, paddingVertical: 16, gap: 4 },
     editTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: GOLD_LIGHT, letterSpacing: 0.4, textTransform: 'uppercase' },
     subjectChip: {
-      paddingHorizontal: 3, paddingVertical: 2, borderRadius: 10,
+      paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10,
       borderWidth: 1, borderColor: BORDER,
       backgroundColor: rgbaFromHex(GOLD_LIGHT, theme.isLight ? 0.1 : 0.14),
     },
@@ -577,15 +577,15 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     editInput: {
       borderWidth: 1, borderColor: BORDER, borderRadius: 12,
       backgroundColor: rgbaFromHex(CARD_ALT, theme.isLight ? 0.6 : 0.5),
-      paddingHorizontal: 3, paddingVertical: 3,
+      paddingHorizontal: 12, paddingVertical: 10,
       fontFamily: 'Inter_400Regular', fontSize: 13, color: GOLD_LIGHT,
     },
-    editActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 2 },
-    editCancelBtn: { paddingHorizontal: 4, paddingVertical: 2, borderRadius: 12 },
+    editActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 4, marginTop: 2 },
+    editCancelBtn: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12 },
     editCancelText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: DIM, letterSpacing: 0.4, textTransform: 'uppercase' },
     editSaveBtn: {
       minWidth: 72, alignItems: 'center', justifyContent: 'center',
-      paddingHorizontal: 4, paddingVertical: 2, borderRadius: 12,
+      paddingHorizontal: 16, paddingVertical: 9, borderRadius: 12,
       backgroundColor: theme.accent,
     },
     editSaveBtnDisabled: { opacity: 0.6 },

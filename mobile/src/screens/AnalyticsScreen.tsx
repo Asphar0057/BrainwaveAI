@@ -319,23 +319,23 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   const ghostColor = rgbaFromHex(theme.textPrimary, theme.isLight ? 0.04 : 0.06);
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bgPrimary },
-    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 4, paddingTop: Math.max(topInset + 10, 50), paddingBottom: 110, gap: 12 },
+    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 4, paddingTop: Math.max(topInset + 10, 50), paddingBottom: 110, gap: 3 },
     header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12 },
     backBtn: { width: 42, height: 42, borderRadius: 15, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.06) } as ViewStyle,
     refreshBtn: { width: 42, height: 42, borderRadius: 15, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.06) } as ViewStyle,
     headerCopy: { flex: 1 },
     kicker: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 8, letterSpacing: 1.7 },
     title: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 32, lineHeight: 36, letterSpacing: -0.8 },
-    periodTabs: { height: 42, borderRadius: 15, borderWidth: 1, borderColor: border, padding: 1, backgroundColor: rgbaFromHex(surface, 0.72), flexDirection: 'row', gap: 4 },
+    periodTabs: { height: 42, borderRadius: 15, borderWidth: 1, borderColor: border, padding: 4, backgroundColor: rgbaFromHex(surface, 0.72), flexDirection: 'row', gap: 4 },
     periodTab: { flex: 1, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
     periodTabActive: { backgroundColor: theme.accent },
     periodText: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 9, textTransform: 'uppercase', letterSpacing: 1 },
     periodTextActive: { color: activeInk },
 
     // ── hero mosaic ──
-    heroRow: { flexDirection: 'row', gap: 10 },
+    heroRow: { flexDirection: 'row', gap: 3 },
     accuracyHero: {
-      flex: 1.55, borderRadius: 26, padding: 5, overflow: 'hidden', gap: 12,
+      flex: 1.55, borderRadius: 26, padding: 18, overflow: 'hidden', gap: 12,
       boxShadow: cbModalShadow(0.14), ...cbTileBorder(0.16),
     } as ViewStyle,
     heroGhost: {
@@ -350,9 +350,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     accuracyTrack: { height: 5, borderRadius: 3, overflow: 'hidden', backgroundColor: rgbaFromHex(theme.accent, 0.14) },
     accuracyFill: { height: '100%', borderRadius: 3, backgroundColor: theme.accentHover },
     snapshotHint: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11, lineHeight: 16 },
-    heroSideCol: { flex: 1, gap: 10 },
+    heroSideCol: { flex: 1, gap: 3 },
     sideMini: {
-      flex: 1, borderRadius: 20, overflow: 'hidden', padding: 3, justifyContent: 'center', gap: 3,
+      flex: 1, borderRadius: 20, overflow: 'hidden', padding: 12, justifyContent: 'center', gap: 3,
       boxShadow: cbTileShadow(0.08), ...cbTileBorder(0.14),
     } as ViewStyle,
     sideMiniValue: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 22, letterSpacing: -0.6 },
@@ -360,15 +360,15 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     sideMiniLabel: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 8, textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 1 },
 
     // ── metric row ──
-    metricGrid: { flexDirection: 'row', gap: 8 },
-    metricCard: { flex: 1, minHeight: 104, borderRadius: 18, overflow: 'hidden', padding: 3, boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) } as ViewStyle,
+    metricGrid: { flexDirection: 'row', gap: 2 },
+    metricCard: { flex: 1, minHeight: 104, borderRadius: 18, overflow: 'hidden', padding: 11, boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) } as ViewStyle,
     metricIcon: { width: 28, height: 28, borderRadius: 10, backgroundColor: rgbaFromHex(theme.accent, 0.12), alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
     metricValue: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 21 },
     metricLabel: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 9, marginTop: 2 },
     metricSuffix: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 8, marginTop: 1 },
 
     // ── shared section card + Swiss numbered header ──
-    sectionCard: { borderRadius: 22, overflow: 'hidden', padding: 4, gap: 14, boxShadow: cbTileShadow(0.07), ...cbTileBorder(0.15) } as ViewStyle,
+    sectionCard: { borderRadius: 22, overflow: 'hidden', padding: 15, gap: 14, boxShadow: cbTileShadow(0.07), ...cbTileBorder(0.15) } as ViewStyle,
     sectionHeader: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
     sectionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     sectionIndex: { fontFamily: 'Inter_900Black', color: rgbaFromHex(theme.accent, 0.5), fontSize: 22, letterSpacing: -0.5 },
@@ -377,9 +377,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     sectionMeta: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 9 },
 
     // ── totals mosaic ──
-    totalsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    totalsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 2 },
     totalTile: {
-      flexBasis: '47%', flexGrow: 1, minHeight: 84, borderRadius: 16, overflow: 'hidden', padding: 3, gap: 4,
+      flexBasis: '47%', flexGrow: 1, minHeight: 84, borderRadius: 16, overflow: 'hidden', padding: 11, gap: 4,
       boxShadow: cbTileShadow(0.05), ...cbTileBorder(0.12),
     } as ViewStyle,
     totalTileIcon: { width: 24, height: 24, borderRadius: 8, backgroundColor: rgbaFromHex(theme.accent, 0.1), alignItems: 'center', justifyContent: 'center' },
@@ -393,10 +393,10 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     barFill: { width: '100%', borderRadius: 9, backgroundColor: theme.accentHover },
     barLabel: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 8, textTransform: 'uppercase' },
     weekDivider: { height: 1, backgroundColor: theme.border },
-    weekChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+    weekChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 2 },
     weekChip: {
       flexGrow: 1, flexBasis: '18%', borderRadius: 13, borderWidth: 1, borderColor: theme.border,
-      backgroundColor: rgbaFromHex(theme.accent, 0.06), alignItems: 'center', paddingVertical: 2, paddingHorizontal: 2, gap: 2,
+      backgroundColor: rgbaFromHex(theme.accent, 0.06), alignItems: 'center', paddingVertical: 9, paddingHorizontal: 6, gap: 2,
     },
     weekChipAccent: { backgroundColor: rgbaFromHex(theme.accent, 0.14), borderColor: rgbaFromHex(theme.accentHover, 0.3) },
     weekChipValue: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 14, marginTop: 2 },

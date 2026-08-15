@@ -434,7 +434,7 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
             <View style={styles.activityHeader}>
               <Text style={styles.activityHeadTitle}>recommended for you</Text>
             </View>
-            <View style={{ gap: 8 }}>
+            <View style={{ gap: 4 }}>
               {recommendedPrompts.map((prompt, idx) => (
                 <HapticTouchable
                   key={`${prompt.text}-${idx}`}
@@ -634,8 +634,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     minHeight: heroMinHeight,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 3,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
     overflow: 'hidden',
     borderRadius: 28,
     marginHorizontal: 0,
@@ -652,8 +652,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   phaseChip: {
     borderRadius: 999,
     borderWidth: 1,
-    paddingHorizontal: 3,
-    paddingVertical: 2,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   phaseChipText: {
     fontFamily: 'Inter_600SemiBold',
@@ -667,8 +667,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     backgroundColor: rgbaFromHex(theme.panelAlt, 0.86),
     borderWidth: 1,
     borderColor: CARD_BORDER,
-    paddingHorizontal: 3,
-    paddingVertical: 2,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   heroStatusText: {
     fontFamily: 'Inter_600SemiBold',
@@ -684,7 +684,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     minHeight: 220,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 14,
+    gap: 4,
   },
   heroLoadingBrand: {
     fontFamily: 'Inter_900Black',
@@ -723,7 +723,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   },
   heroDots: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 4,
     marginTop: 14,
   },
   heroDot: {
@@ -758,13 +758,13 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
     paddingHorizontal: horizontalPadding,
-    gap: 22,
+    gap: 6,
   },
   nextCard: {
     backgroundColor: rgbaFromHex(SURFACE, 0.93),
     borderRadius: 0,
-    padding: 4,
-    paddingTop: 9,
+    padding: 14,
+    paddingTop: 36,
     borderBottomWidth: 1,
     borderColor: CARD_BORDER,
     height: windowHeight,
@@ -777,7 +777,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 14,
-    gap: 12,
+    gap: 4,
   },
   nextEyebrow: {
     fontFamily: 'Inter_600SemiBold',
@@ -789,13 +789,13 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   nextCtaPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: CARD_BORDER,
     backgroundColor: rgbaFromHex(theme.accent, 0.10),
-    paddingHorizontal: 3,
-    paddingVertical: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   nextCta: {
     fontFamily: 'Inter_600SemiBold',
@@ -821,17 +821,17 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   },
 
   sectionBlock: {
-    gap: 12,
+    gap: 4,
   },
   sectionCard: {
     borderRadius: 26,
-    padding: 4,
+    padding: 16,
     overflow: 'hidden',
     boxShadow: cbTileShadow(0.055),
   } as ViewStyle,
   duoRow: {
     flexDirection: layout.width >= 760 ? 'row' : 'column',
-    gap: 14,
+    gap: 4,
   },
   duoCard: {
     minHeight: layout.width >= 760 ? 210 : 0,
@@ -867,8 +867,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   todayRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
-    gap: 16,
+    paddingVertical: 15,
+    gap: 4,
   },
   todayDivider: {
     borderBottomWidth: 1,
@@ -876,7 +876,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   },
   todayTextWrap: {
     flex: 1,
-    gap: 5,
+    gap: 4,
   },
   todayLabel: {
     fontFamily: 'Inter_600SemiBold',
@@ -894,7 +894,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   todayValueWrap: {
     width: layout.isLandscape ? 132 : 118,
     alignItems: 'flex-end',
-    gap: 8,
+    gap: 4,
   },
   todayValue: {
     fontFamily: 'Inter_900Black',
@@ -921,7 +921,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     justifyContent: layout.width >= 760 ? 'space-between' : 'space-around',
     flexWrap: layout.width < 360 ? 'wrap' : 'nowrap',
     gap: layout.width < 360 ? 12 : 0,
-    paddingTop: 5,
+    paddingTop: 18,
   },
   ringMuted: {
     opacity: 0.96,
@@ -938,7 +938,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   xpHeadRight: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 6,
+    gap: 4,
   },
   xpTotalValue: {
     fontFamily: 'Inter_900Black',
@@ -974,7 +974,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
     paddingHorizontal: horizontalPadding,
-    gap: 12,
+    gap: 4,
     marginBottom: 22,
   },
   activityHeader: {
@@ -988,27 +988,27 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     color: GOLD_L,
     letterSpacing: -0.3,
   },
-  timelineWrap: { gap: 10 },
+  timelineWrap: { gap: 4 },
   timelineItem: {
     minHeight: 76,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 13,
+    gap: 4,
     borderRadius: 20,
     overflow: 'hidden',
-    paddingHorizontal: 4,
-    paddingVertical: 3,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     boxShadow: cbTileShadow(0.055),
   } as ViewStyle,
   recoCard: {
     minHeight: 68,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 4,
     borderRadius: 18,
     overflow: 'hidden',
-    paddingHorizontal: 4,
-    paddingVertical: 3,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     boxShadow: cbTileShadow(0.055),
   } as ViewStyle,
   timelineDot: {

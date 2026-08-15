@@ -183,19 +183,19 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     alignSelf: 'center',
     paddingHorizontal: 2,
     paddingBottom: 120,
-    gap: 12,
+    gap: 4,
   },
 
-  titleRow: { marginTop: 20, marginBottom: 6, paddingHorizontal: 2, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  titleRow: { marginTop: 20, marginBottom: 6, paddingHorizontal: 6, flexDirection: 'row', alignItems: 'center', gap: 4 },
   title: {
     fontFamily: 'Inter_900Black', fontSize: 38, color: GOLD_L, letterSpacing: -1.6,
   },
   titleRule: { flex: 1, height: 1, backgroundColor: BORDER, marginTop: 6 },
 
-  bentoRow: { flexDirection: 'row', gap: 12 },
+  bentoRow: { flexDirection: 'row', gap: 4 },
 
   heroTile: {
-    flex: 1.4, minHeight: heroRowHeight, borderRadius: 26, padding: 5,
+    flex: 1.4, minHeight: heroRowHeight, borderRadius: 26, padding: 20,
     overflow: 'hidden',
   } as ViewStyle,
   heroIndex: {
@@ -208,10 +208,10 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   },
   heroFootRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 16 },
 
-  stackCol: { flex: 1, gap: 12 },
+  stackCol: { flex: 1, gap: 4 },
   miniTile: {
     flex: 1, borderRadius: 26, overflow: 'hidden',
-    paddingHorizontal: 4, paddingVertical: 4,
+    paddingHorizontal: 16, paddingVertical: 16,
   } as ViewStyle,
   miniTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   miniIndex: { fontFamily: 'Inter_700Bold', fontSize: 11, letterSpacing: 1.5, color: DIM },
@@ -220,7 +220,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
 
   flashcardCard: {
     borderRadius: 26, overflow: 'hidden',
-    padding: 5,
+    padding: 20,
     flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end',
   } as ViewStyle,
   fcLeft: { flex: 1, minWidth: 160 },

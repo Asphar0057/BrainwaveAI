@@ -120,7 +120,7 @@ export default function SharedWithMeScreen({ user, onBack }: Props) {
               <MarkdownText>{detail.content || ''}</MarkdownText>
             </View>
           ) : detail?.content_type === 'chat' ? (
-            <View style={{ gap: 10 }}>
+            <View style={{ gap: 4 }}>
               {(detail.messages ?? []).map((m, i) => (
                 <View key={i} style={s.card}>
                   <Text style={s.chatUserMsg}>{m.user_message}</Text>
@@ -167,7 +167,7 @@ export default function SharedWithMeScreen({ user, onBack }: Props) {
             <Text style={s.emptyText}>notes and chats friends share with you show up here</Text>
           </View>
         ) : (
-          <View style={{ gap: 8 }}>
+          <View style={{ gap: 4 }}>
             {items.map((item) => (
               <HapticTouchable key={item.id} style={s.row} onPress={() => openItem(item)} onLongPress={() => removeAccess(item)} haptic="none">
                 <View style={s.rowIcon}>
@@ -195,26 +195,26 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bgPrimary },
     scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 4, paddingTop: Math.max(topInset + 10, 50), paddingBottom: 110 },
-    header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
+    header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 14 },
     iconBtn: { width: 42, height: 42, borderRadius: 15, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), alignItems: 'center', justifyContent: 'center' },
     headerCopy: { flex: 1 },
     kicker: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 8, letterSpacing: 1.7 },
     title: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 24, lineHeight: 28, letterSpacing: -0.5 },
 
-    errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 14, borderWidth: 1, borderColor: rgbaFromHex(theme.danger, 0.3), backgroundColor: rgbaFromHex(theme.danger, 0.1), paddingHorizontal: 4, paddingVertical: 3, marginBottom: 16 } as ViewStyle,
+    errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 14, borderWidth: 1, borderColor: rgbaFromHex(theme.danger, 0.3), backgroundColor: rgbaFromHex(theme.danger, 0.1), paddingHorizontal: 14, paddingVertical: 10, marginBottom: 16 } as ViewStyle,
     errorBannerText: { fontFamily: 'Inter_600SemiBold', color: theme.danger, fontSize: 12 },
-    empty: { alignItems: 'center', gap: 6, paddingVertical: 18, paddingHorizontal: 5 },
+    empty: { alignItems: 'center', gap: 4, paddingVertical: 70, paddingHorizontal: 20 },
     emptyTitle: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 13, marginTop: 4 },
     emptyText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11.5, textAlign: 'center' },
 
-    row: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 18, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.9), paddingHorizontal: 4, paddingVertical: 3, boxShadow: cbTileShadow(0.05) } as ViewStyle,
+    row: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 18, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.9), paddingHorizontal: 14, paddingVertical: 13, boxShadow: cbTileShadow(0.05) } as ViewStyle,
     rowIcon: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: rgbaFromHex(theme.accent, 0.14) },
     rowTitle: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 13 },
     rowMeta: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 10.5, marginTop: 2 },
     rowMessage: { fontFamily: 'Inter_400Regular', color: theme.accentHover, fontSize: 11, marginTop: 3, fontStyle: 'italic' },
     hintFooter: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 10, textAlign: 'center', marginTop: 6 },
 
-    card: { borderRadius: 18, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.9), padding: 4, gap: 8, marginBottom: 4 } as ViewStyle,
+    card: { borderRadius: 18, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.9), padding: 16, gap: 4, marginBottom: 4 } as ViewStyle,
     noteBody: { fontFamily: 'Inter_400Regular', color: theme.textPrimary, fontSize: 14, lineHeight: 21 },
     chatUserMsg: { fontFamily: 'Inter_600SemiBold', color: theme.accentHover, fontSize: 13, lineHeight: 19 },
     chatAiMsg: { fontFamily: 'Inter_400Regular', color: theme.textPrimary, fontSize: 13, lineHeight: 19 },

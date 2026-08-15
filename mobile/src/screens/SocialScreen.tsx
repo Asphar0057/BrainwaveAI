@@ -397,7 +397,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   return StyleSheet.create({
     root:   { flex: 1, backgroundColor: BG },
     scroll: {
-      paddingHorizontal: PAD, paddingTop: 4, gap: 18,
+      paddingHorizontal: PAD, paddingTop: 14, gap: 5,
       maxWidth: layout.contentMaxWidth, alignSelf: 'center', width: '100%',
     },
 
@@ -421,26 +421,26 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     headerBadge: {
       position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18,
-      borderRadius: 9, paddingHorizontal: 1, alignItems: 'center', justifyContent: 'center',
+      borderRadius: 9, paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center',
       backgroundColor: theme.danger, borderWidth: 2, borderColor: BG,
     },
     headerBadgeText: {
       fontFamily: 'Inter_900Black', fontSize: 8, color: '#fff',
     },
-    loadingWrap: { paddingTop: 20, alignItems: 'center' },
+    loadingWrap: { paddingTop: 80, alignItems: 'center' },
 
     /* "Your circle" bento — same asymmetric tile grid as the playfield
        section below (one large tile + two stacked smaller ones), Swiss-style
        oversized numeral as the primary content instead of a spatial map. */
     circleMain: {
-      flex: 1.1, minHeight: 190, padding: 4,
+      flex: 1.1, minHeight: 190, padding: 17,
       borderRadius: 26,
       overflow: 'hidden', borderWidth: 1, borderColor: CB_EDGE,
       backgroundColor: CB_CARD,
     },
     circleRankPill: {
-      flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start',
-      borderRadius: 999, paddingHorizontal: 2, paddingVertical: 1,
+      flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
+      borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5,
       borderWidth: 1, borderColor: rgbaFromHex(GOLD, 0.32),
       backgroundColor: rgbaFromHex(SURF, 0.98),
     },
@@ -456,7 +456,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     /* Horizontal friend-preview rail — reuses signalRail's sizing so it
        handles any number of friends instead of a hardcoded node count. */
     friendCard: {
-      width: 92, minHeight: 92, padding: 3, alignItems: 'center',
+      width: 92, minHeight: 92, padding: 12, alignItems: 'center',
       borderRadius: 18,
       borderWidth: 1, borderColor: CB_EDGE,
       backgroundColor: CB_CARD,
@@ -482,7 +482,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       boxShadow: cbTileShadowExact(),
     } as ViewStyle,
     dockAction: {
-      flex: 1, height: '100%', alignItems: 'center', justifyContent: 'center', gap: 5,
+      flex: 1, height: '100%', alignItems: 'center', justifyContent: 'center', gap: 4,
     },
     dockLabel: {
       fontFamily: 'Inter_600SemiBold', fontSize: 7.5, color: DIM,
@@ -514,16 +514,16 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       marginTop: 3, fontFamily: 'Inter_900Black', fontSize: 24,
       color: TXT, letterSpacing: -0.8,
     },
-    ribbonOpen: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingBottom: 1 },
+    ribbonOpen: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingBottom: 3 },
     ribbonOpenText: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: GOLD, textTransform: 'uppercase' },
     rankRibbon: {
-      minHeight: 190, padding: 4, borderRadius: 26,
+      minHeight: 190, padding: 14, borderRadius: 26,
       overflow: 'hidden', borderWidth: 1, borderColor: CB_EDGE,
       backgroundColor: CB_CARD,
     },
     rankLane: {
       width: '88%', minHeight: 50, flexDirection: 'row', alignItems: 'center',
-      gap: 10, paddingHorizontal: 3, borderRadius: 15,
+      gap: 4, paddingHorizontal: 11, borderRadius: 15,
       borderWidth: 1, borderColor: rgbaFromHex(GOLD, 0.14),
       backgroundColor: '#0b0c0f',
     },
@@ -545,9 +545,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     rankMeta: { marginTop: 2, fontFamily: 'Inter_400Regular', fontSize: 8.5, color: DIM },
 
     /* Same playfield layout, standard Cerbyl rectangles */
-    playfield: { minHeight: 250, flexDirection: 'row', gap: 11 },
+    playfield: { minHeight: 250, flexDirection: 'row', gap: 4 },
     battleShape: {
-      flex: 1.1, minHeight: 250, padding: 4,
+      flex: 1.1, minHeight: 250, padding: 17,
       borderRadius: 26,
       overflow: 'hidden', borderWidth: 1, borderColor: CB_EDGE,
       backgroundColor: CB_CARD,
@@ -563,10 +563,10 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     battleSub: { marginTop: 8, fontFamily: 'Inter_400Regular', fontSize: 9.5, color: DIM },
     battleArrow: { position: 'absolute', right: 17, bottom: 17 },
-    playfieldRight: { flex: 1, gap: 11 },
+    playfieldRight: { flex: 1, gap: 4 },
     quizCapsule: {
-      minHeight: 104, flexDirection: 'row', alignItems: 'center', gap: 10,
-      paddingHorizontal: 4, borderRadius: 26, borderWidth: 1,
+      minHeight: 104, flexDirection: 'row', alignItems: 'center', gap: 4,
+      paddingHorizontal: 14, borderRadius: 26, borderWidth: 1,
       borderColor: CB_EDGE, backgroundColor: CB_CARD,
     },
     playMiniTitle: { fontFamily: 'Inter_900Black', fontSize: 13, color: TXT },
@@ -581,9 +581,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     soloArrow: { position: 'absolute', right: 12, top: 12 },
 
     /* Horizontal activity signals */
-    signalRail: { gap: 11, paddingRight: 5, paddingVertical: 2 },
+    signalRail: { gap: 4, paddingRight: 18, paddingVertical: 9 },
     signalCard: {
-      width: 158, minHeight: 132, padding: 4,
+      width: 158, minHeight: 132, padding: 14,
       borderRadius: 18,
       borderWidth: 1, borderColor: CB_EDGE,
       backgroundColor: CB_CARD,
@@ -601,10 +601,10 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
 
     /* Standard discovery cards */
-    discoveryRail: { gap: 9 },
+    discoveryRail: { gap: 4 },
     discoveryPath: {
-      minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 11,
-      paddingHorizontal: 4, borderRadius: 26,
+      minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 4,
+      paddingHorizontal: 16, borderRadius: 26,
       borderWidth: 1, borderColor: CB_EDGE,
       backgroundColor: CB_CARD,
     },
@@ -619,7 +619,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
 
     /* Context-aware activation card */
     nextMoveCard: {
-      minHeight: 205, padding: 5, borderRadius: 24, overflow: 'hidden',
+      minHeight: 205, padding: 18, borderRadius: 24, overflow: 'hidden',
       borderWidth: 1, borderColor: rgbaFromHex(GOLD, 0.28),
     },
     nextMoveTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -629,7 +629,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       backgroundColor: rgbaFromHex(GOLDM, 0.09),
     },
     nextMoveTag: {
-      borderRadius: 999, paddingHorizontal: 3, paddingVertical: 2,
+      borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6,
       borderWidth: 1, borderColor: rgbaFromHex(GOLD, 0.22),
       backgroundColor: rgbaFromHex(GOLDM, 0.07),
     },
@@ -647,7 +647,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     nextMoveCta: {
       alignSelf: 'flex-start', minHeight: 39, flexDirection: 'row',
-      alignItems: 'center', gap: 9, marginTop: 15, paddingHorizontal: 4,
+      alignItems: 'center', gap: 4, marginTop: 15, paddingHorizontal: 14,
       borderRadius: 12, backgroundColor: GOLD,
     },
     nextMoveCtaText: {
@@ -656,9 +656,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
 
     /* Section row header */
-    sectionRow:         { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    sectionRow:         { flexDirection: 'row', alignItems: 'center', gap: 4 },
     sectionLbl:         { fontFamily: 'Inter_900Black', fontSize: 15, color: TXT, letterSpacing: -0.3, textTransform: 'lowercase' },
-    sectionBadge:       { borderRadius: 999, backgroundColor: rgbaFromHex(GOLDM, 0.15), borderWidth: 1, borderColor: rgbaFromHex(GOLDM, 0.3), paddingHorizontal: 2, paddingVertical: 1 },
+    sectionBadge:       { borderRadius: 999, backgroundColor: rgbaFromHex(GOLDM, 0.15), borderWidth: 1, borderColor: rgbaFromHex(GOLDM, 0.3), paddingHorizontal: 7, paddingVertical: 2 },
     sectionBadgeTxt:    { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: GOLD },
     sectionBadgeDanger: { backgroundColor: rgbaFromHex(theme.danger, 0.15), borderColor: rgbaFromHex(theme.danger, 0.35) },
     sectionBadgeDangerTxt: { color: theme.danger },
@@ -673,7 +673,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     leaderRow: {
       minHeight: 58, flexDirection: 'row', alignItems: 'center',
-      gap: 11, paddingHorizontal: 4,
+      gap: 4, paddingHorizontal: 14,
     },
     leaderRowBorder: { borderBottomWidth: 1, borderBottomColor: BDR },
     leaderRank: { width: 24, fontFamily: 'Inter_900Black', fontSize: 11, color: DIM },
@@ -687,7 +687,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     leaderPoints: { fontFamily: 'Inter_900Black', fontSize: 10, color: GOLD },
     leaderEmpty: {
       minHeight: 88, flexDirection: 'row', alignItems: 'center',
-      gap: 12, paddingHorizontal: 4,
+      gap: 4, paddingHorizontal: 14,
     },
     leaderEmptyIcon: {
       width: 42, height: 42, borderRadius: 14, alignItems: 'center',
@@ -698,8 +698,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     leaderEmptyCopy: { fontFamily: 'Inter_400Regular', fontSize: 9.5, lineHeight: 14, color: DIM },
 
     /* Friends horizontal scroll */
-    friendsRow: { gap: 12, paddingVertical: 1, paddingRight: 3 },
-    friendItem:  { alignItems: 'center', gap: 7, width: 70 },
+    friendsRow: { gap: 4, paddingVertical: 3, paddingRight: 12 },
+    friendItem:  { alignItems: 'center', gap: 4, width: 70 },
     friendAvatar: {
       width: 58, height: 58, borderRadius: 29, borderWidth: 1.5,
       alignItems: 'center', justifyContent: 'center',
@@ -713,8 +713,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       alignItems: 'center', justifyContent: 'center',
     },
     emptyCircleCard: {
-      minHeight: 92, flexDirection: 'row', alignItems: 'center', gap: 13,
-      paddingHorizontal: 4, paddingVertical: 4, borderRadius: 20,
+      minHeight: 92, flexDirection: 'row', alignItems: 'center', gap: 4,
+      paddingHorizontal: 15, paddingVertical: 14, borderRadius: 20,
       borderWidth: 1, borderColor: BDRS, overflow: 'hidden',
       backgroundColor: rgbaFromHex(SURF, 0.96),
     },
@@ -724,7 +724,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       borderWidth: 1, borderColor: rgbaFromHex(GOLD, 0.28),
       backgroundColor: rgbaFromHex(GOLDM, 0.09),
     },
-    emptyCircleCopy: { flex: 1, minWidth: 0, gap: 5 },
+    emptyCircleCopy: { flex: 1, minWidth: 0, gap: 4 },
     friendEmptyTitle: { fontFamily: 'Inter_900Black', fontSize: 14, color: TXT, letterSpacing: -0.2 },
     friendEmptyTxt: { fontFamily: 'Inter_400Regular', fontSize: 10, lineHeight: 15, color: DIM },
 
@@ -733,7 +733,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       borderRadius: 16, borderWidth: 1, borderColor: BDRS,
       backgroundColor: rgbaFromHex(SURF, 0.96), overflow: 'hidden',
     },
-    actRow:       { flexDirection: 'row', gap: 12, paddingHorizontal: 4, paddingVertical: 3, alignItems: 'flex-start' },
+    actRow:       { flexDirection: 'row', gap: 4, paddingHorizontal: 14, paddingVertical: 13, alignItems: 'flex-start' },
     actRowBorder: { borderBottomWidth: 1, borderBottomColor: BDR },
     actIconWrap: {
       width: 36, height: 36, borderRadius: 12,
@@ -745,19 +745,19 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     actTime: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM, letterSpacing: 0.3 },
 
     /* Quick action tiles */
-    quickGrid: { gap: 12 },
-    quickRow: { flexDirection: 'row', gap: 12 },
+    quickGrid: { gap: 4 },
+    quickRow: { flexDirection: 'row', gap: 4 },
     quickTile: {
-      flex: 1, minHeight: layout.isTablet ? 154 : 134, padding: 4,
+      flex: 1, minHeight: layout.isTablet ? 154 : 134, padding: 15,
     } as ViewStyle,
     quickTileWide: {
       minHeight: layout.isTablet ? 118 : 100,
-      flexDirection: 'row', alignItems: 'center', gap: 13,
-      paddingVertical: 4, paddingHorizontal: 4,
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+      paddingVertical: 15, paddingHorizontal: 16,
     } as ViewStyle,
     quickTileWideCopy: { flex: 1, minWidth: 0 },
     quickTileArrow: { marginLeft: 'auto' },
-    tileBadge:    { position: 'absolute', top: 12, right: 12, borderRadius: 999, backgroundColor: rgbaFromHex(GOLDM, 0.15), borderWidth: 1, borderColor: rgbaFromHex(GOLDM, 0.3), paddingHorizontal: 2, paddingVertical: 1 },
+    tileBadge:    { position: 'absolute', top: 12, right: 12, borderRadius: 999, backgroundColor: rgbaFromHex(GOLDM, 0.15), borderWidth: 1, borderColor: rgbaFromHex(GOLDM, 0.3), paddingHorizontal: 8, paddingVertical: 3 },
     tileBadgeTxt: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: GOLD },
     tileIcon:     { width: 36, height: 36, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
     tileIconWide: { width: 42, height: 42, borderRadius: 14, marginBottom: 0, flexShrink: 0 },
