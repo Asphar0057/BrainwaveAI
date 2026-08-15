@@ -11797,6 +11797,21 @@
   z-index: 1;
 }
 
+/* Long revealed answers must remain fully reachable inside the fixed-height
+   flip cards. The shared surface rule above clips decorative layers, so
+   restore scrolling on the SR answer face and prevent rendered answers from
+   shrinking to the visible portion of either scroll container. */
+.flashcards-page.fc-focus-shell .fc-sr-card-back {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.flashcards-page.fc-focus-shell .fc-study-card-scroll > .fc-study-card-text,
+.flashcards-page.fc-focus-shell .fc-sr-card-back > .fc-sr-card-content {
+  flex: 0 0 auto;
+  min-height: min-content;
+}
+
 /* Shared interaction rules for all completed Flashcards workflows. */
 @media (hover: hover) and (pointer: fine) {
   .flashcards-page.fc-focus-shell :is(.fc-ask-ai-toggle-btn, .fc-exit-btn, .fc-header-btn, .fc-btn-ghost, .fc-arrow-btn, .fc-study-nav, .fc-sr-nav-btn, .fc-knowledge-btn):hover:not(:disabled) {
