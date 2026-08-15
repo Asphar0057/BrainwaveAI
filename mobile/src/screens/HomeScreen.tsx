@@ -434,7 +434,7 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
             <View style={styles.activityHeader}>
               <Text style={styles.activityHeadTitle}>recommended for you</Text>
             </View>
-            <View style={{ gap: 4 }}>
+            <View style={{ gap: 8 }}>
               {recommendedPrompts.map((prompt, idx) => (
                 <HapticTouchable
                   key={`${prompt.text}-${idx}`}
@@ -684,7 +684,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     minHeight: 220,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 14,
   },
   heroLoadingBrand: {
     fontFamily: 'Inter_900Black',
@@ -723,7 +723,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   },
   heroDots: {
     flexDirection: 'row',
-    gap: 4,
+    gap: 8,
     marginTop: 14,
   },
   heroDot: {
@@ -758,7 +758,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
     paddingHorizontal: horizontalPadding,
-    gap: 6,
+    gap: 22,
   },
   nextCard: {
     backgroundColor: rgbaFromHex(SURFACE, 0.93),
@@ -777,7 +777,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 14,
-    gap: 4,
+    gap: 12,
   },
   nextEyebrow: {
     fontFamily: 'Inter_600SemiBold',
@@ -789,7 +789,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   nextCtaPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: CARD_BORDER,
@@ -821,7 +821,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   },
 
   sectionBlock: {
-    gap: 4,
+    gap: 12,
   },
   sectionCard: {
     borderRadius: 26,
@@ -831,7 +831,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   } as ViewStyle,
   duoRow: {
     flexDirection: layout.width >= 760 ? 'row' : 'column',
-    gap: 4,
+    gap: 14,
   },
   duoCard: {
     minHeight: layout.width >= 760 ? 210 : 0,
@@ -868,7 +868,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 15,
-    gap: 4,
+    gap: 16,
   },
   todayDivider: {
     borderBottomWidth: 1,
@@ -876,7 +876,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   },
   todayTextWrap: {
     flex: 1,
-    gap: 4,
+    gap: 5,
   },
   todayLabel: {
     fontFamily: 'Inter_600SemiBold',
@@ -894,7 +894,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   todayValueWrap: {
     width: layout.isLandscape ? 132 : 118,
     alignItems: 'flex-end',
-    gap: 4,
+    gap: 8,
   },
   todayValue: {
     fontFamily: 'Inter_900Black',
@@ -938,7 +938,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   xpHeadRight: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 4,
+    gap: 6,
   },
   xpTotalValue: {
     fontFamily: 'Inter_900Black',
@@ -974,7 +974,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
     paddingHorizontal: horizontalPadding,
-    gap: 4,
+    gap: 12,
     marginBottom: 22,
   },
   activityHeader: {
@@ -988,12 +988,12 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     color: GOLD_L,
     letterSpacing: -0.3,
   },
-  timelineWrap: { gap: 4 },
+  timelineWrap: { gap: 10 },
   timelineItem: {
     minHeight: 76,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 13,
     borderRadius: 20,
     overflow: 'hidden',
     paddingHorizontal: 14,
@@ -1004,7 +1004,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     minHeight: 68,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 12,
     borderRadius: 18,
     overflow: 'hidden',
     paddingHorizontal: 14,

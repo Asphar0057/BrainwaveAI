@@ -215,7 +215,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       alignSelf: 'center',
       paddingHorizontal: 4,
       paddingBottom: 40,
-      gap: 4,
+      gap: 16,
     },
     topBar: {
       width: '100%',
@@ -293,7 +293,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     heroValueRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
+      gap: 10,
       marginTop: 6,
     },
     heroTitle: {
@@ -338,12 +338,12 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       borderWidth: 1,
       borderColor: border,
       boxShadow: cbTileShadow(0.055),
-      gap: 4,
+      gap: 14,
     } as ViewStyle,
-    emptyWrap: { alignItems: 'center', gap: 4, paddingVertical: 24 },
+    emptyWrap: { alignItems: 'center', gap: 10, paddingVertical: 24 },
     emptyText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: theme.textSecondary },
-    sourceList: { gap: 4, marginTop: 4 },
-    sourceRow: { flexDirection: 'row', gap: 4, alignItems: 'flex-start' },
+    sourceList: { gap: 16, marginTop: 4 },
+    sourceRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
     sourceIconWrap: {
       width: 32, height: 32, borderRadius: 14,
       alignItems: 'center', justifyContent: 'center',

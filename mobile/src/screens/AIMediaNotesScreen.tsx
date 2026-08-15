@@ -413,7 +413,7 @@ function createMarkdownStyles() {
   h2:     { fontFamily: 'Inter_900Black', fontSize: 21, color: GOLD_XL, lineHeight: 27 },
 
   // H3 — smaller, gold with left accent bar
-  h3Wrap: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 18, marginBottom: 4 },
+  h3Wrap: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 18, marginBottom: 4 },
   h3Bar:  { width: 3, height: 18, borderRadius: 2, backgroundColor: GOLD_M, flexShrink: 0 },
   h3:     { fontFamily: 'Inter_700Bold', fontSize: 17, color: GOLD_L, lineHeight: 23, flex: 1 },
 
@@ -424,7 +424,7 @@ function createMarkdownStyles() {
   para: { fontFamily: 'Inter_400Regular', fontSize: 15, color: GOLD_L, lineHeight: 26, marginVertical: 2 },
 
   // Lists
-  listRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 4, marginTop: 7, paddingRight: 4 },
+  listRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 7, paddingRight: 4 },
   dot:      { width: 6, height: 6, borderRadius: 3, backgroundColor: GOLD_M, marginTop: 10, flexShrink: 0 },
   dotSub:   { width: 4, height: 4, borderRadius: 2, backgroundColor: GOLD_D, marginTop: 11, flexShrink: 0 },
   listText: { fontFamily: 'Inter_400Regular', fontSize: 15, color: GOLD_L, lineHeight: 26, flex: 1 },
@@ -1258,7 +1258,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     alignSelf: 'center',
     paddingHorizontal: 4,
     paddingBottom: 48,
-    gap: 4,
+    gap: 12,
   },
 
   // Header
@@ -1268,7 +1268,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     alignItems: 'center',
     paddingTop: 18,
     paddingBottom: 6,
-    gap: 4,
+    gap: 8,
   },
   backBtn:     { width: 36, alignItems: 'flex-start', justifyContent: 'center' },
   backBtnText: { fontFamily: 'Inter_700Bold', fontSize: 18, color: GOLD_XL, lineHeight: 22 },
@@ -1365,7 +1365,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     shadowRadius: 20,
     elevation: 8,
   },
-  inputCardInner: { padding: 18, gap: 4, zIndex: 1 },
+  inputCardInner: { padding: 18, gap: 14, zIndex: 1 },
   inputCardLabel: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 9,
@@ -1404,7 +1404,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   },
 
   // Record mode
-  recordInner: { padding: 18, gap: 4, zIndex: 1, alignItems: 'center' },
+  recordInner: { padding: 18, gap: 16, zIndex: 1, alignItems: 'center' },
   recordHint: {
     fontFamily: 'Inter_400Regular',
     fontSize: 12,
@@ -1413,7 +1413,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     lineHeight: 19,
     letterSpacing: 0.3,
   },
-  recordBtnWrap: { alignItems: 'center', gap: 4, paddingVertical: 8 },
+  recordBtnWrap: { alignItems: 'center', gap: 12, paddingVertical: 8 },
   recordBtn:     { width: 72, height: 72, borderRadius: 36, overflow: 'hidden' },
   recordBtnGrad: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   recordDot: {
@@ -1439,7 +1439,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   },
 
   // Section header
-  sectionRow:   { flexDirection: 'row', alignItems: 'center', gap: 4, paddingTop: 4 },
+  sectionRow:   { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 4 },
   sectionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: GOLD_XL, letterSpacing: 3 },
   countBadge:   {
     backgroundColor: softAccent,
@@ -1452,7 +1452,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   countText: { fontFamily: 'Inter_700Bold', fontSize: 9, color: GOLD_L, letterSpacing: 1 },
 
   // Empty state
-  emptyBox: { alignItems: 'center', paddingVertical: 40, gap: 4 },
+  emptyBox: { alignItems: 'center', paddingVertical: 40, gap: 10 },
   emptyRing: {
     width: 68, height: 68, borderRadius: 34,
     backgroundColor: softAccent,
@@ -1468,7 +1468,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   histRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 12,
     backgroundColor: SURFACE,
     borderRadius: 16,
     borderWidth: 1,
@@ -1523,7 +1523,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     color: GOLD_XL,
     lineHeight: 22,
   },
-  metaBadges: { flexDirection: 'row', gap: 4, marginTop: 8 },
+  metaBadges: { flexDirection: 'row', gap: 6, marginTop: 8 },
   badge: {
     backgroundColor: softAccent,
     borderRadius: 6,
@@ -1551,7 +1551,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     alignSelf: 'center',
     paddingHorizontal: 16,
     paddingBottom: 90,
-    gap: 4,
+    gap: 12,
   },
   podcastLaunch: {
     width: '100%',
@@ -1564,7 +1564,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     borderColor: CARD_BORDER,
     backgroundColor: SURFACE,
     padding: 18,
-    gap: 4,
+    gap: 12,
   },
   podcastPlayer: {
     borderRadius: 20,
@@ -1572,7 +1572,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     borderColor: CARD_BORDER,
     backgroundColor: SURFACE,
     padding: 18,
-    gap: 4,
+    gap: 12,
     shadowColor: GOLD_D,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.12,
@@ -1586,12 +1586,12 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   podcastSegment: { fontFamily: 'Inter_400Regular', color: GOLD_XL, fontSize: 14, lineHeight: 23 },
   podcastPrimary: { minHeight: 50, borderRadius: 14, backgroundColor: GOLD_M, alignItems: 'center', justifyContent: 'center' },
   podcastPrimaryText: { fontFamily: 'Inter_900Black', color: INK, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase' },
-  podcastControls: { flexDirection: 'row', gap: 4 },
+  podcastControls: { flexDirection: 'row', gap: 8 },
   podcastControl: { flex: 1, minHeight: 40, borderRadius: 12, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: softAccent, alignItems: 'center', justifyContent: 'center' },
   podcastControlText: { fontFamily: 'Inter_900Black', color: GOLD_L, fontSize: 10, letterSpacing: 1.1, textTransform: 'uppercase' },
-  podcastSection: { borderRadius: 18, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: SURFACE, padding: 15, gap: 4 },
+  podcastSection: { borderRadius: 18, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: SURFACE, padding: 15, gap: 10 },
   podcastSectionTitle: { fontFamily: 'Inter_900Black', color: GOLD_XL, fontSize: 16, letterSpacing: -0.1 },
-  chapterRow: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 14, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: softAccent, padding: 12 },
+  chapterRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: softAccent, padding: 12 },
   chapterRowActive: { borderColor: GOLD_M, backgroundColor: softAccentStrong },
   chapterIndex: { fontFamily: 'Inter_900Black', color: GOLD_D, fontSize: 12, width: 26 },
   chapterTitle: { fontFamily: 'Inter_700Bold', color: GOLD_XL, fontSize: 13 },
@@ -1601,11 +1601,11 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   podcastSecondary: { height: 44, borderRadius: 13, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: softAccent, alignItems: 'center', justifyContent: 'center' },
   podcastSecondaryText: { fontFamily: 'Inter_900Black', color: GOLD_L, fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase' },
   podcastAnswer: { fontFamily: 'Inter_400Regular', color: GOLD_XL, fontSize: 13, lineHeight: 21 },
-  followRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  followRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   followChip: { borderRadius: 999, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: softAccent, paddingHorizontal: 11, paddingVertical: 8 },
   followText: { fontFamily: 'Inter_600SemiBold', color: GOLD_L, fontSize: 11 },
   mcqQuestion: { fontFamily: 'Inter_700Bold', color: GOLD_XL, fontSize: 14, lineHeight: 21 },
-  mcqOption: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 13, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: softAccent, padding: 12 },
+  mcqOption: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 13, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: softAccent, padding: 12 },
   mcqLetter: { fontFamily: 'Inter_900Black', color: GOLD_D, fontSize: 12, width: 20 },
   mcqText: { flex: 1, fontFamily: 'Inter_400Regular', color: GOLD_XL, fontSize: 12, lineHeight: 18 },
 });

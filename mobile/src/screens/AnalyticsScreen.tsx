@@ -319,7 +319,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   const ghostColor = rgbaFromHex(theme.textPrimary, theme.isLight ? 0.04 : 0.06);
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bgPrimary },
-    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 4, paddingTop: Math.max(topInset + 10, 50), paddingBottom: 110, gap: 3 },
+    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 4, paddingTop: Math.max(topInset + 10, 50), paddingBottom: 110, gap: 12 },
     header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12 },
     backBtn: { width: 42, height: 42, borderRadius: 15, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.06) } as ViewStyle,
     refreshBtn: { width: 42, height: 42, borderRadius: 15, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.06) } as ViewStyle,
@@ -333,7 +333,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     periodTextActive: { color: activeInk },
 
     // ── hero mosaic ──
-    heroRow: { flexDirection: 'row', gap: 3 },
+    heroRow: { flexDirection: 'row', gap: 10 },
     accuracyHero: {
       flex: 1.55, borderRadius: 26, padding: 18, overflow: 'hidden', gap: 12,
       boxShadow: cbModalShadow(0.14), ...cbTileBorder(0.16),
@@ -350,7 +350,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     accuracyTrack: { height: 5, borderRadius: 3, overflow: 'hidden', backgroundColor: rgbaFromHex(theme.accent, 0.14) },
     accuracyFill: { height: '100%', borderRadius: 3, backgroundColor: theme.accentHover },
     snapshotHint: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11, lineHeight: 16 },
-    heroSideCol: { flex: 1, gap: 3 },
+    heroSideCol: { flex: 1, gap: 10 },
     sideMini: {
       flex: 1, borderRadius: 20, overflow: 'hidden', padding: 12, justifyContent: 'center', gap: 3,
       boxShadow: cbTileShadow(0.08), ...cbTileBorder(0.14),
@@ -360,7 +360,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     sideMiniLabel: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 8, textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 1 },
 
     // ── metric row ──
-    metricGrid: { flexDirection: 'row', gap: 2 },
+    metricGrid: { flexDirection: 'row', gap: 8 },
     metricCard: { flex: 1, minHeight: 104, borderRadius: 18, overflow: 'hidden', padding: 11, boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) } as ViewStyle,
     metricIcon: { width: 28, height: 28, borderRadius: 10, backgroundColor: rgbaFromHex(theme.accent, 0.12), alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
     metricValue: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 21 },
@@ -377,7 +377,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     sectionMeta: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 9 },
 
     // ── totals mosaic ──
-    totalsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 2 },
+    totalsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     totalTile: {
       flexBasis: '47%', flexGrow: 1, minHeight: 84, borderRadius: 16, overflow: 'hidden', padding: 11, gap: 4,
       boxShadow: cbTileShadow(0.05), ...cbTileBorder(0.12),
@@ -393,7 +393,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     barFill: { width: '100%', borderRadius: 9, backgroundColor: theme.accentHover },
     barLabel: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 8, textTransform: 'uppercase' },
     weekDivider: { height: 1, backgroundColor: theme.border },
-    weekChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 2 },
+    weekChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     weekChip: {
       flexGrow: 1, flexBasis: '18%', borderRadius: 13, borderWidth: 1, borderColor: theme.border,
       backgroundColor: rgbaFromHex(theme.accent, 0.06), alignItems: 'center', paddingVertical: 9, paddingHorizontal: 6, gap: 2,

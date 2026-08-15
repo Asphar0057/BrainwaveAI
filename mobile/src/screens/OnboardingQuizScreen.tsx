@@ -660,7 +660,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     scrollContent: { flexGrow: 1, paddingTop: 14, paddingBottom: 48 },
     content: { width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center', paddingHorizontal: layout.isTablet ? 10 : 6 },
 
-    steps: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 14 },
+    steps: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
     stepChip: { fontFamily: 'Inter_700Bold', fontSize: 10, letterSpacing: 1.4, color: theme.textSecondary },
     stepChipOn: { color: theme.accentHover },
     stepRule: { width: 18, height: 1, backgroundColor: rgbaFromHex(theme.accentHover, 0.3) },
@@ -691,11 +691,11 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     sectionLabel: { fontFamily: 'Inter_700Bold', fontSize: 13, color: theme.textPrimary, marginBottom: 4, lineHeight: 19 },
     hint: { fontFamily: 'Inter_400Regular', fontSize: 11, color: theme.textSecondary, marginBottom: 12 },
 
-    choiceList: { gap: 4, marginTop: 8 },
+    choiceList: { gap: 8, marginTop: 8 },
     choice: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
+      gap: 10,
       paddingHorizontal: 14,
       paddingVertical: 12,
       borderRadius: 14,
@@ -728,7 +728,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       color: theme.textPrimary,
       marginTop: 4,
     },
-    suggestions: { marginTop: 8, gap: 4 },
+    suggestions: { marginTop: 8, gap: 6 },
     suggestion: {
       paddingHorizontal: 12,
       paddingVertical: 9,
@@ -737,16 +737,16 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     suggestionText: { fontFamily: 'Inter_400Regular', fontSize: 12.5, color: theme.textPrimary },
 
-    tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 10 },
+    tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
     tag: {
-      flexDirection: 'row', alignItems: 'center', gap: 4,
+      flexDirection: 'row', alignItems: 'center', gap: 6,
       paddingHorizontal: 10, paddingVertical: 7, borderRadius: 12,
       borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.24),
       backgroundColor: rgbaFromHex(theme.accent, theme.isLight ? 0.12 : 0.16),
     },
     tagText: { fontFamily: 'Inter_600SemiBold', fontSize: 11.5, color: theme.accentHover },
 
-    presetRow: { gap: 4, marginTop: 4 },
+    presetRow: { gap: 8, marginTop: 4 },
     presetCard: {
       paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14,
       backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.4 : 0.55),
@@ -765,7 +765,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     btnWrap: { marginTop: 6, borderRadius: 16, boxShadow: cbPlainRaisedShadow() } as ViewStyle,
     btnDisabled: { opacity: 0.5 },
     btn: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
       borderRadius: 16,
       overflow: 'hidden',
       paddingVertical: 15,
@@ -782,12 +782,12 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     btnSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: theme.textSecondary, letterSpacing: 0.2, textAlign: 'center', marginTop: 10 },
 
-    skipBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 14, paddingVertical: 8 },
+    skipBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 14, paddingVertical: 8 },
     skipText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: theme.textSecondary },
 
-    redirectRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 4 },
+    redirectRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 4 },
 
-    actionsRow: { flexDirection: 'row', gap: 4, marginTop: 6, alignItems: 'center' },
+    actionsRow: { flexDirection: 'row', gap: 10, marginTop: 6, alignItems: 'center' },
     ghostBtn: { paddingHorizontal: 16, paddingVertical: 15, borderRadius: 16 },
     ghostBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: theme.textSecondary },
     submitWrap: { flex: 1, marginTop: 0 },

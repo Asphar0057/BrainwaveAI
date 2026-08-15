@@ -122,7 +122,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
     tagRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
+      gap: 10,
       marginTop: 14,
     },
     tagDot: {

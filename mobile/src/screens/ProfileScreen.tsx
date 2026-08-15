@@ -374,7 +374,7 @@ export default function ProfileScreen({ user, onLogout, onUserUpdate, onNavigate
               {profile?.preferredSubjects && profile.preferredSubjects.length > 0 ? (
                 <View style={[styles.editBlock, styles.rowDivider]}>
                   <Text style={styles.editTitle}>Other Subjects</Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                     {profile.preferredSubjects.map((subject) => (
                       <View key={subject} style={styles.subjectChip}>
                         <Text style={styles.subjectChipText}>{subject}</Text>
@@ -486,7 +486,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       marginHorizontal: -PAD,
       paddingHorizontal: Math.max(0, PAD - 4),
     },
-    topBarActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    topBarActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     settingsButton: {
       width: 42, height: 42, borderRadius: 16,
       borderWidth: 1, borderColor: rgbaFromHex(GOLD_LIGHT, theme.isLight ? 0.18 : 0.22),
@@ -518,7 +518,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       overflow: 'hidden',
       marginBottom: 22,
       alignItems: 'center',
-      gap: 4,
+      gap: 6,
       boxShadow: cbModalShadow(0.14),
     } as ViewStyle,
     heroGhost: {
@@ -560,13 +560,13 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       alignItems: 'center', justifyContent: 'center',
       boxShadow: [{ offsetX: 0, offsetY: 0, blurRadius: 0, spreadDistance: 1, color: rgbaFromHex(GOLD_LIGHT, 0.08), inset: true }],
     },
-    prefRow:   { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 4 },
+    prefRow:   { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
     prefLabel: { fontFamily: 'Inter_400Regular', fontSize: 14, color: GOLD_LIGHT, flex: 1 },
-    linkRow:   { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 15, gap: 4 },
+    linkRow:   { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 15, gap: 12 },
     linkLabel: { fontFamily: 'Inter_400Regular', fontSize: 14, color: GOLD_LIGHT, flex: 1 },
     linkSubLabel: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM, marginTop: 2 },
     linkDanger: { color: theme.danger },
-    editBlock: { paddingHorizontal: 16, paddingVertical: 16, gap: 4 },
+    editBlock: { paddingHorizontal: 16, paddingVertical: 16, gap: 10 },
     editTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: GOLD_LIGHT, letterSpacing: 0.4, textTransform: 'uppercase' },
     subjectChip: {
       paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10,
@@ -580,7 +580,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       paddingHorizontal: 12, paddingVertical: 10,
       fontFamily: 'Inter_400Regular', fontSize: 13, color: GOLD_LIGHT,
     },
-    editActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 4, marginTop: 2 },
+    editActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 2 },
     editCancelBtn: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12 },
     editCancelText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: DIM, letterSpacing: 0.4, textTransform: 'uppercase' },
     editSaveBtn: {

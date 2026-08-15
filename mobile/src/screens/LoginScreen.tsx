@@ -628,7 +628,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
 
     form: {},
-    row: { flexDirection: layout.width < 420 ? 'column' : 'row', gap: 4 },
+    row: { flexDirection: layout.width < 420 ? 'column' : 'row', gap: 12 },
     half: { flex: 1 },
 
     label: {
@@ -744,7 +744,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 4,
+      gap: 10,
       borderRadius: 22,
       paddingVertical: 15,
       backgroundColor: CB_CARD_TOP,

@@ -318,7 +318,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     themeTabRow: {
       flexDirection: 'row',
       padding: 8,
-      gap: 4,
+      gap: 8,
       borderBottomWidth: 1,
       borderBottomColor: BORDER,
     },
@@ -349,7 +349,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     themeSection: {
       paddingHorizontal: 16,
       paddingVertical: 16,
-      gap: 4,
+      gap: 14,
     },
     themeSectionLabel: {
       fontFamily: 'Inter_600SemiBold',
@@ -361,7 +361,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     presetGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 4,
+      gap: 10,
     },
     presetBtn: {
       width: layout.threeColumn ? '31.8%' : '47%',
@@ -371,7 +371,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       backgroundColor: rgbaFromHex(theme.panelAlt, theme.isLight ? 0.84 : 0.72),
       paddingHorizontal: 12,
       paddingVertical: 12,
-      gap: 4,
+      gap: 10,
     },
     presetBtnActive: {
       borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.28 : 0.34),
@@ -379,7 +379,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     presetColors: {
       flexDirection: 'row',
-      gap: 4,
+      gap: 8,
     },
     presetSwatch: {
       width: 18,
@@ -393,7 +393,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     modeRow: {
       flexDirection: 'row',
-      gap: 4,
+      gap: 10,
     },
     modeBtn: {
       flex: 1,
@@ -421,7 +421,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     swatchGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 4,
+      gap: 10,
     },
     swatchBtn: {
       width: layout.threeColumn ? '18%' : layout.twoColumn ? '22%' : '30%',
@@ -432,7 +432,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       alignItems: 'center',
       paddingVertical: 10,
       paddingHorizontal: 6,
-      gap: 4,
+      gap: 8,
     },
     swatchBtnActive: {
       borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.28 : 0.34),
@@ -465,8 +465,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       textTransform: 'uppercase',
       letterSpacing: 0.8,
     },
-    prefRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 4 },
-    linkRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 15, gap: 4 },
+    prefRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
+    linkRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 15, gap: 12 },
     rowDivider: { borderBottomWidth: 1, borderBottomColor: BORDER },
     prefLabel: { fontFamily: 'Inter_400Regular', fontSize: 14, color: theme.textPrimary, flex: 1 },
     linkLabel: { fontFamily: 'Inter_400Regular', fontSize: 14, color: theme.textPrimary, flex: 1 },

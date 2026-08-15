@@ -183,16 +183,16 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     alignSelf: 'center',
     paddingHorizontal: 2,
     paddingBottom: 120,
-    gap: 4,
+    gap: 12,
   },
 
-  titleRow: { marginTop: 20, marginBottom: 6, paddingHorizontal: 6, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  titleRow: { marginTop: 20, marginBottom: 6, paddingHorizontal: 6, flexDirection: 'row', alignItems: 'center', gap: 14 },
   title: {
     fontFamily: 'Inter_900Black', fontSize: 38, color: GOLD_L, letterSpacing: -1.6,
   },
   titleRule: { flex: 1, height: 1, backgroundColor: BORDER, marginTop: 6 },
 
-  bentoRow: { flexDirection: 'row', gap: 4 },
+  bentoRow: { flexDirection: 'row', gap: 12 },
 
   heroTile: {
     flex: 1.4, minHeight: heroRowHeight, borderRadius: 26, padding: 20,
@@ -208,7 +208,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   },
   heroFootRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 16 },
 
-  stackCol: { flex: 1, gap: 4 },
+  stackCol: { flex: 1, gap: 12 },
   miniTile: {
     flex: 1, borderRadius: 26, overflow: 'hidden',
     paddingHorizontal: 16, paddingVertical: 16,
