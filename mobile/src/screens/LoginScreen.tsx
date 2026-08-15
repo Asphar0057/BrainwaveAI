@@ -543,7 +543,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       flexGrow: 1,
       justifyContent: layout.height < 760 ? 'flex-start' : 'center',
       paddingTop: layout.height < 760 ? 12 : 20,
-      paddingBottom: 22,
+      paddingBottom: 6,
     },
     content: {
       width: '100%',
@@ -558,8 +558,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       // architecture tiles. Ring is the shadow's own inset entry, not a
       // separate border — the site doesn't use a real border here either.
       borderRadius: 26,
-      paddingHorizontal: 8,
-      paddingVertical: 16,
+      paddingHorizontal: 2,
+      paddingVertical: 4,
       // Solid fallback under the gradient canvas: the Skia canvas re-measures
       // on layout, but on the frame the card first grows taller (e.g.
       // switching into "create account", which adds several fields), the
@@ -604,12 +604,12 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       backgroundColor: CB_CARD_TOP,
       borderRadius: 20,
       marginBottom: 18,
-      padding: 4,
+      padding: 1,
       boxShadow: cbPlainPressedShadow(0.6),
     } as ViewStyle,
     tab: {
       flex: 1,
-      paddingVertical: 11,
+      paddingVertical: 3,
       alignItems: 'center',
       borderRadius: 16,
     },
@@ -644,8 +644,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       // Same caveat as tabs — no literal input on the homepage to copy from.
       backgroundColor: CB_CARD_TOP,
       borderRadius: 22,
-      paddingHorizontal: 16,
-      paddingVertical: 13,
+      paddingHorizontal: 4,
+      paddingVertical: 3,
       fontFamily: 'Inter_400Regular',
       fontSize: 14,
       color: CB_ACCENT,
@@ -657,8 +657,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       borderWidth: 1,
       borderColor: rgbaFromHex(theme.danger, 0.30),
       backgroundColor: rgbaFromHex(theme.danger, 0.08),
-      paddingHorizontal: 12,
-      paddingVertical: 10,
+      paddingHorizontal: 3,
+      paddingVertical: 3,
       marginBottom: 14,
     },
     successBox: {
@@ -666,8 +666,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       borderWidth: 1,
       borderColor: rgbaFromHex(theme.success, 0.28),
       backgroundColor: rgbaFromHex(theme.success, 0.08),
-      paddingHorizontal: 12,
-      paddingVertical: 10,
+      paddingHorizontal: 3,
+      paddingVertical: 3,
       marginBottom: 14,
     },
     error: {
@@ -699,7 +699,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       backgroundColor: CB_ACCENT,
       borderRadius: 16,
       overflow: 'hidden',
-      paddingVertical: 16,
+      paddingVertical: 4,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -710,7 +710,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       letterSpacing: 0.6,
     },
 
-    textButton: { alignItems: 'center', paddingTop: 14 },
+    textButton: { alignItems: 'center', paddingTop: 4 },
     textButtonLabel: {
       fontFamily: 'Inter_600SemiBold',
       fontSize: 11,
@@ -720,7 +720,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
 
     resetPanel: {
       marginTop: 16,
-      padding: 14,
+      padding: 4,
       borderRadius: 22,
       backgroundColor: CB_CARD_TOP,
       boxShadow: cbPlainPressedShadow(0.75),
@@ -728,7 +728,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     secondaryBtn: {
       marginTop: 16,
       borderRadius: 22,
-      paddingVertical: 14,
+      paddingVertical: 4,
       alignItems: 'center',
       backgroundColor: CB_CARD_TOP,
       boxShadow: cbPlainRaisedShadow(),
@@ -746,7 +746,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       justifyContent: 'center',
       gap: 10,
       borderRadius: 22,
-      paddingVertical: 15,
+      paddingVertical: 4,
       backgroundColor: CB_CARD_TOP,
       boxShadow: cbPlainRaisedShadow(),
     } as ViewStyle,

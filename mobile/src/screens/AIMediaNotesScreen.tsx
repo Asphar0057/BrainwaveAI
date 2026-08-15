@@ -376,7 +376,7 @@ function MarkdownNote({ content }: { content: string }) {
 
           case 'bullet':
             return (
-              <View key={i} style={[md.listRow, { paddingLeft: 4 + b.depth * 16 }]}>
+              <View key={i} style={[md.listRow, { paddingLeft: 1 + b.depth * 16 }]}>
                 <View style={b.depth > 0 ? md.dotSub : md.dot} />
                 <Inline line={b.text} baseStyle={md.listText} />
               </View>
@@ -424,7 +424,7 @@ function createMarkdownStyles() {
   para: { fontFamily: 'Inter_400Regular', fontSize: 15, color: GOLD_L, lineHeight: 26, marginVertical: 2 },
 
   // Lists
-  listRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 7, paddingRight: 4 },
+  listRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 7, paddingRight: 1 },
   dot:      { width: 6, height: 6, borderRadius: 3, backgroundColor: GOLD_M, marginTop: 10, flexShrink: 0 },
   dotSub:   { width: 4, height: 4, borderRadius: 2, backgroundColor: GOLD_D, marginTop: 11, flexShrink: 0 },
   listText: { fontFamily: 'Inter_400Regular', fontSize: 15, color: GOLD_L, lineHeight: 26, flex: 1 },
@@ -1256,7 +1256,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     width: '100%',
     maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 4,
     paddingBottom: 48,
     gap: 12,
   },
@@ -1266,8 +1266,8 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 18,
-    paddingBottom: 6,
+    paddingTop: 5,
+    paddingBottom: 2,
     gap: 8,
   },
   backBtn:     { width: 36, alignItems: 'flex-start', justifyContent: 'center' },
@@ -1283,9 +1283,9 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingHorizontal: 4,
+    paddingTop: 4,
+    paddingBottom: 3,
   },
   subTitle: {
     fontFamily: 'Inter_900Black',
@@ -1299,8 +1299,8 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   saveChip: {
     backgroundColor: GOLD_M,
     borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
     shadowColor: GOLD_M,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.18,
@@ -1322,7 +1322,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     borderRadius: 20,
     borderWidth: 1,
     borderColor: CARD_BORDER,
-    padding: 5,
+    padding: 1,
     gap: 4,
     shadowColor: GOLD_M,
     shadowOffset: { width: 0, height: 8 },
@@ -1332,7 +1332,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   },
   modeBtn: {
     flex: 1,
-    paddingVertical: 11,
+    paddingVertical: 3,
     alignItems: 'center',
     borderRadius: 10,
   },
@@ -1365,7 +1365,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     shadowRadius: 20,
     elevation: 8,
   },
-  inputCardInner: { padding: 18, gap: 14, zIndex: 1 },
+  inputCardInner: { padding: 5, gap: 14, zIndex: 1 },
   inputCardLabel: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 9,
@@ -1380,8 +1380,8 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     borderRadius: 12,
     borderWidth: 1,
     borderColor: CARD_BORDER,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
+    paddingHorizontal: 4,
+    paddingVertical: 3,
   },
   errorText: {
     fontFamily: 'Inter_400Regular',
@@ -1394,7 +1394,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 15,
+    paddingVertical: 4,
   },
   processBtnText: {
     fontFamily: 'Inter_700Bold',
@@ -1404,7 +1404,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   },
 
   // Record mode
-  recordInner: { padding: 18, gap: 16, zIndex: 1, alignItems: 'center' },
+  recordInner: { padding: 5, gap: 16, zIndex: 1, alignItems: 'center' },
   recordHint: {
     fontFamily: 'Inter_400Regular',
     fontSize: 12,
@@ -1413,7 +1413,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     lineHeight: 19,
     letterSpacing: 0.3,
   },
-  recordBtnWrap: { alignItems: 'center', gap: 12, paddingVertical: 8 },
+  recordBtnWrap: { alignItems: 'center', gap: 12, paddingVertical: 2 },
   recordBtn:     { width: 72, height: 72, borderRadius: 36, overflow: 'hidden' },
   recordBtnGrad: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   recordDot: {
@@ -1439,20 +1439,20 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   },
 
   // Section header
-  sectionRow:   { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 4 },
+  sectionRow:   { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 1 },
   sectionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: GOLD_XL, letterSpacing: 3 },
   countBadge:   {
     backgroundColor: softAccent,
     borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
+    paddingHorizontal: 2,
+    paddingVertical: 1,
     borderWidth: 1,
     borderColor: CARD_BORDER,
   },
   countText: { fontFamily: 'Inter_700Bold', fontSize: 9, color: GOLD_L, letterSpacing: 1 },
 
   // Empty state
-  emptyBox: { alignItems: 'center', paddingVertical: 40, gap: 10 },
+  emptyBox: { alignItems: 'center', paddingVertical: 10, gap: 10 },
   emptyRing: {
     width: 68, height: 68, borderRadius: 34,
     backgroundColor: softAccent,
@@ -1473,7 +1473,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     borderRadius: 16,
     borderWidth: 1,
     borderColor: CARD_BORDER,
-    padding: 14,
+    padding: 4,
     overflow: 'hidden',
     position: 'relative',
     shadowColor: GOLD_D,
@@ -1500,11 +1500,11 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   // Tabs
   tabRow: {
     flexDirection: 'row',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 4,
+    paddingVertical: 3,
     gap: 4,
   },
-  tab:           { flex: 1, alignItems: 'center', paddingHorizontal: 8, paddingVertical: 9, borderRadius: 10 },
+  tab:           { flex: 1, alignItems: 'center', paddingHorizontal: 2, paddingVertical: 2, borderRadius: 10 },
   tabActive:     { backgroundColor: softAccent, borderWidth: 1, borderColor: CARD_BORDER },
   tabText:       { fontFamily: 'Inter_600SemiBold', fontSize: 9,  color: GOLD_D,  letterSpacing: 2.5 },
   tabTextActive: { fontFamily: 'Inter_600SemiBold', fontSize: 9,  color: GOLD_XL, letterSpacing: 2.5 },
@@ -1514,8 +1514,8 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     width: '100%',
     maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
-    paddingHorizontal: 18,
-    paddingBottom: 14,
+    paddingHorizontal: 5,
+    paddingBottom: 4,
   },
   metaTitle: {
     fontFamily: 'Inter_900Black',
@@ -1527,8 +1527,8 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   badge: {
     backgroundColor: softAccent,
     borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 2,
+    paddingVertical: 1,
     borderWidth: 1,
     borderColor: CARD_BORDER,
   },
@@ -1539,7 +1539,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     width: '100%',
     maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
-    padding: 20,
+    padding: 5,
     paddingBottom: 80,
   },
   transcriptBody: { fontFamily: 'Inter_400Regular', fontSize: 13, color: GOLD_L, lineHeight: 22 },
@@ -1549,7 +1549,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     width: '100%',
     maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 4,
     paddingBottom: 90,
     gap: 12,
   },
@@ -1563,7 +1563,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     borderWidth: 1,
     borderColor: CARD_BORDER,
     backgroundColor: SURFACE,
-    padding: 18,
+    padding: 5,
     gap: 12,
   },
   podcastPlayer: {
@@ -1571,7 +1571,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     borderWidth: 1,
     borderColor: CARD_BORDER,
     backgroundColor: SURFACE,
-    padding: 18,
+    padding: 5,
     gap: 12,
     shadowColor: GOLD_D,
     shadowOffset: { width: 0, height: 8 },
@@ -1589,23 +1589,23 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   podcastControls: { flexDirection: 'row', gap: 8 },
   podcastControl: { flex: 1, minHeight: 40, borderRadius: 12, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: softAccent, alignItems: 'center', justifyContent: 'center' },
   podcastControlText: { fontFamily: 'Inter_900Black', color: GOLD_L, fontSize: 10, letterSpacing: 1.1, textTransform: 'uppercase' },
-  podcastSection: { borderRadius: 18, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: SURFACE, padding: 15, gap: 10 },
+  podcastSection: { borderRadius: 18, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: SURFACE, padding: 4, gap: 10 },
   podcastSectionTitle: { fontFamily: 'Inter_900Black', color: GOLD_XL, fontSize: 16, letterSpacing: -0.1 },
-  chapterRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: softAccent, padding: 12 },
+  chapterRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: softAccent, padding: 3 },
   chapterRowActive: { borderColor: GOLD_M, backgroundColor: softAccentStrong },
   chapterIndex: { fontFamily: 'Inter_900Black', color: GOLD_D, fontSize: 12, width: 26 },
   chapterTitle: { fontFamily: 'Inter_700Bold', color: GOLD_XL, fontSize: 13 },
   chapterSummary: { fontFamily: 'Inter_400Regular', color: GOLD_L, fontSize: 11, lineHeight: 17, marginTop: 2 },
   takeaway: { fontFamily: 'Inter_400Regular', color: GOLD_L, fontSize: 12, lineHeight: 19 },
-  podcastInput: { minHeight: 84, borderRadius: 14, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: softAccent, color: GOLD_XL, fontFamily: 'Inter_400Regular', paddingHorizontal: 13, paddingVertical: 12, textAlignVertical: 'top' },
+  podcastInput: { minHeight: 84, borderRadius: 14, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: softAccent, color: GOLD_XL, fontFamily: 'Inter_400Regular', paddingHorizontal: 3, paddingVertical: 3, textAlignVertical: 'top' },
   podcastSecondary: { height: 44, borderRadius: 13, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: softAccent, alignItems: 'center', justifyContent: 'center' },
   podcastSecondaryText: { fontFamily: 'Inter_900Black', color: GOLD_L, fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase' },
   podcastAnswer: { fontFamily: 'Inter_400Regular', color: GOLD_XL, fontSize: 13, lineHeight: 21 },
   followRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  followChip: { borderRadius: 999, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: softAccent, paddingHorizontal: 11, paddingVertical: 8 },
+  followChip: { borderRadius: 999, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: softAccent, paddingHorizontal: 3, paddingVertical: 2 },
   followText: { fontFamily: 'Inter_600SemiBold', color: GOLD_L, fontSize: 11 },
   mcqQuestion: { fontFamily: 'Inter_700Bold', color: GOLD_XL, fontSize: 14, lineHeight: 21 },
-  mcqOption: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 13, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: softAccent, padding: 12 },
+  mcqOption: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 13, borderWidth: 1, borderColor: CARD_BORDER, backgroundColor: softAccent, padding: 3 },
   mcqLetter: { fontFamily: 'Inter_900Black', color: GOLD_D, fontSize: 12, width: 20 },
   mcqText: { flex: 1, fontFamily: 'Inter_400Regular', color: GOLD_XL, fontSize: 12, lineHeight: 18 },
 });

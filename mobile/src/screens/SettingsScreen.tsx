@@ -262,7 +262,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       width: '100%',
       maxWidth: layout.contentMaxWidth,
       alignSelf: 'center',
-      paddingHorizontal: 18,
+      paddingHorizontal: 5,
       paddingBottom: 80,
     },
     glow: {
@@ -289,8 +289,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     pageTitle: { fontFamily: 'Inter_900Black', fontSize: 24, color: theme.accentHover, textTransform: 'lowercase', letterSpacing: -0.4 },
     heroCard: {
       borderRadius: 30,
-      paddingHorizontal: 20,
-      paddingVertical: 22,
+      paddingHorizontal: 5,
+      paddingVertical: 6,
       marginBottom: 28,
       overflow: 'hidden',
       boxShadow: cbModalShadow(0.14),
@@ -317,7 +317,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     } as ViewStyle,
     themeTabRow: {
       flexDirection: 'row',
-      padding: 8,
+      padding: 2,
       gap: 8,
       borderBottomWidth: 1,
       borderBottomColor: BORDER,
@@ -325,7 +325,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     themeTab: {
       flex: 1,
       borderRadius: 16,
-      paddingVertical: 12,
+      paddingVertical: 3,
       alignItems: 'center',
       borderWidth: 1,
       borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.10 : 0.12),
@@ -347,8 +347,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       color: theme.textPrimary,
     },
     themeSection: {
-      paddingHorizontal: 16,
-      paddingVertical: 16,
+      paddingHorizontal: 4,
+      paddingVertical: 4,
       gap: 14,
     },
     themeSectionLabel: {
@@ -369,8 +369,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       borderWidth: 1,
       borderColor: BORDER,
       backgroundColor: rgbaFromHex(theme.panelAlt, theme.isLight ? 0.84 : 0.72),
-      paddingHorizontal: 12,
-      paddingVertical: 12,
+      paddingHorizontal: 3,
+      paddingVertical: 3,
       gap: 10,
     },
     presetBtnActive: {
@@ -402,7 +402,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       borderColor: BORDER,
       backgroundColor: rgbaFromHex(theme.panelAlt, theme.isLight ? 0.84 : 0.72),
       alignItems: 'center',
-      paddingVertical: 12,
+      paddingVertical: 3,
     },
     modeBtnActive: {
       borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.28 : 0.34),
@@ -430,8 +430,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       borderColor: BORDER,
       backgroundColor: rgbaFromHex(theme.panelAlt, theme.isLight ? 0.84 : 0.72),
       alignItems: 'center',
-      paddingVertical: 10,
-      paddingHorizontal: 6,
+      paddingVertical: 3,
+      paddingHorizontal: 2,
       gap: 8,
     },
     swatchBtnActive: {
@@ -455,7 +455,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       marginTop: 4,
     },
     applyBtnGrad: {
-      paddingVertical: 15,
+      paddingVertical: 4,
       alignItems: 'center',
     },
     applyBtnText: {
@@ -465,8 +465,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       textTransform: 'uppercase',
       letterSpacing: 0.8,
     },
-    prefRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
-    linkRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 15, gap: 12 },
+    prefRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, paddingVertical: 4, gap: 12 },
+    linkRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, paddingVertical: 4, gap: 12 },
     rowDivider: { borderBottomWidth: 1, borderBottomColor: BORDER },
     prefLabel: { fontFamily: 'Inter_400Regular', fontSize: 14, color: theme.textPrimary, flex: 1 },
     linkLabel: { fontFamily: 'Inter_400Regular', fontSize: 14, color: theme.textPrimary, flex: 1 },

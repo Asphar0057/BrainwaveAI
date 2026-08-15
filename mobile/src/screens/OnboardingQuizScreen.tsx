@@ -656,8 +656,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   const contentMaxWidth = Math.min(layout.contentMaxWidth, 640);
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: theme.bgPrimary },
-    welcomeWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
-    scrollContent: { flexGrow: 1, paddingTop: 14, paddingBottom: 48 },
+    welcomeWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
+    scrollContent: { flexGrow: 1, paddingTop: 4, paddingBottom: 48 },
     content: { width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center', paddingHorizontal: layout.isTablet ? 10 : 6 },
 
     steps: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
@@ -665,7 +665,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     stepChipOn: { color: theme.accentHover },
     stepRule: { width: 18, height: 1, backgroundColor: rgbaFromHex(theme.accentHover, 0.3) },
 
-    backLink: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', marginBottom: 10, paddingVertical: 4 },
+    backLink: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', marginBottom: 10, paddingVertical: 1 },
     backLinkText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: theme.textSecondary },
     pageTitle: { fontFamily: 'Inter_900Black', fontSize: 28, color: theme.accentHover, letterSpacing: -0.6, marginBottom: 4 },
     pageSub: { fontFamily: 'Inter_400Regular', fontSize: 13, color: theme.textSecondary, marginBottom: 18 },
@@ -673,8 +673,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     panel: {
       width: '100%',
       borderRadius: 24,
-      paddingHorizontal: 12,
-      paddingVertical: 14,
+      paddingHorizontal: 3,
+      paddingVertical: 4,
       marginBottom: 14,
       boxShadow: cbPlainCardShadow(),
     } as ViewStyle,
@@ -696,8 +696,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
+      paddingHorizontal: 4,
+      paddingVertical: 3,
       borderRadius: 14,
       backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.4 : 0.55),
       boxShadow: cbPlainRaisedShadow(),
@@ -721,8 +721,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       borderWidth: 1,
       borderColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.14 : 0.18),
       borderRadius: 14,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
+      paddingHorizontal: 4,
+      paddingVertical: 3,
       fontFamily: 'Inter_400Regular',
       fontSize: 14,
       color: theme.textPrimary,
@@ -730,8 +730,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     suggestions: { marginTop: 8, gap: 6 },
     suggestion: {
-      paddingHorizontal: 12,
-      paddingVertical: 9,
+      paddingHorizontal: 3,
+      paddingVertical: 2,
       borderRadius: 10,
       backgroundColor: rgbaFromHex(theme.panelAlt, theme.isLight ? 0.7 : 0.5),
     },
@@ -740,7 +740,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
     tag: {
       flexDirection: 'row', alignItems: 'center', gap: 6,
-      paddingHorizontal: 10, paddingVertical: 7, borderRadius: 12,
+      paddingHorizontal: 3, paddingVertical: 2, borderRadius: 12,
       borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.24),
       backgroundColor: rgbaFromHex(theme.accent, theme.isLight ? 0.12 : 0.16),
     },
@@ -748,7 +748,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
 
     presetRow: { gap: 8, marginTop: 4 },
     presetCard: {
-      paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14,
+      paddingHorizontal: 4, paddingVertical: 3, borderRadius: 14,
       backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.4 : 0.55),
       boxShadow: cbPlainRaisedShadow(),
       gap: 3,
@@ -768,8 +768,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
       borderRadius: 16,
       overflow: 'hidden',
-      paddingVertical: 15,
-      paddingHorizontal: 22,
+      paddingVertical: 4,
+      paddingHorizontal: 6,
     },
     btnText: {
       fontFamily: 'Inter_900Black',
@@ -782,13 +782,13 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     btnSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: theme.textSecondary, letterSpacing: 0.2, textAlign: 'center', marginTop: 10 },
 
-    skipBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 14, paddingVertical: 8 },
+    skipBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 14, paddingVertical: 2 },
     skipText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: theme.textSecondary },
 
     redirectRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 4 },
 
     actionsRow: { flexDirection: 'row', gap: 10, marginTop: 6, alignItems: 'center' },
-    ghostBtn: { paddingHorizontal: 16, paddingVertical: 15, borderRadius: 16 },
+    ghostBtn: { paddingHorizontal: 4, paddingVertical: 4, borderRadius: 16 },
     ghostBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: theme.textSecondary },
     submitWrap: { flex: 1, marginTop: 0 },
   });

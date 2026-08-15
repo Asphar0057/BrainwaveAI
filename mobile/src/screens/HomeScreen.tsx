@@ -634,8 +634,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     minHeight: heroMinHeight,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 12,
+    paddingHorizontal: 3,
+    paddingVertical: 3,
     overflow: 'hidden',
     borderRadius: 28,
     marginHorizontal: 0,
@@ -652,8 +652,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   phaseChip: {
     borderRadius: 999,
     borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 3,
+    paddingVertical: 2,
   },
   phaseChipText: {
     fontFamily: 'Inter_600SemiBold',
@@ -667,8 +667,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     backgroundColor: rgbaFromHex(theme.panelAlt, 0.86),
     borderWidth: 1,
     borderColor: CARD_BORDER,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 3,
+    paddingVertical: 2,
   },
   heroStatusText: {
     fontFamily: 'Inter_600SemiBold',
@@ -763,8 +763,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   nextCard: {
     backgroundColor: rgbaFromHex(SURFACE, 0.93),
     borderRadius: 0,
-    padding: 14,
-    paddingTop: 36,
+    padding: 4,
+    paddingTop: 9,
     borderBottomWidth: 1,
     borderColor: CARD_BORDER,
     height: windowHeight,
@@ -794,8 +794,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     borderWidth: 1,
     borderColor: CARD_BORDER,
     backgroundColor: rgbaFromHex(theme.accent, 0.10),
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 3,
+    paddingVertical: 2,
   },
   nextCta: {
     fontFamily: 'Inter_600SemiBold',
@@ -825,7 +825,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   },
   sectionCard: {
     borderRadius: 26,
-    padding: 16,
+    padding: 4,
     overflow: 'hidden',
     boxShadow: cbTileShadow(0.055),
   } as ViewStyle,
@@ -867,7 +867,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   todayRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 15,
+    paddingVertical: 4,
     gap: 16,
   },
   todayDivider: {
@@ -921,7 +921,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     justifyContent: layout.width >= 760 ? 'space-between' : 'space-around',
     flexWrap: layout.width < 360 ? 'wrap' : 'nowrap',
     gap: layout.width < 360 ? 12 : 0,
-    paddingTop: 18,
+    paddingTop: 5,
   },
   ringMuted: {
     opacity: 0.96,
@@ -996,8 +996,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     gap: 13,
     borderRadius: 20,
     overflow: 'hidden',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 4,
+    paddingVertical: 3,
     boxShadow: cbTileShadow(0.055),
   } as ViewStyle,
   recoCard: {
@@ -1007,8 +1007,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     gap: 12,
     borderRadius: 18,
     overflow: 'hidden',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 4,
+    paddingVertical: 3,
     boxShadow: cbTileShadow(0.055),
   } as ViewStyle,
   timelineDot: {

@@ -167,7 +167,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   const border = rgbaFromHex(theme.accentHover, theme.isLight ? 0.18 : 0.2);
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bgPrimary },
-    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 16, paddingTop: Math.max(topInset + 10, 50), paddingBottom: 110 },
+    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 4, paddingTop: Math.max(topInset + 10, 50), paddingBottom: 110 },
     header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
     iconBtn: { width: 42, height: 42, borderRadius: 15, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), alignItems: 'center', justifyContent: 'center' },
     headerCopy: { flex: 1 },
@@ -175,12 +175,12 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     title: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 26, lineHeight: 30, letterSpacing: -0.6 },
     markAllText: { fontFamily: 'Inter_600SemiBold', color: theme.accentHover, fontSize: 11.5 },
 
-    errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 14, borderWidth: 1, borderColor: rgbaFromHex(theme.danger, 0.3), backgroundColor: rgbaFromHex(theme.danger, 0.1), paddingHorizontal: 14, paddingVertical: 10, marginBottom: 16 } as ViewStyle,
+    errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 14, borderWidth: 1, borderColor: rgbaFromHex(theme.danger, 0.3), backgroundColor: rgbaFromHex(theme.danger, 0.1), paddingHorizontal: 4, paddingVertical: 3, marginBottom: 16 } as ViewStyle,
     errorBannerText: { fontFamily: 'Inter_600SemiBold', color: theme.danger, fontSize: 12 },
-    empty: { alignItems: 'center', gap: 8, paddingVertical: 70 },
+    empty: { alignItems: 'center', gap: 8, paddingVertical: 18 },
     emptyTitle: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 13, marginTop: 4 },
 
-    row: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, borderRadius: 18, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.9), paddingHorizontal: 14, paddingVertical: 13, boxShadow: cbTileShadow(0.05) } as ViewStyle,
+    row: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, borderRadius: 18, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.9), paddingHorizontal: 4, paddingVertical: 3, boxShadow: cbTileShadow(0.05) } as ViewStyle,
     rowUnread: { borderColor: rgbaFromHex(theme.accentHover, 0.4), backgroundColor: rgbaFromHex(theme.accent, theme.isLight ? 0.08 : 0.1) },
     unreadDot: { position: 'absolute', top: 12, right: 12, width: 7, height: 7, borderRadius: 3.5, backgroundColor: theme.accentHover },
     rowIcon: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: rgbaFromHex(theme.accent, 0.14) },
