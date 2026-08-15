@@ -19,6 +19,13 @@ async function authHeaders(): Promise<Record<string, string>> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 async function readApiError(res: Response, fallback: string): Promise<never> {
   let detail = fallback;
   try {
@@ -27,7 +34,7 @@ async function readApiError(res: Response, fallback: string): Promise<never> {
   } catch {
     // ignore JSON parse failures and use fallback
   }
-  throw new Error(detail);
+  throw new ApiError(detail, res.status);
 }
 
 // ── Auth ─────────────────────────────────────────────────────────────
@@ -278,7 +285,10 @@ export async function createChatSession(userId: string, title = 'New Chat') {
     headers: { ...headers, 'Content-Type': 'application/json' },
     body: JSON.stringify({ user_id: userId, title }),
   });
-  return res.json(); // { id, title, ... }
+  if (!res.ok) await readApiError(res, 'Could not create chat');
+  const data = await res.json();
+  if (!data?.id) throw new Error('The backend did not return a chat ID.');
+  return data; // { id, title, ... }
 }
 
 export async function askAI(
@@ -296,12 +306,17 @@ export async function askAI(
     ...(chatId ? { chat_id: String(chatId) } : {}),
     ...(docIds.length ? { context_doc_ids: docIds.join(',') } : {}),
   });
-  const res = await fetch(`${API_URL}/ask/`, {
+  const res = await fetch(`${API_URL}/ask_simple/`, {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString(),
   });
-  return res.json(); // { response, chat_id, ... }
+  if (!res.ok) await readApiError(res, 'Could not get an AI response');
+  const data = await res.json();
+  if (typeof data?.answer !== 'string' || !data.answer.trim()) {
+    throw new Error('The AI service returned an empty answer.');
+  }
+  return data; // { answer, tutor state, intent metadata, ... }
 }
 
 export async function askAIWithFile(
@@ -326,7 +341,12 @@ export async function askAIWithFile(
     headers,
     body,
   });
-  return res.json(); // { answer, chat_id, ... }
+  if (!res.ok) await readApiError(res, 'Could not analyze the attachment');
+  const data = await res.json();
+  if (typeof data?.answer !== 'string' || !data.answer.trim()) {
+    throw new Error(data?.attachment_error || 'The AI service returned an empty answer.');
+  }
+  return data; // { answer, chat_id, ... }
 }
 
 export type PersonalizedPrompt = { text: string; reason: string; priority: 'high' | 'medium' | 'low' };

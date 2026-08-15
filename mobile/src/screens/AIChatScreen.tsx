@@ -35,6 +35,8 @@ type Msg = { id: string; role: 'user' | 'ai'; text: string; attachmentUri?: stri
 type Session = { id: number; title: string; updated_at: string | null; folder_id?: number | null };
 type Props = { user: AuthUser };
 
+type PromptItem = Msg & { questionNumber: number; messageIndex: number; preview: string };
+
 const DEFAULT_PROMPTS = [
   'Explain a hard topic simply',
   'Turn my notes into flashcards',
@@ -163,6 +165,16 @@ function attachmentFromImageAsset(asset: ImagePicker.ImagePickerAsset, fallbackN
   return { uri: asset.uri, name, type };
 }
 
+function buildPromptItems(messages: Msg[]): PromptItem[] {
+  return messages.reduce<PromptItem[]>((items, message, messageIndex) => {
+    if (message.role !== 'user') return items;
+    const compact = message.text.replace(/\s+/g, ' ').trim() || 'Attachment';
+    const preview = compact.length > 92 ? `${compact.slice(0, 89).trimEnd()}…` : compact;
+    items.push({ ...message, questionNumber: items.length + 1, messageIndex, preview });
+    return items;
+  }, []);
+}
+
 export default function AIChatScreen({ user }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
@@ -197,6 +209,8 @@ export default function AIChatScreen({ user }: Props) {
   const [newFolderModalOpen, setNewFolderModalOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [creatingFolder, setCreatingFolder] = useState(false);
+  const [promptMapOpen, setPromptMapOpen] = useState(false);
+  const [activePromptId, setActivePromptId] = useState<string | null>(null);
 
   useEffect(() => {
     getHsModeEnabled().then(setHsMode).catch(() => {});
@@ -205,8 +219,25 @@ export default function AIChatScreen({ user }: Props) {
   const [starterPrompts, setStarterPrompts] = useState<string[]>(DEFAULT_PROMPTS);
   const greeting = useMemo(() => getRandomGreeting(user.first_name || user.username), [user.first_name, user.username]);
   const listRef = useRef<FlatList>(null);
+  const messagesRef = useRef(messages);
   const slideAnim = useRef(new Animated.Value(-sidebarWidth)).current;
   const focusGlass = useRef(new Animated.Value(0)).current;
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 18 }).current;
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+    const firstVisibleIndex = viewableItems
+      .map((entry) => entry.index)
+      .filter((index): index is number => index !== null)
+      .sort((a, b) => a - b)[0];
+    if (firstVisibleIndex === undefined) return;
+    for (let index = Math.min(firstVisibleIndex, messagesRef.current.length - 1); index >= 0; index -= 1) {
+      if (messagesRef.current[index]?.role === 'user') {
+        setActivePromptId(messagesRef.current[index].id);
+        break;
+      }
+    }
+  }).current;
+
+  messagesRef.current = messages;
 
   useEffect(() => {
     slideAnim.setValue(sidebarOpen ? 0 : -sidebarWidth);
@@ -537,13 +568,14 @@ export default function AIChatScreen({ user }: Props) {
         {
           id: String(Date.now() + 1),
           role: 'ai',
-          text: data.response ?? data.answer ?? 'Sorry, no response.',
+          text: data.answer,
         },
       ]);
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Something went wrong. Please try again.';
       setMessages((current) => [
         ...current,
-        { id: String(Date.now() + 1), role: 'ai', text: 'Something went wrong. Please try again.' },
+        { id: String(Date.now() + 1), role: 'ai', text: message },
       ]);
     } finally {
       setLoading(false);
@@ -601,6 +633,35 @@ export default function AIChatScreen({ user }: Props) {
     [folders, filteredSessions]
   );
   const isEmpty = messages.length === 0 && !loading;
+  const promptItems = useMemo(() => buildPromptItems(messages), [messages]);
+  const activePrompt = promptItems.find((prompt) => prompt.id === activePromptId) ?? promptItems[0];
+
+  useEffect(() => {
+    if (promptItems.length === 0) {
+      setActivePromptId(null);
+      setPromptMapOpen(false);
+      return;
+    }
+    if (!promptItems.some((prompt) => prompt.id === activePromptId)) {
+      setActivePromptId(promptItems[0].id);
+    }
+  }, [activePromptId, promptItems]);
+
+  const jumpToPrompt = useCallback((prompt: PromptItem) => {
+    setActivePromptId(prompt.id);
+    setPromptMapOpen(false);
+    triggerHaptic('selection');
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToIndex({ index: prompt.messageIndex, animated: true, viewPosition: 0.08 });
+    });
+  }, []);
+
+  const recoverPromptScroll = useCallback(({ index, averageItemLength }: { index: number; averageItemLength: number }) => {
+    listRef.current?.scrollToOffset({ offset: Math.max(0, averageItemLength * index), animated: true });
+    setTimeout(() => {
+      listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.08 });
+    }, 180);
+  }, []);
 
   const renderSessionCard = (session: Session) => {
     const active = chatId === session.id;
@@ -714,6 +775,9 @@ export default function AIChatScreen({ user }: Props) {
             contentContainerStyle={s.list}
             showsVerticalScrollIndicator={false}
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig}
+            onScrollToIndexFailed={recoverPromptScroll}
             renderItem={({ item }) => {
               const isUser = item.role === 'user';
               if (item.text === '__typing__') {
@@ -772,6 +836,25 @@ export default function AIChatScreen({ user }: Props) {
         )}
         </Animated.View>
 
+        {!sidebarOpen && promptItems.length > 1 ? (
+          <HapticTouchable
+            style={s.promptRail}
+            onPress={() => setPromptMapOpen(true)}
+            activeOpacity={0.82}
+            haptic="selection"
+            accessibilityRole="button"
+            accessibilityLabel={`Open question navigator. Question ${activePrompt?.questionNumber ?? 1} of ${promptItems.length}`}
+            accessibilityHint="Shows every question in this conversation"
+          >
+            <View style={s.promptRailLines} pointerEvents="none">
+              {promptItems.map((prompt) => {
+                const active = prompt.id === activePrompt?.id;
+                return <View key={prompt.id} style={[s.promptRailLine, active && s.promptRailLineActive]} />;
+              })}
+            </View>
+          </HapticTouchable>
+        ) : null}
+
         <View style={s.composerWrap}>
           {attachment ? (
             <View style={s.attachmentPreview}>
@@ -819,6 +902,73 @@ export default function AIChatScreen({ user }: Props) {
         <View collapsable={false} style={s.edgeSwipeZone} pointerEvents="box-only" {...openPanResponder.panHandlers} />
       ) : null}
 
+      <Modal
+        transparent
+        visible={promptMapOpen}
+        animationType="slide"
+        onRequestClose={() => setPromptMapOpen(false)}
+      >
+        <SafeAreaProvider>
+          <View style={s.promptMapOverlay}>
+            <HapticTouchable
+              style={StyleSheet.absoluteFill}
+              onPress={() => setPromptMapOpen(false)}
+              activeOpacity={1}
+              haptic="none"
+              accessibilityLabel="Close question navigator"
+            />
+            <SafeAreaView style={s.promptMapSafe} edges={['bottom']}>
+              <View style={s.promptMapSheet}>
+                <View style={s.promptMapGrabber} />
+                <View style={s.promptMapHeader}>
+                  <View>
+                    <Text style={s.promptMapTitle}>Questions</Text>
+                    <Text style={s.promptMapSubtitle}>{promptItems.length} prompts in this conversation</Text>
+                  </View>
+                  <HapticTouchable
+                    onPress={() => setPromptMapOpen(false)}
+                    style={s.promptMapClose}
+                    haptic="light"
+                    accessibilityLabel="Close question navigator"
+                  >
+                    <Ionicons name="close" size={20} color={selectedTheme.textPrimary} />
+                  </HapticTouchable>
+                </View>
+                <ScrollView
+                  style={s.promptMapScroll}
+                  contentContainerStyle={s.promptMapList}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {promptItems.map((prompt) => {
+                    const active = prompt.id === activePrompt?.id;
+                    return (
+                      <HapticTouchable
+                        key={prompt.id}
+                        style={[s.promptMapItem, active && s.promptMapItemActive]}
+                        onPress={() => jumpToPrompt(prompt)}
+                        activeOpacity={0.78}
+                        haptic="none"
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                        accessibilityLabel={`Question ${prompt.questionNumber}: ${prompt.preview}`}
+                      >
+                        <View style={[s.promptMapNumber, active && s.promptMapNumberActive]}>
+                          <Text style={[s.promptMapNumberText, active && s.promptMapNumberTextActive]}>Q{prompt.questionNumber}</Text>
+                        </View>
+                        <Text style={[s.promptMapCopy, active && s.promptMapCopyActive]} numberOfLines={3}>
+                          {prompt.preview}
+                        </Text>
+                        {active ? <Text style={s.promptMapReading}>Reading</Text> : <Ionicons name="chevron-forward" size={16} color={selectedTheme.textSecondary} />}
+                      </HapticTouchable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            </SafeAreaView>
+          </View>
+        </SafeAreaProvider>
+      </Modal>
+
       {sidebarOpen ? (
         <Modal transparent animationType="none" onRequestClose={closeSidebar}>
           <SafeAreaProvider>
@@ -826,7 +976,7 @@ export default function AIChatScreen({ user }: Props) {
               <HapticTouchable style={StyleSheet.absoluteFill} onPress={closeSidebar} activeOpacity={1} haptic="none" />
               <Animated.View style={[s.sidebar, { transform: [{ translateX: slideAnim }] }]} {...closePanResponder.panHandlers}>
                 <LinearGradient colors={[darkenColor(selectedTheme.bgTop, selectedTheme.isLight ? 4 : 0), selectedTheme.panelAlt, selectedTheme.bgPrimary]} style={StyleSheet.absoluteFill} />
-                <SafeAreaView style={{ flex: 1, paddingTop: 6, paddingBottom: 6 }} edges={[]}>
+                <SafeAreaView style={{ flex: 1, paddingBottom: 6 }} edges={['top', 'bottom']}>
                   <View style={s.sidebarHero}>
                     <NeumorphicLayer grainOpacity={0.22} />
                     <Text style={s.sidebarGhost}>01</Text>
@@ -1178,7 +1328,8 @@ function createStyles(
     width: '100%',
     maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
-    paddingHorizontal: 2,
+    paddingLeft: 2,
+    paddingRight: 52,
     paddingTop: 8,
     paddingBottom: 18,
     gap: 14,
@@ -1234,6 +1385,110 @@ function createStyles(
     backgroundColor: CARD_ALT,
   },
   userText: { fontFamily: 'Inter_400Regular', fontSize: 14, lineHeight: 22, color: GOLD_XL },
+
+  promptRail: {
+    position: 'absolute',
+    right: Math.max(8, (layout.width - layout.contentMaxWidth) / 2 + 8),
+    top: '37%',
+    width: 44,
+    minHeight: 72,
+    maxHeight: 184,
+    borderRadius: 15,
+    backgroundColor: rgbaFromHex(CARD_ALT, theme.isLight ? 0.96 : 0.93),
+    borderWidth: 1,
+    borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.16 : 0.22),
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    shadowColor: SHADOW,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: theme.isLight ? 0.10 : 0.28,
+    shadowRadius: 16,
+    elevation: 10,
+    zIndex: 4,
+  },
+  promptRailLines: { alignItems: 'center', justifyContent: 'center', gap: 6 },
+  promptRailLine: {
+    width: 18,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: rgbaFromHex(DIM, 0.56),
+  },
+  promptRailLineActive: { width: 22, backgroundColor: GOLD_L },
+  promptMapOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.48)',
+  },
+  promptMapSafe: { width: '100%', flex: 1, justifyContent: 'flex-end' },
+  promptMapSheet: {
+    width: '100%',
+    height: layout.isTablet ? '58%' : '52%',
+    maxHeight: layout.isTablet ? '68%' : '72%',
+    backgroundColor: CARD,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    borderTopWidth: 1,
+    borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.16 : 0.22),
+    paddingTop: 8,
+    shadowColor: SHADOW,
+    shadowOffset: { width: 0, height: -12 },
+    shadowOpacity: theme.isLight ? 0.10 : 0.34,
+    shadowRadius: 26,
+    elevation: 20,
+  },
+  promptMapGrabber: {
+    alignSelf: 'center',
+    width: 36,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: rgbaFromHex(DIM, 0.34),
+    marginBottom: 12,
+  },
+  promptMapHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+  },
+  promptMapTitle: { fontFamily: 'Inter_700Bold', fontSize: 19, color: GOLD_L, letterSpacing: -0.35 },
+  promptMapSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 12, color: DIM, marginTop: 3 },
+  promptMapClose: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: rgbaFromHex(CARD_ALT, 0.82),
+  },
+  promptMapScroll: { flex: 1 },
+  promptMapList: { paddingHorizontal: 12, paddingBottom: 14, gap: 6 },
+  promptMapItem: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    backgroundColor: 'transparent',
+  },
+  promptMapItemActive: { backgroundColor: rgbaFromHex(theme.accent, theme.isLight ? 0.10 : 0.14) },
+  promptMapNumber: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: rgbaFromHex(CARD_ALT, 0.82),
+  },
+  promptMapNumberActive: { backgroundColor: GOLD_L },
+  promptMapNumberText: { fontFamily: 'Inter_700Bold', fontSize: 11, color: DIM },
+  promptMapNumberTextActive: { color: theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary },
+  promptMapCopy: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 14, lineHeight: 19, color: GOLD_XL },
+  promptMapCopyActive: { fontFamily: 'Inter_600SemiBold', color: GOLD_L },
+  promptMapReading: { fontFamily: 'Inter_700Bold', fontSize: 9, color: GOLD_L, textTransform: 'uppercase', letterSpacing: 0.7 },
 
   composerWrap: {
     width: '100%',
@@ -1292,7 +1547,7 @@ function createStyles(
   attachmentName: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 12, color: DIM },
   attachmentRemove: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
 
-  overlay: { flex: 1, flexDirection: 'row' },
+  overlay: { flex: 1, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.58)' },
   sidebar: {
     width: sidebarWidth,
     height: '100%',

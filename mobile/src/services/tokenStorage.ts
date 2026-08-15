@@ -13,7 +13,21 @@ const TOKEN_KEY = 'token';
 const isNative = Platform.OS === 'ios' || Platform.OS === 'android';
 
 export async function getToken(): Promise<string | null> {
-  return isNative ? SecureStore.getItemAsync(TOKEN_KEY) : AsyncStorage.getItem(TOKEN_KEY);
+  if (!isNative) return AsyncStorage.getItem(TOKEN_KEY);
+
+  const secureToken = await SecureStore.getItemAsync(TOKEN_KEY);
+  if (secureToken) return secureToken;
+
+  // One-time migration for users who signed in before tokens moved from
+  // AsyncStorage to the native keychain. Without this, the cached user opens
+  // the app but every authenticated API request is silently sent without a
+  // bearer token.
+  const legacyToken = await AsyncStorage.getItem(TOKEN_KEY);
+  if (!legacyToken) return null;
+
+  await SecureStore.setItemAsync(TOKEN_KEY, legacyToken);
+  await AsyncStorage.removeItem(TOKEN_KEY);
+  return legacyToken;
 }
 
 export async function setToken(token: string): Promise<void> {

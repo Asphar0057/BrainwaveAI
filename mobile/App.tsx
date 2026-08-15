@@ -8,7 +8,7 @@ import SplashScreen from './src/screens/SplashScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import OnboardingQuizScreen from './src/screens/OnboardingQuizScreen';
 import TabNavigator from './src/navigation/TabNavigator';
-import { getStoredUser, AuthUser } from './src/services/auth';
+import { restoreSession, AuthUser } from './src/services/auth';
 import { checkProfileQuiz } from './src/services/api';
 import { useSessionTracking } from './src/hooks/useSessionTracking';
 import { ThemeProvider, useAppTheme } from './src/contexts/ThemeContext';
@@ -20,7 +20,7 @@ function AppContent() {
   const { selectedTheme } = useAppTheme();
 
   useEffect(() => {
-    getStoredUser().then(u => setUser(u));
+    restoreSession().then(u => setUser(u)).catch(() => setUser(null));
   }, []);
 
   useEffect(() => {
