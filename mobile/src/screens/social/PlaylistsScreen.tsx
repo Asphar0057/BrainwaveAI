@@ -13,6 +13,7 @@ import { getToken } from '../../services/tokenStorage';
 import HapticTouchable from '../../components/HapticTouchable';
 import GeoBackground from '../../components/GeoBackground';
 import SocialTileMaterial from '../../components/SocialTileMaterial';
+import { cbTileShadow, cbModalShadow, cbTileBorder } from '../../components/NeumorphicTexture';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../../utils/theme';
 import { useResponsiveLayout } from '../../hooks/useResponsiveLayout';
@@ -382,7 +383,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     backBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: rgbaFromHex(SURFACE, 0.92), borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center' },
     cta: { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9 },
     ctaText: { fontFamily: 'Inter_700Bold', fontSize: 13, color: INK },
-    hero: { width: '90%', minHeight: 104, maxWidth: layout.contentMaxWidth - 40, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', marginBottom: 14, padding: 18, gap: 14, borderRadius: 26, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)', backgroundColor: '#0b0c0f' },
+    hero: { width: '90%', minHeight: 104, maxWidth: layout.contentMaxWidth - 40, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', marginBottom: 14, padding: 18, gap: 14, borderRadius: 26, overflow: 'hidden', backgroundColor: '#0b0c0f', boxShadow: cbModalShadow(0.14), ...cbTileBorder(0.22) },
     heroText: { gap: 2 },
     heroTitle: { fontFamily: 'Inter_900Black', fontSize: 34, color: ACCENT_HOVER, letterSpacing: -1.2 },
     heroSub: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM, letterSpacing: 1.8, textTransform: 'uppercase' },
@@ -401,7 +402,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     chipText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: DIM },
     chipTextActive: { color: ACCENT_HOVER },
     list: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 4, paddingBottom: 60, gap: 10 },
-    empty: { minHeight: 230, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12, borderRadius: 26, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)', backgroundColor: '#0b0c0f' },
+    empty: { minHeight: 230, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12, borderRadius: 26, overflow: 'hidden', backgroundColor: '#0b0c0f', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
     emptyTitle: { fontFamily: 'Inter_900Black', fontSize: 18, color: ACCENT_DARK },
     emptyHint: { fontFamily: 'Inter_400Regular', fontSize: 13, color: DIM },
   });
@@ -413,9 +414,8 @@ function createPlaylistCardStyles(theme: ReturnType<typeof useAppTheme>['selecte
   const ACCENT_DARK = darkenColor(theme.accent, theme.isLight ? 12 : 26);
   const DIM = theme.textSecondary;
   const SURFACE = '#0b0c0f';
-  const BORDER = 'rgba(216,179,141,0.22)';
   return StyleSheet.create({
-    wrap: { flexDirection: 'row', backgroundColor: SURFACE, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: BORDER, shadowColor: ACCENT, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.08, shadowRadius: 22, elevation: 4 },
+    wrap: { flexDirection: 'row', backgroundColor: SURFACE, borderRadius: 18, overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
     accent: { width: 3, backgroundColor: ACCENT_DARK },
     body: { flex: 1, padding: 14, gap: 8 },
     topRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },

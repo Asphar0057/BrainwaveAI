@@ -14,6 +14,7 @@ import {
 import HapticTouchable from '../../components/HapticTouchable';
 import GeoBackground from '../../components/GeoBackground';
 import SocialTileMaterial from '../../components/SocialTileMaterial';
+import { cbTileShadow, cbModalShadow, cbTileBorder } from '../../components/NeumorphicTexture';
 import BattlePlayScreen from './BattlePlayScreen';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../../utils/theme';
@@ -494,7 +495,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     backBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: rgbaFromHex(SURFACE, 0.92), borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center' },
     cta: { borderRadius: 12, paddingHorizontal: 15, paddingVertical: 10 },
     ctaText: { fontFamily: 'Inter_700Bold', fontSize: 13, color: INK },
-    hero: { width: '90%', minHeight: 180, maxWidth: layout.contentMaxWidth - 40, alignSelf: 'center', alignItems: 'flex-start', justifyContent: 'flex-end', padding: 20, gap: 6, borderRadius: 26, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)' },
+    hero: { width: '90%', minHeight: 180, maxWidth: layout.contentMaxWidth - 40, alignSelf: 'center', alignItems: 'flex-start', justifyContent: 'flex-end', padding: 20, gap: 6, borderRadius: 26, overflow: 'hidden', boxShadow: cbModalShadow(0.14), ...cbTileBorder(0.22) },
     heroGlow: { position: 'absolute', right: 18, top: 18, width: 58, height: 58, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)', backgroundColor: 'rgba(216,179,141,0.08)' },
     heroTitle: { fontFamily: 'Inter_900Black', fontSize: 38, color: '#D8B38D', letterSpacing: -1.8 },
     heroSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM, letterSpacing: 1 },
@@ -511,7 +512,7 @@ function createCardStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']
   const BORDER = 'rgba(216,179,141,0.22)';
   const INK = theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary;
   return StyleSheet.create({
-    wrap: { flexDirection: 'row', backgroundColor: SURFACE, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: BORDER },
+    wrap: { flexDirection: 'row', backgroundColor: SURFACE, borderRadius: 18, overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
     accent: { width: 3, backgroundColor: darkenColor(theme.accent, theme.isLight ? 12 : 26) },
     body: { flex: 1, padding: 14, gap: 12 },
     row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -548,7 +549,7 @@ function createVersusStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme
 function createEmptyStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
   const INK = theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary;
   return StyleSheet.create({
-    wrap: { minHeight: 230, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 14, borderRadius: 26, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)', backgroundColor: '#0b0c0f' },
+    wrap: { minHeight: 230, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 14, borderRadius: 26, overflow: 'hidden', backgroundColor: '#0b0c0f', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
     icon: { width: 88, height: 88, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: rgbaFromHex(theme.accent, 0.22) },
     title: { fontFamily: 'Inter_900Black', fontSize: 18, color: darkenColor(theme.accent, theme.isLight ? 12 : 26) },
     hint: { fontFamily: 'Inter_400Regular', fontSize: 13, color: theme.textSecondary },

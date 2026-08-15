@@ -15,6 +15,7 @@ import {
 import HapticTouchable from '../../components/HapticTouchable';
 import GeoBackground from '../../components/GeoBackground';
 import SocialTileMaterial from '../../components/SocialTileMaterial';
+import { cbTileShadow, cbModalShadow, cbTileBorder } from '../../components/NeumorphicTexture';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../../utils/theme';
 import { useResponsiveLayout } from '../../hooks/useResponsiveLayout';
@@ -478,7 +479,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     heroPanel: {
       minHeight: 218, padding: 20, overflow: 'hidden',
       borderRadius: 24,
-      borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)',
+      boxShadow: cbModalShadow(0.14),
+      ...cbTileBorder(0.22),
     },
     heroCopy: { width: '66%' },
     heroKicker: {
@@ -541,7 +543,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     searchInner: {
       minHeight: 51, flexDirection: 'row', alignItems: 'center',
       backgroundColor: '#0b0c0f', borderRadius: 19,
-      paddingHorizontal: 9, gap: 9, borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)',
+      paddingHorizontal: 9, gap: 9, overflow: 'hidden',
+      boxShadow: cbTileShadow(0.05),
+      ...cbTileBorder(0.14),
     },
     searchIcon: {
       width: 34, height: 34, borderRadius: 12, alignItems: 'center',
@@ -556,8 +560,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       width: '100%', maxWidth: layout.contentMaxWidth - 32, alignSelf: 'center',
       marginHorizontal: 16, backgroundColor: '#0b0c0f',
       borderRadius: 18,
-      borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)',
       marginBottom: 12, overflow: 'hidden',
+      boxShadow: cbModalShadow(0.1),
+      ...cbTileBorder(0.2),
     },
     resultRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13, paddingVertical: 12, gap: 10 },
     resultDivider: { borderBottomWidth: 1, borderBottomColor: theme.border },
@@ -608,7 +613,9 @@ function createFriendCardStyles(theme: ReturnType<typeof useAppTheme>['selectedT
       flexDirection: 'row', minHeight: 76,
       backgroundColor: '#0b0c0f',
       borderRadius: 18,
-      overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)',
+      overflow: 'hidden',
+      boxShadow: cbTileShadow(0.06),
+      ...cbTileBorder(0.14),
     },
     accent: { width: 3, backgroundColor: ACCENT_DARK, opacity: 0.76 },
     body: { flex: 1, paddingHorizontal: 13, paddingVertical: 12 },
@@ -631,7 +638,9 @@ function createRequestStyles(theme: ReturnType<typeof useAppTheme>['selectedThem
     wrap: {
       flexDirection: 'row', backgroundColor: '#0b0c0f',
       borderRadius: 18,
-      overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)',
+      overflow: 'hidden',
+      boxShadow: cbTileShadow(0.06),
+      ...cbTileBorder(0.14),
     },
     accent: { width: 3, backgroundColor: theme.accent },
     body: { flex: 1, padding: 14, gap: 12 },
@@ -651,8 +660,10 @@ function createActivityStyles(theme: ReturnType<typeof useAppTheme>['selectedThe
   return StyleSheet.create({
     row: {
       minHeight: 68, flexDirection: 'row', gap: 12, padding: 12,
-      position: 'relative', borderRadius: 20, borderWidth: 1,
-      borderColor: 'rgba(216,179,141,0.22)', backgroundColor: '#0b0c0f', overflow: 'hidden',
+      position: 'relative', borderRadius: 20,
+      backgroundColor: '#0b0c0f', overflow: 'hidden',
+      boxShadow: cbTileShadow(0.06),
+      ...cbTileBorder(0.14),
     },
     line: { position: 'absolute', left: 28, top: 45, bottom: -16, width: 1, backgroundColor: rgbaFromHex(ACCENT_DARK, 0.18) },
     iconWrap: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1 },
@@ -671,8 +682,9 @@ function createEmptyStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'
       minHeight: 190, alignItems: 'center', justifyContent: 'center',
       gap: 11, padding: 24,
       borderRadius: 22,
-      borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)',
       backgroundColor: '#0b0c0f', overflow: 'hidden',
+      boxShadow: cbTileShadow(0.06),
+      ...cbTileBorder(0.14),
     },
     icon: { width: 70, height: 70, borderRadius: 35, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderStyle: 'dashed', borderColor: rgbaFromHex(ACCENT_DARK, 0.32) },
     title: { fontFamily: 'Inter_900Black', fontSize: 17, color: theme.textPrimary },

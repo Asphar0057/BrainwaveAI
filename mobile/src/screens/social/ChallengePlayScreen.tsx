@@ -13,6 +13,7 @@ import {
 import HapticTouchable from '../../components/HapticTouchable';
 import GeoBackground from '../../components/GeoBackground';
 import SocialTileMaterial from '../../components/SocialTileMaterial';
+import { cbTileShadow, cbTileBorder } from '../../components/NeumorphicTexture';
 import { triggerHaptic } from '../../utils/haptics';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../../utils/theme';
@@ -309,7 +310,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     progressText: { fontFamily: 'Inter_600SemiBold', color: DIM, fontSize: 9.5, marginTop: 5 },
 
     playScroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 20, paddingBottom: 60, gap: 18 },
-    questionCard: { borderRadius: 22, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, padding: 20, minHeight: 100, justifyContent: 'center' },
+    questionCard: { borderRadius: 22, backgroundColor: SURFACE, padding: 20, minHeight: 100, justifyContent: 'center', overflow: 'hidden', boxShadow: cbTileShadow(0.07), ...cbTileBorder(0.16) },
     questionText: { fontFamily: 'Inter_700Bold', color: GOLD_L, fontSize: 17, lineHeight: 24 },
 
     option: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 16, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, paddingHorizontal: 14, paddingVertical: 14 } as any,
@@ -319,7 +320,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     optionLetterText: { fontFamily: 'Inter_700Bold', fontSize: 11, color: GOLD_L },
     optionText: { flex: 1, fontFamily: 'Inter_600SemiBold', color: theme.textPrimary, fontSize: 13.5, lineHeight: 19 },
 
-    explanationCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderRadius: 14, borderWidth: 1, borderColor: BORDER, backgroundColor: rgbaFromHex(SURFACE, 0.7), padding: 12 },
+    explanationCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderRadius: 14, backgroundColor: rgbaFromHex(SURFACE, 0.7), padding: 12, overflow: 'hidden', boxShadow: cbTileShadow(0.05), ...cbTileBorder(0.13) },
     explanationText: { flex: 1, fontFamily: 'Inter_400Regular', color: DIM, fontSize: 11.5, lineHeight: 16 },
 
     resultsScroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 40, paddingBottom: 60, alignItems: 'center' },
@@ -327,7 +328,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     resultsBannerTitle: { fontFamily: 'Inter_900Black', color: GOLD_L, fontSize: 22, letterSpacing: -0.4, textAlign: 'center' },
     bigPct: { fontFamily: 'Inter_900Black', color: theme.accent, fontSize: 44, letterSpacing: -1.2, marginTop: 4 },
     resultsLabel: { fontFamily: 'Inter_600SemiBold', color: DIM, fontSize: 12, letterSpacing: 0.4, marginTop: 2 },
-    progressCard: { width: '100%', borderRadius: 18, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, padding: 16, gap: 8, marginTop: 22 },
+    progressCard: { width: '100%', borderRadius: 18, backgroundColor: SURFACE, padding: 16, gap: 8, marginTop: 22, overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
     progressCardLabel: { fontFamily: 'Inter_600SemiBold', color: DIM, fontSize: 10.5, letterSpacing: 0.4, textTransform: 'uppercase' },
     progressCardValue: { fontFamily: 'Inter_900Black', color: GOLD_L, fontSize: 16, textAlign: 'right' },
   });

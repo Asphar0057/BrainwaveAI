@@ -8,7 +8,7 @@ import { AuthUser } from '../../services/auth';
 import { getLeaderboard } from '../../services/api';
 import HapticTouchable from '../../components/HapticTouchable';
 import GeoBackground from '../../components/GeoBackground';
-import { CB_ACCENT, CB_CARD_TOP, CB_CARD_BOTTOM } from '../../components/NeumorphicTexture';
+import { CB_ACCENT, CB_CARD_TOP, CB_CARD_BOTTOM, cbTileShadow, cbModalShadow, cbTileBorder } from '../../components/NeumorphicTexture';
 import SocialTileMaterial from '../../components/SocialTileMaterial';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { darkenColor, lightenColor, rgbaFromHex } from '../../utils/theme';
@@ -417,7 +417,8 @@ function createPodStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'])
     wrap: { gap: 10, marginBottom: 6 },
     champion: {
       minHeight: 138, borderRadius: 26, overflow: 'hidden', padding: 17,
-      borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)',
+      boxShadow: cbModalShadow(0.14),
+      ...cbTileBorder(0.22),
     },
     tileTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     tileIndex: {
@@ -437,7 +438,9 @@ function createPodStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'])
     contenderRow: { flexDirection: 'row', gap: 10 },
     contender: {
       flex: 1, minHeight: 174, borderRadius: 26, overflow: 'hidden',
-      padding: 15, borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)',
+      padding: 15,
+      boxShadow: cbTileShadow(0.07),
+      ...cbTileBorder(0.18),
     },
     name: {
       marginTop: 12, fontFamily: 'Inter_900Black', fontSize: 15,
@@ -449,9 +452,8 @@ function createPodStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'])
 
 function createRowStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
   const ACCENT  = CB_ACCENT;
-  const BORDER  = 'rgba(216,179,141,0.22)';
   return StyleSheet.create({
-    wrap:       { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 13, paddingVertical: 12, borderRadius: 20, borderWidth: 1, borderColor: BORDER, backgroundColor: CB_CARD_TOP, overflow: 'hidden', position: 'relative', marginBottom: 6 },
+    wrap:       { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 13, paddingVertical: 12, borderRadius: 20, backgroundColor: CB_CARD_TOP, overflow: 'hidden', position: 'relative', marginBottom: 6, boxShadow: cbTileShadow(0.05), ...cbTileBorder(0.14) },
     wrapMe:     { borderColor: rgbaFromHex(ACCENT, 0.34) },
     rank:       { fontFamily: 'Inter_900Black', fontSize: 13, color: theme.textSecondary, width: 26, textAlign: 'center' },
     name:       { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: CB_ACCENT },
@@ -466,7 +468,7 @@ function createRowStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'])
 
 function createEmptyStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
   return StyleSheet.create({
-    wrap:  { alignItems: 'center', justifyContent: 'center', minHeight: 230, gap: 14, borderRadius: 26, borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)', backgroundColor: CB_CARD_TOP, overflow: 'hidden' },
+    wrap:  { alignItems: 'center', justifyContent: 'center', minHeight: 230, gap: 14, borderRadius: 26, backgroundColor: CB_CARD_TOP, overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
     icon:  { width: 78, height: 78, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)' },
     title: { fontFamily: 'Inter_900Black', fontSize: 18, color: CB_ACCENT },
     sub: { fontFamily: 'Inter_400Regular', fontSize: 12, color: theme.textSecondary, textAlign: 'center' },

@@ -15,6 +15,7 @@ import {
 import HapticTouchable from '../../components/HapticTouchable';
 import GeoBackground from '../../components/GeoBackground';
 import SocialTileMaterial from '../../components/SocialTileMaterial';
+import { cbTileShadow, cbTileBorder } from '../../components/NeumorphicTexture';
 import { triggerHaptic } from '../../utils/haptics';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../../utils/theme';
@@ -375,7 +376,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     timerText: { fontFamily: 'Inter_700Bold', color: GOLD_L, fontSize: 11.5 },
 
     playScroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 20, paddingBottom: 60, gap: 18 },
-    questionCard: { borderRadius: 22, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, padding: 20, minHeight: 100, justifyContent: 'center' },
+    questionCard: { borderRadius: 22, backgroundColor: SURFACE, padding: 20, minHeight: 100, justifyContent: 'center', overflow: 'hidden', boxShadow: cbTileShadow(0.07), ...cbTileBorder(0.16) },
     questionText: { fontFamily: 'Inter_700Bold', color: GOLD_L, fontSize: 17, lineHeight: 24 },
 
     option: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 16, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, paddingHorizontal: 14, paddingVertical: 14 } as any,
@@ -394,7 +395,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     resultsScoreLbl: { fontFamily: 'Inter_600SemiBold', color: DIM, fontSize: 10, letterSpacing: 0.6, textTransform: 'uppercase' },
     resultsScoreDivider: { fontFamily: 'Inter_900Black', color: DIM, fontSize: 24 },
     resultsSubject: { fontFamily: 'Inter_400Regular', color: DIM, fontSize: 11.5, marginTop: 10, marginBottom: 18 },
-    breakdownCard: { width: '100%', borderRadius: 18, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, paddingHorizontal: 14 },
+    breakdownCard: { width: '100%', borderRadius: 18, backgroundColor: SURFACE, paddingHorizontal: 14, overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
     breakdownRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 },
     breakdownDivider: { borderBottomWidth: 1, borderBottomColor: BORDER },
     breakdownQ: { flex: 1, fontFamily: 'Inter_400Regular', color: theme.textPrimary, fontSize: 11.5, lineHeight: 15 },
