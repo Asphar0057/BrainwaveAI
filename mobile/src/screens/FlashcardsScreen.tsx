@@ -19,6 +19,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import PagerView, { AppPagerHandle } from '../components/AppPager';
 import HapticTouchable from '../components/HapticTouchable';
+import TileGleam from '../components/TileGleam';
+import NeumorphicTexture, { cbTileShadow, cbModalShadow, cbTileBorder, cbTileCardGradient } from '../components/NeumorphicTexture';
 import MathText from '../components/MathText';
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
@@ -368,6 +370,7 @@ function StudyView({
                   onTouchMove={handleCardTouchMove}
                   onTouchEnd={handleCardTouchEnd}
                 >
+                  <NeumorphicTexture grainVariant="fine" grainOpacity={0.16} />
                   <View style={s.cardTopRow}>
                     <View style={[s.cardSidePill, pageFlipped && s.cardSidePillFlipped]}>
                       <Text style={[s.cardSide, pageFlipped && s.cardSideFlipped]}>
@@ -1050,9 +1053,10 @@ function FlashcardsSets({
               )}
             >
               {collectionSets.map((item, index) => (
-                  <HapticTouchable
+                  <TileGleam
                     key={item.id}
                     style={[s.collectionCard, { width: columns === 3 ? '31.8%' : '48.6%' }]}
+                    borderRadius={17}
                     onPress={() => activeView === 'review' ? startReviewStudy(item) : startStudy(item)}
                     haptic="medium"
                     accessibilityLabel={`Study ${cleanTitle(item.title)}`}
@@ -1062,6 +1066,7 @@ function FlashcardsSets({
                       <Text style={s.collectionCardCount}>{item.card_count} CARDS</Text>
                     </View>
                     <View style={s.collectionCardMeta}>
+                      <NeumorphicTexture grainVariant="fine" grainOpacity={0.1} />
                       <View style={s.collectionMasteryRow}>
                         <Text style={s.collectionMasteryLabel}>MASTERY</Text>
                         <Text style={s.collectionMasteryValue}>{Math.round(item.accuracy_percentage)}%</Text>
@@ -1075,7 +1080,7 @@ function FlashcardsSets({
                         <Ionicons name="arrow-forward" size={12} color={BASE_ACTION_TEXT} />
                       </View>
                     </View>
-                  </HapticTouchable>
+                  </TileGleam>
               ))}
             </ScrollView>
           )}
@@ -1224,10 +1229,10 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     paddingBottom: 16,
   },
   workspaceActions: { flexDirection: 'row', gap: 10, marginBottom: 12 },
-  generateAction: { flex: 1, height: 52, borderRadius: 17, backgroundColor: BASE_ACTION_BG, borderWidth: 1, borderColor: BASE_ACTION_BORDER, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  generateAction: { flex: 1, height: 52, borderRadius: 17, backgroundColor: BASE_ACTION_BG, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, overflow: 'hidden', boxShadow: cbTileShadow(0.1), ...cbTileBorder(0.22) },
   generateActionText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: BASE_ACTION_TEXT, letterSpacing: 0.4, textTransform: 'uppercase' },
-  manualAction: { width: 92, height: 52, borderRadius: 17, borderWidth: 1, borderColor: BORDER, backgroundColor: rgbaFromHex(SURFACE, 0.9), flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  randomAction: { width: 92, height: 52, borderRadius: 17, borderWidth: 1, borderColor: softAccentBorder, backgroundColor: softAccent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  manualAction: { width: 92, height: 52, borderRadius: 17, backgroundColor: rgbaFromHex(SURFACE, 0.9), flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
+  randomAction: { width: 92, height: 52, borderRadius: 17, backgroundColor: softAccent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
   manualActionText: { fontFamily: 'Inter_700Bold', fontSize: 11, color: GOLD_L, letterSpacing: 0.4, textTransform: 'uppercase' },
   workspaceNav: { height: 42, flexDirection: 'row', gap: 5, marginBottom: 10 },
   workspaceNavItem: { flex: 1, height: 42, borderRadius: 999, borderWidth: 1, borderColor: BORDER, backgroundColor: rgbaFromHex(SURFACE, 0.86), flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 4 },
@@ -1240,7 +1245,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   collectionCount: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM2, marginBottom: 3 },
   collectionScroll: { flex: 1 },
   collectionGrid: { flexDirection: 'row', flexWrap: 'wrap', alignContent: 'flex-start', paddingBottom: 18 },
-  collectionCard: { height: collectionCardHeight, borderRadius: 17, borderWidth: 1, borderColor: BORDER, backgroundColor: rgbaFromHex(SURFACE, 0.95), overflow: 'hidden' },
+  collectionCard: { height: collectionCardHeight, borderRadius: 17, backgroundColor: rgbaFromHex(SURFACE, 0.95), overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
   collectionCover: { height: collectionCoverHeight, paddingHorizontal: 12, paddingVertical: 11, alignItems: 'center', justifyContent: 'center' },
   collectionCardTitle: { fontFamily: 'Inter_900Black', fontSize: 13, lineHeight: 16, color: '#171411', textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 },
   collectionCardCount: { fontFamily: 'Inter_700Bold', fontSize: 7.5, color: rgbaFromHex('#171411', 0.66), letterSpacing: 1.4, marginTop: 7 },
@@ -1254,7 +1259,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   collectionStudyBtn: { height: 36, borderRadius: 11, backgroundColor: BASE_ACTION_BG, borderWidth: 1, borderColor: BASE_ACTION_BORDER, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
   collectionStudyText: { fontFamily: 'Inter_900Black', fontSize: 9, color: BASE_ACTION_TEXT, letterSpacing: 1.1 },
   statsWorkspace: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignContent: 'flex-start' },
-  statWorkspaceCard: { width: '48.5%', minHeight: 140, borderRadius: 20, borderWidth: 1, borderColor: BORDER, backgroundColor: rgbaFromHex(SURFACE, 0.94), padding: 16, justifyContent: 'center', alignItems: 'center' },
+  statWorkspaceCard: { width: '48.5%', minHeight: 140, borderRadius: 20, backgroundColor: rgbaFromHex(SURFACE, 0.94), padding: 16, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
   statWorkspaceValue: { fontFamily: 'Inter_900Black', fontSize: 30, color: GOLD_L, marginTop: 9 },
   statWorkspaceLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 8, color: DIM2, letterSpacing: 1.5, marginTop: 4 },
 
@@ -1434,14 +1439,10 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   formCard: {
     backgroundColor: SURFACE_RAISED,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: BORDER,
     padding: 16,
-    shadowColor: ACCENT,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 26,
-    elevation: 5,
+    overflow: 'hidden',
+    boxShadow: cbTileShadow(0.08),
+    ...cbTileBorder(0.16),
   },
   input: {
     marginTop: 10,
@@ -1470,14 +1471,10 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   manualCard: {
     backgroundColor: SURFACE_RAISED,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: BORDER,
     padding: 16,
-    shadowColor: ACCENT,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.07,
-    shadowRadius: 22,
-    elevation: 4,
+    overflow: 'hidden',
+    boxShadow: cbTileShadow(0.06),
+    ...cbTileBorder(0.14),
   },
   manualCardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   manualCardBadge: {
@@ -1649,15 +1646,11 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     height: useLandscapeStudyLayout ? cardHeight : '100%',
     backgroundColor: rgbaFromHex(QUESTION_SURFACE, 0.98),
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: QUESTION_CHIP_BORDER,
     padding: 26,
     justifyContent: 'space-between',
-    shadowColor: ACCENT,
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.16,
-    shadowRadius: 30,
-    elevation: 10,
+    overflow: 'hidden',
+    boxShadow: cbModalShadow(0.16),
+    ...cbTileBorder(0.22),
   },
   cardFlipped: { backgroundColor: rgbaFromHex(ANSWER_SURFACE, 0.96), borderColor: ANSWER_CHIP_BORDER },
   cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -1792,6 +1785,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     marginTop: 14,
     width: '100%',
     alignItems: 'center',
+    boxShadow: cbTileShadow(0.1),
   },
   actionBtnOutline: { backgroundColor: 'transparent', borderWidth: 1, borderColor: GOLD_D },
   actionBtnText: { fontFamily: 'Inter_900Black', fontSize: 14, color: INK },
