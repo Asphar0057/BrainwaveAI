@@ -394,7 +394,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     questionMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     questionText: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 19, lineHeight: 27 },
     options: { gap: 10 },
-    option: { borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.12), backgroundColor: rgbaFromHex(theme.panelAlt, 0.86), borderRadius: 16, paddingHorizontal: 14, paddingVertical: 13 },
+    option: { backgroundColor: rgbaFromHex(theme.panelAlt, 0.86), borderRadius: 16, paddingHorizontal: 14, paddingVertical: 13, overflow: 'hidden', boxShadow: cbTileShadow(0.04), borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.12) },
     optionActive: { borderColor: theme.accent, backgroundColor: rgbaFromHex(theme.accent, 0.12) },
     optionCorrect: { borderColor: theme.success, backgroundColor: rgbaFromHex(theme.success, 0.13) },
     optionWrong: { borderColor: theme.danger, backgroundColor: rgbaFromHex(theme.danger, 0.13) },

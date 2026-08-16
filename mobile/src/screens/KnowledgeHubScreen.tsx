@@ -52,7 +52,7 @@ import {
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
-import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../components/NeumorphicTexture';
+import { NeumorphicLayer, cbTileShadow, cbModalShadow, cbTileBorder } from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
@@ -842,7 +842,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     heroTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 36, letterSpacing: 0, marginTop: 8 },
     heroCopy: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 13, marginTop: 4 },
     heroMetrics: { flexDirection: 'row', gap: 9, marginTop: 16 },
-    metric: { flex: 1, borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.12), borderRadius: 16, padding: 10, backgroundColor: rgbaFromHex(theme.panelAlt, 0.74) },
+    metric: { flex: 1, borderRadius: 16, padding: 10, backgroundColor: rgbaFromHex(theme.panelAlt, 0.74), overflow: 'hidden', boxShadow: cbTileShadow(0.05), ...cbTileBorder(0.13) },
     metricValue: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 20, letterSpacing: 0 },
     metricLabel: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 9, textTransform: 'uppercase', letterSpacing: 1.1, marginTop: 2 },
     tabStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

@@ -31,7 +31,7 @@ import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
 import MarkdownText from '../components/MarkdownText';
-import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../components/NeumorphicTexture';
+import { NeumorphicLayer, cbTileShadow, cbModalShadow, cbTileBorder } from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
@@ -433,7 +433,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     pointRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
     pointDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: theme.accentHover, marginTop: 7 },
     pointText: { flex: 1, fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, lineHeight: 18 },
-    insightsWrap: { borderRadius: 16, borderWidth: 1, borderColor: border, overflow: 'hidden', backgroundColor: rgbaFromHex(theme.panelAlt, 0.7) },
+    insightsWrap: { borderRadius: 16, overflow: 'hidden', backgroundColor: rgbaFromHex(theme.panelAlt, 0.7), boxShadow: cbTileShadow(0.05), ...cbTileBorder(0.13) },
     insightsToggle: { minHeight: 62, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     insightsToggleLead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     insightIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: rgbaFromHex(theme.accent, 0.12) },
@@ -446,10 +446,10 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     insightSectionContent: { gap: 8, flexDirection: 'row', flexWrap: 'wrap' },
     conceptChip: { borderRadius: 9, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(theme.accent, 0.08), paddingHorizontal: 10, paddingVertical: 7 },
     conceptText: { fontFamily: 'Inter_600SemiBold', color: theme.textPrimary, fontSize: 11 },
-    definitionCard: { width: '100%', borderRadius: 11, borderWidth: 1, borderColor: border, padding: 11, backgroundColor: rgbaFromHex(surface, 0.64) },
+    definitionCard: { width: '100%', borderRadius: 11, padding: 11, backgroundColor: rgbaFromHex(surface, 0.64), overflow: 'hidden', boxShadow: cbTileShadow(0.04), ...cbTileBorder(0.12) },
     definitionTerm: { fontFamily: 'Inter_700Bold', color: theme.accentHover, fontSize: 12, marginBottom: 4 },
     definitionText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, lineHeight: 18 },
-    questionCard: { width: '100%', borderRadius: 11, borderWidth: 1, borderColor: border, padding: 11, gap: 7, backgroundColor: rgbaFromHex(surface, 0.64) },
+    questionCard: { width: '100%', borderRadius: 11, padding: 11, gap: 7, backgroundColor: rgbaFromHex(surface, 0.64), overflow: 'hidden', boxShadow: cbTileShadow(0.04), ...cbTileBorder(0.12) },
     questionTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     questionNumber: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 10 },
     difficulty: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.7 },

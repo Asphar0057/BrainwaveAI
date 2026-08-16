@@ -40,7 +40,7 @@ import {
 } from '../services/api';
 import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
-import { cbTileShadow } from '../components/NeumorphicTexture';
+import { cbTileShadow, cbTileBorder } from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
@@ -863,7 +863,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     heroMetricLine: { width: 1, height: 32, backgroundColor: theme.border },
     createHeroBtn: { height: 44, borderRadius: 13, backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
     createHeroText: { fontFamily: 'Inter_900Black', color: accentInk, fontSize: 10, letterSpacing: 1 },
-    recommendedSection: { borderRadius: 21, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.8), padding: 14, gap: 11 },
+    recommendedSection: { borderRadius: 21, backgroundColor: rgbaFromHex(surface, 0.8), padding: 14, gap: 11, overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
     sectionHeading: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
     sectionKicker: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 8, letterSpacing: 1.4 },
     sectionTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 18, marginTop: 2 },
@@ -891,7 +891,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     libraryMapFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     openMapPill: { borderRadius: 9, backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 7 },
     openMapText: { fontFamily: 'Inter_900Black', color: accentInk, fontSize: 7.5, letterSpacing: 0.7 },
-    empty: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.84), alignItems: 'center', paddingVertical: 48, paddingHorizontal: 24, gap: 9 },
+    empty: { borderRadius: 24, backgroundColor: rgbaFromHex(surface, 0.84), alignItems: 'center', paddingVertical: 48, paddingHorizontal: 24, gap: 9, overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
     emptyIcon: { width: 58, height: 58, borderRadius: 20, backgroundColor: rgbaFromHex(theme.accent, 0.12), alignItems: 'center', justifyContent: 'center' },
     emptyTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 21 },
     emptyText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, lineHeight: 18, textAlign: 'center', maxWidth: 300 },
@@ -944,7 +944,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     nodeTabText: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 9 },
     nodeTabTextActive: { color: accentInk },
     sheetScroll: { padding: 18, paddingBottom: 42, gap: 11 },
-    learningCard: { borderRadius: 19, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.8), padding: 14, gap: 10 },
+    learningCard: { borderRadius: 19, backgroundColor: rgbaFromHex(surface, 0.8), padding: 14, gap: 10, overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
     learningCardHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     learningCardTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 14 },
     bodyText: { fontFamily: 'Inter_400Regular', color: theme.textPrimary, fontSize: 12, lineHeight: 19 },
@@ -954,7 +954,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     exampleIndex: { fontFamily: 'Inter_900Black', color: theme.accent, fontSize: 9 },
     exampleText: { flex: 1, fontFamily: 'Inter_400Regular', color: theme.textPrimary, fontSize: 11, lineHeight: 17 },
     lessonLoading: { minHeight: 220, alignItems: 'center', justifyContent: 'center', gap: 12 },
-    learnEmpty: { minHeight: 270, borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.78), alignItems: 'center', justifyContent: 'center', padding: 22, gap: 9 },
+    learnEmpty: { minHeight: 270, borderRadius: 22, backgroundColor: rgbaFromHex(surface, 0.78), alignItems: 'center', justifyContent: 'center', padding: 22, gap: 9, overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
     learnEmptyIcon: { width: 56, height: 56, borderRadius: 19, backgroundColor: rgbaFromHex(theme.accent, 0.12), alignItems: 'center', justifyContent: 'center', marginBottom: 3 },
     learnEmptyTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 19 },
     learnEmptyText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11, lineHeight: 17, textAlign: 'center' },
@@ -970,7 +970,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     primaryBtn: { minHeight: 48, borderRadius: 14, backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 15 },
     primaryText: { fontFamily: 'Inter_900Black', color: accentInk, fontSize: 9, letterSpacing: 1 },
     answerScroll: { flex: 1 },
-    answerCard: { borderRadius: 19, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), padding: 14 },
+    answerCard: { borderRadius: 19, backgroundColor: rgbaFromHex(surface, 0.82), padding: 14, overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
     createHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: 18 },
     createTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 23, lineHeight: 28, marginTop: 4, maxWidth: 310 },
     createBody: { paddingHorizontal: 18, gap: 12 },
