@@ -995,14 +995,19 @@ function FlashcardsSets({
             </HapticTouchable>
           </View>
 
-          <View style={s.workspaceNav}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={s.workspaceNavScroll}
+            contentContainerStyle={s.workspaceNav}
+          >
             {navItems.map((item) => (
               <HapticTouchable key={item.key} style={[s.workspaceNavItem, activeView === item.key && s.workspaceNavItemActive]} onPress={() => setActiveView(item.key)} haptic="selection">
-                <Ionicons name={item.icon} size={14} color={activeView === item.key ? INK : DIM2} />
+                <Ionicons name={item.icon} size={15} color={activeView === item.key ? INK : DIM2} />
                 <Text style={[s.workspaceNavText, activeView === item.key && s.workspaceNavTextActive]}>{item.label}</Text>
               </HapticTouchable>
             ))}
-          </View>
+          </ScrollView>
 
           <View style={s.collectionHeader}>
             <View>
@@ -1189,7 +1194,6 @@ export default function FlashcardsScreen({ user, onBack }: Props) {
 function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   const softAccent = rgbaFromHex(ACCENT, 0.12);
   const softAccentBorder = rgbaFromHex(ACCENT, 0.26);
-  const softAccentFill = rgbaFromHex(ACCENT, 0.18);
   const softDanger = rgbaFromHex(RED, 0.12);
   const softDangerBorder = rgbaFromHex(RED, 0.26);
   const softSuccess = rgbaFromHex(GREEN, 0.12);
@@ -1218,7 +1222,6 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     paddingBottom: 12,
   },
   title: { fontFamily: 'Inter_900Black', fontSize: 32, color: GOLD_L, letterSpacing: -0.8 },
-  subtitle: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM2, letterSpacing: 2.2, marginTop: 4, textTransform: 'uppercase' },
 
   workspace: {
     flex: 1,
@@ -1228,16 +1231,17 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
-  workspaceActions: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+  workspaceActions: { flexDirection: 'row', gap: 10, marginBottom: 10 },
   generateAction: { flex: 1, height: 52, borderRadius: 17, backgroundColor: BASE_ACTION_BG, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, overflow: 'hidden', boxShadow: cbTileShadow(0.1), ...cbTileBorder(0.22) },
   generateActionText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: BASE_ACTION_TEXT, letterSpacing: 0.4, textTransform: 'uppercase' },
   manualAction: { width: 92, height: 52, borderRadius: 17, backgroundColor: rgbaFromHex(SURFACE, 0.9), flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
   randomAction: { width: 92, height: 52, borderRadius: 17, backgroundColor: softAccent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
   manualActionText: { fontFamily: 'Inter_700Bold', fontSize: 11, color: GOLD_L, letterSpacing: 0.4, textTransform: 'uppercase' },
-  workspaceNav: { height: 42, flexDirection: 'row', gap: 5, marginBottom: 10 },
-  workspaceNavItem: { flex: 1, height: 42, borderRadius: 999, borderWidth: 1, borderColor: BORDER, backgroundColor: rgbaFromHex(SURFACE, 0.86), flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 4 },
+  workspaceNavScroll: { marginBottom: 10 },
+  workspaceNav: { height: 44, flexDirection: 'row', gap: 8, paddingRight: 4 },
+  workspaceNavItem: { height: 44, borderRadius: 999, borderWidth: 1, borderColor: BORDER, backgroundColor: rgbaFromHex(SURFACE, 0.86), flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 16, boxShadow: cbTileShadow(0.04) },
   workspaceNavItemActive: { backgroundColor: ACCENT, borderColor: ACCENT2 },
-  workspaceNavText: { fontFamily: 'Inter_600SemiBold', fontSize: 8.5, color: DIM2, textAlign: 'center' },
+  workspaceNavText: { fontFamily: 'Inter_700Bold', fontSize: 11, color: DIM2, textAlign: 'center', letterSpacing: 0.2 },
   workspaceNavTextActive: { color: INK },
   collectionHeader: { minHeight: 46, borderBottomWidth: 1, borderBottomColor: BORDER, marginBottom: 10, paddingBottom: 7, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   collectionKicker: { fontFamily: 'Inter_700Bold', fontSize: 8, color: ACCENT, letterSpacing: 1.8, marginBottom: 3 },
@@ -1246,146 +1250,23 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   collectionScroll: { flex: 1 },
   collectionGrid: { flexDirection: 'row', flexWrap: 'wrap', alignContent: 'flex-start', paddingBottom: 18 },
   collectionCard: { height: collectionCardHeight, borderRadius: 17, backgroundColor: rgbaFromHex(SURFACE, 0.95), overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
-  collectionCover: { height: collectionCoverHeight, paddingHorizontal: 12, paddingVertical: 11, alignItems: 'center', justifyContent: 'center' },
-  collectionCardTitle: { fontFamily: 'Inter_900Black', fontSize: 13, lineHeight: 16, color: '#171411', textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 },
-  collectionCardCount: { fontFamily: 'Inter_700Bold', fontSize: 7.5, color: rgbaFromHex('#171411', 0.66), letterSpacing: 1.4, marginTop: 7 },
-  collectionCardMeta: { flex: 1, padding: 11, justifyContent: 'space-between' },
+  collectionCover: { height: collectionCoverHeight, paddingHorizontal: 14, paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
+  collectionCardTitle: { fontFamily: 'Inter_900Black', fontSize: 14, lineHeight: 17, color: '#171411', textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 },
+  collectionCardCount: { fontFamily: 'Inter_700Bold', fontSize: 9, color: rgbaFromHex('#171411', 0.66), letterSpacing: 1.2, marginTop: 7 },
+  collectionCardMeta: { flex: 1, padding: 14, justifyContent: 'space-between', gap: 8 },
   collectionMasteryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  collectionMasteryLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 7, color: DIM2, letterSpacing: 1.2 },
-  collectionMasteryValue: { fontFamily: 'Inter_700Bold', fontSize: 9, color: ACCENT },
-  collectionSource: { fontFamily: 'Inter_600SemiBold', fontSize: 7, color: DIM2, letterSpacing: 0.8, marginTop: 3 },
-  collectionMasteryBar: { width: '100%', height: 3, borderRadius: 2, backgroundColor: rgbaFromHex(ACCENT, 0.12), overflow: 'hidden', marginTop: 3 },
+  collectionMasteryLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: DIM2, letterSpacing: 1 },
+  collectionMasteryValue: { fontFamily: 'Inter_700Bold', fontSize: 11, color: ACCENT },
+  collectionSource: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: DIM2, letterSpacing: 0.6 },
+  collectionMasteryBar: { width: '100%', height: 4, borderRadius: 2, backgroundColor: rgbaFromHex(ACCENT, 0.12), overflow: 'hidden' },
   collectionMasteryFill: { height: '100%', borderRadius: 2, backgroundColor: ACCENT },
-  collectionStudyBtn: { height: 36, borderRadius: 11, backgroundColor: BASE_ACTION_BG, borderWidth: 1, borderColor: BASE_ACTION_BORDER, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
-  collectionStudyText: { fontFamily: 'Inter_900Black', fontSize: 9, color: BASE_ACTION_TEXT, letterSpacing: 1.1 },
+  collectionStudyBtn: { height: 38, borderRadius: 12, backgroundColor: BASE_ACTION_BG, borderWidth: 1, borderColor: BASE_ACTION_BORDER, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  collectionStudyText: { fontFamily: 'Inter_900Black', fontSize: 10, color: BASE_ACTION_TEXT, letterSpacing: 1 },
   statsWorkspace: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignContent: 'flex-start' },
   statWorkspaceCard: { width: '48.5%', minHeight: 140, borderRadius: 20, backgroundColor: rgbaFromHex(SURFACE, 0.94), padding: 16, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
   statWorkspaceValue: { fontFamily: 'Inter_900Black', fontSize: 30, color: GOLD_L, marginTop: 9 },
-  statWorkspaceLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 8, color: DIM2, letterSpacing: 1.5, marginTop: 4 },
+  statWorkspaceLabel: { fontFamily: 'Inter_700Bold', fontSize: 9, color: DIM2, letterSpacing: 1.4, marginTop: 4 },
 
-  libraryHeader: { gap: 14, marginBottom: 4 },
-  continueCard: {
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: softAccentBorder,
-    backgroundColor: rgbaFromHex(SURFACE_RAISED, 0.96),
-    padding: 18,
-    overflow: 'hidden',
-  },
-  continueTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  continueEyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  continueIcon: { width: 30, height: 30, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: ACCENT },
-  continueEyebrow: { fontFamily: 'Inter_700Bold', fontSize: 9, color: DIM2, letterSpacing: 1.5 },
-  continueProgress: { fontFamily: 'Inter_900Black', fontSize: 18, color: ACCENT },
-  continueTitle: { fontFamily: 'Inter_900Black', fontSize: 23, lineHeight: 28, color: GOLD_L, letterSpacing: -0.7, maxWidth: '92%' },
-  continueMetaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 9 },
-  continueMeta: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM2 },
-  continueRail: { height: 4, borderRadius: 2, backgroundColor: rgbaFromHex(ACCENT, 0.12), overflow: 'hidden', marginTop: 14 },
-  continueRailFill: { height: '100%', borderRadius: 2, backgroundColor: ACCENT },
-
-  libraryStatsRow: { flexDirection: 'row', gap: 8 },
-  libraryStat: { flex: 1, minHeight: 62, borderRadius: 17, borderWidth: 1, borderColor: BORDER, backgroundColor: rgbaFromHex(SURFACE, 0.9), paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' },
-  libraryStatVal: { fontFamily: 'Inter_900Black', fontSize: 17, color: GOLD_L },
-  libraryStatLbl: { fontFamily: 'Inter_400Regular', fontSize: 8, color: DIM2, letterSpacing: 1, marginTop: 2, textTransform: 'uppercase' },
-  libraryStatAccent: { flex: 1, minHeight: 62, borderRadius: 17, backgroundColor: ACCENT, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' },
-  libraryStatAccentVal: { fontFamily: 'Inter_900Black', fontSize: 17, color: INK },
-  libraryStatAccentLbl: { fontFamily: 'Inter_600SemiBold', fontSize: 8, color: INK, opacity: 0.72, letterSpacing: 0.7, marginTop: 2, textTransform: 'uppercase' },
-
-  statsStrip: {
-    width: '100%',
-    maxWidth: layout.contentMaxWidth,
-    alignSelf: 'center',
-    flexDirection: 'row',
-    backgroundColor: rgbaFromHex(SURFACE, 0.98),
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: BORDER,
-    marginHorizontal: 16,
-    marginBottom: 6,
-    overflow: 'hidden',
-  },
-  statCell: { flex: 1, alignItems: 'center', paddingVertical: 14 },
-  statVal: { fontFamily: 'Inter_900Black', fontSize: 18, color: ACCENT },
-  statLbl: { fontFamily: 'Inter_400Regular', fontSize: 8, color: DIM2, letterSpacing: 1.5, marginTop: 2 },
-
-  listContent: {
-    width: '100%',
-    maxWidth: layout.contentMaxWidth,
-    alignSelf: 'center',
-    padding: 16,
-    gap: 9,
-    paddingBottom: 120,
-    flexGrow: 1,
-  },
-  createRow: { flexDirection: 'row', gap: 10 },
-  createBtnPrimary: {
-    flex: 1, minHeight: 68, flexDirection: 'row', alignItems: 'center',
-    gap: 11, backgroundColor: BASE_ACTION_BG, borderRadius: 20, paddingVertical: 12, paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: softAccentBorder,
-  },
-  createBtnPrimaryText: { fontFamily: 'Inter_900Black', fontSize: 14, color: BASE_ACTION_TEXT },
-  createBtnPrimarySub: { fontFamily: 'Inter_400Regular', fontSize: 9, color: BASE_ACTION_TEXT, opacity: 0.7, marginTop: 2 },
-  createBtnSecondary: {
-    width: 68, minHeight: 68, alignItems: 'center', justifyContent: 'center',
-    borderRadius: 20,
-    borderWidth: 1, borderColor: softAccentBorder, backgroundColor: rgbaFromHex(SURFACE, 0.94),
-  },
-  createBtnSecondaryText: { fontFamily: 'Inter_700Bold', fontSize: 14, color: BASE_ACTION_TEXT },
-
-  libraryTitleRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 6 },
-  libraryTitle: { fontFamily: 'Inter_900Black', fontSize: 21, color: GOLD_L, letterSpacing: -0.5 },
-  libraryCount: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM2, marginTop: 3 },
-  searchBox: { minHeight: 48, borderRadius: 16, borderWidth: 1, borderColor: BORDER, backgroundColor: rgbaFromHex(INPUT_BG, 0.94), paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  searchInput: { flex: 1, color: INPUT_TEXT, fontFamily: 'Inter_400Regular', fontSize: 13, paddingVertical: 12 },
-  filterRow: { flexDirection: 'row', gap: 8, marginBottom: 2 },
-  filterChip: { borderRadius: 999, borderWidth: 1, borderColor: BORDER, backgroundColor: rgbaFromHex(SURFACE, 0.78), paddingHorizontal: 13, paddingVertical: 8 },
-  filterChipActive: { backgroundColor: softAccentFill, borderColor: softAccentBorder },
-  filterChipText: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: DIM2, textTransform: 'capitalize' },
-  filterChipTextActive: { color: GOLD_L },
-
-  setCard: {
-    minHeight: 88,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: rgbaFromHex(SURFACE, 0.94),
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: BORDER,
-    paddingHorizontal: 13,
-    paddingVertical: 12,
-  },
-  setIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: softAccent, borderWidth: 1, borderColor: softAccentBorder, flexShrink: 0 },
-  setCardBody: { flex: 1, minWidth: 0, gap: 5 },
-  setOpenBtn: { width: 30, height: 30, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: rgbaFromHex(ACCENT, 0.08), flexShrink: 0 },
-  setCardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  setTitle: { fontFamily: 'Inter_700Bold', fontSize: 14, color: GOLD_L, lineHeight: 18 },
-  setDesc: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM2, marginTop: 3, lineHeight: 16 },
-  setMeta: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM2 },
-
-  countBadge: {
-    backgroundColor: softAccent,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: softAccentBorder,
-  },
-  countText: { fontFamily: 'Inter_900Black', fontSize: 18, color: GOLD_L },
-  countLbl: { fontFamily: 'Inter_400Regular', fontSize: 8, color: GOLD_D, letterSpacing: 1, marginTop: 1 },
-
-  masteryRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 1 },
-  masteryBar: { flex: 1, height: 3, backgroundColor: DIM, borderRadius: 2, overflow: 'hidden' },
-  masteryFill: { height: '100%', backgroundColor: ACCENT, borderRadius: 2 },
-  masteryPct: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: GOLD_D, width: 30, textAlign: 'right' },
-
-  setCardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  sourcePill: { backgroundColor: BASE_ACTION_BG, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: BASE_ACTION_BORDER },
-  sourceText: { fontFamily: 'Inter_900Black', fontSize: 12, color: BASE_ACTION_TEXT, letterSpacing: 0.4 },
-  studyBtn: { backgroundColor: BASE_ACTION_BG, borderRadius: 14, paddingHorizontal: 18, paddingVertical: 8, borderWidth: 1, borderColor: BASE_ACTION_BORDER },
-  studyBtnText: { fontFamily: 'Inter_900Black', fontSize: 12, color: BASE_ACTION_TEXT },
 
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8, paddingVertical: 50 },
   emptyTitle: { fontFamily: 'Inter_900Black', fontSize: 18, color: GOLD_D },
@@ -1568,7 +1449,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     alignItems: 'flex-start',
     minHeight: 0,
   },
-  studyMetaLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 8, color: DIM2, letterSpacing: 1.8, textTransform: 'uppercase' },
+  studyMetaLabel: { fontFamily: 'Inter_700Bold', fontSize: 9, color: DIM2, letterSpacing: 1.4, textTransform: 'uppercase' },
   studyMetaLabelLandscape: { fontSize: 9, letterSpacing: 1.2 },
   studyMetaValue: { fontFamily: 'Inter_900Black', fontSize: 18, color: GOLD_L, marginTop: 6 },
   studyMetaValueLandscape: { fontSize: 16, marginTop: 4 },
@@ -1655,13 +1536,13 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   cardFlipped: { backgroundColor: rgbaFromHex(ANSWER_SURFACE, 0.96), borderColor: ANSWER_CHIP_BORDER },
   cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTopActions: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  reviewToggle: { minHeight: 28, borderRadius: 999, paddingHorizontal: 9, borderWidth: 1, borderColor: QUESTION_CHIP_BORDER, backgroundColor: QUESTION_CHIP_BG, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
+  reviewToggle: { minHeight: 30, borderRadius: 999, paddingHorizontal: 10, borderWidth: 1, borderColor: QUESTION_CHIP_BORDER, backgroundColor: QUESTION_CHIP_BG, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
   reviewToggleActive: { backgroundColor: ACCENT, borderColor: ACCENT2 },
-  reviewToggleText: { fontFamily: 'Inter_700Bold', fontSize: 7, color: QUESTION_TEXT, letterSpacing: 0.7 },
+  reviewToggleText: { fontFamily: 'Inter_700Bold', fontSize: 9, color: QUESTION_TEXT, letterSpacing: 0.5 },
   reviewToggleTextActive: { color: INK },
   cardSidePill: { borderRadius: 999, paddingHorizontal: 11, paddingVertical: 6, backgroundColor: QUESTION_CHIP_BG, borderWidth: 1, borderColor: QUESTION_CHIP_BORDER },
   cardSidePillFlipped: { backgroundColor: ANSWER_CHIP_BG, borderColor: ANSWER_CHIP_BORDER },
-  cardSide: { fontFamily: 'Inter_600SemiBold', fontSize: 7, color: QUESTION_TEXT, letterSpacing: 1.7 },
+  cardSide: { fontFamily: 'Inter_700Bold', fontSize: 9, color: QUESTION_TEXT, letterSpacing: 1.4 },
   cardSideFlipped: { color: ANSWER_TEXT, opacity: 1 },
   cardBody: { flex: 1, marginTop: 18, marginBottom: 18 },
   cardBodyContent: { flexGrow: 1, justifyContent: 'center' },
@@ -1671,7 +1552,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   },
   cardText: { fontFamily: 'Inter_900Black', fontSize: 23, color: QUESTION_TEXT, lineHeight: 31 },
   cardTextFlipped: { color: ANSWER_TEXT },
-  randomCardSource: { fontFamily: 'Inter_700Bold', fontSize: 8, color: QUESTION_TEXT, opacity: 0.58, letterSpacing: 1.2, marginBottom: 10 },
+  randomCardSource: { fontFamily: 'Inter_700Bold', fontSize: 9, color: QUESTION_TEXT, opacity: 0.6, letterSpacing: 1, marginBottom: 10 },
   randomCardSourceFlipped: { color: ANSWER_TEXT },
   cardFooter: { alignItems: 'center' },
   cardHintText: {
@@ -1683,9 +1564,9 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     textAlign: 'center',
   },
   cardHintTextFlipped: { color: ANSWER_TEXT },
-  diffPill: { alignSelf: 'flex-start', backgroundColor: QUESTION_CHIP_BG, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: QUESTION_CHIP_BORDER },
+  diffPill: { alignSelf: 'flex-start', backgroundColor: QUESTION_CHIP_BG, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: QUESTION_CHIP_BORDER },
   diffPillFlipped: { backgroundColor: ANSWER_CHIP_BG, borderColor: ANSWER_CHIP_BORDER },
-  diffText: { fontFamily: 'Inter_600SemiBold', fontSize: 8, color: QUESTION_TEXT, letterSpacing: 1.4 },
+  diffText: { fontFamily: 'Inter_700Bold', fontSize: 9, color: QUESTION_TEXT, letterSpacing: 1 },
   diffTextFlipped: { color: ANSWER_TEXT },
 
   answerRow: {
