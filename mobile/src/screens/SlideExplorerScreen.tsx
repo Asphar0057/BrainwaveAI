@@ -463,7 +463,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     emptyText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 13, textAlign: 'center', maxWidth: 320, lineHeight: 19 },
     list: { gap: 12 },
     deckCard: { borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 15, gap: 13, boxShadow: cbTileShadow(0.07) } as ViewStyle,
-    deckCardActive: { borderColor: theme.accentHover, backgroundColor: rgbaFromHex(theme.accent, 0.1) },
     deckTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     deckIcon: { width: 40, height: 40, borderRadius: 13, borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.14), alignItems: 'center', justifyContent: 'center', backgroundColor: rgbaFromHex(theme.accent, 0.1) },
     deckTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 16, letterSpacing: 0 },

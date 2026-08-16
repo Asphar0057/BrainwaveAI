@@ -215,7 +215,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     hintFooter: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 10, textAlign: 'center', marginTop: 6 },
 
     card: { borderRadius: 18, backgroundColor: rgbaFromHex(surface, 0.9), padding: 16, gap: 8, marginBottom: 4, overflow: 'hidden', boxShadow: cbTileShadow(0.05), ...cbTileBorder(0.13) } as ViewStyle,
-    noteBody: { fontFamily: 'Inter_400Regular', color: theme.textPrimary, fontSize: 14, lineHeight: 21 },
     chatUserMsg: { fontFamily: 'Inter_600SemiBold', color: theme.accentHover, fontSize: 13, lineHeight: 19 },
     chatAiMsg: { fontFamily: 'Inter_400Regular', color: theme.textPrimary, fontSize: 13, lineHeight: 19 },
   });

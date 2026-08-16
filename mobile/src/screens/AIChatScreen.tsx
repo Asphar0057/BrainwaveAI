@@ -1215,22 +1215,6 @@ function createStyles(
 
   return StyleSheet.create({
   safe: { flex: 1, backgroundColor: 'transparent', overflow: 'hidden' },
-  glowTop: {
-    position: 'absolute',
-    top: -30,
-    right: -20,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-  },
-  glowBottom: {
-    position: 'absolute',
-    bottom: 120,
-    left: -40,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-  },
   edgeSwipeZone: {
     position: 'absolute',
     top: 0,

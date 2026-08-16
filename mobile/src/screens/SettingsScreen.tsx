@@ -265,14 +265,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       paddingHorizontal: 18,
       paddingBottom: 80,
     },
-    glow: {
-      position: 'absolute',
-      top: -20,
-      right: -20,
-      width: 170,
-      height: 170,
-      borderRadius: 85,
-    },
     topBar: { flexDirection: 'row', alignItems: 'center', marginTop: 8, marginBottom: 24 },
     iconButton: {
       width: 40,

@@ -386,7 +386,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     hero: { width: '90%', minHeight: 104, maxWidth: layout.contentMaxWidth - 40, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', marginBottom: 14, padding: 18, gap: 14, borderRadius: 26, overflow: 'hidden', backgroundColor: '#0b0c0f', boxShadow: cbModalShadow(0.14), ...cbTileBorder(0.22) },
     heroText: { gap: 2 },
     heroTitle: { fontFamily: 'Inter_900Black', fontSize: 34, color: ACCENT_HOVER, letterSpacing: -1.2 },
-    heroSub: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM, letterSpacing: 1.8, textTransform: 'uppercase' },
     searchWrap: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 20, marginBottom: 10 },
     searchBorder: { borderRadius: 14, padding: 1 },
     searchInner: { flexDirection: 'row', alignItems: 'center', backgroundColor: SURFACE_ALT, borderRadius: 13, paddingHorizontal: 12, paddingVertical: 10, gap: 10 },

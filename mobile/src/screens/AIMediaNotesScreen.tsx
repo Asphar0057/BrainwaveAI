@@ -1279,7 +1279,6 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   backBtn:     { width: 36, alignItems: 'flex-start', justifyContent: 'center' },
   backBtnText: { fontFamily: 'Inter_700Bold', fontSize: 18, color: GOLD_XL, lineHeight: 22 },
   pageTitle:   { fontFamily: 'Inter_900Black',   fontSize: 30, color: GOLD_L, letterSpacing: -0.6 },
-  pageSubtitle:{ fontFamily: 'Inter_400Regular', fontSize: 10, color: GOLD_L, letterSpacing: 2.2, marginTop: 4, textTransform: 'uppercase' },
 
   // Sub-screen header
   subHeader: {
@@ -1577,7 +1576,6 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   },
   podcastEyebrow: { fontFamily: 'Inter_700Bold', color: GOLD_D, fontSize: 9, letterSpacing: 2.2, textTransform: 'uppercase' },
   podcastTitle: { fontFamily: 'Inter_900Black', color: GOLD_XL, fontSize: 23, letterSpacing: -0.2, lineHeight: 29 },
-  podcastCopy: { fontFamily: 'Inter_400Regular', color: GOLD_L, fontSize: 13, lineHeight: 20 },
   podcastProgress: { fontFamily: 'Inter_600SemiBold', color: GOLD_D, fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase' },
   podcastSegment: { fontFamily: 'Inter_400Regular', color: GOLD_XL, fontSize: 14, lineHeight: 23 },
   podcastPrimary: { minHeight: 50, borderRadius: 14, backgroundColor: GOLD_M, alignItems: 'center', justifyContent: 'center' },
