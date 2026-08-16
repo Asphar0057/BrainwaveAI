@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ScrollView, ActivityIndicator, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
@@ -100,7 +100,7 @@ export default function ActivityTimelineScreen({ user, onBack }: Props) {
       </View>
 
       {/* Filter chips */}
-      <View style={s.filterRow}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
         {FILTERS.map(f => (
           <HapticTouchable
             key={f}
@@ -112,7 +112,7 @@ export default function ActivityTimelineScreen({ user, onBack }: Props) {
             <Text style={[s.chipText, filter === f && s.chipTextActive]}>{f}</Text>
           </HapticTouchable>
         ))}
-      </View>
+      </ScrollView>
 
       {loading ? (
         <ActivityIndicator color={GOLD_D} style={{ marginTop: 60 }} />
