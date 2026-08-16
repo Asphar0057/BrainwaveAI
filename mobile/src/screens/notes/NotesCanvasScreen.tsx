@@ -25,6 +25,7 @@ import {
 import Svg, { Circle, G, Line, Path, Polygon, Rect, Text as SvgText } from 'react-native-svg';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import HapticTouchable from '../../components/HapticTouchable';
+import { cbModalShadow, cbTileShadow } from '../../components/NeumorphicTexture';
 import { NOTE_FONT_OPTIONS, normalizeNoteFont, resolveNoteFont } from '../../constants/noteFonts';
 import { rgbaFromHex } from '../../utils/theme';
 import { useResponsiveLayout } from '../../hooks/useResponsiveLayout';
@@ -2250,6 +2251,7 @@ const previewStyles = StyleSheet.create({
     borderWidth: 1,
     overflow: 'hidden',
     justifyContent: 'center',
+    boxShadow: cbTileShadow(0.05),
   },
   empty: {
     ...StyleSheet.absoluteFillObject,
@@ -2283,6 +2285,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     zIndex: 31,
     elevation: 8,
+    boxShadow: cbModalShadow(0.12),
   },
   navBtn: {
     width: 42,
@@ -2421,6 +2424,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 10,
     overflow: 'hidden',
+    boxShadow: cbModalShadow(0.12),
   },
   inspectorRow: {
     paddingHorizontal: 12,
