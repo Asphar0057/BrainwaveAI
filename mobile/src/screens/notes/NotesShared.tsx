@@ -27,6 +27,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import AmbientBubbles from '../../components/AmbientBubbles';
 import GeoBackground from '../../components/GeoBackground';
 import HapticTouchable from '../../components/HapticTouchable';
+import TileGleam from '../../components/TileGleam';
+import NeumorphicTexture, { cbTileShadow, cbModalShadow, cbTileBorder } from '../../components/NeumorphicTexture';
 import { AuthUser } from '../../services/auth';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import {
@@ -379,7 +381,7 @@ export function CompactActionTile({
   onPress: () => void;
 }) {
   return (
-    <HapticTouchable style={s.compactActionTile} onPress={onPress} activeOpacity={0.88} haptic="light">
+    <TileGleam style={s.compactActionTile} borderRadius={18} onPress={onPress} haptic="light">
       <View style={s.compactActionIconWrap}>
         <Ionicons name={icon} size={16} color={ACCENT} />
       </View>
@@ -388,7 +390,7 @@ export function CompactActionTile({
         <Text style={s.compactActionSubtitle} numberOfLines={2}>{subtitle}</Text>
       </View>
       <Ionicons name="chevron-forward" size={16} color={GOLD_D} />
-    </HapticTouchable>
+    </TileGleam>
   );
 }
 
@@ -1128,12 +1130,13 @@ export function NotesHome({
             const hasCanvas = hasCanvasPayload(item.content);
 
             return (
-              <HapticTouchable
+              <TileGleam
                 style={[s.noteCard, notesGridColumns > 1 && s.noteCardGrid]}
+                borderRadius={22}
                 onPress={() => { void handleOpenEditor(item); }}
-                activeOpacity={0.88}
                 haptic="light"
               >
+                <NeumorphicTexture grainVariant="fine" grainOpacity={0.08} />
                 <View style={s.noteCardTop}>
                   <View style={{ flex: 1 }}>
                     <View style={s.noteTagRow}>
@@ -1166,7 +1169,7 @@ export function NotesHome({
                   <Text style={s.noteMetaText}>{item.is_favorite ? 'starred note' : 'tap to open and edit'}</Text>
                   <Ionicons name="chevron-forward" size={16} color={ACCENT} />
                 </View>
-              </HapticTouchable>
+              </TileGleam>
             );
           }}
         />
@@ -2060,10 +2063,11 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
       width: layout.twoColumn ? '48.8%' : '100%',
       backgroundColor: rgbaFromHex(SURFACE, 0.94),
       borderRadius: 18,
-      borderWidth: 1,
-      borderColor: BORDER,
       paddingHorizontal: 12,
       paddingVertical: 12,
+      overflow: 'hidden',
+      boxShadow: cbTileShadow(0.05),
+      ...cbTileBorder(0.13),
     },
     compactActionIconWrap: {
       width: 34,
@@ -2090,16 +2094,12 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     },
     heroCard: {
       borderRadius: 16,
-      borderWidth: 1,
-      borderColor: rgbaFromHex(ACCENT, 0.2),
       backgroundColor: rgbaFromHex(SURFACE, 0.97),
       padding: layout.isTablet ? 22 : 16,
       gap: 14,
-      shadowColor: ACCENT,
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.13,
-      shadowRadius: 24,
-      elevation: 6,
+      overflow: 'hidden',
+      boxShadow: cbModalShadow(0.12),
+      ...cbTileBorder(0.2),
     },
     heroRow: {
       flexDirection: 'row',
@@ -2347,17 +2347,13 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
       flex: 1,
       backgroundColor: rgbaFromHex(SURFACE, 0.94),
       borderRadius: 22,
-      borderWidth: 1,
-      borderColor: BORDER,
       padding: 16,
       gap: 9,
       marginBottom: 12,
       minHeight: layout.isTablet ? 200 : undefined,
-      shadowColor: ACCENT,
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.08,
-      shadowRadius: 16,
-      elevation: 3,
+      overflow: 'hidden',
+      boxShadow: cbTileShadow(0.06),
+      ...cbTileBorder(0.14),
     },
     noteCardGrid: {
       minWidth: 0,
@@ -2648,6 +2644,8 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
       borderColor: softAccentBorder,
       backgroundColor: rgbaFromHex(SURFACE_2, 0.94),
       padding: 14,
+      overflow: 'hidden',
+      boxShadow: cbTileShadow(0.06),
     },
     editorDrawerGrid: {
       gap: 10,
@@ -2874,11 +2872,12 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     trashCard: {
       backgroundColor: SURFACE,
       borderRadius: 22,
-      borderWidth: 1,
-      borderColor: BORDER,
       padding: 16,
       flexDirection: 'row',
       gap: 12,
+      overflow: 'hidden',
+      boxShadow: cbTileShadow(0.05),
+      ...cbTileBorder(0.13),
     },
     trashMeta: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM2, marginTop: 8, letterSpacing: 0.8 },
     trashActions: { justifyContent: 'space-between', gap: 8 },
@@ -2915,11 +2914,12 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
       maxHeight: '88%',
       backgroundColor: rgbaFromHex(SURFACE, 0.98),
       borderRadius: 20,
-      borderWidth: 1,
-      borderColor: BORDER,
       paddingHorizontal: 18,
       paddingTop: 18,
       paddingBottom: 16,
+      overflow: 'hidden',
+      boxShadow: cbModalShadow(0.12),
+      ...cbTileBorder(0.2),
     },
     modalHeader: {
       flexDirection: 'row',
@@ -3011,18 +3011,20 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     formCard: {
       backgroundColor: rgbaFromHex(SURFACE_2, 0.92),
       borderRadius: 22,
-      borderWidth: 1,
-      borderColor: BORDER,
       padding: 14,
       gap: 10,
+      overflow: 'hidden',
+      boxShadow: cbTileShadow(0.05),
+      ...cbTileBorder(0.13),
     },
     propertyCard: {
       backgroundColor: rgbaFromHex(SURFACE_2, 0.92),
       borderRadius: 22,
-      borderWidth: 1,
-      borderColor: BORDER,
       padding: 14,
       gap: 10,
+      overflow: 'hidden',
+      boxShadow: cbTileShadow(0.05),
+      ...cbTileBorder(0.13),
     },
     propertyHeaderRow: {
       flexDirection: 'row',
@@ -3037,9 +3039,10 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
       gap: 12,
       backgroundColor: rgbaFromHex(SURFACE_2, 0.92),
       borderRadius: 20,
-      borderWidth: 1,
-      borderColor: BORDER,
       padding: 14,
+      overflow: 'hidden',
+      boxShadow: cbTileShadow(0.05),
+      ...cbTileBorder(0.13),
     },
     templateIconWrap: {
       width: 38,
@@ -3078,10 +3081,11 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
       alignItems: 'center',
       gap: 12,
       borderRadius: 18,
-      borderWidth: 1,
-      borderColor: BORDER,
       backgroundColor: rgbaFromHex(SURFACE_2, 0.92),
       padding: 14,
+      overflow: 'hidden',
+      boxShadow: cbTileShadow(0.04),
+      ...cbTileBorder(0.13),
     },
     selectRowActive: {
       borderColor: ACCENT,
@@ -3095,9 +3099,10 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
       gap: 12,
       backgroundColor: rgbaFromHex(SURFACE_2, 0.92),
       borderRadius: 20,
-      borderWidth: 1,
-      borderColor: BORDER,
       padding: 14,
+      overflow: 'hidden',
+      boxShadow: cbTileShadow(0.05),
+      ...cbTileBorder(0.13),
     },
     inlineChips: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
 
@@ -3123,6 +3128,8 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
       borderColor: softAccentBorder,
       backgroundColor: rgbaFromHex(SURFACE_2, 0.95),
       padding: 14,
+      overflow: 'hidden',
+      boxShadow: cbTileShadow(0.05),
     },
     suggestionText: { fontFamily: 'Inter_400Regular', fontSize: 13, lineHeight: 20, color: GOLD_L },
   });
