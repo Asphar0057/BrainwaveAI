@@ -15,7 +15,7 @@ import {
 } from '../services/api';
 import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
-import { cbTileShadow } from '../components/NeumorphicTexture';
+import { cbTileShadow, cbTileBorder } from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
@@ -226,7 +226,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     sectionMeta: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 11 },
     emptyInline: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, lineHeight: 18, paddingVertical: 6 },
 
-    achievementRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 18, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.9), paddingHorizontal: 14, paddingVertical: 12 } as ViewStyle,
+    achievementRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 18, backgroundColor: rgbaFromHex(surface, 0.9), paddingHorizontal: 14, paddingVertical: 12, overflow: 'hidden', boxShadow: cbTileShadow(0.05), ...cbTileBorder(0.13) } as ViewStyle,
     achievementRowLocked: { opacity: 0.62 },
     achievementIconWrap: { width: 40, height: 40, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.5 : 0.6) },
     achievementIconWrapLocked: { borderColor: border },

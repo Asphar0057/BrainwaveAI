@@ -8,7 +8,7 @@ import { AuthUser } from '../services/auth';
 import { getMasteryOverview } from '../services/api';
 import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
-import { cbTileShadow } from '../components/NeumorphicTexture';
+import { cbTileShadow, cbTileBorder } from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
@@ -269,7 +269,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     severity_progressing: { backgroundColor: rgbaFromHex('#e6b85c', 0.16) },
     severity_needs_work: { backgroundColor: rgbaFromHex('#ef6a6a', 0.16) },
     severityText: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 6.5, textTransform: 'uppercase', letterSpacing: 0.5 },
-    empty: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), alignItems: 'center', paddingVertical: 54, paddingHorizontal: 24, gap: 9 },
+    empty: { borderRadius: 24, backgroundColor: rgbaFromHex(surface, 0.82), alignItems: 'center', paddingVertical: 54, paddingHorizontal: 24, gap: 9, overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
     emptyIcon: { width: 58, height: 58, borderRadius: 20, backgroundColor: rgbaFromHex(theme.accent, 0.12), alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
     emptyTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 21 },
     emptyText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, lineHeight: 18, textAlign: 'center', maxWidth: 300 },

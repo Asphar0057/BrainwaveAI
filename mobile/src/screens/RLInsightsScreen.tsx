@@ -8,7 +8,7 @@ import { AuthUser } from '../services/auth';
 import { getRlStrategyPerformance, RLStrategyPerformance, RLStrategyStat } from '../services/api';
 import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
-import { cbTileShadow } from '../components/NeumorphicTexture';
+import { cbTileShadow, cbTileBorder } from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
@@ -330,7 +330,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     badge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: rgbaFromHex(theme.accent, theme.isLight ? 0.12 : 0.16) },
     badgeText: { fontFamily: 'Inter_700Bold', color: theme.accentHover, fontSize: 10.5 },
 
-    warmup: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 14, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.9), paddingHorizontal: 12, paddingVertical: 10 },
+    warmup: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 14, backgroundColor: rgbaFromHex(surface, 0.9), paddingHorizontal: 12, paddingVertical: 10, overflow: 'hidden', boxShadow: cbTileShadow(0.04), ...cbTileBorder(0.12) },
     warmupText: { flex: 1, fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11, lineHeight: 16 },
 
     tabRow: { flexDirection: 'row', gap: 6, borderRadius: 14, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.7), padding: 4 },
@@ -340,7 +340,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     tabTextActive: { color: accentInk },
 
     summaryRow: { flexDirection: 'row', gap: 8 },
-    summaryCard: { flex: 1, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.9), paddingVertical: 14, paddingHorizontal: 8, alignItems: 'center', gap: 4 },
+    summaryCard: { flex: 1, borderRadius: 16, backgroundColor: rgbaFromHex(surface, 0.9), paddingVertical: 14, paddingHorizontal: 8, alignItems: 'center', gap: 4, overflow: 'hidden', boxShadow: cbTileShadow(0.05), ...cbTileBorder(0.13) },
     summaryValue: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 14, textAlign: 'center' },
     summaryLabel: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 8.5, letterSpacing: 0.4, textTransform: 'uppercase', textAlign: 'center' },
     iconColor: { color: theme.accent },
@@ -351,7 +351,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     insightState: { fontFamily: 'Inter_600SemiBold', color: theme.textPrimary, fontSize: 12 },
     insightStrategy: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11, marginTop: 1 },
 
-    strategyCard: { borderRadius: 18, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.9), overflow: 'hidden' } as ViewStyle,
+    strategyCard: { borderRadius: 18, backgroundColor: rgbaFromHex(surface, 0.9), overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) } as ViewStyle,
     strategyBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 13 },
     strategyName: { flex: 1, fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 12.5 },
     strategyPulls: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 10 },

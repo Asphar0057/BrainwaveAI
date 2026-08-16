@@ -9,7 +9,7 @@ import { getSharedWithMe, getSharedContentDetail, removeSharedAccess, SharedItem
 import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
 import MarkdownText from '../components/MarkdownText';
-import { cbTileShadow } from '../components/NeumorphicTexture';
+import { cbTileShadow, cbTileBorder } from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
@@ -214,7 +214,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     rowMessage: { fontFamily: 'Inter_400Regular', color: theme.accentHover, fontSize: 11, marginTop: 3, fontStyle: 'italic' },
     hintFooter: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 10, textAlign: 'center', marginTop: 6 },
 
-    card: { borderRadius: 18, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.9), padding: 16, gap: 8, marginBottom: 4 } as ViewStyle,
+    card: { borderRadius: 18, backgroundColor: rgbaFromHex(surface, 0.9), padding: 16, gap: 8, marginBottom: 4, overflow: 'hidden', boxShadow: cbTileShadow(0.05), ...cbTileBorder(0.13) } as ViewStyle,
     noteBody: { fontFamily: 'Inter_400Regular', color: theme.textPrimary, fontSize: 14, lineHeight: 21 },
     chatUserMsg: { fontFamily: 'Inter_600SemiBold', color: theme.accentHover, fontSize: 13, lineHeight: 19 },
     chatAiMsg: { fontFamily: 'Inter_400Regular', color: theme.textPrimary, fontSize: 13, lineHeight: 19 },

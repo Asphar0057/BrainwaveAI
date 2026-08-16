@@ -18,7 +18,7 @@ import {
 import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
 import MathText from '../components/MathText';
-import { cbTileShadow } from '../components/NeumorphicTexture';
+import { cbTileShadow, cbTileBorder } from '../components/NeumorphicTexture';
 import { triggerHaptic } from '../utils/haptics';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, lightenColor, rgbaFromHex } from '../utils/theme';
@@ -356,7 +356,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     statsCard: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.9), padding: 16, gap: 12, boxShadow: cbTileShadow(0.06) } as ViewStyle,
     statsTitle: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 13, letterSpacing: 0.2 },
     summaryRow: { flexDirection: 'row', gap: 8 },
-    summaryCard: { flex: 1, borderRadius: 14, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.4 : 0.55), paddingVertical: 12, alignItems: 'center', gap: 3 },
+    summaryCard: { flex: 1, borderRadius: 14, backgroundColor: rgbaFromHex(theme.bgPrimary, theme.isLight ? 0.4 : 0.55), paddingVertical: 12, alignItems: 'center', gap: 3, overflow: 'hidden', boxShadow: cbTileShadow(0.04), ...cbTileBorder(0.12) },
     summaryValue: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 16 },
     summaryLabel: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 9, letterSpacing: 0.6, textTransform: 'uppercase' },
     distributionRow: { flexDirection: 'row', gap: 8 },
