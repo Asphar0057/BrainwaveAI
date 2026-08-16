@@ -522,6 +522,18 @@ select { font: inherit; }
 .sh-results-content { display: grid; gap: 18px; padding-top: 18px; }
 .sh-ai-panel { padding: 18px; }
 .sh-ai-panel-head { display: flex; align-items: center; gap: 8px; color: var(--accent); font-size: 9px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+
+.sh-error-panel {
+  width: min(760px, 100%);
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, #f59e0b 55%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, #f59e0b 8%, var(--surface, #111));
+}
+.sh-error-panel-head { display: flex; align-items: center; gap: 8px; color: #fbbf24; font-weight: 800; }
+.sh-error-panel p { margin: 10px 0 4px; }
+.sh-error-panel small { display: block; color: var(--text-muted); }
+.sh-error-panel button { margin-top: 14px; display: inline-flex; align-items: center; gap: 7px; }
 .sh-ai-text { margin-top: 12px; color: var(--text-secondary); font-size: 11px; line-height: 1.7; }
 .sh-ai-chat-btn { margin-top: 14px; }
 .sh-results-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }

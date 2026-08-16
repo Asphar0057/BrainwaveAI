@@ -420,7 +420,7 @@ async def searchhub_agent(request: SearchHubRequest, db: Session = Depends(get_d
     if not intent:
         intent = _infer_action(query)
     action = intent.get("action")
-    topic = intent.get("topic") or query
+    topic = str(intent.get("topic") or "").strip()
     intent_difficulty = intent.get("difficulty")
     difficulty = intent_difficulty if intent_difficulty in ("easy", "medium", "hard") else None
     count = intent.get("count") or _extract_count(query) or 10
@@ -457,6 +457,11 @@ async def searchhub_agent(request: SearchHubRequest, db: Session = Depends(get_d
                 "chatbot_message": "Which topic should I use?",
             },
         }
+
+    # Non-creation intents can still use the original query as their subject.
+    # Creation commands must pass the missing-topic guard above first.
+    if not topic:
+        topic = query
 
     if action == "greeting":
         return {
@@ -691,7 +696,11 @@ async def searchhub_agent(request: SearchHubRequest, db: Session = Depends(get_d
             "user_id": request.user_id,
             "topic": topic,
             "question_count": count,
-            "difficulty_mix": {"easy": 3, "medium": 5, "hard": 2},
+            "difficulty": difficulty,
+            "difficulty_mix": {
+                level: count if level == difficulty else 0
+                for level in ("easy", "medium", "hard")
+            },
             "question_types": ["multiple_choice"],
             "title": f"Practice: {topic[:50]}",
             "use_hs_context": request.use_hs_context,
@@ -724,12 +733,12 @@ async def searchhub_agent(request: SearchHubRequest, db: Session = Depends(get_d
         date_to = filters.get("date_to")
 
         search_result = await search_routes.search_content(
-            user_id=request.user_id,
             query=query,
             content_types=content_types,
             sort_by=sort_by,
             date_from=date_from,
             date_to=date_to,
+            current_user=user,
             db=db,
         )
 

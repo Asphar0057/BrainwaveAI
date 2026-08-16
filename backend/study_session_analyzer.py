@@ -9,6 +9,13 @@ import models
 
 logger = logging.getLogger(__name__)
 
+
+def _percentage_score_to_correct(score: Any, question_count: Any) -> int:
+    """Convert a SoloQuiz percentage to an estimated number correct."""
+    count = max(int(question_count or 0), 0)
+    percentage = min(max(float(score or 0), 0.0), 100.0)
+    return min(round((percentage / 100.0) * count), count)
+
 class StudySessionAnalyzer:
 
     def __init__(self, db: Session, user_id: int, ai_client: Any = None):
@@ -65,7 +72,10 @@ class StudySessionAnalyzer:
             ).all()
             quiz_sessions += len(solo_quizzes)
             quiz_questions += sum(max(quiz.question_count or 0, 0) for quiz in solo_quizzes)
-            quiz_correct += sum(max(quiz.score or 0, 0) for quiz in solo_quizzes)
+            quiz_correct += sum(
+                _percentage_score_to_correct(quiz.score, quiz.question_count)
+                for quiz in solo_quizzes
+            )
 
         if hasattr(models, "QuestionSession"):
             question_sessions = self.db.query(models.QuestionSession).filter(
@@ -78,6 +88,7 @@ class StudySessionAnalyzer:
         total_answered = flashcard_reviews + quiz_questions
         total_correct = flashcard_correct + quiz_correct
         overall_accuracy = (total_correct / total_answered * 100) if total_answered > 0 else 0.0
+        overall_accuracy = min(max(overall_accuracy, 0.0), 100.0)
 
         return {
             "session_start": session_start,

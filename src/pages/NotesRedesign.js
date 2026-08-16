@@ -3728,10 +3728,15 @@ const NotesRedesign = ({ sharedMode = false }) => {
           <div className="ai-overlay" onClick={() => setShowAIAssistant(false)} />
           <div className="ai-assistant-modal">
             <div className="ai-assistant-header">
-              <h3>AI Writing Assistant</h3>
+              <div className="ai-assistant-heading">
+                <span className="ai-assistant-eyebrow">Writing tools</span>
+                <h3>AI Writing Assistant</h3>
+                <p>Choose an action, then add or select the text you want to work with.</p>
+              </div>
               <button
                 className="modal-close-btn"
                 onClick={() => setShowAIAssistant(false)}
+                aria-label="Close AI Writing Assistant"
               >
                 <X size={20} />
               </button>
@@ -3739,7 +3744,10 @@ const NotesRedesign = ({ sharedMode = false }) => {
 
             <div className="ai-assistant-content">
               <div className="ai-assistant-section">
-                <label>Quick Actions (Click to Execute):</label>
+                <div className="ai-assistant-section-heading">
+                  <label>Quick actions</label>
+                  <span>Runs immediately</span>
+                </div>
                 <div className="ai-action-buttons">
                   <button
                     className={`ai-action-btn ${aiAssistAction === 'grammar' ? 'active' : ''}`}
@@ -3795,7 +3803,10 @@ const NotesRedesign = ({ sharedMode = false }) => {
               <div className="ai-assistant-divider"></div>
 
               <div className="ai-assistant-section">
-                <label>Advanced Actions:</label>
+                <div className="ai-assistant-section-heading">
+                  <label>Advanced actions</label>
+                  <span>Configure before running</span>
+                </div>
                 <div className="ai-action-buttons">
                   <button
                     className={`ai-action-btn ${aiAssistAction === 'generate' ? 'active' : ''}`}
@@ -3869,7 +3880,7 @@ const NotesRedesign = ({ sharedMode = false }) => {
               </div>
 
               <div className="ai-assistant-section">
-                <label>Voice to Text:</label>
+                <label>Voice to text</label>
                 <div className="voice-to-text-container">
                   <button
                     className={`voice-record-btn ${isRecording ? 'recording' : ''}`}
@@ -3901,7 +3912,7 @@ const NotesRedesign = ({ sharedMode = false }) => {
                     </div>
                   )}
                   <p className="voice-help-text">
-                    Click to record your voice. AI will transcribe and respond to your question.
+                    Record a thought or question and it will be transcribed into the text field.
                   </p>
                 </div>
               </div>

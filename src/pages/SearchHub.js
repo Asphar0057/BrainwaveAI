@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Sparkles, Clock, Users, BookOpen, FileText, Layers, ChevronRight, ChevronLeft, X, Filter, Calendar, Play, HelpCircle, RefreshCw, Edit, MessageCircle, Target, Brain, BarChart3, LogIn, UserPlus, LogOut } from 'lucide-react';
+import { Search, Sparkles, Clock, Users, BookOpen, FileText, Layers, ChevronRight, ChevronLeft, X, Filter, Calendar, Play, HelpCircle, RefreshCw, Edit, MessageCircle, Target, Brain, BarChart3, LogIn, UserPlus, LogOut, AlertTriangle } from 'lucide-react';
 import './SearchHub.css';
 import SocialHubChrome from '../components/SocialHubChrome';
 import { API_URL } from '../config/api';
@@ -10,6 +10,7 @@ import ContextPanel from '../components/ContextPanel';
 import contextService from '../services/contextService';
 import MathRenderer from '../components/MathRenderer';
 import { queueLegacyAIEndpoint, queuedAIFormFetch, queuedAIJsonFetch, USE_AI_JOB_QUEUE } from '../services/aiJobService';
+import { buildSearchHubChatHandoff } from '../utils/searchHubHandoff';
 
 const COMMAND_HIGHLIGHT_PALETTE = [
   '#7dd3fc',
@@ -209,6 +210,7 @@ const SearchHub = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState(null);
   const [aiSuggestion, setAiSuggestion] = useState(null);
+  const [searchError, setSearchError] = useState(null);
   const [recentSearches, setRecentSearches] = useState([]);
   const [userName, setUserName] = useState('');
   
@@ -1446,6 +1448,7 @@ const SearchHub = () => {
     }
 
     const finalQuery = query.trim();
+    setSearchError(null);
     setIsSearching(true);
     setShowSuggestions(false);
     setShowAutocomplete(false);
@@ -1597,8 +1600,13 @@ const SearchHub = () => {
       }
     } catch (error) {
       console.error('Search error:', error);
-      
-      await getAiDescription(finalQuery);
+      setAiSuggestion(null);
+      setSearchError({
+        title: 'Search is temporarily unavailable',
+        message: 'Your request was not completed, so no generated overview is being shown as a substitute. Please retry.',
+        detail: error?.message || 'Search service unavailable',
+      });
+      setSearchResults({ results: [], total_results: 0, query: finalQuery, failed: true });
     } finally {
       setIsSearching(false);
     }
@@ -1660,7 +1668,7 @@ const SearchHub = () => {
         throw new Error('Search failed');
       }
     } catch (error) {
-      await getAiDescription(finalQuery);
+      throw error;
     }
   };
 
@@ -1696,43 +1704,16 @@ const SearchHub = () => {
           has_ai_description: true
         });
       } else {
-                const errorText = await response.text();
-                
-        
-        setAiSuggestion({
-          description: `I couldn't find any existing study materials about "${topic}". Let's create some! I can help you generate flashcards, notes, or start a learning session.`,
-          suggestions: [
-            `create flashcards on ${topic}`,
-            `create a note on ${topic}`,
-            `explain ${topic}`,
-            `start learning ${topic}`
-          ]
-        });
-        
-        setSearchResults({
-          results: [],
-          total_results: 0,
-          query: topic,
-          has_ai_description: true
-        });
+        throw new Error(`AI overview failed: ${response.status}`);
       }
     } catch (error) {
-            
-      setAiSuggestion({
-        description: `I couldn't find any existing study materials about "${topic}". Would you like to create some? I can help you generate flashcards, notes, or start a learning session.`,
-        suggestions: [
-          `create flashcards on ${topic}`,
-          `create a note on ${topic}`,
-          `explain ${topic}`
-        ]
+      setAiSuggestion(null);
+      setSearchError({
+        title: 'AI overview is unavailable',
+        message: 'No overview was generated. Your existing search results, if any, are unchanged.',
+        detail: error?.message || 'Overview service unavailable',
       });
-      
-      setSearchResults({
-        results: [],
-        total_results: 0,
-        query: topic,
-        has_ai_description: true
-      });
+      setSearchResults(prev => prev || { results: [], total_results: 0, query: topic, failed: true });
     }
   };
 
@@ -2487,6 +2468,31 @@ const SearchHub = () => {
     }
   };
 
+  const continueInAIChat = () => {
+    if (!userName) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    const handoff = buildSearchHubChatHandoff({
+      query: searchQuery,
+      aiSuggestion,
+      searchResults,
+      filters,
+      relatedSearches,
+      didYouMean,
+      hsMode,
+    });
+
+    navigate('/ai-chat', {
+      state: {
+        initialMessage: handoff.displayMessage,
+        conversationContext: handoff.conversationContext,
+        initialModelMessage: handoff.modelMessage,
+      },
+    });
+  };
+
   const getSmartActionIcon = (iconName) => {
     const icons = {
       'play': <Play size={14} />,
@@ -2660,6 +2666,7 @@ const SearchHub = () => {
   const resetWorkspace = () => {
     setSearchResults(null);
     setAiSuggestion(null);
+    setSearchError(null);
     setSearchQuery('');
     setShowFilters(false);
     setShowCommandGuide(false);
@@ -2931,6 +2938,7 @@ const SearchHub = () => {
                   onClick={() => {
                     setSearchResults(null);
                     setAiSuggestion(null);
+                    setSearchError(null);
                     setSearchQuery('');
                     mainScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
@@ -2983,6 +2991,16 @@ const SearchHub = () => {
             )}
 
             <div className="sh-results-content">
+              {searchError && (
+                <div className="sh-error-panel" role="alert">
+                  <div className="sh-error-panel-head"><AlertTriangle size={16} /> {searchError.title}</div>
+                  <p>{searchError.message}</p>
+                  <small>{searchError.detail}</small>
+                  <button type="button" onClick={() => handleSearch(searchQuery)}>
+                    <RefreshCw size={13} /> Retry search
+                  </button>
+                </div>
+              )}
               {aiSuggestion && aiSuggestion.description && (
                 <div className="sh-ai-panel">
                   <div className="sh-ai-panel-head">
@@ -2990,15 +3008,31 @@ const SearchHub = () => {
                     <span>AI Overview</span>
                   </div>
                   <MathRenderer content={aiSuggestion.description} className="sh-ai-text" />
-                  <button
-                    className="sh-ai-chat-btn"
-                    onClick={() => {
-                      if (!userName) { setShowLoginModal(true); return; }
-                      navigate('/ai-chat', { state: { initialMessage: `Tell me more about ${searchQuery}` } });
-                    }}
-                  >
-                    <MessageCircle size={13} /> Continue in AI Chat
-                  </button>
+                  {aiSuggestion?.nlp_metadata?.action !== 'need_topic' && (
+                    <button
+                      className="sh-ai-chat-btn"
+                      onClick={continueInAIChat}
+                    >
+                      <MessageCircle size={13} /> Continue in AI Chat
+                    </button>
+                  )}
+                  {searchResults?.isConversational && aiSuggestion?.suggestions?.length > 0 && (
+                    <div className="sh-related-list" aria-label="Suggested commands">
+                      {aiSuggestion.suggestions.map((suggestion, index) => (
+                        <button
+                          key={`${suggestion}-${index}`}
+                          type="button"
+                          className="sh-related-btn"
+                          onClick={() => {
+                            setSearchQuery(suggestion);
+                            handleSearch(suggestion);
+                          }}
+                        >
+                          <ChevronRight size={11} /> {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -3064,7 +3098,7 @@ const SearchHub = () => {
                     </div>
                   )}
                 </>
-              ) : searchResults?.has_ai_description ? (
+              ) : searchResults?.has_ai_description && !searchResults?.isConversational ? (
                 <div className="sh-create-options">
                   <div className="sh-create-options-head">Create study materials or explore this topic:</div>
                   <div className="sh-create-grid">
@@ -3113,7 +3147,7 @@ const SearchHub = () => {
                     ))}
                   </div>
                 </div>
-              ) : (
+              ) : searchResults?.isConversational ? null : (
                 <div className="sh-no-results">
                   <div className="sh-no-results-icon">
                     {searchResults.action_executed === 'show_weak_areas' ? <Sparkles size={34} /> : <Search size={34} />}

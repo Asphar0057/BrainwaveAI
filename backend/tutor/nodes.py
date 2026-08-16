@@ -449,7 +449,7 @@ def detect_intent(state: TutorState) -> dict:
     # can contain words such as "app", "tool", or "create" that otherwise look
     # like a project-build request, so honor the explicit handoff before applying
     # the generic project detector.
-    if "[[presentation_study_context]]" in text:
+    if "[[presentation_study_context]]" in text or "[[searchhub_handoff_context]]" in text:
         return {"intent": "question"}
 
     if _is_repetitive(text, chat_history):

@@ -41,6 +41,7 @@ from .agents import (
 )
 from .pdf_utils import generate_question_set_pdf
 from services.storage_service import StorageService
+from services.answer_validation import answers_equivalent
 from .utils import (
     _update_weak_areas,
     _compute_topic_performance_from_sessions,
@@ -166,13 +167,15 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             for option in options
         ] if isinstance(options, list) else []
 
-        if not cleaned.get("question_type") and cleaned["options"]:
-            cleaned["question_type"] = (
+        question_type = str(cleaned.get("question_type") or "").strip().lower().strip("$")
+        if question_type not in {"multiple_choice", "true_false", "short_answer", "fill_blank"}:
+            question_type = (
                 "true_false"
                 if len(cleaned["options"]) == 2
                 and {str(option).strip().lower() for option in cleaned["options"]} == {"true", "false"}
-                else "multiple_choice"
+                else ("multiple_choice" if cleaned["options"] else "short_answer")
             )
+        cleaned["question_type"] = question_type
 
         answer = str(cleaned.get("correct_answer") or "").strip()
         if cleaned.get("question_type") == "multiple_choice":
@@ -1662,7 +1665,11 @@ def register_question_bank_api(app, unified_ai, get_db_func):
                         if correct_words and len(correct_words & user_words) / len(correct_words) >= 0.8:
                             is_correct = True
                 else:
-                    is_correct = user_answer_normalized == correct_answer
+                    try:
+                        answer_options = json.loads(question.options) if question.options else []
+                    except (TypeError, ValueError, json.JSONDecodeError):
+                        answer_options = []
+                    is_correct = answers_equivalent(user_answer, question.correct_answer, answer_options)
 
                 if is_correct:
                     correct_count += 1

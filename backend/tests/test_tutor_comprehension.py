@@ -451,6 +451,20 @@ def test_slide_explorer_study_context_cannot_be_misrouted_as_project_build():
     assert result["intent"] == "question"
 
 
+def test_searchhub_handoff_cannot_be_misrouted_as_project_build():
+    result = nodes.detect_intent(
+        {
+            "user_input": (
+                "[[SEARCHHUB_HANDOFF_CONTEXT]] Continue helping me compare TCP and UDP. "
+                "The retrieved context mentions an application, system, and workflow."
+            ),
+            "chat_history": [],
+        }
+    )
+
+    assert result["intent"] == "question"
+
+
 def test_vague_project_response_is_marked_for_repair():
     response = (
         "You could consider React or Vue for the frontend and perhaps use a backend framework. "

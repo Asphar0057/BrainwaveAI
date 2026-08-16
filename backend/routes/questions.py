@@ -21,8 +21,9 @@ from deps import (
     get_user_by_username,
 )
 from services.ai_json_parser import parse_json_array_response
-from services.math_processor import process_math_in_response
+from services.math_processor import process_math_in_json
 from services.content_bandit import get_content_bandit, is_auto_difficulty
+from services.answer_validation import answers_equivalent, sanitize_generated_questions
 
 logger = logging.getLogger(__name__)
 router = APIRouter(
@@ -102,6 +103,40 @@ def _build_local_question_fallback(
                 "topic": clean_topic,
             })
     return questions[:question_count]
+
+
+async def _independently_verify_questions(
+    questions: list[dict[str, Any]],
+    *,
+    topic: str,
+    question_count: int,
+    difficulty: str,
+) -> list[dict[str, Any]]:
+    """Use a low-temperature second pass to solve and repair generated questions."""
+    if not questions:
+        return []
+
+    audit_prompt = f"""You are the independent quality reviewer for a student quiz about {topic}.
+
+Audit every question below by solving it yourself. Correct factual, mathematical, unit, wording, option, answer, and explanation errors. For numerical questions, recompute the result independently. If the true answer is missing from the options, replace one incorrect option with the true answer. Remove ambiguity and ensure exactly one correct option.
+
+Hard requirements:
+- Return exactly {question_count} questions as one JSON array and no prose.
+- Every multiple-choice question has exactly 4 distinct options.
+- correct_answer is the full, exact text of one option, never A/B/C/D.
+- Every question difficulty is "{difficulty}".
+- Preserve valid LaTeX backslashes in JSON strings.
+
+QUESTIONS TO AUDIT:
+{json.dumps(questions, ensure_ascii=False)}
+"""
+    response = await call_ai_async(audit_prompt, max_tokens=4000, temperature=0.1)
+    audited = process_math_in_json(parse_json_array_response(response))
+    return sanitize_generated_questions(
+        audited,
+        question_count=question_count,
+        difficulty=difficulty,
+    )
 
 def _load_test_fallback_enabled(user: models.User) -> bool:
     identifiers = {
@@ -466,8 +501,7 @@ Generate exactly {question_count} high-quality questions:"""
 
             try:
                 response_text = await call_ai_async(fallback_prompt, max_tokens=4000, temperature=0.7)
-                response_text = process_math_in_response(response_text)
-                questions_data = parse_json_array_response(response_text)
+                questions_data = process_math_in_json(parse_json_array_response(response_text))
             except Exception as ai_err:
                 logger.warning(
                     "[QUIZ ROUTE] direct AI fallback failed; using local question fallback: %s",
@@ -491,6 +525,54 @@ Generate exactly {question_count} high-quality questions:"""
                 len(questions_data),
                 time.perf_counter() - fallback_started,
             )
+
+        questions_data = sanitize_generated_questions(
+            questions_data,
+            question_count=question_count,
+            difficulty=difficulty,
+        )
+
+        if not load_test_fallback and questions_data:
+            try:
+                audited_questions = await _independently_verify_questions(
+                    questions_data,
+                    topic=topic,
+                    question_count=question_count,
+                    difficulty=difficulty,
+                )
+                if len(audited_questions) == question_count:
+                    questions_data = audited_questions
+                else:
+                    logger.warning(
+                        "[QUIZ ROUTE] independent audit returned %s/%s valid questions; using safe fallback",
+                        len(audited_questions),
+                        question_count,
+                    )
+                    questions_data = []
+            except Exception as audit_error:
+                logger.warning(
+                    "[QUIZ ROUTE] independent audit failed; using safe fallback: %s",
+                    audit_error,
+                )
+                questions_data = []
+
+        if len(questions_data) < question_count:
+            logger.warning(
+                "[QUIZ ROUTE] validation retained %s/%s questions; filling safely",
+                len(questions_data),
+                question_count,
+            )
+            fallback_questions = _build_local_question_fallback(
+                topic=topic,
+                question_count=question_count - len(questions_data),
+                difficulty=difficulty,
+                question_types=question_types,
+            )
+            questions_data.extend(sanitize_generated_questions(
+                fallback_questions,
+                question_count=question_count - len(questions_data),
+                difficulty=difficulty,
+            ))
 
         if not questions_data:
             raise HTTPException(status_code=500, detail="No questions were generated")
@@ -930,13 +1012,13 @@ async def submit_question_answers(
                     display_answer = user_answer
 
                     if question.question_type == "multiple_choice":
-                        is_correct = (
-                            user_answer.strip().lower() == question.correct_answer.strip().lower()
-                        )
+                        try:
+                            answer_options = json.loads(question.options) if question.options else []
+                        except (TypeError, ValueError, json.JSONDecodeError):
+                            answer_options = []
+                        is_correct = answers_equivalent(user_answer, question.correct_answer, answer_options)
                     elif question.question_type == "true_false":
-                        is_correct = (
-                            user_answer.strip().lower() == question.correct_answer.strip().lower()
-                        )
+                        is_correct = answers_equivalent(user_answer, question.correct_answer, ["True", "False"])
                     else:
                         is_correct = any(
                             keyword in user_answer.strip().lower()
@@ -1426,9 +1508,13 @@ async def submit_answers(
             is_correct = False
 
             if question.question_type == "multiple_choice":
-                is_correct = user_answer.lower() == question.correct_answer.lower()
+                try:
+                    answer_options = json.loads(question.options) if question.options else []
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    answer_options = []
+                is_correct = answers_equivalent(user_answer, question.correct_answer, answer_options)
             elif question.question_type == "true_false":
-                is_correct = user_answer.lower() == question.correct_answer.lower()
+                is_correct = answers_equivalent(user_answer, question.correct_answer, ["True", "False"])
             else:
                 is_correct = any(
                     keyword in user_answer.lower()

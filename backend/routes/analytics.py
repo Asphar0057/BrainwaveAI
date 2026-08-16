@@ -43,6 +43,10 @@ DEFAULT_ANALYTICS_TZ = "Asia/Kolkata"
 DEFAULT_ANALYTICS_OFFSET = timezone(timedelta(hours=5, minutes=30), DEFAULT_ANALYTICS_TZ)
 
 
+def _solo_quiz_display_title(quiz):
+    return getattr(quiz, "title", None) or getattr(quiz, "subject", None) or "Quiz"
+
+
 def _analytics_timezone(tz_name=None):
     try:
         return ZoneInfo(tz_name or DEFAULT_ANALYTICS_TZ)
@@ -1405,7 +1409,7 @@ async def get_comprehensive_insights(
 
             for quiz in solo_quizzes[:10]:
                 quiz_data = {
-                    "title": quiz.title,
+                    "title": _solo_quiz_display_title(quiz),
                     "score": quiz.score,
                     "difficulty": quiz.difficulty,
                     "question_count": quiz.question_count,
