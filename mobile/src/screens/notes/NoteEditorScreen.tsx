@@ -16,6 +16,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import AmbientBubbles from '../../components/AmbientBubbles';
 import GeoBackground from '../../components/GeoBackground';
 import HapticTouchable from '../../components/HapticTouchable';
+import { cbTileShadow, cbModalShadow, cbTileBorder } from '../../components/NeumorphicTexture';
 import {
   createFolder,
   invokeNotesAgent,
@@ -948,11 +949,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
       paddingHorizontal: 20,
       paddingTop: 18,
       paddingBottom: 22,
-      shadowColor: theme.accent,
-      shadowOffset: { width: 0, height: 16 },
-      shadowOpacity: theme.isLight ? 0.08 : 0.18,
-      shadowRadius: 26,
-      elevation: 4,
+      overflow: 'hidden',
+      boxShadow: cbModalShadow(0.12),
     },
     dateStamp: {
       fontFamily: 'Inter_600SemiBold',
@@ -999,10 +997,11 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
     sketchCard: {
       backgroundColor: rgbaFromHex(theme.panel, 0.92),
       borderRadius: 16,
-      borderWidth: 1,
-      borderColor: rgbaFromHex(theme.borderStrong, 0.82),
       padding: 14,
       gap: 12,
+      overflow: 'hidden',
+      boxShadow: cbTileShadow(0.06),
+      ...cbTileBorder(0.14),
     },
     sketchCardHeader: {
       flexDirection: 'row',
@@ -1048,14 +1047,10 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
       gap: 10,
       backgroundColor: rgbaFromHex(theme.panel, 0.94),
       borderRadius: 20,
-      borderWidth: 1,
-      borderColor: rgbaFromHex(theme.borderStrong, 0.82),
       padding: 10,
-      shadowColor: theme.accent,
-      shadowOffset: { width: 0, height: 12 },
-      shadowOpacity: theme.isLight ? 0.08 : 0.18,
-      shadowRadius: 24,
-      elevation: 6,
+      overflow: 'hidden',
+      boxShadow: cbModalShadow(0.14),
+      ...cbTileBorder(0.2),
     },
     metricsRow: {
       alignSelf: 'center',
@@ -1109,9 +1104,10 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
       gap: 12,
       padding: 14,
       borderRadius: 20,
-      borderWidth: 1,
-      borderColor: rgbaFromHex(theme.borderStrong, 0.8),
       backgroundColor: mutedFill,
+      overflow: 'hidden',
+      boxShadow: cbTileShadow(0.05),
+      ...cbTileBorder(0.13),
     },
     menuIconWrap: {
       width: 36,
@@ -1228,6 +1224,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
       backgroundColor: softAccent,
       padding: 16,
       gap: 6,
+      overflow: 'hidden',
+      boxShadow: cbTileShadow(0.06),
     },
     saveTemplateTitle: {
       fontFamily: 'Inter_700Bold',
@@ -1243,10 +1241,11 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
     templateCard: {
       gap: 12,
       borderRadius: 22,
-      borderWidth: 1,
-      borderColor: rgbaFromHex(theme.borderStrong, 0.82),
       backgroundColor: mutedFill,
       padding: 16,
+      overflow: 'hidden',
+      boxShadow: cbTileShadow(0.06),
+      ...cbTileBorder(0.14),
     },
     templateTitle: {
       fontFamily: 'Inter_700Bold',
@@ -1300,6 +1299,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
       borderColor: rgbaFromHex(theme.accent, 0.24),
       backgroundColor: rgbaFromHex(theme.panel, 0.92),
       padding: 16,
+      overflow: 'hidden',
+      boxShadow: cbTileShadow(0.06),
     },
     aiResultText: {
       fontFamily: 'Inter_400Regular',
