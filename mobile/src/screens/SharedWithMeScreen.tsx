@@ -198,7 +198,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
     iconBtn: { width: 42, height: 42, borderRadius: 15, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), alignItems: 'center', justifyContent: 'center' },
     headerCopy: { flex: 1 },
-    kicker: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 8, letterSpacing: 1.7 },
+    kicker: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 10, letterSpacing: 1.7 },
     title: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 24, lineHeight: 28, letterSpacing: -0.5 },
 
     errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 14, borderWidth: 1, borderColor: rgbaFromHex(theme.danger, 0.3), backgroundColor: rgbaFromHex(theme.danger, 0.1), paddingHorizontal: 14, paddingVertical: 10, marginBottom: 16 } as ViewStyle,

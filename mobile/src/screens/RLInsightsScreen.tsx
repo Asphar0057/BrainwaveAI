@@ -318,7 +318,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12 },
     iconBtn: { width: 42, height: 42, borderRadius: 15, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), alignItems: 'center', justifyContent: 'center' },
     headerCopy: { flex: 1 },
-    kicker: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 8, letterSpacing: 1.7 },
+    kicker: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 10, letterSpacing: 1.7 },
     title: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 26, lineHeight: 30, letterSpacing: -0.6 },
 
     empty: { alignItems: 'center', gap: 8, paddingVertical: 60, paddingHorizontal: 20 },
@@ -342,7 +342,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     summaryRow: { flexDirection: 'row', gap: 8 },
     summaryCard: { flex: 1, borderRadius: 16, backgroundColor: rgbaFromHex(surface, 0.9), paddingVertical: 14, paddingHorizontal: 8, alignItems: 'center', gap: 4, overflow: 'hidden', boxShadow: cbTileShadow(0.05), ...cbTileBorder(0.13) },
     summaryValue: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 14, textAlign: 'center' },
-    summaryLabel: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 8.5, letterSpacing: 0.4, textTransform: 'uppercase', textAlign: 'center' },
+    summaryLabel: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 10.5, letterSpacing: 0.4, textTransform: 'uppercase', textAlign: 'center' },
     iconColor: { color: theme.accent },
 
     card: { borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.9), padding: 16, gap: 12, boxShadow: cbTileShadow(0.06) } as ViewStyle,
@@ -379,7 +379,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     chartBarWrap: { flex: 1, alignItems: 'center', gap: 4, height: '100%', justifyContent: 'flex-end' },
     chartBarTrack: { width: '100%', flex: 1, justifyContent: 'flex-end' },
     chartBar: { width: '100%', borderRadius: 4, minHeight: 4 },
-    chartBarLbl: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 8.5 },
+    chartBarLbl: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 10.5 },
     curveFoot: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 10.5, textAlign: 'center', marginTop: 4 },
   });
 }

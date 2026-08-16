@@ -411,7 +411,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       color: TXT, letterSpacing: -1.2, lineHeight: 38,
     },
     brandSub: {
-      fontFamily: 'Inter_600SemiBold', fontSize: 8, color: GOLD,
+      fontFamily: 'Inter_600SemiBold', fontSize: 10, color: GOLD,
       letterSpacing: 1.9, textTransform: 'uppercase',
     },
     headerPeopleButton: {
@@ -425,7 +425,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       backgroundColor: theme.danger, borderWidth: 2, borderColor: BG,
     },
     headerBadgeText: {
-      fontFamily: 'Inter_900Black', fontSize: 8, color: '#fff',
+      fontFamily: 'Inter_900Black', fontSize: 9, color: '#fff',
     },
     loadingWrap: { paddingTop: 80, alignItems: 'center' },
 
@@ -444,7 +444,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       borderWidth: 1, borderColor: rgbaFromHex(GOLD, 0.32),
       backgroundColor: rgbaFromHex(SURF, 0.98),
     },
-    circleRankText: { fontFamily: 'Inter_600SemiBold', fontSize: 8, color: GOLD },
+    circleRankText: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: GOLD },
     circleBigNumber: {
       marginTop: 22, fontFamily: 'Inter_900Black', fontSize: 46,
       lineHeight: 44, color: TXT, letterSpacing: -1.5,
@@ -485,7 +485,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       flex: 1, height: '100%', alignItems: 'center', justifyContent: 'center', gap: 5,
     },
     dockLabel: {
-      fontFamily: 'Inter_600SemiBold', fontSize: 7.5, color: DIM,
+      fontFamily: 'Inter_600SemiBold', fontSize: 10, color: DIM,
       letterSpacing: 0.9, textTransform: 'uppercase',
     },
     dockBattleAction: {
@@ -497,7 +497,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       justifyContent: 'center', borderWidth: 1, borderColor: rgbaFromHex(GOLD, 0.36),
     },
     dockBattleLabel: {
-      marginTop: 4, fontFamily: 'Inter_900Black', fontSize: 8, color: GOLD,
+      marginTop: 4, fontFamily: 'Inter_900Black', fontSize: 10, color: GOLD,
       letterSpacing: 1, textTransform: 'uppercase',
     },
 
@@ -507,7 +507,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       marginTop: 4,
     },
     ribbonKicker: {
-      fontFamily: 'Inter_600SemiBold', fontSize: 8, color: GOLD,
+      fontFamily: 'Inter_600SemiBold', fontSize: 10, color: GOLD,
       letterSpacing: 1.8, textTransform: 'uppercase',
     },
     ribbonTitle: {
@@ -542,7 +542,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     rankAvatarText: { fontFamily: 'Inter_900Black', fontSize: 10, color: GOLD },
     rankName: { fontFamily: 'Inter_900Black', fontSize: 11.5, color: TXT },
-    rankMeta: { marginTop: 2, fontFamily: 'Inter_400Regular', fontSize: 8.5, color: DIM },
+    rankMeta: { marginTop: 2, fontFamily: 'Inter_400Regular', fontSize: 10.5, color: DIM },
 
     /* Same playfield layout, standard Cerbyl rectangles */
     playfield: { minHeight: 250, flexDirection: 'row', gap: 11 },
@@ -570,14 +570,14 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       borderColor: CB_EDGE, backgroundColor: CB_CARD,
     },
     playMiniTitle: { fontFamily: 'Inter_900Black', fontSize: 13, color: TXT },
-    playMiniSub: { marginTop: 3, fontFamily: 'Inter_400Regular', fontSize: 8.5, color: DIM },
+    playMiniSub: { marginTop: 3, fontFamily: 'Inter_400Regular', fontSize: 10.5, color: DIM },
     soloOrb: {
       flex: 1, minHeight: 135, alignItems: 'center', justifyContent: 'center',
       borderRadius: 26, borderWidth: 1, borderColor: CB_EDGE,
       backgroundColor: CB_CARD,
     },
     soloTitle: { marginTop: 8, fontFamily: 'Inter_900Black', fontSize: 18, color: TXT },
-    soloSub: { marginTop: 2, fontFamily: 'Inter_400Regular', fontSize: 8.5, color: DIM },
+    soloSub: { marginTop: 2, fontFamily: 'Inter_400Regular', fontSize: 10.5, color: DIM },
     soloArrow: { position: 'absolute', right: 12, top: 12 },
 
     /* Horizontal activity signals */
@@ -597,7 +597,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     signalVerb: { marginTop: 4, fontFamily: 'Inter_400Regular', fontSize: 9.5, lineHeight: 14, color: DIM },
     signalTime: {
       position: 'absolute', right: 12, top: 15,
-      fontFamily: 'Inter_600SemiBold', fontSize: 7.5, color: GOLD,
+      fontFamily: 'Inter_600SemiBold', fontSize: 10, color: GOLD,
     },
 
     /* Standard discovery cards */
@@ -613,9 +613,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       justifyContent: 'center', borderWidth: 1, borderColor: rgbaFromHex(GOLD, 0.2),
       backgroundColor: rgbaFromHex(GOLDM, 0.07),
     },
-    discoveryNumberText: { fontFamily: 'Inter_900Black', fontSize: 8, color: GOLD },
+    discoveryNumberText: { fontFamily: 'Inter_900Black', fontSize: 10, color: GOLD },
     discoveryTitle: { fontFamily: 'Inter_900Black', fontSize: 12.5, color: TXT },
-    discoveryCopy: { marginTop: 3, fontFamily: 'Inter_400Regular', fontSize: 8.5, color: DIM },
+    discoveryCopy: { marginTop: 3, fontFamily: 'Inter_400Regular', fontSize: 10.5, color: DIM },
 
     /* Context-aware activation card */
     nextMoveCard: {
@@ -634,7 +634,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       backgroundColor: rgbaFromHex(GOLDM, 0.07),
     },
     nextMoveTagText: {
-      fontFamily: 'Inter_600SemiBold', fontSize: 8, color: GOLD,
+      fontFamily: 'Inter_600SemiBold', fontSize: 10, color: GOLD,
       letterSpacing: 1.2, textTransform: 'uppercase',
     },
     nextMoveTitle: {

@@ -324,7 +324,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     backBtn: { width: 42, height: 42, borderRadius: 15, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.06) } as ViewStyle,
     refreshBtn: { width: 42, height: 42, borderRadius: 15, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.06) } as ViewStyle,
     headerCopy: { flex: 1 },
-    kicker: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 8, letterSpacing: 1.7 },
+    kicker: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 10, letterSpacing: 1.7 },
     title: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 32, lineHeight: 36, letterSpacing: -0.8 },
     periodTabs: { height: 42, borderRadius: 15, borderWidth: 1, borderColor: border, padding: 4, backgroundColor: rgbaFromHex(surface, 0.72), flexDirection: 'row', gap: 4 },
     periodTab: { flex: 1, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
@@ -343,7 +343,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       fontFamily: 'Inter_900Black', fontSize: 108, lineHeight: 108,
       color: ghostColor, letterSpacing: -4,
     },
-    eyebrow: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 8, letterSpacing: 1.5 },
+    eyebrow: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 10, letterSpacing: 1.5 },
     accuracyLine: { flexDirection: 'row', alignItems: 'flex-end' },
     accuracyValue: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 52, lineHeight: 56, letterSpacing: -2 },
     accuracyUnit: { fontFamily: 'Inter_900Black', color: theme.accent, fontSize: 20, marginBottom: 7, marginLeft: 2 },
@@ -357,7 +357,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     } as ViewStyle,
     sideMiniValue: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 22, letterSpacing: -0.6 },
     sideMiniUnit: { fontSize: 12, color: theme.accent },
-    sideMiniLabel: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 8, textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 1 },
+    sideMiniLabel: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 1 },
 
     // ── metric row ──
     metricGrid: { flexDirection: 'row', gap: 8 },
@@ -365,14 +365,14 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     metricIcon: { width: 28, height: 28, borderRadius: 10, backgroundColor: rgbaFromHex(theme.accent, 0.12), alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
     metricValue: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 21 },
     metricLabel: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 9, marginTop: 2 },
-    metricSuffix: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 8, marginTop: 1 },
+    metricSuffix: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 10, marginTop: 1 },
 
     // ── shared section card + Swiss numbered header ──
     sectionCard: { borderRadius: 22, overflow: 'hidden', padding: 15, gap: 14, boxShadow: cbTileShadow(0.07), ...cbTileBorder(0.15) } as ViewStyle,
     sectionHeader: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
     sectionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     sectionIndex: { fontFamily: 'Inter_900Black', color: rgbaFromHex(theme.accent, 0.5), fontSize: 22, letterSpacing: -0.5 },
-    sectionKicker: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 8, letterSpacing: 1.5 },
+    sectionKicker: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 10, letterSpacing: 1.5 },
     sectionTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 19, marginTop: 2 },
     sectionMeta: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 9 },
 
@@ -391,7 +391,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     barColumn: { flex: 1, alignItems: 'center', gap: 7 },
     barTrack: { flex: 1, width: '100%', maxWidth: 34, borderRadius: 9, overflow: 'hidden', justifyContent: 'flex-end', backgroundColor: rgbaFromHex(theme.accent, 0.09) },
     barFill: { width: '100%', borderRadius: 9, backgroundColor: theme.accentHover },
-    barLabel: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 8, textTransform: 'uppercase' },
+    barLabel: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 10, textTransform: 'uppercase' },
     weekDivider: { height: 1, backgroundColor: theme.border },
     weekChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     weekChip: {
@@ -400,7 +400,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     weekChipAccent: { backgroundColor: rgbaFromHex(theme.accent, 0.14), borderColor: rgbaFromHex(theme.accentHover, 0.3) },
     weekChipValue: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 14, marginTop: 2 },
-    weekChipLabel: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 7, textTransform: 'uppercase', letterSpacing: 0.4 },
+    weekChipLabel: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 9.5, textTransform: 'uppercase', letterSpacing: 0.4 },
 
     // ── insights ──
     insightTabs: { flexDirection: 'row', gap: 7 },
@@ -411,7 +411,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     insightList: { gap: 1 },
     insightRow: { minHeight: 48, borderTopWidth: 1, borderTopColor: theme.border, flexDirection: 'row', alignItems: 'center', gap: 10 },
     insightIndex: { width: 28, height: 28, borderRadius: 9, backgroundColor: rgbaFromHex(theme.accent, 0.1), alignItems: 'center', justifyContent: 'center' },
-    insightIndexText: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 8 },
+    insightIndexText: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 10 },
     insightCopy: { flex: 1, gap: 6 },
     insightName: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 11 },
     insightTrack: { height: 3, borderRadius: 2, overflow: 'hidden', backgroundColor: rgbaFromHex(theme.accent, 0.1) },

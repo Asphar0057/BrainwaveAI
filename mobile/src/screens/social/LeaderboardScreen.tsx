@@ -326,7 +326,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     headerCopy: { flex: 1 },
     brandSub: {
-      fontFamily: 'Inter_600SemiBold', fontSize: 7.5, letterSpacing: 1.7,
+      fontFamily: 'Inter_600SemiBold', fontSize: 10, letterSpacing: 1.7,
       textTransform: 'uppercase', color: CB_ACCENT,
     },
     headerTitle: {
@@ -360,7 +360,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       backgroundColor: 'rgba(216,179,141,0.07)',
     },
     weekMarkerText: {
-      fontFamily: 'Inter_700Bold', fontSize: 7, letterSpacing: 0.8,
+      fontFamily: 'Inter_700Bold', fontSize: 9.5, letterSpacing: 0.8,
       textTransform: 'uppercase', color: CB_ACCENT,
     },
     climbStats: {
@@ -370,7 +370,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     climbStat: { flex: 1, alignItems: 'center' },
     climbStatLabel: {
-      fontFamily: 'Inter_600SemiBold', fontSize: 6.5, letterSpacing: 0.8,
+      fontFamily: 'Inter_600SemiBold', fontSize: 9.5, letterSpacing: 0.8,
       textTransform: 'uppercase', color: DIM,
     },
     climbStatValue: { marginTop: 3, fontFamily: 'Inter_900Black', fontSize: 15, color: CB_ACCENT },
@@ -427,7 +427,7 @@ function createPodStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'])
     },
     championBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 13, marginTop: 10 },
     eyebrow: {
-      fontFamily: 'Inter_600SemiBold', fontSize: 7, letterSpacing: 1.2,
+      fontFamily: 'Inter_600SemiBold', fontSize: 9.5, letterSpacing: 1.2,
       textTransform: 'uppercase', color: theme.textSecondary,
     },
     championName: {

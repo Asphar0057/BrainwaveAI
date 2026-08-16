@@ -453,7 +453,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     headerCopy: { flex: 1 },
     brandSub: {
-      fontFamily: 'Inter_600SemiBold', fontSize: 7.5, color: theme.accentHover,
+      fontFamily: 'Inter_600SemiBold', fontSize: 10, color: theme.accentHover,
       letterSpacing: 1.7, textTransform: 'uppercase',
     },
     headerTitle: {
@@ -471,7 +471,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       justifyContent: 'center', backgroundColor: theme.danger,
       borderWidth: 2, borderColor: theme.bgPrimary,
     },
-    headerSignalBadgeText: { fontFamily: 'Inter_900Black', fontSize: 8, color: '#fff' },
+    headerSignalBadgeText: { fontFamily: 'Inter_900Black', fontSize: 9, color: '#fff' },
     hero: {
       width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
       paddingHorizontal: 16,
@@ -484,7 +484,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     heroCopy: { width: '66%' },
     heroKicker: {
-      fontFamily: 'Inter_600SemiBold', fontSize: 8, color: theme.accentHover,
+      fontFamily: 'Inter_600SemiBold', fontSize: 10, color: theme.accentHover,
       letterSpacing: 1.8, textTransform: 'uppercase',
     },
     heroTitle: {
@@ -527,7 +527,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       color: theme.accentHover, letterSpacing: -0.3,
     },
     heroStatLabel: {
-      marginTop: 2, fontFamily: 'Inter_600SemiBold', fontSize: 6.5,
+      marginTop: 2, fontFamily: 'Inter_600SemiBold', fontSize: 9.5,
       color: theme.textSecondary, letterSpacing: 0.8, textTransform: 'uppercase',
     },
     heroStatDivider: { width: 1, height: 21, backgroundColor: theme.border },
@@ -537,7 +537,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     searchLabel: {
       marginLeft: 4, marginBottom: 7, fontFamily: 'Inter_600SemiBold',
-      fontSize: 8, color: theme.accentHover, letterSpacing: 1.6,
+      fontSize: 10, color: theme.accentHover, letterSpacing: 1.6,
       textTransform: 'uppercase',
     },
     searchInner: {
@@ -598,7 +598,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       alignItems: 'center', justifyContent: 'center',
       backgroundColor: theme.accentHover,
     },
-    tabCountText: { fontFamily: 'Inter_900Black', fontSize: 7, color: theme.bgPrimary },
+    tabCountText: { fontFamily: 'Inter_900Black', fontSize: 8.5, color: theme.bgPrimary },
     list: {
       width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
       paddingHorizontal: 16, gap: 9, paddingBottom: 48,
@@ -623,9 +623,9 @@ function createFriendCardStyles(theme: ReturnType<typeof useAppTheme>['selectedT
     name: { fontFamily: 'Inter_900Black', fontSize: 14, color: theme.textPrimary },
     chips: { flexDirection: 'row', gap: 6, marginTop: 6 },
     streakChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: rgbaFromHex(theme.warning, 0.1), borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: rgbaFromHex(theme.warning, 0.2) },
-    streakText: { fontFamily: 'Inter_700Bold', fontSize: 8, color: theme.warning },
+    streakText: { fontFamily: 'Inter_700Bold', fontSize: 10, color: theme.warning },
     masterChip: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: rgbaFromHex(ACCENT_DARK, 0.08), borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: theme.borderStrong },
-    masterText: { fontFamily: 'Inter_700Bold', fontSize: 8, color: theme.accentHover },
+    masterText: { fontFamily: 'Inter_700Bold', fontSize: 10, color: theme.accentHover },
     actions: { gap: 6 },
     iconBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: rgbaFromHex(theme.panelAlt, 0.78), borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' },
     iconBtnActive: { backgroundColor: rgbaFromHex(theme.danger, 0.12), borderColor: rgbaFromHex(theme.danger, 0.22) },

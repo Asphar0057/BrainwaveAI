@@ -508,7 +508,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     bellBadgeText: {
       fontFamily: 'Inter_900Black',
-      fontSize: 8.5,
+      fontSize: 9.5,
       color: '#fff',
     },
     pageTitle:    { fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 36 : 30, lineHeight: layout.isTablet ? 38 : 32, color: GOLD_LIGHT, letterSpacing: -0.8 },
