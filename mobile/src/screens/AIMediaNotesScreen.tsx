@@ -1501,8 +1501,8 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   },
   tab:           { flex: 1, alignItems: 'center', paddingHorizontal: 8, paddingVertical: 9, borderRadius: 10 },
   tabActive:     { backgroundColor: softAccent, borderWidth: 1, borderColor: CARD_BORDER },
-  tabText:       { fontFamily: 'Inter_600SemiBold', fontSize: 9,  color: GOLD_D,  letterSpacing: 2.5 },
-  tabTextActive: { fontFamily: 'Inter_600SemiBold', fontSize: 9,  color: GOLD_XL, letterSpacing: 2.5 },
+  tabText:       { fontFamily: 'Inter_600SemiBold', fontSize: 9,  color: GOLD_D,  letterSpacing: 1 },
+  tabTextActive: { fontFamily: 'Inter_600SemiBold', fontSize: 9,  color: GOLD_XL, letterSpacing: 1 },
 
   // Results meta
   metaStrip: {
