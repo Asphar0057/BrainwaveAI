@@ -251,7 +251,7 @@ export default function WeaknessPracticeScreen({ user, onBack, onNavigate }: Pro
             <View style={s.listCard}>
               <View style={s.listHeader}>
                 <View>
-                  <Text style={s.listKicker}>PRIORITY ORDER</Text>
+                  <Text style={s.listKicker}>RANKED BY ACCURACY</Text>
                   <Text style={s.listTitle}>{filter === 'all' ? 'all weak areas' : filter}</Text>
                 </View>
                 <Text style={s.listMeta}>{visibleTopics.length} topics</Text>
