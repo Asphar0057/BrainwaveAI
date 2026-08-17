@@ -238,52 +238,6 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
     Math.floor((heroValueMaxWidth * (layout.isLandscape ? 0.54 : 0.84)) / Math.max(hero.value.length * 0.72, 1))
   );
 
-  const nextAction =
-    streak === 0
-      ? {
-          eyebrow: 'next action',
-          title: 'Start a session',
-          detail: 'Open flashcards and put today on the board.',
-          cta: 'open flashcards',
-          target: 'flashcards' as const,
-          icon: 'layers-outline' as const,
-        }
-      : weeklyMastered < 8
-        ? {
-            eyebrow: 'next action',
-            title: 'Review your cards',
-            detail: `${Math.max(6, 12 - weeklyMastered)} more cards would sharpen the week.`,
-            cta: 'review now',
-            target: 'flashcards' as const,
-            icon: 'layers-outline' as const,
-          }
-        : weeklyInteractions < 4
-          ? {
-              eyebrow: 'next action',
-              title: 'Think with AI',
-              detail: 'Open AI chat and keep the loop moving.',
-              cta: 'open ai',
-              target: 'ai' as const,
-              icon: 'sparkles-outline' as const,
-            }
-          : totalNotes < 3
-            ? {
-                eyebrow: 'next action',
-                title: 'Capture a note',
-                detail: 'Save what you learned while it is still fresh.',
-                cta: 'open notes',
-                target: 'notes' as const,
-                icon: 'document-text-outline' as const,
-              }
-            : {
-                eyebrow: 'next action',
-                title: 'Build media notes',
-                detail: 'Turn a lecture or video into a cleaner study asset.',
-                cta: 'open media notes',
-                target: 'aimedia' as const,
-                icon: 'videocam-outline' as const,
-              };
-
   const rings = [
     { label: studyDuration.unit === 'hrs' ? 'HRS\nFOCUS' : 'MIN\nFOCUS', value: studyDuration.value, progress: Math.min(weeklyHours / 10, 1) },
     { label: 'XP\nEARNED', value: String(weeklyXp), progress: Math.min(weeklyXp / 500, 1) },
@@ -292,11 +246,6 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
 
   const greeting = hour < 12 ? 'good morning' : hour < 18 ? 'good afternoon' : 'good evening';
   const firstName = user.first_name || user.username;
-  const momentumLabel =
-    todayProgress >= 75 ? 'high momentum' :
-    todayProgress >= 45 ? 'on track' :
-    streak > 0 ? 'keep pushing' :
-    'ready to start';
 
   const cycleHero = () => {
     if (stats === null || heroAnimating.current) return;
@@ -320,14 +269,6 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
     });
   };
   cycleHeroRef.current = cycleHero;
-
-  const handleNextAction = () => {
-    if (nextAction.target === 'ai') {
-      onNavigateToAI?.();
-      return;
-    }
-    onNavigate?.(nextAction.target);
-  };
 
   const todayRows = [
     { label: 'focus time', value: `${todayStudyDuration.value} ${todayStudyDuration.unit}`, note: 'today', progress: Math.min(todayMinutes / 120, 1) },
@@ -391,7 +332,7 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
         {recentActivity.length > 0 && (
           <View style={styles.activitySection}>
             <View style={styles.activityHeader}>
-              <Text style={styles.activityHeadTitle}>recent activity</Text>
+              <Text style={styles.sectionTitle}>recent activity</Text>
             </View>
             <View style={styles.timelineWrap}>
               {recentActivity.map((item: any, idx: number) => {
@@ -432,7 +373,7 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
         {recommendedPrompts.length > 0 && (
           <View style={styles.activitySection}>
             <View style={styles.activityHeader}>
-              <Text style={styles.activityHeadTitle}>recommended for you</Text>
+              <Text style={styles.sectionTitle}>recommended for you</Text>
             </View>
             <View style={{ gap: 8 }}>
               {recommendedPrompts.map((prompt, idx) => (
@@ -853,12 +794,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  activityHeadTitle: {
-    fontFamily: 'Inter_900Black',
-    fontSize: 15,
-    color: GOLD_L,
-    letterSpacing: -0.3,
   },
   timelineWrap: { gap: 10 },
   timelineItem: {
