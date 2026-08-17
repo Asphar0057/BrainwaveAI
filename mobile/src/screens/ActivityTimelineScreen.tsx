@@ -171,11 +171,11 @@ function createStyles(theme: AppTheme) {
   const BORDER  = theme.border;
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: theme.bgTop },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 18, paddingBottom: 12 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 4, paddingTop: 18, paddingBottom: 12 },
     headerBack: { width: 42, height: 42, borderRadius: 16, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, alignItems: 'center', justifyContent: 'center', marginRight: 12, boxShadow: cbTileShadow(0.055) },
     title: { fontFamily: 'Inter_900Black', fontSize: 32, color: GOLD_L, letterSpacing: -0.8 },
     subtitle: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM, letterSpacing: 2.2, marginTop: 4, textTransform: 'uppercase' },
-    filterRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginBottom: 16 },
+    filterRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 4, marginBottom: 16 },
     chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, boxShadow: cbTileShadow(0.035) },
     chipActive: { backgroundColor: GOLD_D + '33', borderColor: GOLD_D },
     chipText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: DIM, textTransform: 'uppercase', letterSpacing: 1 },
