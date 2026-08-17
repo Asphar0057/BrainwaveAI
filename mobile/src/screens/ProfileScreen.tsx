@@ -482,9 +482,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       justifyContent: 'space-between',
       alignItems: 'flex-end',
       marginBottom: 12,
-      // Stretch header to true screen edge so icon hugs the side
-      marginHorizontal: -PAD,
-      paddingHorizontal: Math.max(0, PAD - 4),
     },
     topBarActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     settingsButton: {
