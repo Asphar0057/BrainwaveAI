@@ -953,7 +953,7 @@ function FlashcardsSets({
   const navItems = [
     { key: 'sets' as const, label: 'My sets', icon: 'albums-outline' as const },
     { key: 'queue' as const, label: 'Queue', icon: 'radio-button-on-outline' as const },
-    { key: 'review' as const, label: 'Review', icon: 'refresh-outline' as const },
+    { key: 'review' as const, label: 'Due', icon: 'refresh-outline' as const },
     { key: 'sources' as const, label: 'Sources', icon: 'document-outline' as const },
     { key: 'stats' as const, label: 'Stats', icon: 'stats-chart-outline' as const },
   ];
@@ -1011,7 +1011,7 @@ function FlashcardsSets({
 
           <View style={s.collectionHeader}>
             <View>
-              <Text style={s.collectionKicker}>{activeView === 'sets' ? 'YOUR COLLECTION' : activeView.toUpperCase()}</Text>
+              <Text style={s.collectionKicker}>{activeView === 'sets' ? 'YOUR COLLECTION' : (navItems.find((item) => item.key === activeView)?.label ?? '').toUpperCase()}</Text>
               <Text style={s.collectionTitle}>{activeView === 'stats' ? 'Statistics' : navItems.find((item) => item.key === activeView)?.label}</Text>
             </View>
             {activeView !== 'stats' ? (
