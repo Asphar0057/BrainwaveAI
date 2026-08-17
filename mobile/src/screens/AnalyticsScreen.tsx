@@ -14,7 +14,7 @@ import { rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
 type Props = { user: AuthUser; onBack: () => void };
-type Period = 'week' | 'month' | 'all';
+type Period = 'week' | 'month' | 'year';
 type InsightMode = 'strengths' | 'weaknesses';
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -73,10 +73,13 @@ export default function AnalyticsScreen({ user, onBack }: Props) {
   if (!fontsLoaded) return null;
 
   const totalMinutes = numberValue(analytics?.total_time_minutes);
-  const focusHours = numberValue(stats?.weeklyHours, numberValue(stats?.hours, totalMinutes / 60));
+  // Scoped to the selected period tab, matching totalQuestions/accuracy below —
+  // falls back to the all-time stat only when the period fetch has nothing yet.
+  const focusHours = totalMinutes > 0 ? totalMinutes / 60 : numberValue(stats?.weeklyHours, numberValue(stats?.hours));
   const totalQuestions = numberValue(analytics?.total_questions, numberValue(stats?.totalQuestions));
   const accuracy = Math.max(0, Math.min(100, numberValue(analytics?.accuracy_percentage, numberValue(stats?.accuracy))));
   const streak = numberValue(stats?.streak);
+  const periodSessions = numberValue(analytics?.total_sessions, numberValue(stats?.totalChatSessions));
   const sessions = numberValue(stats?.totalChatSessions, numberValue(analytics?.total_sessions));
   const todayMinutes = numberValue(stats?.todayMinutes);
   const totalNotesAll = numberValue(stats?.totalNotes);
@@ -127,7 +130,7 @@ export default function AnalyticsScreen({ user, onBack }: Props) {
         </View>
 
         <View style={s.periodTabs}>
-          {(['week', 'month', 'all'] as Period[]).map((item) => (
+          {(['week', 'month', 'year'] as Period[]).map((item) => (
             <HapticTouchable key={item} style={[s.periodTab, period === item && s.periodTabActive]} onPress={() => setPeriod(item)} haptic="selection">
               <Text style={[s.periodText, period === item && s.periodTextActive]}>{item}</Text>
             </HapticTouchable>
@@ -171,7 +174,7 @@ export default function AnalyticsScreen({ user, onBack }: Props) {
 
             <View style={s.metricGrid}>
               <MetricCard icon="help-circle-outline" label="questions" value={String(totalQuestions)} suffix="answered" styles={s} />
-              <MetricCard icon="chatbubbles-outline" label="sessions" value={String(sessions)} suffix="total" styles={s} />
+              <MetricCard icon="chatbubbles-outline" label="sessions" value={String(periodSessions)} suffix="total" styles={s} />
               <MetricCard icon="speedometer-outline" label="focus" value={focusHours.toFixed(1)} suffix="hours" styles={s} />
             </View>
 
