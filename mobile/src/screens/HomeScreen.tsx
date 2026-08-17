@@ -584,8 +584,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   topLogoWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: -10,
-    transform: [{ translateX: 16 }],
+    marginRight: -2,
+    transform: [{ translateX: 4 }],
   },
   topTextWrap: {
     justifyContent: 'center',
