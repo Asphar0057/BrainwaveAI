@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Switch, Alert, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../services/auth';
+import { getComprehensiveProfile, updateComprehensiveProfile } from '../services/api';
 import HapticTouchable from '../components/HapticTouchable';
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
@@ -25,7 +26,6 @@ export default function SettingsScreen({ user, onBack }: Props) {
   const layout = useResponsiveLayout();
   const styles = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
   const [pushEnabled, setPushEnabled] = useState(true);
-  const [remindersEnabled, setRemindersEnabled] = useState(false);
   const [activeTab, setActiveTab] = useState<'presets' | 'custom'>('presets');
   const [pendingPresetId, setPendingPresetId] = useState(selectedThemeId === 'custom' ? 'gold-dark' : selectedThemeId);
   const [pendingMode, setPendingMode] = useState<ThemeMode>(customTheme?.mode || selectedTheme.mode || 'dark');
@@ -35,6 +35,29 @@ export default function SettingsScreen({ user, onBack }: Props) {
   const switchTrackOn = rgbaFromHex(selectedTheme.accent, selectedTheme.isLight ? 0.42 : 0.52);
   const switchThumbOff = selectedTheme.isLight ? selectedTheme.panelAlt : selectedTheme.textSecondary;
   const switchThumbOn = selectedTheme.isLight ? darkenColor(selectedTheme.accent, 18) : selectedTheme.accentHover;
+
+  const loadNotificationPref = useCallback(async () => {
+    try {
+      const data = await getComprehensiveProfile(user.username);
+      if (typeof data.notificationsEnabled === 'boolean') setPushEnabled(data.notificationsEnabled);
+    } catch {
+      // silenced -- toggle just keeps its current value if this fails
+    }
+  }, [user.username]);
+
+  useEffect(() => {
+    loadNotificationPref();
+  }, [loadNotificationPref]);
+
+  const handlePushToggle = async (value: boolean) => {
+    setPushEnabled(value);
+    triggerHaptic('selection');
+    try {
+      await updateComprehensiveProfile(user.username, { notificationsEnabled: value });
+    } catch {
+      // silenced -- non-critical preference sync
+    }
+  };
 
   if (!fontsLoaded) return null;
 
@@ -195,38 +218,20 @@ export default function SettingsScreen({ user, onBack }: Props) {
         <View style={styles.card}>
           <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
           <NeumorphicTexture grainOpacity={0.18} />
-          {[
-            {
-              label: 'Push Notifications',
-              icon: 'notifications-outline',
-              value: pushEnabled,
-              onChange: (value: boolean) => setPushEnabled(value),
-            },
-            {
-              label: 'Study Reminders',
-              icon: 'alarm-outline',
-              value: remindersEnabled,
-              onChange: (value: boolean) => setRemindersEnabled(value),
-            },
-          ].map((item, index, array) => (
-            <View key={item.label} style={[styles.prefRow, index < array.length - 1 && styles.rowDivider]}>
-              <View style={styles.iconWrap}>
-                <Ionicons name={item.icon as any} size={17} color={selectedTheme.accent} />
-              </View>
-              <Text style={styles.prefLabel}>{item.label}</Text>
-              <Switch
-                value={item.value}
-                onValueChange={(value) => {
-                  triggerHaptic('selection');
-                  item.onChange(value);
-                }}
-                trackColor={{ false: switchTrackOff, true: switchTrackOn }}
-                thumbColor={item.value ? switchThumbOn : switchThumbOff}
-                ios_backgroundColor={switchTrackOff}
-                style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
-              />
+          <View style={styles.prefRow}>
+            <View style={styles.iconWrap}>
+              <Ionicons name="notifications-outline" size={17} color={selectedTheme.accent} />
             </View>
-          ))}
+            <Text style={styles.prefLabel}>Push Notifications</Text>
+            <Switch
+              value={pushEnabled}
+              onValueChange={handlePushToggle}
+              trackColor={{ false: switchTrackOff, true: switchTrackOn }}
+              thumbColor={pushEnabled ? switchThumbOn : switchThumbOff}
+              ios_backgroundColor={switchTrackOff}
+              style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
+            />
+          </View>
         </View>
 
         <Text style={styles.sectionLabel}>account</Text>
