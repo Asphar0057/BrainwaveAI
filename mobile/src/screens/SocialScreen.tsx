@@ -69,30 +69,13 @@ function timeAgo(dateStr: string): string {
 
 // ─── Sub-components ────────────────────────────────────────────────────────
 
-function SectionRow({ label, cta, ctaLabel, badge, badgeDanger }: {
-  label: string; cta?: () => void; ctaLabel?: string;
-  badge?: number; badgeDanger?: boolean;
-}) {
+function SectionRow({ label }: { label: string }) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
   const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
   return (
     <View style={s.sectionRow}>
       <Text style={s.sectionLbl}>{label}</Text>
-      {badge != null && badge > 0 && (
-        <View style={[s.sectionBadge, badgeDanger && s.sectionBadgeDanger]}>
-          <Text style={[s.sectionBadgeTxt, badgeDanger && s.sectionBadgeDangerTxt]}>{badge}</Text>
-        </View>
-      )}
-      {cta && (
-        <>
-          <View style={{ flex: 1 }} />
-          <HapticTouchable style={s.seeAll} onPress={cta} haptic="light" activeOpacity={0.8}>
-            <Text style={s.seeAllTxt}>{ctaLabel ?? 'see all'}</Text>
-            <Ionicons name="chevron-forward" size={11} color={selectedTheme.accentHover} />
-          </HapticTouchable>
-        </>
-      )}
     </View>
   );
 }
@@ -618,14 +601,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     discoveryCopy: { marginTop: 3, fontFamily: 'Inter_400Regular', fontSize: 10.5, color: DIM },
 
     /* Section row header */
-    sectionRow:         { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    sectionLbl:         { fontFamily: 'Inter_900Black', fontSize: 15, color: TXT, letterSpacing: -0.3, textTransform: 'lowercase' },
-    sectionBadge:       { borderRadius: 999, backgroundColor: rgbaFromHex(GOLDM, 0.15), borderWidth: 1, borderColor: rgbaFromHex(GOLDM, 0.3), paddingHorizontal: 7, paddingVertical: 2 },
-    sectionBadgeTxt:    { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: GOLD },
-    sectionBadgeDanger: { backgroundColor: rgbaFromHex(theme.danger, 0.15), borderColor: rgbaFromHex(theme.danger, 0.35) },
-    sectionBadgeDangerTxt: { color: theme.danger },
-    seeAll:    { flexDirection: 'row', alignItems: 'center', gap: 3 },
-    seeAllTxt: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: GOLD },
+    sectionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    sectionLbl: { fontFamily: 'Inter_900Black', fontSize: 15, color: TXT, letterSpacing: -0.3, textTransform: 'lowercase' },
 
   });
 }
