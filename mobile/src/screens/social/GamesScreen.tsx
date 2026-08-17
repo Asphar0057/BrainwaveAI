@@ -386,7 +386,7 @@ export default function GamesScreen({ user, onBack }: Props) {
             </HapticTouchable>
           </View>
 
-          <ScrollView contentContainerStyle={{ width: '100%', maxWidth: Math.min(layout.contentMaxWidth, 680), alignSelf: 'center', paddingHorizontal: 20, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={{ width: '100%', maxWidth: Math.min(layout.contentMaxWidth, 680), alignSelf: 'center', paddingHorizontal: 5, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
 
             <Text style={modal.label}>OPPONENT</Text>
             {friends.length === 0 ? (
@@ -491,7 +491,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   const INK = theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary;
   return StyleSheet.create({
     root: { flex: 1 },
-    topBar: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
+    topBar: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 5, paddingTop: 16, paddingBottom: 8 },
     backBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: rgbaFromHex(SURFACE, 0.92), borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center' },
     cta: { borderRadius: 12, paddingHorizontal: 15, paddingVertical: 10 },
     ctaText: { fontFamily: 'Inter_700Bold', fontSize: 13, color: INK },
@@ -499,8 +499,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     heroGlow: { position: 'absolute', right: 18, top: 18, width: 58, height: 58, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)', backgroundColor: 'rgba(216,179,141,0.08)' },
     heroTitle: { fontFamily: 'Inter_900Black', fontSize: 38, color: '#D8B38D', letterSpacing: -1.8 },
     heroSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM, letterSpacing: 1 },
-    divider: { height: 1, width: '100%', maxWidth: layout.contentMaxWidth - 40, alignSelf: 'center', marginLeft: 20, marginRight: 20, backgroundColor: BORDER },
-    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingLeft: 20, paddingRight: 20, paddingTop: 16, gap: 8 },
+    divider: { height: 1, width: '100%', maxWidth: layout.contentMaxWidth - 10, alignSelf: 'center', marginLeft: 5, marginRight: 5, backgroundColor: BORDER },
+    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingLeft: 5, paddingRight: 5, paddingTop: 16, gap: 8 },
     section: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: DIM, letterSpacing: 2.5, marginTop: 8, marginBottom: 2 },
   });
 }

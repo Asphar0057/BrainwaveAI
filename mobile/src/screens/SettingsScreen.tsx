@@ -262,7 +262,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       width: '100%',
       maxWidth: layout.contentMaxWidth,
       alignSelf: 'center',
-      paddingHorizontal: 18,
+      paddingHorizontal: 5,
       paddingBottom: 80,
     },
     topBar: { flexDirection: 'row', alignItems: 'center', marginTop: 8, marginBottom: 24 },

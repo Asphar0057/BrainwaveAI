@@ -318,7 +318,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     topBar: {
       width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
       minHeight: 70, flexDirection: 'row', alignItems: 'center',
-      paddingHorizontal: 16, paddingBottom: 8, gap: 12,
+      paddingHorizontal: 4, paddingBottom: 8, gap: 12,
     },
     backBtn: {
       width: 40, height: 40, borderRadius: 14, backgroundColor: CB_CARD_TOP,
@@ -335,7 +335,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     hero: {
       width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
-      paddingHorizontal: 16, paddingTop: 4,
+      paddingHorizontal: 4, paddingTop: 4,
     },
     climbCard: {
       minHeight: 218, borderRadius: 26, padding: 20, overflow: 'hidden',
@@ -377,7 +377,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     climbDivider: { width: 1, height: 22, backgroundColor: BORDER },
     tabShell: {
       width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
-      paddingHorizontal: 16, marginTop: 12, marginBottom: 10,
+      paddingHorizontal: 4, marginTop: 12, marginBottom: 10,
     },
     tabRow: {
       height: 46, flexDirection: 'row', padding: 4, borderRadius: 17,
@@ -395,7 +395,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     tabTextActive: { color: CB_ACCENT },
     scroll: {
       width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
-      paddingHorizontal: 16, paddingTop: 4,
+      paddingHorizontal: 4, paddingTop: 4,
     },
     sectionHeading: {
       minHeight: 70, flexDirection: 'row', alignItems: 'center',

@@ -443,7 +443,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     topBar: {
       width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
       height: 70, flexDirection: 'row', alignItems: 'center',
-      paddingHorizontal: 16, gap: 12,
+      paddingHorizontal: 4, gap: 12,
     },
     backBtn: {
       width: 40, height: 40, borderRadius: 14,
@@ -474,7 +474,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     headerSignalBadgeText: { fontFamily: 'Inter_900Black', fontSize: 9, color: '#fff' },
     hero: {
       width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: 4,
     },
     heroPanel: {
       minHeight: 218, padding: 20, overflow: 'hidden',
@@ -533,7 +533,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     heroStatDivider: { width: 1, height: 21, backgroundColor: theme.border },
     searchWrap: {
       width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
-      paddingHorizontal: 16, marginTop: 16, marginBottom: 12,
+      paddingHorizontal: 4, marginTop: 16, marginBottom: 12,
     },
     searchLabel: {
       marginLeft: 4, marginBottom: 7, fontFamily: 'Inter_600SemiBold',
@@ -558,7 +558,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     resultsSheet: {
       width: '100%', maxWidth: layout.contentMaxWidth - 32, alignSelf: 'center',
-      marginHorizontal: 16, backgroundColor: '#0b0c0f',
+      marginHorizontal: 4, backgroundColor: '#0b0c0f',
       borderRadius: 18,
       marginBottom: 12, overflow: 'hidden',
       boxShadow: cbModalShadow(0.1),
@@ -573,7 +573,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     addChipText: { fontFamily: 'Inter_700Bold', fontSize: 10, color: theme.accentHover },
     tabShell: {
       width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
-      paddingHorizontal: 16, marginBottom: 12,
+      paddingHorizontal: 4, marginBottom: 12,
     },
     tabRow: {
       height: 45, flexDirection: 'row', padding: 4,
@@ -601,7 +601,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     tabCountText: { fontFamily: 'Inter_900Black', fontSize: 8.5, color: theme.bgPrimary },
     list: {
       width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
-      paddingHorizontal: 16, gap: 9, paddingBottom: 48,
+      paddingHorizontal: 4, gap: 9, paddingBottom: 48,
     },
   });
 }

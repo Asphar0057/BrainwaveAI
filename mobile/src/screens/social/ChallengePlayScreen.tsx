@@ -309,7 +309,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     progressFill: { height: '100%', backgroundColor: theme.accentHover, borderRadius: 2 },
     progressText: { fontFamily: 'Inter_600SemiBold', color: DIM, fontSize: 9.5, marginTop: 5 },
 
-    playScroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 20, paddingBottom: 60, gap: 18 },
+    playScroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 5, paddingBottom: 60, gap: 18 },
     questionCard: { borderRadius: 22, backgroundColor: SURFACE, padding: 20, minHeight: 100, justifyContent: 'center', overflow: 'hidden', boxShadow: cbTileShadow(0.07), ...cbTileBorder(0.16) },
     questionText: { fontFamily: 'Inter_700Bold', color: GOLD_L, fontSize: 17, lineHeight: 24 },
 
@@ -323,7 +323,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     explanationCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderRadius: 14, backgroundColor: rgbaFromHex(SURFACE, 0.7), padding: 12, overflow: 'hidden', boxShadow: cbTileShadow(0.05), ...cbTileBorder(0.13) },
     explanationText: { flex: 1, fontFamily: 'Inter_400Regular', color: DIM, fontSize: 11.5, lineHeight: 16 },
 
-    resultsScroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 40, paddingBottom: 60, alignItems: 'center' },
+    resultsScroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 5, paddingTop: 40, paddingBottom: 60, alignItems: 'center' },
     resultsBanner: { alignItems: 'center', gap: 8, marginBottom: 10 },
     resultsBannerTitle: { fontFamily: 'Inter_900Black', color: GOLD_L, fontSize: 22, letterSpacing: -0.4, textAlign: 'center' },
     bigPct: { fontFamily: 'Inter_900Black', color: theme.accent, fontSize: 44, letterSpacing: -1.2, marginTop: 4 },

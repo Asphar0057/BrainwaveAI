@@ -450,9 +450,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   const ink = theme.isLight ? darkenColor(theme.accent, 38) : theme.bgPrimary;
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bgPrimary },
-    libraryScreen: { flex: 1, width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 16, paddingTop: Math.max(topInset + 7, 47), paddingBottom: 10 },
+    libraryScreen: { flex: 1, width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 4, paddingTop: Math.max(topInset + 7, 47), paddingBottom: 10 },
     libraryHeader: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12 },
-    detailHeader: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 14, paddingTop: Math.max(topInset + 8, 48), paddingBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 11 },
+    detailHeader: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 4, paddingTop: Math.max(topInset + 8, 48), paddingBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 11 },
     headerCopy: { flex: 1 },
     kicker: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 10, letterSpacing: 1.55 },
     libraryTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 29, lineHeight: 34, letterSpacing: -1 },
@@ -511,7 +511,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     emptyText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11, lineHeight: 17, textAlign: 'center', maxWidth: 290 },
     emptyBtn: { marginTop: 6, height: 40, borderRadius: 12, backgroundColor: theme.accent, justifyContent: 'center', paddingHorizontal: 20 },
     emptyBtnText: { fontFamily: 'Inter_900Black', color: ink, fontSize: 10.5, letterSpacing: 0.8 },
-    pathWorkspace: { flex: 1, width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 14, paddingBottom: Math.max(12, topInset ? 12 : 22), gap: 9 },
+    pathWorkspace: { flex: 1, width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 4, paddingBottom: Math.max(12, topInset ? 12 : 22), gap: 9 },
     compactPathHero: { borderRadius: 18, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.9), padding: 12, gap: 9 },
     compactHeroTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     compactHeroTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 15, lineHeight: 19, marginTop: 2 },

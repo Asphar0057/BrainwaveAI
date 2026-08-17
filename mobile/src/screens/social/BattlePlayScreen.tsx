@@ -375,7 +375,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     timerPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10, borderWidth: 1, borderColor: BORDER, backgroundColor: rgbaFromHex(SURFACE, 0.9) },
     timerText: { fontFamily: 'Inter_700Bold', color: GOLD_L, fontSize: 11.5 },
 
-    playScroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 20, paddingBottom: 60, gap: 18 },
+    playScroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 5, paddingBottom: 60, gap: 18 },
     questionCard: { borderRadius: 22, backgroundColor: SURFACE, padding: 20, minHeight: 100, justifyContent: 'center', overflow: 'hidden', boxShadow: cbTileShadow(0.07), ...cbTileBorder(0.16) },
     questionText: { fontFamily: 'Inter_700Bold', color: GOLD_L, fontSize: 17, lineHeight: 24 },
 
@@ -386,7 +386,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     optionLetterText: { fontFamily: 'Inter_700Bold', fontSize: 11, color: GOLD_L },
     optionText: { flex: 1, fontFamily: 'Inter_600SemiBold', color: theme.textPrimary, fontSize: 13.5, lineHeight: 19 },
 
-    resultsScroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 40, paddingBottom: 60, alignItems: 'center' },
+    resultsScroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 5, paddingTop: 40, paddingBottom: 60, alignItems: 'center' },
     resultsBanner: { alignItems: 'center', gap: 8, marginBottom: 16 },
     resultsBannerTitle: { fontFamily: 'Inter_900Black', color: GOLD_L, fontSize: 24, letterSpacing: -0.4 },
     resultsScoreRow: { flexDirection: 'row', alignItems: 'center', gap: 20 },
