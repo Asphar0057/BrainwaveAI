@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, ViewStyle, RefreshControl, ActivityIndicator } from 'react-native';
+import { PAST_WEEK_COUNT, weekChipLabel } from '../utils/xpWeeks';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -55,13 +57,14 @@ export default function XpAnalyticsScreen({ user, onBack, onOpenAchievements }: 
   const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black });
 
   const [period, setPeriod] = useState<Period>('week');
+  const [weekOffset, setWeekOffset] = useState(0);
   const [data, setData] = useState<XpHistory | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [chartWidth, setChartWidth] = useState(0);
 
-  const load = useCallback((nextPeriod: Period) => {
-    getXpHistory(user.username, nextPeriod)
+  const load = useCallback((nextPeriod: Period, nextWeekOffset: number) => {
+    getXpHistory(user.username, nextPeriod, nextWeekOffset)
       .then(setData)
       .catch(() => setData(null))
       .finally(() => {
@@ -72,12 +75,17 @@ export default function XpAnalyticsScreen({ user, onBack, onOpenAchievements }: 
 
   useEffect(() => {
     setLoading(true);
-    load(period);
-  }, [period, load]);
+    load(period, weekOffset);
+  }, [period, weekOffset, load]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    load(period);
+    load(period, weekOffset);
+  };
+
+  const selectPeriod = (nextPeriod: Period) => {
+    setPeriod(nextPeriod);
+    setWeekOffset(0);
   };
 
   if (!fontsLoaded) return null;
@@ -119,7 +127,7 @@ export default function XpAnalyticsScreen({ user, onBack, onOpenAchievements }: 
               <HapticTouchable
                 key={p.key}
                 style={[s.periodBtn, active && s.periodBtnActive]}
-                onPress={() => setPeriod(p.key)}
+                onPress={() => selectPeriod(p.key)}
                 haptic="selection"
                 activeOpacity={0.85}
               >
@@ -129,10 +137,37 @@ export default function XpAnalyticsScreen({ user, onBack, onOpenAchievements }: 
           })}
         </View>
 
+        {period === 'week' ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={s.weekPickerRow}
+          >
+            {Array.from({ length: PAST_WEEK_COUNT + 1 }, (_, offset) => offset).map((offset) => {
+              const active = offset === weekOffset;
+              return (
+                <HapticTouchable
+                  key={offset}
+                  style={[s.weekChip, active && s.weekChipActive]}
+                  onPress={() => setWeekOffset(offset)}
+                  haptic="selection"
+                  activeOpacity={0.85}
+                >
+                  <Text style={[s.weekChipLabel, active && s.weekChipLabelActive]}>{weekChipLabel(offset)}</Text>
+                </HapticTouchable>
+              );
+            })}
+          </ScrollView>
+        ) : null}
+
         <View style={s.hero}>
           <NeumorphicLayer grainOpacity={0.26} />
           <Text style={s.heroGhost}>xp</Text>
-          <Text style={s.eyebrow}>{PERIOD_COPY[period]}</Text>
+          <Text style={s.eyebrow}>
+            {period === 'week'
+              ? (weekOffset === 0 ? PERIOD_COPY.week : weekChipLabel(weekOffset))
+              : PERIOD_COPY[period]}
+          </Text>
           <View style={s.heroValueRow}>
             <Text style={s.heroTitle}>{loading ? '—' : totalXp}</Text>
             {!loading && deltaPercent !== 0 ? (
@@ -144,7 +179,9 @@ export default function XpAnalyticsScreen({ user, onBack, onOpenAchievements }: 
               </View>
             ) : null}
           </View>
-          <Text style={s.heroCopy}>vs. the previous {period === 'week' ? '7 days' : period === 'month' ? '30 days' : '12 months'}</Text>
+          <Text style={s.heroCopy}>
+            {period === 'week' ? 'vs. the week before' : `vs. the previous ${period === 'month' ? '30 days' : '12 months'}`}
+          </Text>
         </View>
 
         <View style={s.chartCard}>
@@ -269,6 +306,32 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       color: theme.textSecondary,
     },
     periodLabelActive: {
+      color: theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary,
+    },
+    weekPickerRow: {
+      gap: 8,
+      paddingHorizontal: 4,
+    },
+    weekChip: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 12,
+      backgroundColor: rgbaFromHex(surface, 0.6),
+      borderWidth: 1,
+      borderColor: border,
+    },
+    weekChipActive: {
+      backgroundColor: theme.accent,
+      borderColor: theme.accent,
+    },
+    weekChipLabel: {
+      fontFamily: 'Inter_600SemiBold',
+      fontSize: 11,
+      letterSpacing: 0.3,
+      color: theme.textSecondary,
+      textTransform: 'lowercase',
+    },
+    weekChipLabelActive: {
       color: theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary,
     },
     hero: { borderRadius: 26, padding: 20, overflow: 'hidden', boxShadow: cbModalShadow(0.14) } as ViewStyle,

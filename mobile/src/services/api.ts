@@ -223,12 +223,20 @@ export type XpHistory = {
   delta_percent: number;
   points: XpPoint[];
   by_source: XpSource[];
+  week_offset: number;
+  week_start: string | null;
+  week_end: string | null;
+  is_current_week: boolean;
 };
 
-export async function getXpHistory(userId: string, period: 'week' | 'month' | 'year' = 'week'): Promise<XpHistory> {
+export async function getXpHistory(
+  userId: string,
+  period: 'week' | 'month' | 'year' = 'week',
+  weekOffset = 0
+): Promise<XpHistory> {
   const headers = await authHeaders();
   const res = await fetch(
-    `${API_URL}/analytics/xp_history?user_id=${encodeURIComponent(userId)}&period=${period}`,
+    `${API_URL}/analytics/xp_history?user_id=${encodeURIComponent(userId)}&period=${period}&week_offset=${weekOffset}`,
     { headers }
   );
   return res.json();

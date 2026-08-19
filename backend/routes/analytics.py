@@ -236,17 +236,26 @@ def _tz_aware(dt):
 def get_xp_history(
     user_id: str = Query(...),
     period: str = Query("week"),
+    week_offset: int = Query(0, ge=0, le=51),
     db: Session = Depends(get_db),
 ):
     """
     XP gained over time, bucketed for the given period, plus a breakdown of which
     activity types earned it. Backs both the home screen's mini XP graph (period=week)
     and the full XP analytics screen (week/month/year, switchable).
+
+    week_offset lets the caller page into past calendar weeks (0 = this week,
+    1 = last week, ...); it's ignored outside period="week".
     """
     if period not in ("week", "month", "year"):
         period = "week"
+    if period != "week":
+        week_offset = 0
 
-    empty = {"period": period, "total_xp": 0, "delta_percent": 0.0, "points": [], "by_source": []}
+    empty = {
+        "period": period, "total_xp": 0, "delta_percent": 0.0, "points": [], "by_source": [],
+        "week_offset": week_offset, "week_start": None, "week_end": None, "is_current_week": week_offset == 0,
+    }
 
     try:
         user = get_user_by_username(db, user_id) or get_user_by_email(db, user_id)
@@ -254,16 +263,27 @@ def get_xp_history(
             raise HTTPException(status_code=404, detail="User not found")
 
         now = datetime.now(timezone.utc)
-        days = {"week": 7, "month": 30, "year": 365}[period]
-        start = now - timedelta(days=days)
-        prev_start = start - timedelta(days=days)
+
+        if period == "week" and week_offset > 0:
+            # Calendar-aligned Monday-Sunday week, `week_offset` weeks back.
+            this_monday = datetime(now.year, now.month, now.day, tzinfo=timezone.utc) - timedelta(days=now.weekday())
+            days = 7
+            start = this_monday - timedelta(days=7 * week_offset)
+            end = start + timedelta(days=7)
+            prev_start = start - timedelta(days=7)
+        else:
+            days = {"week": 7, "month": 30, "year": 365}[period]
+            end = now
+            start = now - timedelta(days=days)
+            prev_start = start - timedelta(days=days)
 
         rows = db.query(models.PointTransaction).filter(
             models.PointTransaction.user_id == user.id,
             models.PointTransaction.created_at >= prev_start,
+            models.PointTransaction.created_at < end,
         ).order_by(models.PointTransaction.created_at.asc()).all()
 
-        current_rows = [t for t in rows if _tz_aware(t.created_at) >= start]
+        current_rows = [t for t in rows if end > _tz_aware(t.created_at) >= start]
         previous_rows = [t for t in rows if start > _tz_aware(t.created_at) >= prev_start]
 
         buckets: dict = {}
@@ -328,6 +348,10 @@ def get_xp_history(
             "delta_percent": delta_percent,
             "points": points,
             "by_source": by_source,
+            "week_offset": week_offset,
+            "week_start": start.date().isoformat() if period == "week" else None,
+            "week_end": (end - timedelta(days=1)).date().isoformat() if period == "week" else None,
+            "is_current_week": period == "week" and week_offset == 0,
         }
     except HTTPException:
         raise
