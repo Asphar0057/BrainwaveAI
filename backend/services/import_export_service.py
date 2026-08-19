@@ -74,7 +74,7 @@ class ImportExportService:
                 prompt_tokens=usage.get("prompt_tokens", 0),
                 completion_tokens=usage.get("completion_tokens", 0),
                 total_tokens=usage.get("total_tokens", 0),
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",
                 metadata={
                     "provider": "groq",
                     "source": "import_export",
@@ -202,7 +202,7 @@ Return ONLY a JSON array of flashcards with this exact format:
 
             response = await asyncio.to_thread(
                 groq_client.chat.completions.create,
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
                 max_tokens=2000
@@ -290,7 +290,7 @@ Return ONLY a JSON array with this exact format:
 
             response = await asyncio.to_thread(
                 groq_client.chat.completions.create,
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
                 max_tokens=3000
@@ -573,7 +573,7 @@ Return ONLY a JSON array:
 
             response = await asyncio.to_thread(
                 groq_client.chat.completions.create,
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
                 max_tokens=3000
@@ -811,7 +811,7 @@ Return ONLY a JSON array:
 
             response = await asyncio.to_thread(
                 groq_client.chat.completions.create,
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
                 max_tokens=3000
@@ -928,7 +928,7 @@ Write at least 500 words of educational content."""
 
             response = await asyncio.to_thread(
                 groq_client.chat.completions.create,
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
                 max_tokens=6000
@@ -1046,7 +1046,7 @@ Return ONLY a JSON array:
 
             response = await asyncio.to_thread(
                 groq_client.chat.completions.create,
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
                 max_tokens=2000

@@ -138,7 +138,7 @@ class AIMediaProcessor:
 
                 rate_limiter.record_groq_call()
                 response = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
+                    model="openai/gpt-oss-120b",
                     messages=messages,
                     temperature=temperature,
                     max_tokens=max_tokens,
@@ -209,7 +209,7 @@ class AIMediaProcessor:
                 prompt_tokens=usage.get("prompt_tokens", 0),
                 completion_tokens=usage.get("completion_tokens", 0),
                 total_tokens=usage.get("total_tokens", 0),
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",
                 metadata=metadata
             )
         except Exception:
@@ -1341,7 +1341,7 @@ Create flashcards as JSON array:
 Return ONLY valid JSON array."""
 
             response = self.groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",
                 messages=[
                     {"role": "system", "content": "You are an expert at creating educational flashcards. Always respond with valid JSON."},
                     {"role": "user", "content": prompt}
@@ -1403,7 +1403,7 @@ Create questions as JSON array:
 Return ONLY valid JSON array."""
 
             response = self.groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",
                 messages=[
                     {"role": "system", "content": "You are an expert at creating educational quiz questions. Always respond with valid JSON."},
                     {"role": "user", "content": prompt}

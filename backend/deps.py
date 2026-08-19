@@ -60,7 +60,7 @@ _auth_user_lookup_locks_guard = Lock()
 GEMINI_API_KEY = os.getenv("GOOGLE_GENERATIVE_AI_KEY") or os.getenv("GEMINI_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GEMINI_MODEL = "gemini-2.0-flash"
-GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_MODEL = "openai/gpt-oss-120b"
 GROQ_VISION_MODEL = os.getenv(
     "GROQ_VISION_MODEL",
     "meta-llama/llama-4-scout-17b-16e-instruct",
@@ -68,7 +68,7 @@ GROQ_VISION_MODEL = os.getenv(
 
 HS_CONTEXT_API_KEY  = os.getenv("HS_CONTEXT_API_KEY")
 HS_AI_BASE_URL      = os.getenv("HS_AI_BASE_URL", "https://api.groq.com/openai/v1")
-HS_AI_MODEL         = os.getenv("HS_AI_MODEL", "llama-3.3-70b-versatile")
+HS_AI_MODEL         = os.getenv("HS_AI_MODEL", "openai/gpt-oss-120b")
 
 def _init_ai_client() -> UnifiedAIClient:
     from groq import Groq

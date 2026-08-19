@@ -23,7 +23,7 @@ BATCH_DELAY = 3.0
 class ComprehensiveSlideAnalyzer:
     def __init__(self, db: Session):
         self.db = db
-        self.model = "llama-3.3-70b-versatile"
+        self.model = "openai/gpt-oss-120b"
         self.current_user_id = None
 
     def call_ai(self, prompt: str, max_tokens: int = 3000, temperature: float = 0.3, retries: int = 3) -> str:

@@ -28,7 +28,7 @@ class UnifiedAIClient:
         gemini_client=None,
         groq_client=None,
         gemini_model: str = "gemini-2.0-flash",
-        groq_model: str = "llama-3.3-70b-versatile",
+        groq_model: str = "openai/gpt-oss-120b",
         gemini_api_key: str = None,
         gemini_key_pool: ApiKeyPool = None,
         groq_key_pool: ApiKeyPool = None,
