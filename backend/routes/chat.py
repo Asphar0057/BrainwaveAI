@@ -24,6 +24,7 @@ from deps import (
     get_current_user,
     get_db,
 )
+from services.chat_starter_prompts import generate_chat_starter_prompts
 from services.document_processor import extract_text_from_pdf_detailed
 from services.api_key_pool import ApiKeyPoolExhausted
 from services.storage_service import StorageService
@@ -2443,15 +2444,11 @@ async def generate_welcome_message(
 async def get_conversation_starters(
     user_id: str = Query(None),
     db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
 ):
-    return {
-        "starters": [
-            "Explain a concept I'm struggling with",
-            "Help me prepare for an exam",
-            "Quiz me on a topic",
-            "Summarize my recent notes",
-        ]
-    }
+    _assert_user_matches_request(user_id, current_user)
+    starters = await run_in_threadpool(generate_chat_starter_prompts, db, current_user)
+    return {"starters": starters}
 
 @router.post("/create_chat_folder")
 def create_chat_folder(

@@ -38,6 +38,9 @@ import { useAppTheme } from '../contexts/ThemeContext';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+
+// Visual breathing room between a focused input (e.g. the AI chat composer) and the keyboard's top edge.
+const KEYBOARD_GAP = 12;
 type RootStackParamList = {
   Main: { selectedTab?: number; tabRequestKey?: number } | undefined;
   Flashcards: undefined;
@@ -109,7 +112,7 @@ function MainTabs({ user, onLogout, onUserUpdate, onRetakeQuiz, onNavigate, requ
       const rawHeight = e.endCoordinates?.height ?? 0;
       const androidNavBarBuffer = Platform.OS === 'android' ? insets.bottom : 0;
       Animated.timing(kbHeight, {
-        toValue: rawHeight > 0 ? rawHeight + androidNavBarBuffer : 0,
+        toValue: rawHeight > 0 ? rawHeight + androidNavBarBuffer + KEYBOARD_GAP : 0,
         duration: Platform.OS === 'ios' ? (e.duration || 250) : 180,
         useNativeDriver: false,
       }).start();

@@ -12,13 +12,14 @@ import * as ImagePicker from 'expo-image-picker';
 import MarkdownText from '../components/MarkdownText';
 import HapticTouchable from '../components/HapticTouchable';
 import TileGleam from '../components/TileGleam';
-import NeumorphicTexture, { cbTileCardGradient, NeumorphicLayer, cbModalShadow } from '../components/NeumorphicTexture';
+import NeumorphicTexture, { NeumorphicLayer, cbModalShadow } from '../components/NeumorphicTexture';
 import GeoBackground from '../components/GeoBackground';
 import ContextSelector from '../components/ContextSelector';
 import ContextPanel from '../components/ContextPanel';
 import { AuthUser } from '../services/auth';
 import {
   createChatSession, askAI, askAIWithFile, getChatSessions, getChatMessages, getSearchHubSuggestions,
+  getConversationStarters,
   renameChatSession, deleteChatSession, submitChatFeedback, getFriends, shareContent, getChatShareLink, WEB_URL,
   createChatFolder, getChatFolders, deleteChatFolder, moveChatToFolder, ChatFolder,
 } from '../services/api';
@@ -36,13 +37,6 @@ type Session = { id: number; title: string; updated_at: string | null; folder_id
 type Props = { user: AuthUser };
 
 type PromptItem = Msg & { questionNumber: number; messageIndex: number; preview: string };
-
-const DEFAULT_PROMPTS = [
-  'Explain a hard topic simply',
-  'Turn my notes into flashcards',
-  'Quiz me on my weak areas',
-  'Help me plan a study session',
-];
 
 const CHAT_GREETINGS = [
   'Welcome back. How can I help you today?',
@@ -116,7 +110,6 @@ function buildStarterPrompts(rawSuggestions: string[]): string[] {
     if (prompts.length >= 4) break;
   }
 
-  if (prompts.length === 0) return DEFAULT_PROMPTS;
   return prompts.slice(0, 4);
 }
 
@@ -216,7 +209,7 @@ export default function AIChatScreen({ user }: Props) {
     getHsModeEnabled().then(setHsMode).catch(() => {});
     getSelectedDocIds().then(setSelectedDocIds).catch(() => {});
   }, []);
-  const [starterPrompts, setStarterPrompts] = useState<string[]>(DEFAULT_PROMPTS);
+  const [starterPrompts, setStarterPrompts] = useState<string[]>([]);
   const greeting = useMemo(() => getRandomGreeting(user.first_name || user.username), [user.first_name, user.username]);
   const listRef = useRef<FlatList>(null);
   const messagesRef = useRef(messages);
@@ -701,15 +694,31 @@ export default function AIChatScreen({ user }: Props) {
     if (!isEmpty) return;
 
     const query = input.trim();
+
+    // Empty input: greet with prompts recommended from the user's own weak
+    // areas / mastery / recent activity (see backend `chat_starter_prompts.py`)
+    // rather than a fixed, generic list.
+    if (!query) {
+      let cancelled = false;
+      getConversationStarters(user.username)
+        .then((data) => {
+          if (!cancelled) setStarterPrompts(Array.isArray(data?.starters) ? data.starters : []);
+        })
+        .catch(() => {
+          if (!cancelled) setStarterPrompts([]);
+        });
+      return () => { cancelled = true; };
+    }
+
     const timer = setTimeout(() => {
       getSearchHubSuggestions(user.username, query)
         .then((data) => {
           setStarterPrompts(buildStarterPrompts(data?.suggestions ?? []));
         })
         .catch(() => {
-          setStarterPrompts(DEFAULT_PROMPTS);
+          setStarterPrompts([]);
         });
-    }, query ? 220 : 0);
+    }, 220);
 
     return () => clearTimeout(timer);
   }, [input, isEmpty, user.username]);
@@ -743,26 +752,13 @@ export default function AIChatScreen({ user }: Props) {
         <Animated.View style={{ flex: 1, opacity: focusGlass.interpolate({ inputRange: [0, 1], outputRange: [1, 0.4] }) }}>
         {isEmpty ? (
           <View style={s.emptyWrap}>
-            <View style={s.emptyBrand}>
-              <Text style={s.emptyBrandMark}>cerbyl</Text>
-              <Text style={s.emptyBrandSub}>learning unified</Text>
-            </View>
             <Text style={s.emptyTitle}>{greeting}</Text>
 
             <View style={s.promptGrid}>
               {starterPrompts.slice(0, 3).map((prompt) => (
-                <TileGleam key={prompt} style={s.promptChip} onPress={() => send(prompt)} borderRadius={16}>
-                  <NeumorphicTexture
-                    grainVariant="skia"
-                    grainOpacity={0.44}
-                    baseFrequency={0.7}
-                    gradientColors={cbTileCardGradient.colors}
-                    gradientStart={cbTileCardGradient.start}
-                    gradientEnd={cbTileCardGradient.end}
-                  />
+                <HapticTouchable key={prompt} style={s.promptChip} onPress={() => send(prompt)} activeOpacity={0.45} haptic="light">
                   <Text style={s.promptText}>{prompt}</Text>
-                  <Ionicons name="chevron-forward" size={13} color={selectedTheme.accentHover} />
-                </TileGleam>
+                </HapticTouchable>
               ))}
             </View>
           </View>
@@ -797,11 +793,9 @@ export default function AIChatScreen({ user }: Props) {
                     {isUser ? (
                       <>
                         <LinearGradient
-                          colors={
-                            selectedTheme.isLight
-                              ? [rgbaFromHex(selectedTheme.accentHover, 0.10), rgbaFromHex(selectedTheme.panel, 0.99)]
-                              : [rgbaFromHex(darkenColor(selectedTheme.accent, 34), 0.45), rgbaFromHex(selectedTheme.panelAlt, 1)]
-                          }
+                          colors={[selectedTheme.accentHover, selectedTheme.accent]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
                           style={[StyleSheet.absoluteFillObject, { borderRadius: 14 }]}
                         />
                         {item.attachmentUri ? <Image source={{ uri: item.attachmentUri }} style={s.messageImage} /> : null}
@@ -876,7 +870,7 @@ export default function AIChatScreen({ user }: Props) {
               style={s.input}
               value={input}
               onChangeText={setInput}
-              placeholder="Ask Cerbyl"
+              placeholder="ASK CERBYL"
               placeholderTextColor={selectedTheme.textSecondary}
               multiline
             />
@@ -1211,7 +1205,7 @@ function createStyles(
   const DIM = theme.textSecondary;
   const BORDER = theme.border;
   const SHADOW = darkenColor(theme.primary, theme.isLight ? 72 : 4);
-  const USER_BG = theme.isLight ? rgbaFromHex(theme.accent, 0.08) : theme.panelAlt;
+  const USER_TEXT_ON_ACCENT = theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary;
 
   return StyleSheet.create({
   safe: { flex: 1, backgroundColor: 'transparent', overflow: 'hidden' },
@@ -1261,24 +1255,6 @@ function createStyles(
     justifyContent: 'center',
     gap: 18,
   },
-  emptyBrand: {
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  emptyBrandMark: {
-    fontFamily: 'Inter_900Black',
-    fontSize: 42,
-    color: GOLD_L,
-    letterSpacing: -1.8,
-  },
-  emptyBrandSub: {
-    fontFamily: 'Inter_700Bold',
-    fontSize: 9,
-    color: DIM,
-    letterSpacing: 3.4,
-    textTransform: 'uppercase',
-    marginTop: 4,
-  },
   emptyTitle: {
     fontFamily: 'Inter_900Black',
     fontSize: 24,
@@ -1290,22 +1266,20 @@ function createStyles(
     maxWidth: '92%',
   },
   promptGrid: {
-    gap: 8,
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
   },
   promptChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingVertical: 3,
   } as ViewStyle,
   promptText: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 13,
-    color: GOLD_L,
-    flex: 1,
+    fontSize: 9.5,
+    letterSpacing: 1.8,
+    textTransform: 'uppercase',
+    color: rgbaFromHex(GOLD_L, 0.6),
+    textAlign: 'center',
   },
 
   list: {
@@ -1313,7 +1287,7 @@ function createStyles(
     maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
     paddingLeft: 2,
-    paddingRight: 52,
+    paddingRight: 16,
     paddingTop: 8,
     paddingBottom: 18,
     gap: 14,
@@ -1356,9 +1330,6 @@ function createStyles(
   },
   userBubble: {
     alignSelf: 'flex-end',
-    backgroundColor: USER_BG,
-    borderWidth: 1,
-    borderColor: rgbaFromHex(theme.accent, theme.isLight ? 0.18 : 0.28),
   },
   messageImage: {
     width: 190,
@@ -1368,7 +1339,7 @@ function createStyles(
     marginBottom: 10,
     backgroundColor: CARD_ALT,
   },
-  userText: { fontFamily: 'Inter_400Regular', fontSize: 14, lineHeight: 22, color: GOLD_XL },
+  userText: { fontFamily: 'Inter_400Regular', fontSize: 14, lineHeight: 22, color: USER_TEXT_ON_ACCENT },
 
   promptRail: {
     position: 'absolute',
@@ -1476,9 +1447,11 @@ function createStyles(
 
   composerWrap: {
     width: '100%',
-    maxWidth: layout.contentMaxWidth,
+    // The composer doesn't need the message list's readability cap -- let it span
+    // nearly the full device width on phones, only capping it on tablets/wide screens.
+    maxWidth: (layout.isTablet || layout.isWide) ? layout.contentMaxWidth : layout.width,
     alignSelf: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: 10,
     paddingTop: 0,
     paddingBottom: 0,
   },
@@ -1486,7 +1459,8 @@ function createStyles(
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderRadius: 28,
+    // Matches the bottom tab bar's corner radius so the two bars read as one family.
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: rgbaFromHex(GOLD_L, theme.isLight ? 0.18 : 0.24),
     backgroundColor: rgbaFromHex(CARD_ALT, 0.96),
