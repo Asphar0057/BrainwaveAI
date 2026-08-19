@@ -167,10 +167,7 @@ export default function FriendsScreen({ user, onBack }: Props) {
         <HapticTouchable onPress={onBack} style={s.backBtn} haptic="light">
           <Ionicons name="chevron-back" size={18} color={selectedTheme.accent} />
         </HapticTouchable>
-        <View style={s.headerCopy}>
-          <Text style={s.brandSub}>cerbyl / community</Text>
-          <Text style={s.headerTitle}>your circle</Text>
-        </View>
+        <Text style={s.headerTitle}>friends</Text>
         <HapticTouchable style={s.headerSignal} onPress={() => setTab('requests')} haptic="light">
           <Ionicons name="mail-outline" size={17} color={selectedTheme.accentHover} />
           {requests.length > 0 && (
@@ -183,48 +180,27 @@ export default function FriendsScreen({ user, onBack }: Props) {
 
       {/* Circle summary */}
       <View style={s.hero}>
-        <LinearGradient
-          colors={['#0b0c0f', '#050506']}
-          start={{ x: 0.2887, y: 0.0468 }}
-          end={{ x: 0.7113, y: 0.9532 }}
-          style={s.heroPanel}
-        >
+        <View style={s.heroPanel}>
           <SocialTileMaterial />
-          <View style={s.heroCopy}>
-            <Text style={s.heroKicker}>learning is social</Text>
-            <Text style={s.heroTitle}>{friends.length > 0 ? 'progress feels\nbetter together' : 'build your\nlearning circle'}</Text>
-            <Text style={s.heroSub}>{friends.length > 0 ? 'Keep your people close and momentum visible.' : 'Find people who make showing up easier.'}</Text>
+          <View style={s.heroStat}>
+            <Text style={s.heroStatValue}>{friends.length}</Text>
+            <Text style={s.heroStatLabel}>friends</Text>
           </View>
-          <View style={s.heroOrbit}>
-            <View style={s.heroOrbitRing} />
-            <View style={[s.heroOrbitNode, s.heroOrbitNodeA]} />
-            <View style={[s.heroOrbitNode, s.heroOrbitNodeB]} />
-            <LinearGradient colors={[selectedTheme.accentHover, selectedTheme.accent]} style={s.heroOrbitCore}>
-              <Ionicons name="people" size={23} color={selectedTheme.bgPrimary} />
-            </LinearGradient>
+          <View style={s.heroStatDivider} />
+          <View style={s.heroStat}>
+            <Text style={s.heroStatValue}>{requests.length}</Text>
+            <Text style={s.heroStatLabel}>requests</Text>
           </View>
-          <View style={s.heroStats}>
-            <View style={s.heroStat}>
-              <Text style={s.heroStatValue}>{friends.length}</Text>
-              <Text style={s.heroStatLabel}>connected</Text>
-            </View>
-            <View style={s.heroStatDivider} />
-            <View style={s.heroStat}>
-              <Text style={s.heroStatValue}>{requests.length}</Text>
-              <Text style={s.heroStatLabel}>requests</Text>
-            </View>
-            <View style={s.heroStatDivider} />
-            <View style={s.heroStat}>
-              <Text style={s.heroStatValue}>{feed.length}</Text>
-              <Text style={s.heroStatLabel}>signals</Text>
-            </View>
+          <View style={s.heroStatDivider} />
+          <View style={s.heroStat}>
+            <Text style={s.heroStatValue}>{feed.length}</Text>
+            <Text style={s.heroStatLabel}>activity</Text>
           </View>
-        </LinearGradient>
+        </View>
       </View>
 
       {/* Search */}
       <View style={s.searchWrap}>
-        <Text style={s.searchLabel}>find your people</Text>
         <View style={s.searchInner}>
             <View style={s.searchIcon}>
               <Ionicons name="search-outline" size={15} color={selectedTheme.accentHover} />
@@ -305,7 +281,6 @@ export default function FriendsScreen({ user, onBack }: Props) {
                 <Ionicons name="people-outline" size={40} color={darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26)} />
               </LinearGradient>
               <Text style={empty.title}>no friends yet</Text>
-              <Text style={empty.hint}>search above to connect with people</Text>
             </View>
           ) : friends.map((f: any, i: number) => {
             const streak  = fstreak(f);
@@ -363,7 +338,6 @@ export default function FriendsScreen({ user, onBack }: Props) {
                 <Ionicons name="mail-outline" size={40} color={darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26)} />
               </LinearGradient>
               <Text style={empty.title}>no pending requests</Text>
-              <Text style={empty.hint}>friend requests will appear here</Text>
             </View>
           ) : requests.map((r: any, i: number) => (
             <View key={r.id ?? i} style={rq.wrap}>
@@ -372,10 +346,7 @@ export default function FriendsScreen({ user, onBack }: Props) {
               <View style={rq.body}>
                 <View style={rq.row}>
                   <Avatar name={r.sender_username || r.name || '?'} size={44} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={rq.name}>{r.sender_username || r.name}</Text>
-                    <Text style={rq.sub}>wants to connect</Text>
-                  </View>
+                  <Text style={[rq.name, { flex: 1 }]}>{r.sender_username || r.name}</Text>
                 </View>
                 <View style={rq.actions}>
                   <HapticTouchable style={{ flex: 1 }} onPress={() => doRespond(r.id, 'accept')} haptic="success">
@@ -401,7 +372,6 @@ export default function FriendsScreen({ user, onBack }: Props) {
                 <Ionicons name="pulse-outline" size={40} color={darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26)} />
               </LinearGradient>
               <Text style={empty.title}>all quiet</Text>
-              <Text style={empty.hint}>your friends' activity will appear here</Text>
             </View>
           ) : feed.map((item: any, i: number) => {
             const color = activityColor(item.activity_type, selectedTheme);
@@ -451,13 +421,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       borderWidth: 1, borderColor: theme.borderStrong,
       alignItems: 'center', justifyContent: 'center',
     },
-    headerCopy: { flex: 1 },
-    brandSub: {
-      fontFamily: 'Inter_600SemiBold', fontSize: 10, color: theme.accentHover,
-      letterSpacing: 1.7, textTransform: 'uppercase',
-    },
     headerTitle: {
-      marginTop: 2, fontFamily: 'Inter_900Black', fontSize: 25,
+      flex: 1, fontFamily: 'Inter_900Black', fontSize: 25,
       color: theme.textPrimary, letterSpacing: -0.8,
     },
     headerSignal: {
@@ -474,71 +439,27 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     headerSignalBadgeText: { fontFamily: 'Inter_900Black', fontSize: 9, color: '#fff' },
     hero: {
       width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
-      paddingHorizontal: 4,
+      paddingHorizontal: 4, marginTop: 8,
     },
     heroPanel: {
-      minHeight: 218, padding: 20, overflow: 'hidden',
-      borderRadius: 24,
-      boxShadow: cbModalShadow(0.14),
-      ...cbTileBorder(0.22),
-    },
-    heroCopy: { width: '66%' },
-    heroKicker: {
-      fontFamily: 'Inter_600SemiBold', fontSize: 10, color: theme.accentHover,
-      letterSpacing: 1.8, textTransform: 'uppercase',
-    },
-    heroTitle: {
-      marginTop: 9, fontFamily: 'Inter_900Black', fontSize: 25,
-      lineHeight: 27, color: theme.textPrimary, letterSpacing: -0.9,
-    },
-    heroSub: {
-      marginTop: 8, fontFamily: 'Inter_400Regular', fontSize: 9.5,
-      lineHeight: 14, color: theme.textSecondary,
-    },
-    heroOrbit: {
-      position: 'absolute', width: 90, height: 90, right: 15, top: 28,
-      alignItems: 'center', justifyContent: 'center',
-    },
-    heroOrbitRing: {
-      position: 'absolute', width: 86, height: 86, borderRadius: 43,
-      borderWidth: 1, borderStyle: 'dashed',
-      borderColor: rgbaFromHex(theme.accentHover, 0.32),
-    },
-    heroOrbitCore: {
-      width: 51, height: 51, borderRadius: 17,
-      alignItems: 'center', justifyContent: 'center',
-    },
-    heroOrbitNode: {
-      position: 'absolute', width: 10, height: 10, borderRadius: 5,
-      borderWidth: 2, borderColor: theme.bgPrimary,
-      backgroundColor: theme.accentHover,
-    },
-    heroOrbitNodeA: { left: 2, top: 18 },
-    heroOrbitNodeB: { right: 4, bottom: 14 },
-    heroStats: {
-      position: 'absolute', left: 20, right: 20, bottom: 15, height: 50,
-      flexDirection: 'row', alignItems: 'center',
-      borderRadius: 18, borderWidth: 1, borderColor: theme.border,
-      backgroundColor: rgbaFromHex(theme.bgPrimary, 0.58),
+      minHeight: 68, flexDirection: 'row', alignItems: 'center',
+      overflow: 'hidden', borderRadius: 20,
+      boxShadow: cbTileShadow(0.06),
+      ...cbTileBorder(0.16),
     },
     heroStat: { flex: 1, alignItems: 'center' },
     heroStatValue: {
-      fontFamily: 'Inter_900Black', fontSize: 16,
+      fontFamily: 'Inter_900Black', fontSize: 18,
       color: theme.accentHover, letterSpacing: -0.3,
     },
     heroStatLabel: {
       marginTop: 2, fontFamily: 'Inter_600SemiBold', fontSize: 9.5,
       color: theme.textSecondary, letterSpacing: 0.8, textTransform: 'uppercase',
     },
-    heroStatDivider: { width: 1, height: 21, backgroundColor: theme.border },
+    heroStatDivider: { width: 1, height: 24, backgroundColor: theme.border },
     searchWrap: {
       width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
-      paddingHorizontal: 4, marginTop: 16, marginBottom: 12,
-    },
-    searchLabel: {
-      marginLeft: 4, marginBottom: 7, fontFamily: 'Inter_600SemiBold',
-      fontSize: 10, color: theme.accentHover, letterSpacing: 1.6,
-      textTransform: 'uppercase',
+      paddingHorizontal: 4, marginTop: 12, marginBottom: 12,
     },
     searchInner: {
       minHeight: 51, flexDirection: 'row', alignItems: 'center',
@@ -646,7 +567,6 @@ function createRequestStyles(theme: ReturnType<typeof useAppTheme>['selectedThem
     body: { flex: 1, padding: 14, gap: 12 },
     row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     name: { fontFamily: 'Inter_900Black', fontSize: 14, color: theme.textPrimary },
-    sub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: theme.textSecondary, marginTop: 2 },
     actions: { flexDirection: 'row', gap: 8 },
     acceptBtn: { borderRadius: 999, paddingVertical: 10, alignItems: 'center' },
     acceptText: { fontFamily: 'Inter_900Black', fontSize: 10, color: theme.bgPrimary, textTransform: 'uppercase', letterSpacing: 0.8 },
@@ -688,6 +608,5 @@ function createEmptyStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'
     },
     icon: { width: 70, height: 70, borderRadius: 35, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderStyle: 'dashed', borderColor: rgbaFromHex(ACCENT_DARK, 0.32) },
     title: { fontFamily: 'Inter_900Black', fontSize: 17, color: theme.textPrimary },
-    hint: { fontFamily: 'Inter_400Regular', fontSize: 11, lineHeight: 16, color: theme.textSecondary, textAlign: 'center', paddingHorizontal: 24 },
   });
 }
