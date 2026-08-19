@@ -23,15 +23,18 @@ function BentoMini({
   title,
   styles,
   onPress,
+  tall = false,
 }: {
   index: string;
   title: string;
   styles: ReturnType<typeof createStyles>;
   onPress?: () => void;
+  /** Fills the full hero-row height as one rectangle instead of a square in a stack. */
+  tall?: boolean;
 }) {
   return (
     <TileGleam
-      style={styles.miniTile}
+      style={[styles.miniTile, tall && styles.miniTileTall]}
       onPress={onPress}
       accessibilityLabel={`${title} feature`}
       accessibilityHint={`Open ${title}`}
@@ -87,7 +90,7 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
           <View style={s.titleRule} />
         </View>
 
-        {/* Row 1: AI chat hero + notes/media stack */}
+        {/* Row 1: AI chat hero + notes (media notes and canvas both live inside notes already) */}
         <View style={s.bentoRow}>
           <TileGleam style={s.heroTile} onPress={() => onNavigateToAI?.()} haptic="medium">
             <NeumorphicTexture
@@ -106,10 +109,7 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
             </View>
           </TileGleam>
 
-          <View style={s.stackCol}>
-            <BentoMini index="02" title="notes" styles={s} onPress={() => onNavigate?.('notes')} />
-            <BentoMini index="03" title="media" styles={s} onPress={() => onNavigate?.('aimedia')} />
-          </View>
+          <BentoMini index="02" title="notes" styles={s} tall onPress={() => onNavigate?.('notes')} />
         </View>
 
         {/* Row 2: Flashcards banner — one hero stat, no clutter */}
@@ -123,7 +123,7 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
             gradientEnd={cbTileCardGradient.end}
           />
           <View style={s.fcLeft}>
-            <Text style={s.fcIndex}>04</Text>
+            <Text style={s.fcIndex}>03</Text>
             <Text style={s.fcTitle}>flashcards</Text>
             <Text style={s.fcCaption}>{fcSets ? `${fcSets} sets · ${fcTotal} cards` : 'build your first set'}</Text>
           </View>
@@ -138,31 +138,28 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
 
         {/* Row 3: question bank + learning paths */}
         <View style={s.bentoRow}>
-          <BentoMini index="05" title="questions" styles={s} onPress={() => onNavigate?.('questionBank')} />
-          <BentoMini index="06" title="paths" styles={s} onPress={() => onNavigate?.('learningPaths')} />
+          <BentoMini index="04" title="questions" styles={s} onPress={() => onNavigate?.('questionBank')} />
+          <BentoMini index="05" title="paths" styles={s} onPress={() => onNavigate?.('learningPaths')} />
         </View>
 
         {/* Row 4: knowledge hub + maps */}
         <View style={s.bentoRow}>
-          <BentoMini index="07" title="hub" styles={s} onPress={() => onNavigate?.('knowledgeHub')} />
-          <BentoMini index="08" title="maps" styles={s} onPress={() => onNavigate?.('knowledgeMaps')} />
+          <BentoMini index="06" title="hub" styles={s} onPress={() => onNavigate?.('knowledgeHub')} />
+          <BentoMini index="07" title="maps" styles={s} onPress={() => onNavigate?.('knowledgeMaps')} />
         </View>
 
         {/* Row 5: primary creation tools stay above the fold */}
         <View style={s.bentoRow}>
-          <BentoMini index="09" title="slides" styles={s} onPress={() => onNavigate?.('slideExplorer')} />
-          <BentoMini index="10" title="canvas" styles={s} onPress={() => onNavigate?.('canvasHub')} />
+          <BentoMini index="08" title="slides" styles={s} onPress={() => onNavigate?.('slideExplorer')} />
+          <BentoMini index="09" title="analytics" styles={s} onPress={() => onNavigate?.('analytics')} />
         </View>
         <View style={s.bentoRow}>
-          <BentoMini index="11" title="analytics" styles={s} onPress={() => onNavigate?.('analytics')} />
-          <BentoMini index="12" title="weakness" styles={s} onPress={() => onNavigate?.('weaknessPractice')} />
+          <BentoMini index="10" title="weakness" styles={s} onPress={() => onNavigate?.('weaknessPractice')} />
+          <BentoMini index="11" title="topics" styles={s} onPress={() => onNavigate?.('topicsHub')} />
         </View>
         <View style={s.bentoRow}>
-          <BentoMini index="13" title="topics" styles={s} onPress={() => onNavigate?.('topicsHub')} />
-          <BentoMini index="14" title="calendar" styles={s} onPress={() => setSubScreen('calendar')} />
-        </View>
-        <View style={s.bentoRow}>
-          <BentoMini index="15" title="timeline" styles={s} onPress={() => setSubScreen('activity')} />
+          <BentoMini index="12" title="calendar" styles={s} onPress={() => setSubScreen('calendar')} />
+          <BentoMini index="13" title="timeline" styles={s} onPress={() => setSubScreen('activity')} />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -208,11 +205,14 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   },
   heroFootRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 16 },
 
-  stackCol: { flex: 1, gap: 12 },
+  // Grid tiles use the same 22px radius as the social page's bento tiles;
+  // hero-tier cards (AI chat, this tall notes tile, the flashcards banner)
+  // use 26px, matching the social page's level/leaderboard cards.
   miniTile: {
-    flex: 1, borderRadius: 26, overflow: 'hidden',
+    flex: 1, borderRadius: 22, overflow: 'hidden',
     paddingHorizontal: 16, paddingVertical: 16,
   } as ViewStyle,
+  miniTileTall: { minHeight: heroRowHeight, borderRadius: 26 },
   miniTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   miniIndex: { fontFamily: 'Inter_700Bold', fontSize: 11, letterSpacing: 1.5, color: DIM },
   miniArrow: { color: GOLD_L },
