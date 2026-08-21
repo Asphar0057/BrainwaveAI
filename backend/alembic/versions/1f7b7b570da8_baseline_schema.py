@@ -188,7 +188,6 @@ def upgrade() -> None:
     sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.Column('last_explored', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['parent_node_id'], ['knowledge_nodes.id'], ),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     with op.batch_alter_table('knowledge_nodes', schema=None) as batch_op:
@@ -209,7 +208,6 @@ def upgrade() -> None:
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('last_accessed', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['root_node_id'], ['knowledge_nodes.id'], ),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     with op.batch_alter_table('knowledge_roadmaps', schema=None) as batch_op:
@@ -276,6 +274,11 @@ def upgrade() -> None:
         batch_op.create_index(batch_op.f('ix_users_email'), ['email'], unique=True)
         batch_op.create_index(batch_op.f('ix_users_id'), ['id'], unique=False)
         batch_op.create_index(batch_op.f('ix_users_username'), ['username'], unique=True)
+
+    # knowledge_nodes.user_id / knowledge_roadmaps.user_id -> users.id: users is created
+    # here, after both tables above, so these FKs are deferred until now.
+    op.create_foreign_key('fk_knowledge_nodes_user_id', 'knowledge_nodes', 'users', ['user_id'], ['id'])
+    op.create_foreign_key('fk_knowledge_roadmaps_user_id', 'knowledge_roadmaps', 'users', ['user_id'], ['id'])
 
     op.create_table('account_deletion_otps',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -3173,6 +3176,8 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f('ix_account_deletion_otps_email'))
 
     op.drop_table('account_deletion_otps')
+    op.drop_constraint('fk_knowledge_roadmaps_user_id', 'knowledge_roadmaps', type_='foreignkey')
+    op.drop_constraint('fk_knowledge_nodes_user_id', 'knowledge_nodes', type_='foreignkey')
     with op.batch_alter_table('users', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_users_username'))
         batch_op.drop_index(batch_op.f('ix_users_id'))
