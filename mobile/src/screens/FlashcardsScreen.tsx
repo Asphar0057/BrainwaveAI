@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
   Text,
@@ -1066,6 +1067,9 @@ function FlashcardsSets({
   const [loadingCards, setLoadingCards] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [search, setSearch] = useState('');
+  const [favoriteSetIds, setFavoriteSetIds] = useState<number[]>([]);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const layout = useResponsiveLayout();
   const sidebarWidth = Math.min(layout.width * (layout.isLandscape ? 0.42 : 0.8), 340);
@@ -1080,6 +1084,20 @@ function FlashcardsSets({
       })
       .catch(() => setLoading(false));
   }, [user.username, refreshTick]);
+
+  useEffect(() => {
+    AsyncStorage.getItem(`mobile.flashcards.favorites.${user.username}`)
+      .then((raw) => setFavoriteSetIds(raw ? JSON.parse(raw) : []))
+      .catch(() => setFavoriteSetIds([]));
+  }, [user.username]);
+
+  const toggleFavoriteSet = (id: number) => {
+    setFavoriteSetIds((current) => {
+      const next = current.includes(id) ? current.filter((setId) => setId !== id) : [...current, id];
+      AsyncStorage.setItem(`mobile.flashcards.favorites.${user.username}`, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  };
 
   const refreshCollection = async () => {
     setRefreshing(true);
@@ -1126,6 +1144,10 @@ function FlashcardsSets({
     .trim();
   const columns = layout.width >= 700 ? 3 : 2;
   const coverColors = ['#df6b6b', '#69beb8', '#68aac7', '#e99b76', '#8dbfab', '#dcc86d'];
+  const query = search.trim().toLowerCase();
+  const filteredSets = sets
+    .filter((item) => (query ? cleanTitle(item.title).toLowerCase().includes(query) : true))
+    .filter((item) => (showFavoritesOnly ? favoriteSetIds.includes(item.id) : true));
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
@@ -1154,8 +1176,34 @@ function FlashcardsSets({
             <Text style={s.generateHeroText}>Generate</Text>
           </HapticTouchable>
 
+          <View style={s.searchRow}>
+            <View style={s.searchBar}>
+              <Ionicons name="search-outline" size={15} color={GOLD_D} />
+              <TextInput
+                style={s.searchInput}
+                placeholder="search sets..."
+                placeholderTextColor={DIM2}
+                value={search}
+                onChangeText={setSearch}
+              />
+              {!!search && (
+                <HapticTouchable onPress={() => setSearch('')} haptic="selection">
+                  <Ionicons name="close-circle" size={16} color={GOLD_D} />
+                </HapticTouchable>
+              )}
+            </View>
+            <HapticTouchable
+              style={[s.searchIconBtn, showFavoritesOnly && s.searchIconBtnActive]}
+              onPress={() => setShowFavoritesOnly((value) => !value)}
+              haptic="selection"
+              accessibilityLabel={showFavoritesOnly ? 'Show all sets' : 'Show favorites only'}
+            >
+              <Ionicons name={showFavoritesOnly ? 'star' : 'star-outline'} size={18} color={showFavoritesOnly ? BG : GOLD_L} />
+            </HapticTouchable>
+          </View>
+
           <View style={s.collectionHeader}>
-            <Text style={s.collectionCount}>{sets.length} {sets.length === 1 ? 'set' : 'sets'}</Text>
+            <Text style={s.collectionCount}>{filteredSets.length} {filteredSets.length === 1 ? 'set' : 'sets'}</Text>
             <View style={s.viewToggle}>
               <HapticTouchable
                 style={[s.viewToggleBtn, viewMode === 'grid' && s.viewToggleBtnActive]}
@@ -1176,11 +1224,11 @@ function FlashcardsSets({
             </View>
           </View>
 
-          {sets.length === 0 ? (
+          {filteredSets.length === 0 ? (
             <View style={s.empty}>
               <Ionicons name="albums-outline" size={32} color={GOLD_D} />
-              <Text style={s.emptyTitle}>no sets yet</Text>
-              <Text style={s.emptyHint}>tap generate to create your first set</Text>
+              <Text style={s.emptyTitle}>{search ? 'no matching sets' : 'no sets yet'}</Text>
+              <Text style={s.emptyHint}>{search ? 'try a different search' : 'tap generate to create your first set'}</Text>
             </View>
           ) : viewMode === 'grid' ? (
             <ScrollView
@@ -1197,12 +1245,20 @@ function FlashcardsSets({
                 />
               )}
             >
-              {sets.map((item, index) => (
+              {filteredSets.map((item, index) => (
                 <View
                   key={item.id}
                   style={[s.collectionCard, { width: columns === 3 ? '31.8%' : '48.6%' }]}
                 >
                   <View style={[s.collectionCover, { backgroundColor: coverColors[index % coverColors.length] }]}>
+                    <HapticTouchable
+                      style={s.collectionFavoriteBtn}
+                      onPress={() => toggleFavoriteSet(item.id)}
+                      haptic="selection"
+                      accessibilityLabel={favoriteSetIds.includes(item.id) ? `Unfavorite ${cleanTitle(item.title)}` : `Favorite ${cleanTitle(item.title)}`}
+                    >
+                      <Ionicons name={favoriteSetIds.includes(item.id) ? 'star' : 'star-outline'} size={13} color={favoriteSetIds.includes(item.id) ? ACCENT : '#171411'} />
+                    </HapticTouchable>
                     <Text style={s.collectionCardTitle} numberOfLines={3}>{cleanTitle(item.title)}</Text>
                     <Text style={s.collectionCardCount}>{item.card_count} CARDS</Text>
                   </View>
@@ -1251,7 +1307,7 @@ function FlashcardsSets({
                 />
               )}
             >
-              {sets.map((item, index) => (
+              {filteredSets.map((item, index) => (
                 <View key={item.id} style={s.listRow}>
                   <View style={[s.listSwatch, { backgroundColor: coverColors[index % coverColors.length] }]} />
                   <View style={{ flex: 1, minWidth: 0 }}>
@@ -1407,8 +1463,6 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   const cardHeight = useLandscapeStudyLayout
     ? Math.max(240, Math.min(layout.height - 132, Math.round(cardWidth * 0.9)))
     : Math.max(260, Math.min(layout.height - 300, 520));
-  const collectionCardHeight = layout.height >= 840 ? 228 : layout.height >= 760 ? 205 : 184;
-  const collectionCoverHeight = Math.round(collectionCardHeight * 0.45);
   return StyleSheet.create({
   safe: { flex: 1, backgroundColor: BG },
   header: {
@@ -1443,6 +1497,20 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     fontFamily: 'Inter_900Black', fontSize: 12, color: BASE_ACTION_TEXT,
     letterSpacing: 4, textTransform: 'uppercase',
   },
+  // Same search bar as the notes page, for a consistent look between the two.
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
+  searchBar: {
+    flex: 1, height: 44, flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: rgbaFromHex(SURFACE, 0.96), borderRadius: 14, borderWidth: 1, borderColor: BORDER,
+    paddingHorizontal: 14,
+  },
+  searchInput: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 13, color: GOLD_L },
+  searchIconBtn: {
+    width: 44, height: 44, borderRadius: 14,
+    backgroundColor: rgbaFromHex(SURFACE_2, 0.92), borderWidth: 1, borderColor: BORDER,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  searchIconBtnActive: { backgroundColor: ACCENT, borderColor: ACCENT },
   collectionHeader: { minHeight: 34, marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   collectionCount: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: DIM2, letterSpacing: 0.3 },
   viewToggle: { flexDirection: 'row', borderRadius: 10, borderWidth: 1, borderColor: BORDER, overflow: 'hidden' },
@@ -1450,8 +1518,15 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   viewToggleBtnActive: { backgroundColor: ACCENT },
   collectionScroll: { flex: 1 },
   collectionGrid: { flexDirection: 'row', flexWrap: 'wrap', alignContent: 'flex-start', paddingBottom: 18 },
-  collectionCard: { height: collectionCardHeight, borderRadius: 17, backgroundColor: rgbaFromHex(SURFACE, 0.95), overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
-  collectionCover: { height: collectionCoverHeight, paddingHorizontal: 14, paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
+  // Square like the notes page's cards -- width comes from the inline percentage below, aspectRatio:1 follows it.
+  collectionCard: { aspectRatio: 1, borderRadius: 17, backgroundColor: rgbaFromHex(SURFACE, 0.95), overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
+  collectionCover: { flex: 0.82, paddingHorizontal: 14, paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
+  collectionFavoriteBtn: {
+    position: 'absolute', top: 8, right: 8,
+    width: 26, height: 26, borderRadius: 13,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(23,20,17,0.16)',
+  },
   collectionCardTitle: { fontFamily: 'Inter_900Black', fontSize: 14, lineHeight: 17, color: '#171411', textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 },
   collectionCardCount: { fontFamily: 'Inter_700Bold', fontSize: 9, color: rgbaFromHex('#171411', 0.66), letterSpacing: 1.2, marginTop: 7 },
   collectionCardMeta: { flex: 1, padding: 14, justifyContent: 'space-between', gap: 8 },
