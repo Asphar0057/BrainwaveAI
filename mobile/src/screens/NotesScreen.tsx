@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AIMediaNotesScreen from './AIMediaNotesScreen';
 import NotesLibraryScreen from './notes/NotesLibraryScreen';
+import NotesGeneratorScreen from './notes/NotesGeneratorScreen';
 import NoteEditorScreen from './notes/NoteEditorScreen';
 import NotesTrashScreen from './notes/NotesTrashScreen';
 import NotesCanvasScreen from './notes/NotesCanvasScreen';
@@ -17,6 +18,7 @@ import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
 type NotesStackParamList = {
   NotesLibrary: undefined;
+  NotesGenerator: undefined;
   NoteEditor: { note: Note; folders: Folder[] };
   NotesCanvas: undefined;
   NotesTrash: undefined;
@@ -69,6 +71,25 @@ export default function NotesScreen({ user, onBack }: NotesRootProps) {
             onCreated={() => setRefreshTick((value) => value + 1)}
             onOpenTrash={() => navigation.navigate('NotesTrash')}
             onOpenMedia={() => navigation.navigate('MediaNotes')}
+            onOpenCanvas={() => {
+              setCanvasReturn(null);
+              setCanvasSession({ source: 'library' });
+              navigation.navigate('NotesCanvas');
+            }}
+            onOpenGenerator={() => navigation.navigate('NotesGenerator')}
+            onOpenEditor={(note, folders) => navigation.navigate('NoteEditor', { note, folders })}
+          />
+        )}
+      </NotesStack.Screen>
+      <NotesStack.Screen name="NotesGenerator">
+        {({ navigation }) => (
+          <NotesGeneratorScreen
+            user={user}
+            onBack={() => navigation.goBack()}
+            onCreated={() => setRefreshTick((value) => value + 1)}
+            onOpenLibrary={() => navigation.goBack()}
+            onOpenMedia={() => navigation.navigate('MediaNotes')}
+            onOpenTrash={() => navigation.navigate('NotesTrash')}
             onOpenCanvas={() => {
               setCanvasReturn(null);
               setCanvasSession({ source: 'library' });

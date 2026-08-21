@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Animated,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -16,6 +17,7 @@ import {
   Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   useFonts,
   Inter_900Black,
@@ -28,7 +30,7 @@ import AmbientBubbles from '../../components/AmbientBubbles';
 import GeoBackground from '../../components/GeoBackground';
 import HapticTouchable from '../../components/HapticTouchable';
 import TileGleam from '../../components/TileGleam';
-import NeumorphicTexture, { cbTileShadow, cbModalShadow, cbTileBorder } from '../../components/NeumorphicTexture';
+import { NeumorphicLayer, cbTileShadow, cbModalShadow, cbTileBorder } from '../../components/NeumorphicTexture';
 import { AuthUser } from '../../services/auth';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import {
@@ -75,6 +77,8 @@ export const CUSTOM_TEMPLATE_KEY = 'mobile.customNoteTemplates';
 const RECENT_NOTES_KEY_PREFIX = 'mobile.notes.recent';
 const PAGE_PROPERTIES_KEY_PREFIX = 'mobile.notes.properties';
 const ADVANCED_SEARCH_HISTORY_KEY_PREFIX = 'mobile.notes.searchHistory';
+// Same palette as the flashcards page's collection covers, for visual parity.
+const NOTE_COVER_COLORS = ['#df6b6b', '#69beb8', '#68aac7', '#e99b76', '#8dbfab', '#dcc86d'];
 
 export let CURRENT_THEME = DEFAULT_THEME;
 let BG = DEFAULT_THEME.bgPrimary;
@@ -88,6 +92,10 @@ let BORDER = DEFAULT_THEME.borderStrong;
 export let DIM2 = DEFAULT_THEME.textSecondary;
 export let RED = DEFAULT_THEME.danger;
 let GREEN = DEFAULT_THEME.success;
+let INK = DEFAULT_THEME.isLight ? darkenColor(DEFAULT_THEME.accent, 45) : darkenColor(DEFAULT_THEME.primary, 2);
+let BASE_ACTION_BG = DEFAULT_THEME.isLight ? rgbaFromHex(DEFAULT_THEME.panel, 0.98) : DEFAULT_THEME.accent;
+let BASE_ACTION_TEXT = DEFAULT_THEME.isLight ? DEFAULT_THEME.accent : darkenColor(DEFAULT_THEME.primary, 2);
+let BASE_ACTION_BORDER = DEFAULT_THEME.isLight ? DEFAULT_THEME.borderStrong : DEFAULT_THEME.accentHover;
 
 export type Note = {
   id: number;
@@ -178,6 +186,17 @@ export type NotesLibraryProps = NotesRootProps & {
   onOpenTrash: () => void;
   onOpenMedia: () => void;
   onOpenCanvas: () => void;
+  onOpenGenerator: () => void;
+};
+export type NotesGeneratorProps = {
+  user: AuthUser;
+  onBack: () => void;
+  onCreated: () => void;
+  onOpenEditor: (note: Note, folders: Folder[]) => void;
+  onOpenLibrary: () => void;
+  onOpenMedia: () => void;
+  onOpenCanvas: () => void;
+  onOpenTrash: () => void;
 };
 export type NoteEditorProps = {
   user: AuthUser;
@@ -216,6 +235,10 @@ function applyTheme(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
   DIM2 = theme.textSecondary;
   RED = theme.danger;
   GREEN = theme.success;
+  INK = theme.isLight ? darkenColor(theme.accent, 45) : darkenColor(theme.primary, 2);
+  BASE_ACTION_BG = theme.isLight ? rgbaFromHex(theme.panel, 0.98) : theme.accent;
+  BASE_ACTION_TEXT = theme.isLight ? theme.accent : darkenColor(theme.primary, 2);
+  BASE_ACTION_BORDER = theme.isLight ? theme.borderStrong : theme.accentHover;
 }
 
 export function prepareNotesScreen(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
@@ -245,10 +268,6 @@ export function formatDate(iso?: string | null) {
   if (diffDays === 1) return 'yesterday';
   if (diffDays < 7) return `${diffDays}d ago`;
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-function countSource(notes: Note[], source: 'flashcards' | 'quizzes' | 'roadmaps') {
-  return notes.filter((note) => matchesSource(note, source)).length;
 }
 
 function matchesSource(note: Note, source: 'flashcards' | 'quizzes' | 'roadmaps') {
@@ -531,6 +550,177 @@ export function NotesTrashScreen({
   );
 }
 
+// Shared hamburger-menu sidebar for the notes library, styled to match the
+// flashcards page's sidebar exactly (same overlay/panel/hero/menu-card look).
+function NotesMenuSidebar({
+  visible,
+  sidebarWidth,
+  slideAnim,
+  onClose,
+  noteCount,
+  activeKey,
+  onLibrary,
+  onGenerate,
+  onMedia,
+  onCanvas,
+  onRecentlyViewed,
+  onTrash,
+  onSmartFolders,
+  onAdvancedSearch,
+  onChatImport,
+  onConvert,
+  onNewFolder,
+}: {
+  visible: boolean;
+  sidebarWidth: number;
+  slideAnim: Animated.Value;
+  onClose: () => void;
+  /** Omitted on screens that don't already track the notes list (e.g. the generator screen). */
+  noteCount?: number;
+  activeKey: 'library' | 'generate';
+  onLibrary: () => void;
+  onGenerate: () => void;
+  onMedia: () => void;
+  onCanvas: () => void;
+  onTrash: () => void;
+  onRecentlyViewed?: () => void;
+  onSmartFolders?: () => void;
+  onAdvancedSearch?: () => void;
+  onChatImport?: () => void;
+  onConvert?: () => void;
+  onNewFolder?: () => void;
+}) {
+  if (!visible) return null;
+
+  const workspaceItems: Array<{
+    key: string;
+    icon: React.ComponentProps<typeof Ionicons>['name'];
+    label: string;
+    onPress: () => void;
+  }> = [
+    { key: 'media', icon: 'videocam-outline', label: 'Media Notes', onPress: onMedia },
+    { key: 'canvas', icon: 'brush-outline', label: 'Canvas Studio', onPress: onCanvas },
+    ...(onRecentlyViewed ? [{ key: 'recent', icon: 'time-outline' as const, label: 'Recently Viewed', onPress: onRecentlyViewed }] : []),
+    { key: 'trash', icon: 'trash-outline', label: 'Trash', onPress: onTrash },
+  ];
+
+  const toolItems: Array<{
+    key: string;
+    icon: React.ComponentProps<typeof Ionicons>['name'];
+    label: string;
+    onPress: () => void;
+  }> = [
+    ...(onSmartFolders ? [{ key: 'smart', icon: 'sparkles-outline' as const, label: 'Smart Folders', onPress: onSmartFolders }] : []),
+    ...(onAdvancedSearch ? [{ key: 'advanced', icon: 'filter-outline' as const, label: 'Advanced Search', onPress: onAdvancedSearch }] : []),
+    ...(onChatImport ? [{ key: 'chat', icon: 'chatbox-ellipses-outline' as const, label: 'From Chat', onPress: onChatImport }] : []),
+    ...(onConvert ? [{ key: 'convert', icon: 'shuffle-outline' as const, label: 'Convert', onPress: onConvert }] : []),
+    ...(onNewFolder ? [{ key: 'folder', icon: 'folder-open-outline' as const, label: 'New Folder', onPress: onNewFolder }] : []),
+  ];
+
+  return (
+    <Modal transparent animationType="none" onRequestClose={onClose}>
+      <View style={s.sidebarOverlay}>
+        <HapticTouchable style={StyleSheet.absoluteFill} onPress={onClose} activeOpacity={1} haptic="none" />
+        <Animated.View style={[s.sidebarPanel, { width: sidebarWidth, transform: [{ translateX: slideAnim }] }]}>
+          <LinearGradient
+            colors={[darkenColor(CURRENT_THEME.bgTop, CURRENT_THEME.isLight ? 4 : 0), CURRENT_THEME.panelAlt, CURRENT_THEME.bgPrimary]}
+            style={StyleSheet.absoluteFill}
+          />
+          <SafeAreaView style={{ flex: 1, paddingBottom: 6 }} edges={['top', 'bottom']}>
+            <View style={s.sidebarHero}>
+              <NeumorphicLayer grainOpacity={0.22} />
+              {noteCount != null ? <Text style={s.sidebarGhost}>{noteCount}</Text> : null}
+              <Text style={s.sidebarHeroTitle}>notes</Text>
+              <Text style={s.sidebarHeroSub}>
+                {noteCount != null ? `${noteCount} ${noteCount === 1 ? 'note' : 'notes'}` : 'your workspace'}
+              </Text>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.sidebarScroll}>
+              <View style={s.sidebarMenu}>
+                {activeKey === 'library' ? (
+                  <View style={[s.menuCard, s.menuCardActive]}>
+                    <View style={s.menuRow}>
+                      <View style={[s.menuIconWrap, s.menuIconWrapActive]}>
+                        <Ionicons name="library" size={16} color={INK} />
+                      </View>
+                      <Text style={[s.menuLabel, s.menuLabelActive]}>Library</Text>
+                      <View style={s.menuActiveDot} />
+                    </View>
+                  </View>
+                ) : (
+                  <HapticTouchable style={s.menuCard} onPress={() => { onClose(); onLibrary(); }} haptic="selection" activeOpacity={0.85}>
+                    <View style={s.menuRow}>
+                      <View style={s.menuIconWrap}>
+                        <Ionicons name="library-outline" size={16} color={GOLD_L} />
+                      </View>
+                      <Text style={s.menuLabel}>Library</Text>
+                      <Ionicons name="chevron-forward" size={15} color={DIM2} />
+                    </View>
+                  </HapticTouchable>
+                )}
+
+                {activeKey === 'generate' ? (
+                  <View style={[s.menuCard, s.menuCardActive]}>
+                    <View style={s.menuRow}>
+                      <View style={[s.menuIconWrap, s.menuIconWrapActive]}>
+                        <Ionicons name="sparkles" size={16} color={INK} />
+                      </View>
+                      <Text style={[s.menuLabel, s.menuLabelActive]}>Generate</Text>
+                      <View style={s.menuActiveDot} />
+                    </View>
+                  </View>
+                ) : (
+                  <HapticTouchable style={s.menuCard} onPress={() => { onClose(); onGenerate(); }} haptic="selection" activeOpacity={0.85}>
+                    <View style={s.menuRow}>
+                      <View style={s.menuIconWrap}>
+                        <Ionicons name="sparkles-outline" size={16} color={GOLD_L} />
+                      </View>
+                      <Text style={s.menuLabel}>Generate</Text>
+                      <Ionicons name="chevron-forward" size={15} color={DIM2} />
+                    </View>
+                  </HapticTouchable>
+                )}
+
+                {workspaceItems.map((item) => (
+                  <HapticTouchable key={item.key} style={s.menuCard} onPress={() => { onClose(); item.onPress(); }} haptic="selection" activeOpacity={0.85}>
+                    <View style={s.menuRow}>
+                      <View style={s.menuIconWrap}>
+                        <Ionicons name={item.icon} size={16} color={GOLD_L} />
+                      </View>
+                      <Text style={s.menuLabel}>{item.label}</Text>
+                      <Ionicons name="chevron-forward" size={15} color={DIM2} />
+                    </View>
+                  </HapticTouchable>
+                ))}
+              </View>
+
+              {toolItems.length > 0 ? (
+                <>
+                  <Text style={[s.sectionLabel, s.sidebarSectionLabel]}>tools</Text>
+                  <View style={s.sidebarMenu}>
+                    {toolItems.map((item) => (
+                      <HapticTouchable key={item.key} style={s.menuCard} onPress={() => { onClose(); item.onPress(); }} haptic="selection" activeOpacity={0.85}>
+                        <View style={s.menuRow}>
+                          <View style={s.menuIconWrap}>
+                            <Ionicons name={item.icon} size={16} color={GOLD_L} />
+                          </View>
+                          <Text style={s.menuLabel}>{item.label}</Text>
+                          <Ionicons name="chevron-forward" size={15} color={DIM2} />
+                        </View>
+                      </HapticTouchable>
+                    ))}
+                  </View>
+                </>
+              ) : null}
+            </ScrollView>
+          </SafeAreaView>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
 export function NotesHome({
   user,
   onBack,
@@ -540,6 +730,7 @@ export function NotesHome({
   onOpenTrash,
   onOpenMedia,
   onOpenCanvas,
+  onOpenGenerator,
 }: NotesLibraryProps) {
   const layout = useResponsiveLayout();
   const [notes, setNotes] = useState<Note[]>([]);
@@ -548,7 +739,6 @@ export function NotesHome({
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterValue>('all');
-  const [expandedHomePanel, setExpandedHomePanel] = useState<'filters' | 'more' | null>(null);
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [showRecentlyViewed, setShowRecentlyViewed] = useState(false);
   const [recentlyViewed, setRecentlyViewed] = useState<RecentNote[]>([]);
@@ -568,12 +758,6 @@ export function NotesHome({
   const [newFolderName, setNewFolderName] = useState('');
   const [folderCreating, setFolderCreating] = useState(false);
 
-  const [showTemplates, setShowTemplates] = useState(false);
-  const [templateTab, setTemplateTab] = useState<TemplateTab>('built-in');
-  const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([]);
-  const [showTemplateForm, setShowTemplateForm] = useState(false);
-  const [templateDraft, setTemplateDraft] = useState({ name: '', description: '', content: '' });
-
   const [showChatImport, setShowChatImport] = useState(false);
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [selectedSessions, setSelectedSessions] = useState<number[]>([]);
@@ -586,6 +770,19 @@ export function NotesHome({
   const [convertCount, setConvertCount] = useState(10);
   const [converting, setConverting] = useState(false);
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarWidth = Math.min(layout.width * (layout.isLandscape ? 0.42 : 0.8), 340);
+  const slideAnim = useRef(new Animated.Value(-sidebarWidth)).current;
+
+  const openSidebar = () => {
+    setSidebarOpen(true);
+    Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 100, friction: 14 }).start();
+  };
+
+  const closeSidebar = () => {
+    Animated.timing(slideAnim, { toValue: -sidebarWidth, duration: 200, useNativeDriver: true }).start(() => setSidebarOpen(false));
+  };
+
   const loadLibrary = async () => {
     setLoading(true);
     try {
@@ -597,15 +794,6 @@ export function NotesHome({
       setFolders([]);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadCustomTemplates = async () => {
-    try {
-      const raw = await AsyncStorage.getItem(CUSTOM_TEMPLATE_KEY);
-      setCustomTemplates(raw ? JSON.parse(raw) : []);
-    } catch {
-      setCustomTemplates([]);
     }
   };
 
@@ -632,7 +820,6 @@ export function NotesHome({
   }, [user.username, refreshTick]);
 
   useEffect(() => {
-    loadCustomTemplates();
     loadRecentlyViewed();
     loadSearchHistory();
   }, []);
@@ -722,7 +909,8 @@ export function NotesHome({
 
   const favoriteCount = notes.filter((note) => note.is_favorite).length;
   const canvasCount = notes.filter((note) => hasCanvasPayload(note.content)).length;
-  const notesGridColumns = layout.threeColumn ? 3 : layout.twoColumn ? 2 : 1;
+  // Same breakpoints as the flashcards page's grid, so both pages' cards line up.
+  const notesGridColumns = layout.width >= 700 ? 3 : 2;
   const activeFilterLabel =
     filter === 'all'
       ? 'all notes'
@@ -808,54 +996,6 @@ export function NotesHome({
     }
   };
 
-  const saveCustomTemplates = async (templates: CustomTemplate[]) => {
-    setCustomTemplates(templates);
-    await AsyncStorage.setItem(CUSTOM_TEMPLATE_KEY, JSON.stringify(templates));
-  };
-
-  const handleSaveTemplate = async () => {
-    if (!templateDraft.name.trim() || !templateDraft.content.trim()) {
-      Alert.alert('Template required', 'Add a name and content for the custom template.');
-      return;
-    }
-    const nextTemplate: CustomTemplate = {
-      id: `custom-${Date.now()}`,
-      name: templateDraft.name.trim(),
-      description: templateDraft.description.trim(),
-      content: templateDraft.content,
-      category: 'custom',
-      createdAt: new Date().toISOString(),
-    };
-    const next = [...customTemplates, nextTemplate];
-    await saveCustomTemplates(next);
-    setTemplateDraft({ name: '', description: '', content: '' });
-    setShowTemplateForm(false);
-    setTemplateTab('custom');
-  };
-
-  const handleDeleteCustomTemplate = (templateId: string) => {
-    Alert.alert('Delete template?', 'This custom template will be removed.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          const next = customTemplates.filter((template) => template.id !== templateId);
-          await saveCustomTemplates(next);
-        },
-      },
-    ]);
-  };
-
-  const handleApplyTemplate = async (template: NoteTemplate) => {
-    const filled = applyTemplateVariables(template, user.username);
-    setShowTemplates(false);
-    await createNewNote({
-      title: template.name,
-      content: filled,
-    });
-  };
-
   const handleImportChat = async () => {
     if (!selectedSessions.length || importingChat) return;
     setImportingChat(true);
@@ -934,76 +1074,6 @@ export function NotesHome({
     setSmartFolderNoteIds(null);
   };
 
-  const quickActions = [
-    { key: 'canvas', icon: 'brush-outline' as const, title: 'Canvas Studio', subtitle: 'open a full-page sketch board', onPress: onOpenCanvas },
-    { key: 'advanced', icon: 'filter-outline' as const, title: 'Advanced Search', subtitle: 'folders, dates, regex, history', onPress: () => setShowAdvancedSearch(true) },
-    { key: 'smart', icon: 'sparkles-outline' as const, title: 'Smart Folders', subtitle: 'ai-style note grouping', onPress: () => setShowSmartFolders(true) },
-    { key: 'templates', icon: 'document-text-outline' as const, title: 'Templates', subtitle: 'start from note layouts', onPress: () => setShowTemplates(true) },
-    { key: 'chat', icon: 'chatbox-ellipses-outline' as const, title: 'From Chat', subtitle: 'turn chats into notes', onPress: () => setShowChatImport(true) },
-    {
-      key: 'convert',
-      icon: 'shuffle-outline' as const,
-      title: 'Convert',
-      subtitle: 'notes to flashcards or questions',
-      onPress: () => {
-        setSelectedConvertNoteIds(filteredNotes.slice(0, 5).map((note) => note.id));
-        setShowConvert(true);
-      },
-    },
-    { key: 'media', icon: 'videocam-outline' as const, title: 'Media Notes', subtitle: 'youtube and transcript notes', onPress: onOpenMedia },
-    { key: 'folders', icon: 'folder-open-outline' as const, title: 'New Folder', subtitle: 'organize note collections', onPress: () => setShowFolderModal(true) },
-    { key: 'trash', icon: 'trash-outline' as const, title: 'Trash', subtitle: 'restore or delete removed notes', onPress: onOpenTrash },
-  ];
-
-  const filterChips = [
-    <FilterChip key="all" label="all" active={filter === 'all'} onPress={() => setFilter('all')} icon="albums-outline" />,
-    <FilterChip key="favorites" label="favorites" active={filter === 'favorites'} onPress={() => setFilter('favorites')} icon="star-outline" />,
-    ...(smartFolderName
-      ? [<FilterChip key="smart-folder" label={smartFolderName} active onPress={clearSmartFolder} icon="sparkles-outline" />]
-      : []),
-    ...folders.map((folder) => (
-      <FilterChip
-        key={folder.id}
-        label={folder.name}
-        active={filter === `folder:${folder.id}`}
-        onPress={() => setFilter(`folder:${folder.id}`)}
-        icon="folder-outline"
-      />
-    )),
-    <FilterChip
-      key="flashcards"
-      label={`flashcards ${countSource(notes, 'flashcards')}`}
-      active={filter === 'source:flashcards'}
-      onPress={() => setFilter('source:flashcards')}
-      icon="duplicate-outline"
-    />,
-    <FilterChip
-      key="quizzes"
-      label={`quizzes ${countSource(notes, 'quizzes')}`}
-      active={filter === 'source:quizzes'}
-      onPress={() => setFilter('source:quizzes')}
-      icon="help-circle-outline"
-    />,
-    <FilterChip
-      key="roadmaps"
-      label={`knowledge maps ${countSource(notes, 'roadmaps')}`}
-      active={filter === 'source:roadmaps'}
-      onPress={() => setFilter('source:roadmaps')}
-      icon="trail-sign-outline"
-    />,
-  ];
-
-  const compactFilterChips = [
-    <FilterChip key="all-compact" label="all" active={filter === 'all'} onPress={() => setFilter('all')} icon="albums-outline" />,
-    <FilterChip key="favorites-compact" label="favorites" active={filter === 'favorites'} onPress={() => setFilter('favorites')} icon="star-outline" />,
-    ...(smartFolderName
-      ? [<FilterChip key="smart-folder-compact" label={smartFolderName} active onPress={clearSmartFolder} icon="sparkles-outline" />]
-      : []),
-    ...(filter !== 'all' && filter !== 'favorites' && !smartFolderName
-      ? [<FilterChip key="current-filter" label={activeFilterLabel} active onPress={() => setExpandedHomePanel('filters')} icon="options-outline" />]
-      : []),
-  ];
-
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
       <GeoBackground />
@@ -1019,23 +1089,14 @@ export function NotesHome({
             <View style={s.compactHeaderTitleWrap}>
               <Text style={s.compactTitle}>notes</Text>
               <Text style={s.compactSubtitle}>
-                {notes.length} note{notes.length === 1 ? '' : 's'} · {activeFilterLabel}
+                {notes.length} note{notes.length === 1 ? '' : 's'}
+                {filter !== 'all' ? ` · ${activeFilterLabel}` : ''}
               </Text>
             </View>
           </View>
           <View style={s.compactHeaderActions}>
-            <HapticTouchable onPress={() => setShowRecentlyViewed(true)} style={s.compactIconBtn} haptic="selection">
-              <Ionicons name="time-outline" size={17} color={GOLD_D} />
-            </HapticTouchable>
-            <HapticTouchable onPress={() => setShowFolderModal(true)} style={s.compactIconBtn} haptic="selection">
-              <Ionicons name="folder-open-outline" size={17} color={GOLD_D} />
-            </HapticTouchable>
-            <HapticTouchable onPress={onOpenTrash} style={s.compactIconBtn} haptic="selection">
-              <Ionicons name="trash-outline" size={17} color={GOLD_D} />
-            </HapticTouchable>
-            <HapticTouchable onPress={() => createNewNote()} style={s.compactPrimaryBtn} haptic="medium" disabled={creating}>
-              <Ionicons name="add" size={18} color={BG} />
-              <Text style={s.compactPrimaryBtnText}>{creating ? 'creating' : 'new'}</Text>
+            <HapticTouchable onPress={openSidebar} haptic="selection" accessibilityLabel="Open menu">
+              <Ionicons name="menu-outline" size={22} color={GOLD_L} />
             </HapticTouchable>
           </View>
         </View>
@@ -1049,130 +1110,131 @@ export function NotesHome({
           <View style={{ flex: 1 }}>
             <Text style={s.mobileTitle}>notes</Text>
           </View>
+          <HapticTouchable onPress={openSidebar} haptic="selection" accessibilityLabel="Open menu">
+            <Ionicons name="menu-outline" size={24} color={GOLD_L} />
+          </HapticTouchable>
         </View>
       )}
+
+      <View style={s.generateHeroWrap}>
+        <HapticTouchable style={s.generateHero} onPress={onOpenGenerator} haptic="medium" activeOpacity={0.88}>
+          <Ionicons name="add" size={16} color={BASE_ACTION_TEXT} />
+          <Text style={s.generateHeroText}>Generate</Text>
+        </HapticTouchable>
+      </View>
 
       {loading ? (
         <ActivityIndicator color={ACCENT} style={{ marginTop: 40 }} />
       ) : (
-        <FlatList
-          key={`notes-grid-${notesGridColumns}`}
-          data={filteredNotes}
-          keyExtractor={(item) => String(item.id)}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={s.listContent}
-          numColumns={notesGridColumns}
-          columnWrapperStyle={notesGridColumns > 1 ? s.noteGridRow : undefined}
-          ListHeaderComponent={(
-            <View style={s.listHeader}>
-              {/* Workspace — quick action grid */}
-              <Text style={s.sectionLabel}>workspace</Text>
-              <View style={s.actionsGrid}>
-                {quickActions.map((action) => (
-                  <HapticTouchable key={action.key} style={s.actionPill} onPress={action.onPress} haptic="selection">
-                    <View style={s.actionPillIcon}>
-                      <Ionicons name={action.icon} size={16} color={ACCENT} />
-                    </View>
-                    <Text style={s.actionPillText}>{action.title}</Text>
-                    <Ionicons name="chevron-forward" size={13} color={GOLD_D} style={{ marginLeft: 'auto' }} />
-                  </HapticTouchable>
-                ))}
-              </View>
-
-              {/* Library header */}
-              <View style={s.libHeader}>
-                <View>
-                  <Text style={s.sectionEyebrow}>library</Text>
-                  {search.trim() ? (
-                    <Text style={s.sectionTitle}>{filteredNotes.length} result{filteredNotes.length === 1 ? '' : 's'}</Text>
-                  ) : null}
-                </View>
-                <Text style={s.libMeta}>{search.trim() ? 'clear search to reset' : 'sorted by latest'}</Text>
-              </View>
-
-              {/* Search + new */}
-              <View style={s.searchRow}>
-                <View style={s.searchBar}>
-                  <Ionicons name="search-outline" size={15} color={GOLD_D} />
-                  <TextInput
-                    style={s.searchInput}
-                    placeholder="search notes..."
-                    placeholderTextColor={DIM2}
-                    value={search}
-                    onChangeText={setSearch}
-                  />
-                  {!!search && (
-                    <HapticTouchable onPress={() => setSearch('')} haptic="selection">
-                      <Ionicons name="close-circle" size={16} color={GOLD_D} />
-                    </HapticTouchable>
-                  )}
-                </View>
-                <HapticTouchable style={s.searchNewBtn} onPress={() => createNewNote()} haptic="medium" disabled={creating}>
-                  <Ionicons name="add" size={20} color={BG} />
+        // Same grid approach as the flashcards page (ScrollView + flexWrap + percentage
+        // width + square aspect ratio) -- FlatList's numColumns stretched a lone card in
+        // an incomplete last row to fill the whole width, which is why notes cards were
+        // ballooning to full-page size while flashcards cards stayed small.
+        <View style={s.workspace}>
+          <View style={s.searchRow}>
+            <View style={s.searchBar}>
+              <Ionicons name="search-outline" size={15} color={GOLD_D} />
+              <TextInput
+                style={s.searchInput}
+                placeholder="search notes..."
+                placeholderTextColor={DIM2}
+                value={search}
+                onChangeText={setSearch}
+              />
+              {!!search && (
+                <HapticTouchable onPress={() => setSearch('')} haptic="selection">
+                  <Ionicons name="close-circle" size={16} color={GOLD_D} />
                 </HapticTouchable>
-              </View>
-
-              {/* Filters */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filtersRow}>
-                {filterChips}
-              </ScrollView>
+              )}
             </View>
-          )}
-          ListEmptyComponent={(
+            <HapticTouchable
+              style={[s.searchIconBtn, filter === 'favorites' && s.searchIconBtnActive]}
+              onPress={() => setFilter((current) => (current === 'favorites' ? 'all' : 'favorites'))}
+              haptic="selection"
+              accessibilityLabel={filter === 'favorites' ? 'Show all notes' : 'Show favorites only'}
+            >
+              <Ionicons name={filter === 'favorites' ? 'star' : 'star-outline'} size={18} color={filter === 'favorites' ? BG : GOLD_L} />
+            </HapticTouchable>
+            {smartFolderName ? (
+              <HapticTouchable style={s.searchIconBtn} onPress={clearSmartFolder} haptic="selection" accessibilityLabel={`Clear ${smartFolderName} filter`}>
+                <Ionicons name="close" size={18} color={GOLD_L} />
+              </HapticTouchable>
+            ) : null}
+          </View>
+
+          {filteredNotes.length === 0 ? (
             <View style={s.empty}>
               <Text style={s.emptyTitle}>{search ? 'no results' : 'no notes yet'}</Text>
               <Text style={s.emptyHint}>start with a new note, template, or imported chat</Text>
             </View>
-          )}
-          renderItem={({ item }) => {
-            const preview = getPlainNoteText(item.content).slice(0, 140);
-            const folderName = folders.find((folder) => folder.id === item.folder_id)?.name;
-            const hasCanvas = hasCanvasPayload(item.content);
+          ) : (
+            <ScrollView
+              style={s.collectionScroll}
+              contentContainerStyle={[s.collectionGrid, { gap: notesGridColumns === 3 ? 10 : 9 }]}
+              showsVerticalScrollIndicator={false}
+              bounces
+            >
+              {filteredNotes.map((item, index) => {
+                const preview = getPlainNoteText(item.content).slice(0, 140);
+                const folderName = folders.find((folder) => folder.id === item.folder_id)?.name;
+                const hasCanvas = hasCanvasPayload(item.content);
+                const coverColor = NOTE_COVER_COLORS[index % NOTE_COVER_COLORS.length];
 
-            return (
-              <TileGleam
-                style={[s.noteCard, notesGridColumns > 1 && s.noteCardGrid]}
-                borderRadius={22}
-                onPress={() => { void handleOpenEditor(item); }}
-                haptic="light"
-              >
-                <NeumorphicTexture grainVariant="fine" grainOpacity={0.08} />
-                <View style={s.noteCardTop}>
-                  <View style={{ flex: 1 }}>
-                    <View style={s.noteTagRow}>
-                      <View style={s.noteTag}>
-                        <Text style={s.noteTagText}>{formatDate(item.updated_at)}</Text>
-                      </View>
+                return (
+                  <TileGleam
+                    key={item.id}
+                    style={[s.noteCard, { width: notesGridColumns === 3 ? '31.8%' : '48.6%' }]}
+                    borderRadius={17}
+                    onPress={() => { void handleOpenEditor(item); }}
+                    haptic="light"
+                  >
+                    <View style={[s.noteCover, { backgroundColor: coverColor }]}>
+                      {hasCanvas ? (
+                        <View style={s.noteCoverTag}>
+                          <Ionicons name="brush-outline" size={11} color="#171411" />
+                          <Text style={s.noteCoverTagText}>canvas</Text>
+                        </View>
+                      ) : null}
+                      <Text style={[s.noteCoverTitle, { fontFamily: resolveNoteFont(item.custom_font, 'title') }]} numberOfLines={3}>
+                        {item.title || 'Untitled Note'}
+                      </Text>
+                      <Text style={s.noteCoverMeta}>{formatDate(item.updated_at).toUpperCase()}</Text>
+                    </View>
+                    <View style={s.noteCardMeta}>
+                      <Text style={[s.noteCardPreview, { fontFamily: resolveNoteFont(item.custom_font, 'body') }]} numberOfLines={2}>
+                        {preview || 'Open this note to start writing.'}
+                      </Text>
                       {folderName ? (
                         <View style={s.noteTag}>
                           <Ionicons name="folder-outline" size={11} color={DIM2} />
                           <Text style={s.noteTagText}>{folderName}</Text>
                         </View>
                       ) : null}
-                      {hasCanvas ? (
-                        <View style={s.noteTagAccent}>
-                          <Ionicons name="brush-outline" size={11} color={ACCENT} />
-                          <Text style={s.noteTagAccentText}>canvas</Text>
-                        </View>
-                      ) : null}
+                      <View style={s.noteCardActionRow}>
+                        <HapticTouchable
+                          style={[s.noteCardActionBtn, { flex: 1 }]}
+                          onPress={() => toggleCardFavorite(item)}
+                          haptic="selection"
+                          accessibilityLabel={item.is_favorite ? `Unfavorite ${item.title}` : `Favorite ${item.title}`}
+                        >
+                          <Ionicons name={item.is_favorite ? 'star' : 'star-outline'} size={15} color={item.is_favorite ? ACCENT : GOLD_L} />
+                        </HapticTouchable>
+                        <HapticTouchable
+                          style={[s.noteCardActionBtn, s.noteCardActionBtnPrimary, { flex: 1 }]}
+                          onPress={() => { void handleOpenEditor(item); }}
+                          haptic="medium"
+                          accessibilityLabel={`Open ${item.title || 'note'}`}
+                        >
+                          <Ionicons name="book-outline" size={15} color={BASE_ACTION_TEXT} />
+                        </HapticTouchable>
+                      </View>
                     </View>
-                    <Text style={[s.noteCardTitle, { fontFamily: resolveNoteFont(item.custom_font, 'title') }]} numberOfLines={2}>{item.title || 'Untitled Note'}</Text>
-                  </View>
-                  <HapticTouchable onPress={() => toggleCardFavorite(item)} style={s.starBtn} haptic="selection">
-                    <Ionicons name={item.is_favorite ? 'star' : 'star-outline'} size={16} color={item.is_favorite ? ACCENT : GOLD_D} />
-                  </HapticTouchable>
-                </View>
-                <Text style={[s.notePreview, { fontFamily: resolveNoteFont(item.custom_font, 'body') }]} numberOfLines={3}>
-                  {preview || 'Open this note to start writing.'}
-                </Text>
-                <View style={s.noteCardFooter}>
-                  <Text style={s.noteMetaText}>{item.is_favorite ? 'starred note' : 'tap to open and edit'}</Text>
-                  <Ionicons name="chevron-forward" size={16} color={ACCENT} />
-                </View>
-              </TileGleam>
-            );
-          }}
-        />
+                  </TileGleam>
+                );
+              })}
+            </ScrollView>
+          )}
+        </View>
       )}
 
       <ModalShell visible={showFolderModal} title="Create Folder" subtitle="Add a new notes folder" onClose={() => setShowFolderModal(false)}>
@@ -1194,103 +1256,6 @@ export function NotesHome({
             </HapticTouchable>
           </View>
         </View>
-      </ModalShell>
-
-      <ModalShell visible={showTemplates} title="Templates" subtitle="Browser note templates on mobile" onClose={() => setShowTemplates(false)}>
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <View style={s.modalBody}>
-            <View style={s.templateTabs}>
-              <HapticTouchable style={[s.tabBtn, templateTab === 'built-in' && s.tabBtnActive]} onPress={() => setTemplateTab('built-in')} haptic="selection">
-                <Text style={[s.tabBtnText, templateTab === 'built-in' && s.tabBtnTextActive]}>built-in</Text>
-              </HapticTouchable>
-              <HapticTouchable style={[s.tabBtn, templateTab === 'custom' && s.tabBtnActive]} onPress={() => setTemplateTab('custom')} haptic="selection">
-                <Text style={[s.tabBtnText, templateTab === 'custom' && s.tabBtnTextActive]}>custom</Text>
-              </HapticTouchable>
-            </View>
-
-            {templateTab === 'custom' ? (
-              <>
-                {!showTemplateForm ? (
-                  <HapticTouchable style={s.dashedCard} onPress={() => setShowTemplateForm(true)} haptic="selection">
-                    <Ionicons name="add-circle-outline" size={22} color={ACCENT} />
-                    <Text style={s.dashedCardTitle}>create custom template</Text>
-                    <Text style={s.dashedCardText}>save reusable note structures on this device</Text>
-                  </HapticTouchable>
-                ) : (
-                  <View style={s.formCard}>
-                    <TextInput
-                      value={templateDraft.name}
-                      onChangeText={(value) => setTemplateDraft((draft) => ({ ...draft, name: value }))}
-                      placeholder="template name"
-                      placeholderTextColor={DIM2}
-                      style={s.modalInput}
-                    />
-                    <TextInput
-                      value={templateDraft.description}
-                      onChangeText={(value) => setTemplateDraft((draft) => ({ ...draft, description: value }))}
-                      placeholder="description"
-                      placeholderTextColor={DIM2}
-                      style={s.modalInput}
-                    />
-                    <TextInput
-                      value={templateDraft.content}
-                      onChangeText={(value) => setTemplateDraft((draft) => ({ ...draft, content: value }))}
-                      placeholder="template content with {{date}}, {{time}}, {{user}}, {{title}}"
-                      placeholderTextColor={DIM2}
-                      style={[s.modalInput, s.modalTextarea]}
-                      multiline
-                      textAlignVertical="top"
-                    />
-                    <View style={s.rowActions}>
-                      <HapticTouchable
-                        style={[s.secondaryBtn, { flex: 1 }]}
-                        onPress={() => {
-                          setShowTemplateForm(false);
-                          setTemplateDraft({ name: '', description: '', content: '' });
-                        }}
-                        haptic="selection"
-                      >
-                        <Text style={s.secondaryBtnText}>cancel</Text>
-                      </HapticTouchable>
-                      <HapticTouchable style={[s.primaryBtn, { flex: 1 }]} onPress={handleSaveTemplate} haptic="medium">
-                        <Text style={s.primaryBtnText}>save</Text>
-                      </HapticTouchable>
-                    </View>
-                  </View>
-                )}
-
-                {customTemplates.map((template) => (
-                  <View key={template.id} style={s.templateCard}>
-                    <Pressable style={{ flex: 1 }} onPress={() => handleApplyTemplate(template)}>
-                      <Text style={s.templateName}>{template.name}</Text>
-                      <Text style={s.templateDesc}>{template.description || 'Custom template'}</Text>
-                    </Pressable>
-                    <View style={s.templateActions}>
-                      <HapticTouchable style={s.templateUseBtn} onPress={() => handleApplyTemplate(template)} haptic="selection">
-                        <Text style={s.templateUseBtnText}>use</Text>
-                      </HapticTouchable>
-                      <HapticTouchable style={s.templateDeleteBtn} onPress={() => handleDeleteCustomTemplate(template.id)} haptic="warning">
-                        <Ionicons name="trash-outline" size={16} color={RED} />
-                      </HapticTouchable>
-                    </View>
-                  </View>
-                ))}
-              </>
-            ) : (
-              BUILT_IN_NOTE_TEMPLATES.map((template) => (
-                <HapticTouchable key={template.id} style={s.templateCard} onPress={() => handleApplyTemplate(template)} haptic="light">
-                  <View style={s.templateIconWrap}>
-                    <Ionicons name="document-text-outline" size={18} color={ACCENT} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.templateName}>{template.name}</Text>
-                    <Text style={s.templateDesc}>{template.description}</Text>
-                  </View>
-                </HapticTouchable>
-              ))
-            )}
-          </View>
-        </ScrollView>
       </ModalShell>
 
       <ModalShell visible={showChatImport} title="Import From Chat" subtitle="Convert AI chat sessions into notes" onClose={() => setShowChatImport(false)}>
@@ -1564,6 +1529,279 @@ export function NotesHome({
           </View>
         </ScrollView>
       </ModalShell>
+
+      <NotesMenuSidebar
+        visible={sidebarOpen}
+        sidebarWidth={sidebarWidth}
+        slideAnim={slideAnim}
+        onClose={closeSidebar}
+        noteCount={notes.length}
+        activeKey="library"
+        onLibrary={() => {}}
+        onGenerate={onOpenGenerator}
+        onMedia={onOpenMedia}
+        onCanvas={onOpenCanvas}
+        onRecentlyViewed={() => setShowRecentlyViewed(true)}
+        onTrash={onOpenTrash}
+        onSmartFolders={() => setShowSmartFolders(true)}
+        onAdvancedSearch={() => setShowAdvancedSearch(true)}
+        onChatImport={() => setShowChatImport(true)}
+        onConvert={() => {
+          setSelectedConvertNoteIds(filteredNotes.slice(0, 5).map((note) => note.id));
+          setShowConvert(true);
+        }}
+        onNewFolder={() => setShowFolderModal(true)}
+      />
+    </SafeAreaView>
+  );
+}
+
+// Single entry point for creating a note -- a blank page or any built-in /
+// custom template -- mirroring the flashcards page's dedicated create screen.
+export function NotesGenerator({
+  user,
+  onBack,
+  onCreated,
+  onOpenEditor,
+  onOpenLibrary,
+  onOpenMedia,
+  onOpenCanvas,
+  onOpenTrash,
+}: NotesGeneratorProps) {
+  const layout = useResponsiveLayout();
+  const [creating, setCreating] = useState(false);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [templateTab, setTemplateTab] = useState<TemplateTab>('built-in');
+  const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([]);
+  const [showTemplateForm, setShowTemplateForm] = useState(false);
+  const [templateDraft, setTemplateDraft] = useState({ name: '', description: '', content: '' });
+
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarWidth = Math.min(layout.width * (layout.isLandscape ? 0.42 : 0.8), 340);
+  const slideAnim = useRef(new Animated.Value(-sidebarWidth)).current;
+
+  const openSidebar = () => {
+    setSidebarOpen(true);
+    Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 100, friction: 14 }).start();
+  };
+
+  const closeSidebar = () => {
+    Animated.timing(slideAnim, { toValue: -sidebarWidth, duration: 200, useNativeDriver: true }).start(() => setSidebarOpen(false));
+  };
+
+  useEffect(() => {
+    getFolders(user.username).then((data) => setFolders(data?.folders ?? [])).catch(() => setFolders([]));
+  }, [user.username]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(CUSTOM_TEMPLATE_KEY);
+        setCustomTemplates(raw ? JSON.parse(raw) : []);
+      } catch {
+        setCustomTemplates([]);
+      }
+    })();
+  }, []);
+
+  const createNewNote = async (seed?: Partial<Pick<Note, 'title' | 'content' | 'folder_id' | 'custom_font'>>) => {
+    if (creating) return;
+    setCreating(true);
+    try {
+      const newNote = await createNote({
+        userId: user.username,
+        title: seed?.title ?? 'Untitled Note',
+        content: seed?.content ?? '',
+        folderId: seed?.folder_id ?? null,
+        customFont: normalizeNoteFont(seed?.custom_font),
+      });
+      const note = buildNoteFromApi(newNote);
+      onCreated();
+      onOpenEditor(note, folders);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create note';
+      Alert.alert('Create failed', message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const saveCustomTemplates = async (templates: CustomTemplate[]) => {
+    setCustomTemplates(templates);
+    await AsyncStorage.setItem(CUSTOM_TEMPLATE_KEY, JSON.stringify(templates));
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!templateDraft.name.trim() || !templateDraft.content.trim()) {
+      Alert.alert('Template required', 'Add a name and content for the custom template.');
+      return;
+    }
+    const nextTemplate: CustomTemplate = {
+      id: `custom-${Date.now()}`,
+      name: templateDraft.name.trim(),
+      description: templateDraft.description.trim(),
+      content: templateDraft.content,
+      category: 'custom',
+      createdAt: new Date().toISOString(),
+    };
+    const next = [...customTemplates, nextTemplate];
+    await saveCustomTemplates(next);
+    setTemplateDraft({ name: '', description: '', content: '' });
+    setShowTemplateForm(false);
+    setTemplateTab('custom');
+  };
+
+  const handleDeleteCustomTemplate = (templateId: string) => {
+    Alert.alert('Delete template?', 'This custom template will be removed.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          const next = customTemplates.filter((template) => template.id !== templateId);
+          await saveCustomTemplates(next);
+        },
+      },
+    ]);
+  };
+
+  const handleApplyTemplate = async (template: NoteTemplate) => {
+    const filled = applyTemplateVariables(template, user.username);
+    await createNewNote({ title: template.name, content: filled });
+  };
+
+  return (
+    <SafeAreaView style={s.safe} edges={['top']}>
+      <GeoBackground />
+      <AmbientBubbles theme={CURRENT_THEME} variant="notes" opacity={0.82} />
+      <View style={s.header}>
+        <HapticTouchable onPress={onBack} style={{ marginRight: 12 }} haptic="selection">
+          <Ionicons name="chevron-back" size={20} color={GOLD_L} />
+        </HapticTouchable>
+        <Text style={[s.compactTitle, { flex: 1 }]}>generate</Text>
+        <HapticTouchable onPress={openSidebar} haptic="selection" accessibilityLabel="Open menu">
+          <Ionicons name="menu-outline" size={22} color={GOLD_L} />
+        </HapticTouchable>
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.listContent}>
+        <HapticTouchable style={s.generateHero} onPress={() => createNewNote()} haptic="medium" activeOpacity={0.88} disabled={creating}>
+          <Ionicons name="add" size={16} color={BASE_ACTION_TEXT} />
+          <Text style={s.generateHeroText}>{creating ? 'Creating…' : 'Blank Note'}</Text>
+        </HapticTouchable>
+
+        <Text style={s.sectionLabel}>templates</Text>
+        <View style={s.templateTabs}>
+          <HapticTouchable style={[s.tabBtn, templateTab === 'built-in' && s.tabBtnActive]} onPress={() => setTemplateTab('built-in')} haptic="selection">
+            <Text style={[s.tabBtnText, templateTab === 'built-in' && s.tabBtnTextActive]}>built-in</Text>
+          </HapticTouchable>
+          <HapticTouchable style={[s.tabBtn, templateTab === 'custom' && s.tabBtnActive]} onPress={() => setTemplateTab('custom')} haptic="selection">
+            <Text style={[s.tabBtnText, templateTab === 'custom' && s.tabBtnTextActive]}>custom</Text>
+          </HapticTouchable>
+        </View>
+
+        {templateTab === 'custom' ? (
+          <>
+            {!showTemplateForm ? (
+              <HapticTouchable style={s.dashedCard} onPress={() => setShowTemplateForm(true)} haptic="selection">
+                <Ionicons name="add-circle-outline" size={22} color={ACCENT} />
+                <Text style={s.dashedCardTitle}>create custom template</Text>
+                <Text style={s.dashedCardText}>save reusable note structures on this device</Text>
+              </HapticTouchable>
+            ) : (
+              <View style={s.formCard}>
+                <TextInput
+                  value={templateDraft.name}
+                  onChangeText={(value) => setTemplateDraft((draft) => ({ ...draft, name: value }))}
+                  placeholder="template name"
+                  placeholderTextColor={DIM2}
+                  style={s.modalInput}
+                />
+                <TextInput
+                  value={templateDraft.description}
+                  onChangeText={(value) => setTemplateDraft((draft) => ({ ...draft, description: value }))}
+                  placeholder="description"
+                  placeholderTextColor={DIM2}
+                  style={s.modalInput}
+                />
+                <TextInput
+                  value={templateDraft.content}
+                  onChangeText={(value) => setTemplateDraft((draft) => ({ ...draft, content: value }))}
+                  placeholder="template content with {{date}}, {{time}}, {{user}}, {{title}}"
+                  placeholderTextColor={DIM2}
+                  style={[s.modalInput, s.modalTextarea]}
+                  multiline
+                  textAlignVertical="top"
+                />
+                <View style={s.rowActions}>
+                  <HapticTouchable
+                    style={[s.secondaryBtn, { flex: 1 }]}
+                    onPress={() => {
+                      setShowTemplateForm(false);
+                      setTemplateDraft({ name: '', description: '', content: '' });
+                    }}
+                    haptic="selection"
+                  >
+                    <Text style={s.secondaryBtnText}>cancel</Text>
+                  </HapticTouchable>
+                  <HapticTouchable style={[s.primaryBtn, { flex: 1 }]} onPress={handleSaveTemplate} haptic="medium">
+                    <Text style={s.primaryBtnText}>save</Text>
+                  </HapticTouchable>
+                </View>
+              </View>
+            )}
+
+            {customTemplates.map((template) => (
+              <View key={template.id} style={s.templateCard}>
+                <Pressable style={{ flex: 1 }} onPress={() => handleApplyTemplate(template)}>
+                  <Text style={s.templateName}>{template.name}</Text>
+                  <Text style={s.templateDesc}>{template.description || 'Custom template'}</Text>
+                </Pressable>
+                <View style={s.templateActions}>
+                  <HapticTouchable style={s.templateUseBtn} onPress={() => handleApplyTemplate(template)} haptic="selection">
+                    <Text style={s.templateUseBtnText}>use</Text>
+                  </HapticTouchable>
+                  <HapticTouchable style={s.templateDeleteBtn} onPress={() => handleDeleteCustomTemplate(template.id)} haptic="warning">
+                    <Ionicons name="trash-outline" size={16} color={RED} />
+                  </HapticTouchable>
+                </View>
+              </View>
+            ))}
+          </>
+        ) : (
+          BUILT_IN_NOTE_TEMPLATES.map((template) => (
+            <HapticTouchable key={template.id} style={s.templateCard} onPress={() => handleApplyTemplate(template)} haptic="light">
+              <View style={s.templateIconWrap}>
+                <Ionicons name="document-text-outline" size={18} color={ACCENT} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.templateName}>{template.name}</Text>
+                <Text style={s.templateDesc}>{template.description}</Text>
+              </View>
+            </HapticTouchable>
+          ))
+        )}
+      </ScrollView>
+
+      {creating && (
+        <View style={s.loadingOverlay}>
+          <ActivityIndicator color={ACCENT} size="large" />
+          <Text style={[s.emptyHint, { marginTop: 12 }]}>creating note…</Text>
+        </View>
+      )}
+
+      <NotesMenuSidebar
+        visible={sidebarOpen}
+        sidebarWidth={sidebarWidth}
+        slideAnim={slideAnim}
+        onClose={closeSidebar}
+        activeKey="generate"
+        onLibrary={onOpenLibrary}
+        onGenerate={() => {}}
+        onMedia={onOpenMedia}
+        onCanvas={onOpenCanvas}
+        onTrash={onOpenTrash}
+      />
     </SafeAreaView>
   );
 }
@@ -1575,7 +1813,6 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   const softSuccessBorder = rgbaFromHex(GREEN, 0.24);
   const softDanger = rgbaFromHex(RED, 0.12);
   const softDangerBorder = rgbaFromHex(RED, 0.24);
-
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: BG },
     compactHeader: {
@@ -1634,31 +1871,6 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
       gap: 8,
       flexWrap: 'wrap',
     },
-    compactIconBtn: {
-      width: 38,
-      height: 38,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: BORDER,
-      backgroundColor: rgbaFromHex(SURFACE_2, 0.92),
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    compactPrimaryBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      borderRadius: 16,
-      backgroundColor: ACCENT,
-      paddingHorizontal: 14,
-      paddingVertical: 10,
-    },
-    compactPrimaryBtnText: {
-      fontFamily: 'Inter_900Black',
-      fontSize: 12,
-      color: BG,
-      textTransform: 'lowercase',
-    },
     header: {
       width: '100%',
       maxWidth: layout.contentMaxWidth,
@@ -1691,7 +1903,36 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     title: { fontFamily: 'Inter_900Black', fontSize: 32, color: GOLD_L, letterSpacing: -0.8 },
     subtitle: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM2, letterSpacing: 2.1, marginTop: 4, textTransform: 'uppercase' },
 
-    listHeader: { gap: 12, paddingBottom: 4 },
+    // Full-width call to action right below the header, matching the flashcards page.
+    generateHeroWrap: {
+      width: '100%',
+      maxWidth: layout.contentMaxWidth,
+      alignSelf: 'center',
+      paddingHorizontal: layout.isTablet ? layout.screenPadding : 10,
+    },
+    generateHero: {
+      width: '100%', minHeight: 54, borderRadius: 18, marginBottom: 4,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+      backgroundColor: BASE_ACTION_BG, overflow: 'hidden',
+      boxShadow: cbTileShadow(0.12), ...cbTileBorder(0.26),
+    },
+    generateHeroText: {
+      fontFamily: 'Inter_900Black', fontSize: 12, color: BASE_ACTION_TEXT,
+      letterSpacing: 4, textTransform: 'uppercase',
+    },
+
+    // Same wrapper + grid approach as the flashcards page, so both pages' card
+    // grids are built and sized identically.
+    workspace: {
+      flex: 1,
+      width: '100%',
+      maxWidth: layout.contentMaxWidth,
+      alignSelf: 'center',
+      paddingHorizontal: 16,
+      paddingBottom: 16,
+    },
+    collectionScroll: { flex: 1 },
+    collectionGrid: { flexDirection: 'row', flexWrap: 'wrap', alignContent: 'flex-start', paddingBottom: 18 },
     compactActionTile: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1732,6 +1973,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
+      marginBottom: 22,
     },
     searchBar: {
       flex: 1,
@@ -1745,14 +1987,17 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
       borderColor: BORDER,
       paddingHorizontal: 14,
     },
-    searchNewBtn: {
+    searchIconBtn: {
       width: 44,
       height: 44,
       borderRadius: 14,
-      backgroundColor: ACCENT,
+      backgroundColor: rgbaFromHex(SURFACE_2, 0.92),
+      borderWidth: 1,
+      borderColor: BORDER,
       alignItems: 'center',
       justifyContent: 'center',
     },
+    searchIconBtnActive: { backgroundColor: ACCENT, borderColor: ACCENT },
     sectionLabel: {
       fontFamily: 'Inter_700Bold',
       fontSize: 10,
@@ -1762,65 +2007,42 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
       marginTop: 4,
       marginBottom: -2,
     },
-    actionsGrid: {
-      gap: 8,
+    // Hamburger-menu sidebar -- copied from the flashcards page's sidebar so
+    // the two stay visually identical.
+    sidebarOverlay: { flex: 1, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.58)' },
+    sidebarPanel: {
+      height: '100%', borderRightWidth: 1, borderRightColor: rgbaFromHex(GOLD_D, 0.31),
+      overflow: 'hidden', boxShadow: cbModalShadow(0.2),
     },
-    actionPill: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      backgroundColor: rgbaFromHex(SURFACE, 0.97),
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: BORDER,
-      paddingHorizontal: 14,
-      paddingVertical: 13,
+    sidebarHero: {
+      marginHorizontal: 14, marginTop: 12, marginBottom: 14,
+      borderRadius: 22, padding: 16, overflow: 'hidden',
+      boxShadow: cbModalShadow(0.14),
     },
-    actionPillIcon: {
-      width: 32,
-      height: 32,
-      borderRadius: 10,
-      backgroundColor: softAccent,
-      borderWidth: 1,
-      borderColor: softAccentBorder,
-      alignItems: 'center',
-      justifyContent: 'center',
+    sidebarGhost: {
+      position: 'absolute', right: 10, top: -8,
+      fontFamily: 'Inter_900Black', fontSize: 60, lineHeight: 64,
+      color: rgbaFromHex(GOLD_L, 0.07), letterSpacing: -3,
     },
-    actionPillText: {
-      fontFamily: 'Inter_600SemiBold',
-      fontSize: 14,
-      color: GOLD_L,
-      flex: 1,
+    sidebarHeroTitle: { fontFamily: 'Inter_900Black', fontSize: 22, color: GOLD_L, letterSpacing: -0.5 },
+    sidebarHeroSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM2, marginTop: 3 },
+    sidebarScroll: { paddingBottom: 16 },
+    sidebarSectionLabel: { marginHorizontal: 20, marginTop: 10, marginBottom: 2 },
+
+    sidebarMenu: { paddingHorizontal: 10, gap: 4 },
+    menuCard: { borderRadius: 16, overflow: 'hidden' },
+    menuCardActive: { backgroundColor: rgbaFromHex(ACCENT, 0.14) },
+    menuRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 12 },
+    menuIconWrap: {
+      width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center',
+      backgroundColor: rgbaFromHex(GOLD_D, 0.18), borderWidth: 1, borderColor: rgbaFromHex(GOLD_L, 0.2),
     },
-    libHeader: {
-      flexDirection: 'row',
-      alignItems: 'flex-end',
-      justifyContent: 'space-between',
-      gap: 12,
-      marginTop: 6,
-    },
-    sectionEyebrow: {
-      fontFamily: 'Inter_700Bold',
-      fontSize: 10,
-      color: GOLD_D,
-      letterSpacing: 1.7,
-      textTransform: 'uppercase',
-      marginBottom: 4,
-    },
-    sectionTitle: {
-      fontFamily: 'Inter_900Black',
-      fontSize: 21,
-      color: GOLD_L,
-      letterSpacing: -0.5,
-      textTransform: 'lowercase',
-    },
-    libMeta: {
-      fontFamily: 'Inter_400Regular',
-      fontSize: 11,
-      color: DIM2,
-    },
+    menuIconWrapActive: { backgroundColor: GOLD_L, borderColor: GOLD_L },
+    menuLabel: { flex: 1, fontFamily: 'Inter_600SemiBold', fontSize: 14, color: GOLD_L },
+    menuLabelActive: { color: GOLD_L, fontFamily: 'Inter_700Bold' },
+    menuActiveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: GOLD_L },
+
     searchInput: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 13, color: GOLD_L },
-    filtersRow: { gap: 10, paddingBottom: 6, marginBottom: 4 },
     filterChip: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1845,33 +2067,44 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
       paddingBottom: 120,
       flexGrow: 1,
     },
-    noteGridRow: {
-      gap: 12,
-      marginBottom: 12,
-    },
+    // Cover + meta-panel card, square like the flashcards page's collection cards --
+    // width comes from the inline percentage below (same formula as flashcards),
+    // aspectRatio:1 makes height follow width.
     noteCard: {
-      flex: 1,
-      backgroundColor: rgbaFromHex(SURFACE, 0.94),
-      borderRadius: 22,
-      padding: 16,
-      gap: 9,
-      marginBottom: 12,
-      minHeight: layout.isTablet ? 200 : undefined,
+      aspectRatio: 1,
+      borderRadius: 17,
+      backgroundColor: rgbaFromHex(SURFACE, 0.95),
       overflow: 'hidden',
       boxShadow: cbTileShadow(0.06),
       ...cbTileBorder(0.14),
     },
-    noteCardGrid: {
-      minWidth: 0,
+    noteCover: {
+      flex: 0.82,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    noteCardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-    noteTagRow: {
+    noteCoverTag: {
+      position: 'absolute',
+      top: 10,
+      right: 10,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
-      flexWrap: 'wrap',
-      marginBottom: 10,
+      gap: 4,
+      borderRadius: 999,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      backgroundColor: 'rgba(23,20,17,0.16)',
     },
+    noteCoverTagText: { fontFamily: 'Inter_700Bold', fontSize: 9, color: '#171411', textTransform: 'lowercase' },
+    noteCoverTitle: {
+      fontFamily: 'Inter_900Black', fontSize: 14, lineHeight: 17, color: '#171411',
+      textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5,
+    },
+    noteCoverMeta: { fontFamily: 'Inter_700Bold', fontSize: 9, color: rgbaFromHex('#171411', 0.66), letterSpacing: 1.2, marginTop: 7 },
+    noteCardMeta: { flex: 1, padding: 14, justifyContent: 'space-between', gap: 8 },
+    noteCardPreview: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM2, lineHeight: 15 },
     noteTag: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1882,6 +2115,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
       backgroundColor: rgbaFromHex(SURFACE_2, 0.86),
       paddingHorizontal: 10,
       paddingVertical: 6,
+      alignSelf: 'flex-start',
     },
     noteTagText: {
       fontFamily: 'Inter_600SemiBold',
@@ -1889,48 +2123,24 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
       color: DIM2,
       textTransform: 'lowercase',
     },
-    noteTagAccent: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 5,
-      borderRadius: 999,
-      borderWidth: 1,
-      borderColor: softAccentBorder,
-      backgroundColor: softAccent,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-    },
-    noteTagAccentText: {
-      fontFamily: 'Inter_700Bold',
-      fontSize: 10,
-      color: ACCENT,
-      textTransform: 'lowercase',
-    },
     noteCardTitle: { fontFamily: 'Inter_900Black', fontSize: 16, color: GOLD_L, lineHeight: 22 },
-    noteMetaText: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM2, marginTop: 4, letterSpacing: 0.8 },
     notePreview: { fontFamily: 'Inter_400Regular', fontSize: 12, color: DIM2, lineHeight: 18 },
-    noteCardFooter: {
-      marginTop: 'auto',
-      paddingTop: 2,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: 8,
+    noteCardActionRow: { flexDirection: 'row', gap: 8 },
+    noteCardActionBtn: {
+      height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
+      backgroundColor: rgbaFromHex(SURFACE, 0.9), borderWidth: 1, borderColor: BORDER,
     },
-    starBtn: {
-      width: 30,
-      height: 30,
-      borderRadius: 15,
-      backgroundColor: rgbaFromHex(SURFACE_2, 0.94),
-      borderWidth: 1,
-      borderColor: BORDER,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
+    noteCardActionBtnPrimary: { backgroundColor: BASE_ACTION_BG, borderColor: BASE_ACTION_BORDER },
 
     empty: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8, paddingVertical: 40 },
     emptyTitle: { fontFamily: 'Inter_900Black', fontSize: 18, color: GOLD_D },
     emptyHint: { fontFamily: 'Inter_400Regular', fontSize: 12, color: DIM2, textAlign: 'center', letterSpacing: 1 },
+    loadingOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: BG + 'EE',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
 
 
     trashCard: {
