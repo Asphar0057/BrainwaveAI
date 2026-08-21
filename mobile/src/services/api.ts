@@ -1,6 +1,6 @@
 import { getToken } from './tokenStorage';
 
-const PRODUCTION_API_URL = 'https://cerbyl-api.yellowwave-ef452238.eastus.azurecontainerapps.io/api';
+const PRODUCTION_API_URL = 'https://api.cerbyl.com/api';
 
 function normalizeApiUrl(url: string): string {
   const trimmed = url.trim().replace(/\/+$/, '');
