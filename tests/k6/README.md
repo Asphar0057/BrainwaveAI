@@ -1,7 +1,7 @@
 # k6 smoke & load tests
 
 Grafana k6 scripts that exercise Cerbyl end to end: the React frontend
-(`https://cerbyl.com`) and the FastAPI backend (Azure Container Apps,
+(`https://cerbyl.com`) and the FastAPI backend (AWS EC2, `api.cerbyl.com`,
 `REACT_APP_API_URL` in `.env.production`).
 
 Install k6 once: `winget install GrafanaLabs.k6` (already installed in this

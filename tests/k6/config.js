@@ -1,9 +1,9 @@
 import http from 'k6/http';
 
 // Pass these with `-e NAME=value` on the k6 command line. Defaults point at
-// production (https://cerbyl.com / the Azure Container Apps backend).
+// production (https://cerbyl.com / the AWS EC2 backend at api.cerbyl.com).
 export const FRONTEND_URL = (__ENV.FRONTEND_URL || 'https://cerbyl.com').replace(/\/$/, '');
-export const API_URL = (__ENV.API_URL || 'https://cerbyl-api.yellowwave-ef452238.eastus.azurecontainerapps.io/api').replace(/\/$/, '');
+export const API_URL = (__ENV.API_URL || 'https://api.cerbyl.com/api').replace(/\/$/, '');
 export const API_ROOT = API_URL.replace(/\/api$/, '');
 
 // Optional: set TEST_USERNAME/TEST_PASSWORD to also exercise authenticated

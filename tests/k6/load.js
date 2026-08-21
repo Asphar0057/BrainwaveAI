@@ -2,7 +2,7 @@
 // authenticated routes if TEST_USERNAME/TEST_PASSWORD are supplied).
 //
 // Defaults are deliberately conservative because, by default, this targets
-// the LIVE production site (https://cerbyl.com + the Azure backend), which
+// the LIVE production site (https://cerbyl.com + the AWS backend), which
 // sits behind nginx rate limits (20r/s general, 5r/m auth, 10r/m AI routes —
 // see nginx.prod.conf) and real users. Do not raise VUs/duration for a prod
 // run without coordinating — prefer pointing this at local/staging for heavy
