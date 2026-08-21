@@ -2,8 +2,7 @@ version: '3.8'
 
 # EC2 Load Balancer Node
 # Runs the backend (port 8000) and frontend (port 3000) locally.
-# Host Nginx (nginx.lb.conf) handles port 80/443 and load balances
-# between this node and the Azure backend.
+# Host Nginx (nginx.lb.conf) handles port 80/443 and proxies to this node.
 
 services:
   backend:
