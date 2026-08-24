@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView, ViewStyle, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -20,9 +20,9 @@ import SoloQuizScreen      from './social/SoloQuizScreen';
 import PlaylistsScreen     from './social/PlaylistsScreen';
 import LearningPathsScreen from './social/LearningPathsScreen';
 import SharedWithMeScreen  from './SharedWithMeScreen';
-import GeoBackground from '../components/GeoBackground';
+import CircleBackground from '../components/CircleBackground';
 import { useAppTheme } from '../contexts/ThemeContext';
-import { darkenColor, rgbaFromHex } from '../utils/theme';
+import { darkenColor, lightenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
 type Section = 'friends' | 'games' | 'quiz' | 'solo' | 'playlists' | 'paths' | 'shared';
@@ -34,10 +34,10 @@ type HubData = {
   xpToNext: number;
   nextLevelXp: number;
   friendCount: number;
-  myFriendRank: number | null;
+  myRank: number | null;
   activeBattles: number;
   challengeCount: number;
-  friendBoard: any[];
+  topBoard: any[];
 };
 type Props = { user: AuthUser; onOpenLeaderboard?: () => void };
 
@@ -46,6 +46,7 @@ function inits(name: string): string {
 }
 function dname(e: any): string { return e?.username ?? e?.name ?? e?.friend_username ?? '?'; }
 function dscore(e: any): number { return e?.score ?? e?.total_points ?? e?.points ?? 0; }
+function dpicture(e: any): string | undefined { return e?.picture_url || e?.picture || e?.photo_url || undefined; }
 
 // ─── Neumorphic surface ────────────────────────────────────────────────────
 // TileGleam clips its own gleam sweep with overflow:hidden AND sets its own
@@ -126,6 +127,34 @@ function BentoTile({
   );
 }
 
+// ─── Rank avatar — real profile picture when the leaderboard entry has one,
+// gold/silver/bronze ring for the top 3, plain accent ring past that. ───────
+
+function RankAvatar({ rank, name, picture, size = 46 }: { rank: number; name: string; picture?: string; size?: number }) {
+  const { selectedTheme } = useAppTheme();
+  const ringColor = rank === 1 ? selectedTheme.accentHover
+    : rank === 2 ? lightenColor(selectedTheme.accent, selectedTheme.isLight ? 26 : 12)
+    : rank === 3 ? darkenColor(selectedTheme.accent, selectedTheme.isLight ? 14 : 8)
+    : rgbaFromHex(selectedTheme.accentHover, 0.35);
+  const ringDark = darkenColor(selectedTheme.accent, selectedTheme.isLight ? 12 : 26);
+  return (
+    <LinearGradient
+      colors={[ringColor, ringDark]}
+      start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+      style={{ width: size + 4, height: size + 4, borderRadius: (size + 4) / 2, padding: 2.5, alignItems: 'center', justifyContent: 'center' }}
+    >
+      <View style={{
+        width: size, height: size, borderRadius: size / 2, overflow: 'hidden',
+        alignItems: 'center', justifyContent: 'center', backgroundColor: rgbaFromHex(selectedTheme.panelAlt, 0.98),
+      }}>
+        {picture
+          ? <Image source={{ uri: picture }} style={{ width: size, height: size }} resizeMode="cover" />
+          : <Text style={{ fontFamily: 'Inter_900Black', fontSize: size * 0.34, color: selectedTheme.accentHover }}>{inits(name)}</Text>}
+      </View>
+    </LinearGradient>
+  );
+}
+
 // ─── Main screen ────────────────────────────────────────────────────────────
 
 export default function SocialScreen({ user, onOpenLeaderboard }: Props) {
@@ -140,25 +169,25 @@ export default function SocialScreen({ user, onOpenLeaderboard }: Props) {
 
   const load = useCallback(async () => {
     try {
-      const [dash, friends, friendLb, battles, challenges] = await Promise.allSettled([
+      const [dash, friends, globalLb, battles, challenges] = await Promise.allSettled([
         getDashboardData(user.username),
         getFriends(user.username),
-        getLeaderboard('friends', 50),
+        getLeaderboard('global', 3),
         getQuizBattles(user.username),
         getChallenges(user.username),
       ]);
       const dv  = dash.status      === 'fulfilled' ? dash.value      : null;
       const fr  = friends.status   === 'fulfilled' ? friends.value   : null;
-      const flv = friendLb.status  === 'fulfilled' ? friendLb.value  : null;
+      const glv = globalLb.status  === 'fulfilled' ? globalLb.value  : null;
       const btv = battles.status   === 'fulfilled' ? battles.value   : null;
       const chv = challenges.status === 'fulfilled' ? challenges.value : null;
 
-      const gam         = dv?.gamification ?? {};
-      const friendList  = Array.isArray(fr) ? fr : fr?.friends ?? [];
-      const friendBoard = flv?.leaderboard ?? [];
-      const battleList  = btv?.battles ?? (Array.isArray(btv) ? btv : []);
-      const chalList    = chv?.challenges ?? (Array.isArray(chv) ? chv : []);
-      const friendRankEntry = flv?.current_user_rank ?? friendBoard.find((e: any) => e.is_current_user);
+      const gam        = dv?.gamification ?? {};
+      const friendList = Array.isArray(fr) ? fr : fr?.friends ?? [];
+      const topBoard   = glv?.leaderboard ?? [];
+      const battleList = btv?.battles ?? (Array.isArray(btv) ? btv : []);
+      const chalList   = chv?.challenges ?? (Array.isArray(chv) ? chv : []);
+      const rankEntry  = glv?.current_user_rank ?? topBoard.find((e: any) => e.is_current_user);
 
       setData({
         level:          gam.level ?? 1,
@@ -166,16 +195,16 @@ export default function SocialScreen({ user, onOpenLeaderboard }: Props) {
         xpToNext:       Math.max(0, gam.xp_to_next_level ?? 0),
         nextLevelXp:    Math.max(1, gam.next_level_xp ?? 1),
         friendCount:    friendList.length,
-        myFriendRank:   friendRankEntry?.rank ?? null,
+        myRank:         rankEntry?.rank ?? null,
         activeBattles:  battleList.filter((b: any) => b.status === 'active').length,
         challengeCount: chalList.length,
-        friendBoard:    friendBoard.slice(0, 3),
+        topBoard:       topBoard.slice(0, 3),
       });
     } catch {
       setData({
         level: 1, experience: 0, xpToNext: 0, nextLevelXp: 1,
-        friendCount: 0, myFriendRank: null,
-        activeBattles: 0, challengeCount: 0, friendBoard: [],
+        friendCount: 0, myRank: null,
+        activeBattles: 0, challengeCount: 0, topBoard: [],
       });
     } finally {
       setLoading(false);
@@ -200,7 +229,7 @@ export default function SocialScreen({ user, onOpenLeaderboard }: Props) {
   return (
     <View style={s.root}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
-      <GeoBackground />
+      <CircleBackground />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 100 }]}>
 
@@ -231,43 +260,41 @@ export default function SocialScreen({ user, onOpenLeaderboard }: Props) {
               </View>
             </NeuCard>
 
-            {/* ══ FRIENDS LEADERBOARD ══ */}
-            <View style={s.sectionHeading}>
-              <Text style={s.sectionTitle}>leaderboard</Text>
-              <HapticTouchable style={s.sectionOpen} onPress={onOpenLeaderboard} haptic="light">
-                <Text style={s.sectionOpenText}>full board</Text>
-                <Ionicons name="chevron-forward" size={14} color={CB_ACCENT} />
-              </HapticTouchable>
-            </View>
-            <NeuCard onPress={onOpenLeaderboard} radius={26} contentStyle={s.lbCard}>
-              {data.friendBoard.length === 0 ? (
-                <View style={s.lbEmpty}>
-                  <Ionicons name="people-outline" size={22} color={selectedTheme.textSecondary} />
-                  <Text style={s.lbEmptyText}>add friends to see a leaderboard</Text>
-                </View>
-              ) : (
-                <View style={{ gap: 9 }}>
-                  {data.friendBoard.map((entry: any, i: number) => (
-                    <View key={entry.id ?? i} style={[s.lbRow, entry.is_current_user && s.lbRowMe]}>
-                      <Text style={[s.lbRank, entry.is_current_user && s.lbRankMe]}>{i + 1}</Text>
-                      <View style={s.lbAvatar}><Text style={s.lbAvatarText}>{inits(dname(entry))}</Text></View>
-                      <Text style={s.lbName} numberOfLines={1}>{dname(entry)}{entry.is_current_user ? ' · you' : ''}</Text>
-                      <Text style={s.lbScore}>{dscore(entry).toLocaleString()} xp</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-              {data.myFriendRank ? (
-                <View style={s.lbFooter}>
-                  <Text style={s.lbFooterText}>you're #{data.myFriendRank} among friends</Text>
-                </View>
-              ) : null}
-            </NeuCard>
-
-            {/* ══ BENTO — every social destination, one grid module ══ */}
-            <Text style={s.sectionTitle}>explore</Text>
-
+            {/* ══ BENTO — one continuous grid: top-3 leaderboard is a tile
+                like everything else, not a separate section. ══ */}
             <View style={s.bentoGrid}>
+              <NeuCard onPress={onOpenLeaderboard} radius={22} contentStyle={s.lbTile}>
+                <View style={s.lbTileHead}>
+                  <Ionicons name="trophy" size={16} color={CB_ACCENT} />
+                  <Text style={s.lbTileTitle}>top climbers</Text>
+                  <View style={{ flex: 1 }} />
+                  <Ionicons name="chevron-forward" size={14} color={CB_ACCENT} />
+                </View>
+                {data.topBoard.length === 0 ? (
+                  <View style={s.lbEmpty}>
+                    <Ionicons name="people-outline" size={22} color={selectedTheme.textSecondary} />
+                    <Text style={s.lbEmptyText}>be the first to earn XP</Text>
+                  </View>
+                ) : (
+                  <View style={s.lbPodiumRow}>
+                    {data.topBoard.map((entry: any, i: number) => (
+                      <View key={entry.id ?? entry.user_id ?? i} style={s.lbPodiumCol}>
+                        <RankAvatar rank={i + 1} name={dname(entry)} picture={dpicture(entry)} />
+                        <Text style={s.lbPodiumName} numberOfLines={1}>
+                          {entry.is_current_user ? 'you' : dname(entry)}
+                        </Text>
+                        <Text style={s.lbPodiumScore}>{dscore(entry).toLocaleString()} xp</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                {data.myRank && data.myRank > 3 ? (
+                  <View style={s.lbFooter}>
+                    <Text style={s.lbFooterText}>you're #{data.myRank} globally</Text>
+                  </View>
+                ) : null}
+              </NeuCard>
+
               <BentoTile
                 icon="people-outline" iconSize={24}
                 title="your circle" subtitle={`${data.friendCount} ${data.friendCount === 1 ? 'friend' : 'friends'}`}
@@ -363,32 +390,22 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     levelBarCaption: { marginTop: 8, flexDirection: 'row', justifyContent: 'space-between' },
     levelBarCaptionText: { fontFamily: 'Inter_600SemiBold', fontSize: 10.5, color: DIM },
 
-    /* Section heading, shared by the leaderboard preview and the bento grid */
-    sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    sectionTitle: {
-      fontFamily: 'Inter_900Black', fontSize: 20,
-      color: TXT, letterSpacing: -0.6,
+    /* Top-3 leaderboard tile — a bento tile like every other destination,
+       not a separately-styled section. */
+    lbTile: { padding: 16, gap: 14 } as ViewStyle,
+    lbTileHead: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+    lbTileTitle: {
+      fontFamily: 'Inter_700Bold', fontSize: 11, color: TXT,
+      textTransform: 'uppercase', letterSpacing: 0.6,
     },
-    sectionOpen: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    sectionOpenText: { fontFamily: 'Inter_600SemiBold', fontSize: 9.5, color: CB_ACCENT, textTransform: 'uppercase' },
-
-    /* Friends leaderboard preview — top 3 */
-    lbCard: { minHeight: 120, padding: 16 } as ViewStyle,
     lbEmpty: { alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 14 },
     lbEmptyText: { fontFamily: 'Inter_400Regular', fontSize: 11.5, color: DIM, textAlign: 'center' },
-    lbRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 15, paddingHorizontal: 4, paddingVertical: 3 },
-    lbRowMe: { backgroundColor: rgbaFromHex(CB_ACCENT, 0.08) },
-    lbRank: { fontFamily: 'Inter_900Black', fontSize: 12, color: DIM, width: 20, textAlign: 'center' },
-    lbRankMe: { color: CB_ACCENT },
-    lbAvatar: {
-      width: 32, height: 32, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
-      borderWidth: 1, borderColor: rgbaFromHex(CB_ACCENT, 0.28), backgroundColor: rgbaFromHex(CB_ACCENT, 0.08),
-    },
-    lbAvatarText: { fontFamily: 'Inter_900Black', fontSize: 10.5, color: CB_ACCENT },
-    lbName: { flex: 1, fontFamily: 'Inter_600SemiBold', fontSize: 12.5, color: TXT },
-    lbScore: { fontFamily: 'Inter_700Bold', fontSize: 11.5, color: CB_ACCENT },
+    lbPodiumRow: { flexDirection: 'row', justifyContent: 'space-around' },
+    lbPodiumCol: { alignItems: 'center', gap: 5, maxWidth: 96 },
+    lbPodiumName: { fontFamily: 'Inter_600SemiBold', fontSize: 11.5, color: TXT },
+    lbPodiumScore: { fontFamily: 'Inter_700Bold', fontSize: 10.5, color: CB_ACCENT },
     lbFooter: {
-      marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: rgbaFromHex(CB_ACCENT, 0.12),
+      paddingTop: 12, borderTopWidth: 1, borderTopColor: rgbaFromHex(CB_ACCENT, 0.12),
       flexDirection: 'row', alignItems: 'center', gap: 6,
     },
     lbFooterText: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM },

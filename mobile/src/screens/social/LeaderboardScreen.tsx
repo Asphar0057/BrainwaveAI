@@ -7,7 +7,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../../services/auth';
 import { getLeaderboard } from '../../services/api';
 import HapticTouchable from '../../components/HapticTouchable';
-import GeoBackground from '../../components/GeoBackground';
+import CircleBackground from '../../components/CircleBackground';
 import { CB_ACCENT, CB_CARD_TOP, CB_CARD_BOTTOM, cbTileShadow, cbModalShadow, cbTileBorder } from '../../components/NeumorphicTexture';
 import SocialTileMaterial from '../../components/SocialTileMaterial';
 import { useAppTheme } from '../../contexts/ThemeContext';
@@ -95,12 +95,6 @@ export default function LeaderboardScreen({ user, onBack }: Props) {
   const dscore = (e: any) => e.score ?? e.total_points ?? e.points ?? 0;
   const dstreak= (e: any) => e.streak ?? e.current_streak ?? 0;
   const dpicture = (e: any) => e.picture_url ?? e.picture ?? e.photo_url ?? e.profile_picture;
-  const myRankNumber = typeof myRank === 'number' ? myRank : myRank?.rank;
-  const myScore = typeof myRank === 'object' && myRank ? dscore(myRank) : 0;
-  const nextEntry = myRankNumber && myRankNumber > 1
-    ? list.find((entry: any) => Number(entry.rank) === Number(myRankNumber) - 1)
-    : null;
-  const gapToNext = nextEntry ? Math.max(0, dscore(nextEntry) - myScore) : 0;
 
   const GOLD_XL = selectedTheme.accent;
   const GOLD_L  = selectedTheme.accentHover;
@@ -113,7 +107,7 @@ export default function LeaderboardScreen({ user, onBack }: Props) {
   if (loading) return (
     <View style={{ flex: 1 }}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.58, 1]} style={StyleSheet.absoluteFillObject} />
-      <GeoBackground />
+      <CircleBackground />
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color={GOLD_M} size="large" />
       </View>
@@ -123,7 +117,7 @@ export default function LeaderboardScreen({ user, onBack }: Props) {
   return (
     <View style={s.root}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.58, 1]} style={StyleSheet.absoluteFillObject} />
-      <GeoBackground />
+      <CircleBackground />
 
       {/* Product header */}
       <View style={[s.topBar, { paddingTop: Math.max(insets.top + 8, 16) }]}>
@@ -137,44 +131,6 @@ export default function LeaderboardScreen({ user, onBack }: Props) {
         <HapticTouchable onPress={onRefresh} style={s.backBtn} haptic="light" accessibilityLabel="Refresh leaderboard">
           <Ionicons name="refresh" size={16} color={GOLD_M} />
         </HapticTouchable>
-      </View>
-
-      {/* Weekly climb summary */}
-      <View style={s.hero}>
-        <LinearGradient
-          colors={[rgbaFromHex(selectedTheme.accentHover, 0.18), rgbaFromHex(selectedTheme.panel, 0.98), rgbaFromHex(selectedTheme.bgPrimary, 0.94)]}
-          locations={[0, 0.55, 1]}
-          style={s.climbCard}
-        >
-          <SocialTileMaterial />
-          <View style={s.climbHeader}>
-            <View>
-              <Text style={s.heroKicker}>weekly climb</Text>
-              <Text style={s.heroTitle}>every point{'\n'}moves you</Text>
-            </View>
-            <View style={s.weekMarker}>
-              <Ionicons name="flag" size={16} color={GOLD_L} />
-              <Text style={s.weekMarkerText}>live</Text>
-            </View>
-          </View>
-          <Text style={s.heroSub}>Build momentum, pass the next learner, and protect your place.</Text>
-          <View style={s.climbStats}>
-            <View style={s.climbStat}>
-              <Text style={s.climbStatLabel}>your rank</Text>
-              <Text style={s.climbStatValue}>{myRankNumber ? `#${myRankNumber}` : '—'}</Text>
-            </View>
-            <View style={s.climbDivider} />
-            <View style={s.climbStat}>
-              <Text style={s.climbStatLabel}>your xp</Text>
-              <Text style={s.climbStatValue}>{myScore.toLocaleString()}</Text>
-            </View>
-            <View style={s.climbDivider} />
-            <View style={s.climbStat}>
-              <Text style={s.climbStatLabel}>to next</Text>
-              <Text style={s.climbStatValue}>{gapToNext > 0 ? `+${gapToNext}` : 'lead'}</Text>
-            </View>
-          </View>
-        </LinearGradient>
       </View>
 
       {/* Tabs */}
@@ -208,10 +164,6 @@ export default function LeaderboardScreen({ user, onBack }: Props) {
             {/* Explore-inspired front-runner tiles */}
             {top3.length > 0 && (
               <>
-                <View style={s.sectionHeading}>
-                  <View><Text style={s.sectionIndex}>01</Text><Text style={s.sectionTitle}>front runners</Text></View>
-                  <Ionicons name="chevron-forward" size={15} color={CB_ACCENT} />
-                </View>
                 <View style={pod.wrap}>
                   {top3[0] && (
                     <View style={pod.champion}>
@@ -252,10 +204,6 @@ export default function LeaderboardScreen({ user, onBack }: Props) {
             {/* Rest of list */}
             {rest.length > 0 && (
               <>
-              <View style={s.sectionHeading}>
-                <View><Text style={s.sectionIndex}>02</Text><Text style={s.sectionTitle}>the chase</Text></View>
-                <Ionicons name="chevron-forward" size={15} color={CB_ACCENT} />
-              </View>
               <View style={{ gap: 6 }}>
                 {rest.map((e: any, i: number) => {
                   const rank    = e.rank ?? i + 4;
@@ -333,51 +281,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       marginTop: 2, fontFamily: 'Inter_900Black', fontSize: 27,
       color: CB_ACCENT, letterSpacing: -0.9,
     },
-    hero: {
-      width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
-      paddingHorizontal: 4, paddingTop: 4,
-    },
-    climbCard: {
-      minHeight: 218, borderRadius: 26, padding: 20, overflow: 'hidden',
-      borderWidth: 1, borderColor: BORDER,
-    },
-    climbHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-    heroKicker: {
-      fontFamily: 'Inter_700Bold', fontSize: 9, letterSpacing: 1.8,
-      textTransform: 'uppercase', color: DIM,
-    },
-    heroTitle: {
-      marginTop: 8, fontFamily: 'Inter_900Black', fontSize: 31,
-      lineHeight: 31, color: CB_ACCENT, letterSpacing: -1.2,
-    },
-    heroSub: {
-      width: '74%', marginTop: 10, fontFamily: 'Inter_400Regular',
-      fontSize: 10, lineHeight: 15, color: DIM,
-    },
-    weekMarker: {
-      minWidth: 52, height: 52, borderRadius: 17, alignItems: 'center',
-      justifyContent: 'center', gap: 2, borderWidth: 1, borderColor: BORDER,
-      backgroundColor: 'rgba(216,179,141,0.07)',
-    },
-    weekMarkerText: {
-      fontFamily: 'Inter_700Bold', fontSize: 9.5, letterSpacing: 0.8,
-      textTransform: 'uppercase', color: CB_ACCENT,
-    },
-    climbStats: {
-      position: 'absolute', left: 20, right: 20, bottom: 16, height: 50,
-      flexDirection: 'row', alignItems: 'center', borderRadius: 17,
-      borderWidth: 1, borderColor: BORDER, backgroundColor: 'rgba(5,5,6,0.78)',
-    },
-    climbStat: { flex: 1, alignItems: 'center' },
-    climbStatLabel: {
-      fontFamily: 'Inter_600SemiBold', fontSize: 9.5, letterSpacing: 0.8,
-      textTransform: 'uppercase', color: DIM,
-    },
-    climbStatValue: { marginTop: 3, fontFamily: 'Inter_900Black', fontSize: 15, color: CB_ACCENT },
-    climbDivider: { width: 1, height: 22, backgroundColor: BORDER },
     tabShell: {
       width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
-      paddingHorizontal: 4, marginTop: 12, marginBottom: 10,
+      paddingHorizontal: 4, marginTop: 4, marginBottom: 10,
     },
     tabRow: {
       height: 46, flexDirection: 'row', padding: 4, borderRadius: 17,
@@ -396,18 +302,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     scroll: {
       width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
       paddingHorizontal: 4, paddingTop: 4,
-    },
-    sectionHeading: {
-      minHeight: 70, flexDirection: 'row', alignItems: 'center',
-      justifyContent: 'space-between', paddingHorizontal: 4,
-    },
-    sectionIndex: {
-      fontFamily: 'Inter_700Bold', fontSize: 9, letterSpacing: 1.5,
-      color: DIM, marginBottom: 4,
-    },
-    sectionTitle: {
-      fontFamily: 'Inter_900Black', fontSize: 22, color: CB_ACCENT,
-      letterSpacing: -0.7,
     },
   });
 }
