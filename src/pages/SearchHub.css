@@ -277,7 +277,11 @@ select { font: inherit; }
 .sh-form:focus-within {
   border-color: color-mix(in srgb, var(--accent) 56%, transparent);
   background: rgba(10, 10, 10, .9);
+  outline: 2px solid color-mix(in srgb, var(--accent) 82%, white);
+  outline-offset: 2px;
 }
+
+.sh-form .sh-input:focus-visible { outline: none; }
 
 .sh-form--open { border-radius: 11px 11px 0 0; }
 .sh-search-icon { margin-left: 17px; color: var(--text-secondary); }

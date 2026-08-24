@@ -88,8 +88,8 @@
   box-sizing: border-box;
 }
 
-.notes-redesign > :not(.shc-shell):not(.context-panel):not(.context-panel-overlay),
-.notes-redesign > :not(.shc-shell):not(.context-panel):not(.context-panel-overlay) *,
+.notes-redesign > :not(.shc-shell):not(.context-panel):not(.context-panel-overlay):not(.ai-assistant-modal),
+.notes-redesign > :not(.shc-shell):not(.context-panel):not(.context-panel-overlay):not(.ai-assistant-modal) *,
 .notes-redesign .nr-body,
 .notes-redesign .nr-body * {
   margin: 0;
@@ -2356,6 +2356,58 @@
   .block-editor-container {
     padding: 18px 12px;
   }
+}
+
+/* Selection AI Assist trigger: isolate it from the editor's universal reset. */
+#root .notes-redesign .ai-floating-button {
+  isolation: isolate;
+  filter: none;
+}
+
+#root .notes-redesign .ai-floating-button .ai-assist-btn {
+  min-width: max-content;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 15px !important;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  border-radius: 10px;
+  color: var(--text-primary);
+  background:
+    radial-gradient(circle at 88% 12%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 42%),
+    #171819;
+  box-shadow: var(--shc-neu-raised);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease, transform 100ms ease;
+}
+
+#root .notes-redesign .ai-floating-button .ai-assist-btn svg {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  #root .notes-redesign .ai-floating-button .ai-assist-btn:hover {
+    color: #fff;
+    border-color: color-mix(in srgb, var(--accent) 46%, transparent);
+    background:
+      radial-gradient(circle at 88% 12%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 42%),
+      #1b1c1d;
+    box-shadow: var(--shc-neu-raised-hover);
+    transform: translateY(-1px);
+  }
+}
+
+#root .notes-redesign .ai-floating-button .ai-assist-btn:active {
+  box-shadow: var(--shc-neu-inset);
+  transform: scale(.98);
 }
 
 .block-editor-container.dark-mode {
@@ -8637,4 +8689,207 @@ h1.note-title ::-moz-selection,
   max-width: none !important;
   margin-inline: 0 !important;
   border-radius: 0 !important;
+}
+
+/* Quick insert rail: uses the same neumorphic contract as the rest of SocialHubChrome. */
+#root .notes-redesign .nr-insert-rail,
+#root .notes-redesign .editor-content.dark-mode .nr-insert-rail {
+  position: relative;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+  overflow-x: auto;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 13%, transparent);
+  color: var(--text-secondary);
+  background: rgba(18, 19, 20, .94) !important;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, .12);
+  scrollbar-width: none;
+}
+
+#root .notes-redesign .nr-insert-label {
+  min-width: max-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+#root .notes-redesign .nr-insert-label-icon {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  border-radius: 8px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 5%, #18191a);
+  box-shadow: var(--shc-neu-raised);
+}
+
+#root .notes-redesign .nr-insert-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 6px;
+}
+
+#root .notes-redesign .nr-insert-rail button {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 11px;
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, var(--accent) 14%, transparent);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, .025);
+  box-shadow: var(--shc-neu-raised);
+  font-size: 10px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease, transform 100ms ease;
+}
+
+#root .notes-redesign .nr-insert-rail button svg {
+  flex: 0 0 auto;
+  color: color-mix(in srgb, var(--accent) 76%, var(--text-primary));
+}
+
+#root .notes-redesign .nr-insert-rail button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 88%, white);
+  outline-offset: 2px;
+}
+
+#root .notes-redesign .nr-insert-rail button:active {
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 7%, #18191a);
+  box-shadow: var(--shc-neu-inset);
+  transform: scale(.98);
+}
+
+#root .notes-redesign .nr-insert-hint {
+  min-height: 32px;
+  margin-left: auto;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, var(--accent) 12%, transparent);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, .015);
+  box-shadow: var(--shc-neu-inset);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+#root .notes-redesign .nr-insert-hint kbd {
+  min-width: 20px;
+  margin: 0 5px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 5%, #18191a);
+  box-shadow: var(--shc-neu-raised);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  #root .notes-redesign .nr-insert-rail button:hover {
+    color: var(--text-primary);
+    border-color: color-mix(in srgb, var(--accent) 27%, transparent);
+    background: color-mix(in srgb, var(--accent) 6%, #18191a);
+    box-shadow: var(--shc-neu-raised-hover);
+    transform: translateY(-1px);
+  }
+
+  #root .notes-redesign .nr-insert-rail button:hover svg {
+    color: var(--accent);
+    transform: none;
+  }
+}
+
+@media (max-width: 720px) {
+  #root .notes-redesign .nr-insert-rail,
+  #root .notes-redesign .editor-content.dark-mode .nr-insert-rail {
+    min-height: 54px;
+    gap: 10px;
+    padding-inline: 12px;
+  }
+
+  #root .notes-redesign .nr-insert-label {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    padding-right: 8px;
+    background: #121314;
+  }
+
+  #root .notes-redesign .nr-insert-label-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  #root .notes-redesign .nr-insert-label-text {
+    display: none;
+  }
+
+  #root .notes-redesign .nr-insert-rail button {
+    min-height: 36px;
+    padding-inline: 12px;
+  }
+
+  #root .notes-redesign .nr-insert-hint {
+    display: none;
+  }
+}
+
+/* Keep the fullscreen action horizontal; the generic square icon-button rule must not collapse it. */
+#root .notes-redesign .title-action-btn.title-action-btn--fullscreen {
+  width: auto;
+  min-width: max-content;
+  max-width: none;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: row;
+  gap: 7px;
+  overflow: visible;
+  border-radius: 8px;
+  white-space: nowrap;
+  line-height: 1;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  flex: 0 0 auto;
+}
+
+#root .notes-redesign .title-action-btn.title-action-btn--fullscreen svg,
+#root .notes-redesign .title-action-btn.title-action-btn--fullscreen span {
+  display: block;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 480px) {
+  #root .notes-redesign .title-actions {
+    width: auto;
+    max-width: 100%;
+    align-self: flex-end;
+  }
+
+  #root .notes-redesign .title-action-btn.title-action-btn--fullscreen {
+    max-width: 100%;
+    padding-inline: 10px;
+  }
 }

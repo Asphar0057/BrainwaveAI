@@ -35,6 +35,7 @@ const CustomPopup = ({ isOpen, onClose, message, title = "Notification" }) => {
 
   return (
     <div 
+      className="custom-popup-overlay"
       style={{
         position: 'fixed',
         top: 0,
@@ -53,6 +54,10 @@ const CustomPopup = ({ isOpen, onClose, message, title = "Notification" }) => {
       onClick={handleClose}
     >
       <div 
+        className="custom-popup-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
         style={{
           background: 'var(--bg-secondary, #1a1a1a)',
           border: '1px solid color-mix(in srgb, var(--accent, #D7B38C) 40%, transparent)',

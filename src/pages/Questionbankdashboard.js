@@ -3124,10 +3124,10 @@ const QuestionBankDashboard = () => {
     if (questions.length === 0) {
       return (
         <div className="qbd-modal-overlay">
-          <div className="qbd-modal" onClick={e => e.stopPropagation()}>
+          <div className="qbd-modal" role="dialog" aria-modal="true" aria-labelledby="qbd-study-title" onClick={e => e.stopPropagation()}>
             <div className="qbd-modal-header">
-              <h3>{selectedQuestionSet?.title || 'Quiz Session'}</h3>
-              <button className="qbd-modal-close" onClick={() => setShowStudyModal(false)}>×</button>
+              <h3 id="qbd-study-title">{selectedQuestionSet?.title || 'Quiz Session'}</h3>
+              <button type="button" className="qbd-modal-close" aria-label="Close practice session" onClick={() => setShowStudyModal(false)}>×</button>
             </div>
             <div className="qbd-modal-content">
               <p style={{ textAlign: 'center', padding: '40px' }}>No questions found in this set.</p>
@@ -3139,10 +3139,10 @@ const QuestionBankDashboard = () => {
 
     return (
       <div className="qbd-modal-overlay">
-        <div className="qbd-modal" onClick={e => e.stopPropagation()}>
+        <div className="qbd-modal" role="dialog" aria-modal="true" aria-labelledby="qbd-study-title" onClick={e => e.stopPropagation()}>
           <div className="qbd-modal-header">
-            <h3>{selectedQuestionSet?.title || 'Quiz Session'}</h3>
-            <button className="qbd-modal-close" onClick={() => setShowStudyModal(false)}>×</button>
+            <h3 id="qbd-study-title">{selectedQuestionSet?.title || 'Quiz Session'}</h3>
+            <button type="button" className="qbd-modal-close" aria-label="Close practice session" onClick={() => setShowStudyModal(false)}>×</button>
           </div>
 
           <div className="qbd-modal-content">
@@ -3442,13 +3442,13 @@ const QuestionBankDashboard = () => {
       {/* PDF Export Modal */}
       {showExportModal && (
         <div className="qbd-modal-overlay" onClick={() => setShowExportModal(false)}>
-          <div className="qbd-export-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="qbd-export-modal" role="dialog" aria-modal="true" aria-labelledby="qbd-export-title" onClick={(e) => e.stopPropagation()}>
             <div className="qbd-export-modal-header">
               <div className="qbd-export-modal-icon">
                 <FileDown size={32} />
               </div>
               <span className="qbd-export-kicker">Ready for print</span>
-              <h2>Export question set</h2>
+              <h2 id="qbd-export-title">Export question set</h2>
               <p>A clear, print-ready PDF with room to think and review.</p>
             </div>
             
@@ -3519,16 +3519,16 @@ const QuestionBankDashboard = () => {
       {/* Preview Questions Modal */}
       {showPreviewModal && (
         <div className="qbd-modal-overlay" onClick={() => setShowPreviewModal(false)}>
-          <div className="qbd-preview-modal" onClick={e => e.stopPropagation()}>
+          <div className="qbd-preview-modal" role="dialog" aria-modal="true" aria-labelledby="qbd-preview-title" onClick={e => e.stopPropagation()}>
             <div className="qbd-preview-header">
               <div className="qbd-preview-title">
                 <Eye size={24} />
                 <div>
-                  <h2>Preview Questions</h2>
+                  <h2 id="qbd-preview-title">Preview Questions</h2>
                   <p>Review, edit, or regenerate before saving</p>
                 </div>
               </div>
-              <button className="qbd-modal-close" onClick={() => setShowPreviewModal(false)}>
+              <button type="button" className="qbd-modal-close" aria-label="Close question preview" onClick={() => setShowPreviewModal(false)}>
                 <X size={20} />
               </button>
             </div>
@@ -3698,10 +3698,10 @@ const QuestionBankDashboard = () => {
       {/* Merge Sets Modal */}
       {showMergeModal && (
         <div className="qbd-modal-overlay" onClick={() => setShowMergeModal(false)}>
-          <div className="qbd-merge-modal" onClick={e => e.stopPropagation()}>
+          <div className="qbd-merge-modal" role="dialog" aria-modal="true" aria-labelledby="qbd-merge-title" onClick={e => e.stopPropagation()}>
             <div className="qbd-merge-header">
               <GitMerge size={24} />
-              <h2>Merge Question Sets</h2>
+              <h2 id="qbd-merge-title">Merge Question Sets</h2>
             </div>
             
             <div className="qbd-merge-content">

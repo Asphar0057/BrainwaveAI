@@ -187,3 +187,272 @@
     transition-duration: .01ms !important;
   }
 }
+
+/* --------------------------------------------------------------------------
+   Shared popup material
+
+   Modal implementations across legacy routes use different class prefixes,
+   but they all live inside app-neumorphic-root. Keep layout ownership local
+   while enforcing one material, depth and control language globally.
+   -------------------------------------------------------------------------- */
+.app-neumorphic-root {
+  --neu-popup-line: color-mix(in srgb, var(--accent) 24%, transparent);
+  --neu-popup-line-soft: color-mix(in srgb, var(--accent) 13%, transparent);
+  --neu-popup-muted: color-mix(in srgb, var(--text-primary) 68%, transparent);
+  --neu-popup-backdrop:
+    radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 38%),
+    rgba(4, 5, 6, .84);
+  --neu-popup-surface:
+    radial-gradient(ellipse 74% 68% at 98% 100%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 72%),
+    repeating-linear-gradient(115deg, transparent 0 31px, color-mix(in srgb, var(--accent) 2.8%, transparent) 31px 32px),
+    repeating-linear-gradient(25deg, transparent 0 43px, rgba(255, 255, 255, .011) 43px 44px),
+    linear-gradient(155deg, #171715 0%, #0e0f10 48%, #090a0b 100%);
+  --neu-popup-well: rgba(5, 6, 7, .58);
+}
+
+[data-theme-mode="light"] .app-neumorphic-root {
+  --neu-popup-line: color-mix(in srgb, var(--accent) 32%, transparent);
+  --neu-popup-line-soft: color-mix(in srgb, var(--accent) 18%, transparent);
+  --neu-popup-muted: color-mix(in srgb, var(--text-primary) 70%, transparent);
+  --neu-popup-backdrop:
+    radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 40%),
+    rgba(51, 43, 34, .42);
+  --neu-popup-surface:
+    radial-gradient(ellipse 74% 68% at 98% 100%, color-mix(in srgb, var(--accent) 11%, transparent), transparent 72%),
+    repeating-linear-gradient(115deg, transparent 0 31px, color-mix(in srgb, var(--accent) 3.2%, transparent) 31px 32px),
+    repeating-linear-gradient(25deg, transparent 0 43px, rgba(255, 255, 255, .16) 43px 44px),
+    linear-gradient(155deg, #f5f0e8 0%, #e9e1d6 54%, #ddd3c6 100%);
+  --neu-popup-well: rgba(224, 214, 201, .68);
+}
+
+/* Backdrops retain their component-owned positioning and stacking context. */
+.app-neumorphic-root :is(
+  [class$="-modal-overlay"], [class*="-modal-overlay "],
+  [class$="-dialog-overlay"], [class*="-dialog-overlay "],
+  [class$="-modal-backdrop"], [class*="-modal-backdrop "],
+  .modal-overlay,
+  .modal-backdrop,
+  .iem-overlay,
+  .share-modal-overlay,
+  .playlist-share-overlay,
+  .file-viewer-overlay,
+  .template-preview-overlay,
+  .shortcuts-overlay,
+  .battle-notification-overlay,
+  .trial-modal-overlay
+) {
+  background: var(--neu-popup-backdrop) !important;
+  backdrop-filter: blur(14px) saturate(.82) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(.82) !important;
+}
+
+/* Non-modal floating surfaces found during the site-wide popup audit. */
+.app-neumorphic-root :is(
+  .quick-switcher,
+  .help-tour-tooltip,
+  .ai-dropdown-new,
+  .usage-limit-popover__panel,
+  .podcast-settings-drawer,
+  .cb-profile-drawer,
+  [class$="-popover"]:not(.usage-limit-popover),
+  [class*="-popover "]:not(.usage-limit-popover)
+) {
+  border: 1px solid var(--neu-popup-line) !important;
+  border-radius: 14px !important;
+  background: var(--neu-popup-surface) !important;
+  box-shadow: var(--neu-shadow-raised) !important;
+  color: var(--text-primary) !important;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
+.app-neumorphic-root :is(
+  .quick-switcher-overlay,
+  .help-tour-backdrop,
+  .ai-overlay,
+  .podcast-settings-overlay,
+  .context-panel-overlay,
+  .chat-import-overlay,
+  .nt-import-overlay,
+  .xpv-drawer-backdrop,
+  .custom-popup-overlay
+) {
+  background: var(--neu-popup-backdrop) !important;
+  backdrop-filter: blur(14px) saturate(.82) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(.82) !important;
+}
+
+.app-neumorphic-root :is(
+  .quick-switcher,
+  .help-tour-tooltip,
+  .ai-dropdown-new,
+  .usage-limit-popover__panel,
+  .podcast-settings-drawer,
+  .cb-profile-drawer,
+  [class$="-popover"]:not(.usage-limit-popover),
+  [class*="-popover "]:not(.usage-limit-popover)
+) :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+  border-color: var(--neu-popup-line-soft) !important;
+  background: var(--neu-popup-well) !important;
+  box-shadow: var(--neu-shadow-inset) !important;
+  color: var(--text-primary) !important;
+}
+
+/* True popup shells. Drawers and notification panels join through role=dialog. */
+.app-neumorphic-root :is(
+  [role="dialog"],
+  [class$="-modal"], [class*="-modal "],
+  [class$="-dialog"], [class*="-dialog "],
+  .modal-container,
+  .modal-box
+):not(.loading-spinner-overlay):not(.lpd-loading-overlay) {
+  border: 1px solid var(--neu-popup-line) !important;
+  border-radius: 16px !important;
+  background: var(--neu-popup-surface) !important;
+  box-shadow: var(--neu-shadow-raised) !important;
+  color: var(--text-primary) !important;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
+/* Headers and footers read as parts of one carved object, not nested cards. */
+.app-neumorphic-root :is(
+  [class$="-modal-header"], [class*="-modal-header "],
+  [class$="-dialog-header"], [class*="-dialog-header "],
+  [class$="-modal-head"], [class*="-modal-head "],
+  [class$="-dialog-head"], [class*="-dialog-head "]
+) {
+  border-bottom: 1px solid var(--neu-popup-line-soft) !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .018), transparent) !important;
+}
+
+.app-neumorphic-root :is(
+  [class$="-modal-footer"], [class*="-modal-footer "],
+  [class$="-dialog-footer"], [class*="-dialog-footer "],
+  [class$="-modal-actions"], [class*="-modal-actions "],
+  [class$="-dialog-actions"], [class*="-dialog-actions "]
+) {
+  border-top: 1px solid var(--neu-popup-line-soft) !important;
+  background: rgba(6, 7, 8, .34) !important;
+}
+
+[data-theme-mode="light"] .app-neumorphic-root :is(
+  [class$="-modal-footer"], [class*="-modal-footer "],
+  [class$="-dialog-footer"], [class*="-dialog-footer "],
+  [class$="-modal-actions"], [class*="-modal-actions "],
+  [class$="-dialog-actions"], [class*="-dialog-actions "]
+) {
+  background: rgba(255, 255, 255, .22) !important;
+}
+
+/* Form controls and dense choice rows are recessed into the modal surface. */
+.app-neumorphic-root :is(
+  [role="dialog"],
+  [class$="-modal"], [class*="-modal "],
+  [class$="-dialog"], [class*="-dialog "],
+  .modal-container,
+  .modal-box
+) :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+  border-color: var(--neu-popup-line-soft) !important;
+  background: var(--neu-popup-well) !important;
+  box-shadow: var(--neu-shadow-inset) !important;
+  color: var(--text-primary) !important;
+  font-family: inherit !important;
+}
+
+.app-neumorphic-root :is(
+  [role="dialog"],
+  [class$="-modal"], [class*="-modal "],
+  [class$="-dialog"], [class*="-dialog "],
+  .modal-container,
+  .modal-box
+) :is(input, textarea)::placeholder {
+  color: color-mix(in srgb, var(--text-primary) 50%, transparent) !important;
+}
+
+.app-neumorphic-root :is(
+  [role="dialog"],
+  [class$="-modal"], [class*="-modal "],
+  [class$="-dialog"], [class*="-dialog "],
+  .modal-container,
+  .modal-box
+) :is(
+  [class$="-option"], [class*="-option "],
+  [class$="-choice"], [class*="-choice "],
+  [class$="-row"], [class*="-row "],
+  [class$="-item"], [class*="-item "]
+):not(button) {
+  border-color: var(--neu-popup-line-soft) !important;
+  box-shadow: var(--neu-shadow-soft) !important;
+}
+
+.app-neumorphic-root :is(
+  [role="dialog"],
+  [class$="-modal"], [class*="-modal "],
+  [class$="-dialog"], [class*="-dialog "],
+  .modal-container,
+  .modal-box
+) :is(
+  [class$="-option"], [class*="-option "],
+  [class$="-choice"], [class*="-choice "]
+):has(input:checked) {
+  border-color: color-mix(in srgb, var(--accent) 68%, transparent) !important;
+  background: color-mix(in srgb, var(--accent) 9%, var(--neu-popup-well)) !important;
+  box-shadow: var(--neu-shadow-pressed) !important;
+}
+
+/* Compact actions inherit the exact same raised/pressed behavior site-wide. */
+.app-neumorphic-root :is(
+  [role="dialog"],
+  [class$="-modal"], [class*="-modal "],
+  [class$="-dialog"], [class*="-dialog "],
+  .modal-container,
+  .modal-box
+) :is(button, [role="button"]):not(:disabled) {
+  box-shadow: var(--neu-shadow-soft) !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .app-neumorphic-root :is(
+    [role="dialog"],
+    [class$="-modal"], [class*="-modal "],
+    [class$="-dialog"], [class*="-dialog "],
+    .modal-container,
+    .modal-box
+  ) :is(button, [role="button"]):not(:disabled):hover {
+    box-shadow: var(--neu-shadow-raised-hover) !important;
+  }
+}
+
+.app-neumorphic-root :is(
+  [role="dialog"],
+  [class$="-modal"], [class*="-modal "],
+  [class$="-dialog"], [class*="-dialog "],
+  .modal-container,
+  .modal-box
+) :is(button, [role="button"]):not(:disabled):active {
+  box-shadow: var(--neu-shadow-pressed) !important;
+}
+
+.app-neumorphic-root :is(
+  [role="dialog"],
+  [class$="-modal"], [class*="-modal "],
+  [class$="-dialog"], [class*="-dialog "],
+  .modal-container,
+  .modal-box
+) :is(button, [role="button"], input, select, textarea):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 82%, white) !important;
+  outline-offset: 3px !important;
+}
+
+@media (max-width: 720px) {
+  .app-neumorphic-root :is(
+    [role="dialog"],
+    [class$="-modal"], [class*="-modal "],
+    [class$="-dialog"], [class*="-dialog "],
+    .modal-container,
+    .modal-box
+  ):not(.loading-spinner-overlay):not(.lpd-loading-overlay) {
+    max-width: calc(100vw - 20px) !important;
+    max-height: calc(100dvh - 20px) !important;
+    border-radius: 14px !important;
+  }
+}

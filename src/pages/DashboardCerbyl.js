@@ -1861,17 +1861,13 @@ const DashboardCerbyl = () => {
               { label: 'Flashcards', route: '/flashcards' },
               { label: 'Notes',      route: '/notes' }
             ].map((s) => (
-              <div key={s.label} className="cb-side-section" onClick={() => navigate(s.route)}>
+              <button key={s.label} className="cb-side-section" type="button" onClick={() => navigate(s.route)}>
                 <span className="cb-side-dot" />
                 <span className="cb-side-label">{s.label}</span>
-                <button
-                  className="cb-side-plus"
-                  onClick={(e) => { e.stopPropagation(); navigate(s.route); }}
-                  aria-label={`Open ${s.label}`}
-                >
+                <span className="cb-side-plus" aria-hidden="true">
                   <Plus size={12} strokeWidth={2.4} />
-                </button>
-              </div>
+                </span>
+              </button>
             ))}
           </div>
 

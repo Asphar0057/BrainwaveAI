@@ -3243,6 +3243,7 @@ const NotesRedesign = ({ sharedMode = false }) => {
                     type="button"
                     onClick={toggleFullscreen}
                     title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                    aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
                   >
                     {isFullscreen ? (
                       <>
@@ -3482,13 +3483,18 @@ const NotesRedesign = ({ sharedMode = false }) => {
               )}
 
               {viewMode === "edit" && (!isSharedContent || canEdit) && (
-                <div className="nr-insert-rail" aria-label="Quick insert blocks">
-                  <span className="nr-insert-label">Add block</span>
-                  <button type="button" onClick={() => handleInsertBlock('paragraph')}><Type size={14} /> Text</button>
-                  <button type="button" onClick={() => handleInsertBlock('todo')}><CheckSquare size={14} /> To-do</button>
-                  <button type="button" onClick={() => handleInsertBlock('quote')}><Quote size={14} /> Quote</button>
-                  <button type="button" onClick={() => handleInsertBlock('divider')}><Minus size={14} /> Divider</button>
-                  <button type="button" onClick={() => setShowCanvasMode(true)}><Palette size={14} /> Canvas</button>
+                <div className="nr-insert-rail" role="toolbar" aria-label="Quick insert blocks">
+                  <span className="nr-insert-label">
+                    <span className="nr-insert-label-icon" aria-hidden="true"><Plus size={14} /></span>
+                    <span className="nr-insert-label-text">Add block</span>
+                  </span>
+                  <div className="nr-insert-actions">
+                    <button type="button" onClick={() => handleInsertBlock('paragraph')}><Type size={15} /> Text</button>
+                    <button type="button" onClick={() => handleInsertBlock('todo')}><CheckSquare size={15} /> To-do</button>
+                    <button type="button" onClick={() => handleInsertBlock('quote')}><Quote size={15} /> Quote</button>
+                    <button type="button" onClick={() => handleInsertBlock('divider')}><Minus size={15} /> Divider</button>
+                    <button type="button" onClick={() => setShowCanvasMode(true)}><Palette size={15} /> Canvas</button>
+                  </div>
                   <span className="nr-insert-hint">Type <kbd>/</kbd> for every block</span>
                 </div>
               )}
@@ -3549,6 +3555,7 @@ const NotesRedesign = ({ sharedMode = false }) => {
                   }}
                 >
                   <button
+                    type="button"
                     onClick={() => {
                       setSelectedText(selectedTextContent);
                       setShowAIAssistant(true);
