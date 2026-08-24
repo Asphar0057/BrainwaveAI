@@ -5,6 +5,7 @@ import { View, Text, StyleSheet, ScrollView, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { LinearGradient } from 'expo-linear-gradient';
+import MaskedView from '@react-native-masked-view/masked-view';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../services/auth';
 import { getFlashcardStatistics } from '../services/api';
@@ -22,6 +23,7 @@ function BentoMini({
   index,
   title,
   styles,
+  theme,
   onPress,
   tall = false,
   verticalTitle = false,
@@ -29,10 +31,12 @@ function BentoMini({
   index: string;
   title: string;
   styles: ReturnType<typeof createStyles>;
+  theme: ReturnType<typeof useAppTheme>['selectedTheme'];
   onPress?: () => void;
   /** Fills the full hero-row height as one rectangle instead of a square in a stack. */
   tall?: boolean;
-  /** Runs the title bottom-to-top along the left edge, spine-label style, instead of a horizontal line. */
+  /** Runs the title bottom-to-top along the left edge, spine-label style, cinematic gold-to-transparent
+   * gradient fill instead of a flat color, instead of a horizontal line. */
   verticalTitle?: boolean;
 }) {
   return (
@@ -57,7 +61,25 @@ function BentoMini({
       <View style={{ flex: 1 }} />
       {verticalTitle ? (
         <View style={styles.miniTitleVerticalWrap}>
-          <Text style={[styles.miniTitle, styles.miniTitleVertical]} numberOfLines={1}>{title}</Text>
+          {/* The rotate lives only on this outer MaskedView -- the mask
+              (text shape) and the gradient it reveals are composited first,
+              at their natural un-rotated size, then that whole composited
+              image is rotated as one unit. Rotating the inner mask View too
+              would rotate it twice. */}
+          <MaskedView
+            style={[styles.miniTitleGradientBox, styles.miniTitleGradientRotate]}
+            maskElement={
+              <View style={styles.miniTitleGradientBox}>
+                <Text style={styles.miniTitleVertical} numberOfLines={1}>{title}</Text>
+              </View>
+            }
+          >
+            <LinearGradient
+              colors={[theme.accentHover, rgbaFromHex(theme.accentHover, 0)]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+              style={StyleSheet.absoluteFillObject}
+            />
+          </MaskedView>
         </View>
       ) : (
         <Text style={styles.miniTitle}>{title}</Text>
@@ -118,12 +140,12 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
             </View>
           </TileGleam>
 
-          <BentoMini index="02" title="notes" styles={s} tall verticalTitle onPress={() => onNavigate?.('notes')} />
+          <BentoMini index="02" title="notes" styles={s} theme={selectedTheme} tall verticalTitle onPress={() => onNavigate?.('notes')} />
         </View>
 
         {/* Row 2: media notes — its own destination now, not nested inside notes */}
         <View style={s.bentoRow}>
-          <BentoMini index="03" title="media notes" styles={s} onPress={() => onNavigate?.('aimedia')} />
+          <BentoMini index="03" title="media notes" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('aimedia')} />
         </View>
 
         {/* Row 3: Flashcards banner — one hero stat, no clutter */}
@@ -152,28 +174,28 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
 
         {/* Row 4: question bank + learning paths */}
         <View style={s.bentoRow}>
-          <BentoMini index="05" title="questions" styles={s} onPress={() => onNavigate?.('questionBank')} />
-          <BentoMini index="06" title="paths" styles={s} onPress={() => onNavigate?.('learningPaths')} />
+          <BentoMini index="05" title="questions" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('questionBank')} />
+          <BentoMini index="06" title="paths" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('learningPaths')} />
         </View>
 
         {/* Row 5: knowledge hub + maps */}
         <View style={s.bentoRow}>
-          <BentoMini index="07" title="hub" styles={s} onPress={() => onNavigate?.('knowledgeHub')} />
-          <BentoMini index="08" title="maps" styles={s} onPress={() => onNavigate?.('knowledgeMaps')} />
+          <BentoMini index="07" title="hub" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('knowledgeHub')} />
+          <BentoMini index="08" title="maps" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('knowledgeMaps')} />
         </View>
 
         {/* Row 6: primary creation tools stay above the fold */}
         <View style={s.bentoRow}>
-          <BentoMini index="09" title="slides" styles={s} onPress={() => onNavigate?.('slideExplorer')} />
-          <BentoMini index="10" title="analytics" styles={s} onPress={() => onNavigate?.('xpAnalytics')} />
+          <BentoMini index="09" title="slides" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('slideExplorer')} />
+          <BentoMini index="10" title="analytics" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('xpAnalytics')} />
         </View>
         <View style={s.bentoRow}>
-          <BentoMini index="11" title="weakness" styles={s} onPress={() => onNavigate?.('weaknessPractice')} />
-          <BentoMini index="12" title="topics" styles={s} onPress={() => onNavigate?.('topicsHub')} />
+          <BentoMini index="11" title="weakness" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('weaknessPractice')} />
+          <BentoMini index="12" title="topics" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('topicsHub')} />
         </View>
         <View style={s.bentoRow}>
-          <BentoMini index="13" title="calendar" styles={s} onPress={() => setSubScreen('calendar')} />
-          <BentoMini index="14" title="timeline" styles={s} onPress={() => setSubScreen('activity')} />
+          <BentoMini index="13" title="calendar" styles={s} theme={selectedTheme} onPress={() => setSubScreen('calendar')} />
+          <BentoMini index="14" title="timeline" styles={s} theme={selectedTheme} onPress={() => setSubScreen('activity')} />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -185,7 +207,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   const GOLD_L = theme.accentHover;
   const DIM = theme.textSecondary;
   const BORDER = rgbaFromHex(GOLD_L, theme.isLight ? 0.16 : 0.18);
-  const heroRowHeight = 210;
+  const heroRowHeight = 230;
   return StyleSheet.create({
   safe: { flex: 1, backgroundColor: BG },
   scroll: {
@@ -231,11 +253,22 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   miniIndex: { fontFamily: 'Inter_700Bold', fontSize: 11, letterSpacing: 1.5, color: DIM },
   miniArrow: { color: GOLD_L },
   miniTitle: { fontFamily: 'Inter_900Black', fontSize: 19, color: GOLD_L, letterSpacing: -0.4 },
-  // Enough clearance above/below the un-rotated text box for the rotated
-  // footprint (roughly the text's own width) to clear the tile's edges
-  // instead of getting clipped by its overflow:hidden.
-  miniTitleVerticalWrap: { alignItems: 'flex-start', justifyContent: 'flex-end', paddingVertical: 26 },
-  miniTitleVertical: { transform: [{ rotate: '-90deg' }] },
+  // A transform:rotate doesn't resize the element's own layout box, so
+  // content sized for its un-rotated (wide, short) footprint spills outside
+  // that box once rotated -- past the tile's own edges, clipped by its
+  // overflow:hidden. Fix: the mask+gradient box is a fixed pre-rotation
+  // size (miniTitleGradientBox), and the wrapper reserves the swapped
+  // post-rotation footprint (narrow, tall) so the reserved space actually
+  // matches what renders.
+  miniTitleVerticalWrap: {
+    width: 46, height: 152, alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-start',
+  } as ViewStyle,
+  miniTitleGradientBox: { width: 152, height: 46 },
+  miniTitleGradientRotate: { transform: [{ rotate: '-90deg' }] },
+  miniTitleVertical: {
+    width: 152, height: 46, fontFamily: 'Inter_900Black', fontSize: 38, letterSpacing: -0.8,
+    textAlign: 'center', color: '#000000',
+  } as ViewStyle,
 
   flashcardCard: {
     borderRadius: 26, overflow: 'hidden',
