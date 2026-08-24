@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Animated, PanRes
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import MaskedView from '@react-native-masked-view/masked-view';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import RingProgress from '../components/RingProgress';
 import HapticTouchable from '../components/HapticTouchable';
@@ -234,9 +235,18 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
   const hero = heroSlides[heroIndex];
   const heroValueMaxWidth = Math.max(220, Math.min(layout.width - 72, layout.contentMaxWidth - 44));
   const heroFontSize = Math.min(
-    layout.isLandscape ? 184 : 156,
-    Math.floor((heroValueMaxWidth * (layout.isLandscape ? 0.54 : 0.84)) / Math.max(hero.value.length * 0.72, 1))
+    layout.isLandscape ? 208 : 178,
+    Math.floor((heroValueMaxWidth * (layout.isLandscape ? 0.6 : 0.92)) / Math.max(hero.value.length * 0.72, 1))
   );
+  // The title ("streak", "study time", ...) now sits as a big, faded,
+  // gradient-fill watermark directly behind the number instead of a small
+  // caption above it -- sized relative to the number so it scales with it,
+  // with an explicit box (MaskedView needs a real width/height to mask
+  // against) centered over the number's own fixed footprint.
+  const heroLabelFontSize = Math.round(heroFontSize * 0.34);
+  const heroLabelBoxHeight = Math.round(heroLabelFontSize * 1.25);
+  const heroLabelBoxWidth = Math.min(heroValueMaxWidth, Math.round(hero.title.length * heroLabelFontSize * 0.64 + 16));
+  const heroNumBoxHeight = heroFontSize + 10;
 
   const rings = [
     { label: studyDuration.unit === 'hrs' ? 'HRS\nFOCUS' : 'MIN\nFOCUS', value: studyDuration.value, progress: Math.min(weeklyHours / 10, 1) },
@@ -314,8 +324,40 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
                 </View>
               ) : (
                 <AnimatedView style={[styles.heroContent, { opacity: heroSwap, transform: [{ scale: heroSwap.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }) }] }]}>
-                  <Text style={styles.heroLabel}>{hero.title}</Text>
-                  <Text style={[styles.bigNum, { fontSize: heroFontSize, lineHeight: heroFontSize + 10 }]}>{hero.value}</Text>
+                  <View style={{ width: heroValueMaxWidth, height: heroNumBoxHeight }}>
+                    <View
+                      style={{
+                        position: 'absolute',
+                        left: (heroValueMaxWidth - heroLabelBoxWidth) / 2,
+                        top: (heroNumBoxHeight - heroLabelBoxHeight) / 2,
+                        opacity: 0.16,
+                      }}
+                    >
+                      <MaskedView
+                        style={{ width: heroLabelBoxWidth, height: heroLabelBoxHeight }}
+                        maskElement={
+                          <View style={{ width: heroLabelBoxWidth, height: heroLabelBoxHeight, alignItems: 'center', justifyContent: 'center' }}>
+                            <Text
+                              style={{
+                                fontFamily: 'Inter_900Black', fontSize: heroLabelFontSize,
+                                letterSpacing: 1.5, textTransform: 'uppercase', color: '#000000',
+                              }}
+                              numberOfLines={1}
+                            >
+                              {hero.title}
+                            </Text>
+                          </View>
+                        }
+                      >
+                        <LinearGradient
+                          colors={[GOLD_L, rgbaFromHex(GOLD_L, 0)]}
+                          start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                          style={StyleSheet.absoluteFillObject}
+                        />
+                      </MaskedView>
+                    </View>
+                    <Text style={[styles.bigNum, { fontSize: heroFontSize, lineHeight: heroNumBoxHeight, width: heroValueMaxWidth }]}>{hero.value}</Text>
+                  </View>
                   <Text style={styles.heroUnit}>{hero.unit}</Text>
 
                   <View style={styles.heroDots}>
@@ -588,19 +630,10 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     letterSpacing: 2.4,
     textTransform: 'uppercase',
   },
-  heroLabel: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: layout.isLandscape ? 13 : 12,
-    color: GOLD_L,
-    letterSpacing: layout.isLandscape ? 2.8 : 2.2,
-    marginTop: layout.isLandscape ? 14 : 10,
-    textTransform: 'uppercase',
-  },
   bigNum: {
     fontFamily: 'Inter_900Black',
     color: GOLD_L,
     textAlign: 'center',
-    marginTop: 8,
   },
   heroUnit: {
     fontFamily: 'Inter_600SemiBold',
