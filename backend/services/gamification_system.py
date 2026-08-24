@@ -872,50 +872,42 @@ def recalculate_all_stats(db: Session):
         models.FlashcardSet, models.FlashcardSet.user_id, models.FlashcardSet.created_at
     )
 
+    # Points are sourced from the PointTransaction ledger — the same ledger
+    # analytics/xp_history sums for "all time" — instead of being rebuilt from
+    # only chats/notes/flashcards. The old version reconstructed total_points
+    # from just those 3 categories, silently dropping quizzes/questions/study
+    # time/battles/vault rewards/etc., which left total_points (and therefore
+    # the leaderboard, which sorts by it) permanently out of sync with the
+    # ledger for any account this ever ran on.
+    total_points_by_user = dict(
+        db.query(models.PointTransaction.user_id, func.sum(models.PointTransaction.points_earned))
+        .group_by(models.PointTransaction.user_id)
+        .all()
+    )
+    weekly_points_by_user = dict(
+        db.query(models.PointTransaction.user_id, func.sum(models.PointTransaction.points_earned))
+        .filter(models.PointTransaction.created_at >= week_start_datetime)
+        .group_by(models.PointTransaction.user_id)
+        .all()
+    )
+
     for user in users:
         stats = get_or_create_stats(db, user.id)
 
-        stats.total_points = 0
-        stats.weekly_points = 0
-        stats.total_ai_chats = 0
-        stats.weekly_ai_chats = 0
-        stats.total_notes_created = 0
-        stats.weekly_notes_created = 0
-        stats.total_questions_answered = 0
-        stats.weekly_questions_answered = 0
-        stats.total_quizzes_completed = 0
-        stats.weekly_quizzes_completed = 0
-        stats.total_flashcards_created = 0
-        stats.weekly_flashcards_created = 0
-        stats.total_study_minutes = 0
-        stats.weekly_study_minutes = 0
-        stats.total_battles_won = 0
-        stats.weekly_battles_won = 0
+        # Only fields actually recomputed below get touched — total_points now
+        # comes from the ledger (which already reflects every activity type),
+        # and counters this function has no data to rebuild (questions
+        # answered, quizzes completed, study minutes, battles won) are left
+        # alone instead of being zeroed out with nothing to replace them.
+        stats.total_ai_chats = total_chats_by_user.get(user.id, 0)
+        stats.weekly_ai_chats = weekly_chats_by_user.get(user.id, 0)
+        stats.total_notes_created = total_notes_by_user.get(user.id, 0)
+        stats.weekly_notes_created = weekly_notes_by_user.get(user.id, 0)
+        stats.total_flashcards_created = total_flashcards_by_user.get(user.id, 0)
+        stats.weekly_flashcards_created = weekly_flashcards_by_user.get(user.id, 0)
 
-        total_chats = total_chats_by_user.get(user.id, 0)
-        weekly_chats = weekly_chats_by_user.get(user.id, 0)
-
-        stats.total_ai_chats = total_chats
-        stats.weekly_ai_chats = weekly_chats
-        stats.total_points += total_chats * POINT_VALUES["ai_chat"]
-        stats.weekly_points += weekly_chats * POINT_VALUES["ai_chat"]
-
-        total_notes = total_notes_by_user.get(user.id, 0)
-        weekly_notes = weekly_notes_by_user.get(user.id, 0)
-
-        stats.total_notes_created = total_notes
-        stats.weekly_notes_created = weekly_notes
-        stats.total_points += total_notes * POINT_VALUES["note_created"]
-        stats.weekly_points += weekly_notes * POINT_VALUES["note_created"]
-
-        total_flashcards = total_flashcards_by_user.get(user.id, 0)
-        weekly_flashcards = weekly_flashcards_by_user.get(user.id, 0)
-
-        stats.total_flashcards_created = total_flashcards
-        stats.weekly_flashcards_created = weekly_flashcards
-        stats.total_points += total_flashcards * POINT_VALUES["flashcard_set"]
-        stats.weekly_points += weekly_flashcards * POINT_VALUES["flashcard_set"]
-
+        stats.total_points = int(total_points_by_user.get(user.id, 0) or 0)
+        stats.weekly_points = int(weekly_points_by_user.get(user.id, 0) or 0)
         stats.experience = stats.total_points
         stats.level = calculate_level_from_xp(stats.experience)
         stats.week_start_date = week_start_datetime

@@ -242,12 +242,12 @@ def get_xp_history(
     """
     XP gained over time, bucketed for the given period, plus a breakdown of which
     activity types earned it. Backs both the home screen's mini XP graph (period=week)
-    and the full XP analytics screen (week/month/year, switchable).
+    and the full XP analytics screen (week/month/year/all, switchable).
 
     week_offset lets the caller page into past calendar weeks (0 = this week,
     1 = last week, ...); it's ignored outside period="week".
     """
-    if period not in ("week", "month", "year"):
+    if period not in ("week", "month", "year", "all"):
         period = "week"
     if period != "week":
         week_offset = 0
@@ -271,6 +271,16 @@ def get_xp_history(
             start = this_monday - timedelta(days=7 * week_offset)
             end = start + timedelta(days=7)
             prev_start = start - timedelta(days=7)
+        elif period == "all":
+            earliest = db.query(func.min(models.PointTransaction.created_at)).filter(
+                models.PointTransaction.user_id == user.id
+            ).scalar()
+            end = now
+            start = _tz_aware(earliest) if earliest else now
+            # No meaningful "previous all-time" window to compare against —
+            # prev_start == start makes previous_rows empty below, and delta_percent
+            # is forced to 0 further down instead of showing a misleading "+100%".
+            prev_start = start
         else:
             days = {"week": 7, "month": 30, "year": 365}[period]
             end = now
@@ -308,6 +318,29 @@ def get_xp_history(
                 {"date": k, "label": datetime.strptime(k, "%Y-%m").strftime("%b"), "xp": v}
                 for k, v in buckets.items()
             ]
+        elif period == "all":
+            # Monthly buckets spanning from the user's first-ever XP event through
+            # this month (variable length, unlike "year"'s fixed 12 months).
+            cursor = datetime(start.year, start.month, 1, tzinfo=timezone.utc)
+            end_cursor = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+            months = []
+            while cursor <= end_cursor:
+                months.append(cursor)
+                cursor = (
+                    cursor.replace(year=cursor.year + 1, month=1)
+                    if cursor.month == 12
+                    else cursor.replace(month=cursor.month + 1)
+                )
+            for m in months:
+                buckets[m.strftime("%Y-%m")] = 0
+            for t in current_rows:
+                key = _tz_aware(t.created_at).strftime("%Y-%m")
+                if key in buckets:
+                    buckets[key] += t.points_earned
+            points = [
+                {"date": k, "label": datetime.strptime(k, "%Y-%m").strftime("%b %y"), "xp": v}
+                for k, v in buckets.items()
+            ]
         else:
             for i in range(days):
                 d = (start + timedelta(days=i)).date()
@@ -326,7 +359,23 @@ def get_xp_history(
 
         total_xp = sum(t.points_earned for t in current_rows)
         previous_xp = sum(t.points_earned for t in previous_rows)
-        if previous_xp > 0:
+        if period == "all":
+            delta_percent = 0.0
+            # The PointTransaction ledger only covers activity logged through
+            # award_points()/use_xp_powerup() — some accounts carry XP in the
+            # persistent counter (UserGamificationStats.total_points, the same
+            # field the leaderboard sorts by) that predates or otherwise isn't
+            # backed by a ledger row. Reconcile against that counter so "all
+            # time" here never shows less than the leaderboard for the same
+            # user; the gap (if any) is surfaced below as "Earlier Activity"
+            # instead of silently inflating an existing source's total.
+            gstats = db.query(models.UserGamificationStats).filter(
+                models.UserGamificationStats.user_id == user.id
+            ).first()
+            authoritative_total = gstats.total_points if gstats and gstats.total_points is not None else total_xp
+            if authoritative_total > total_xp:
+                total_xp = authoritative_total
+        elif previous_xp > 0:
             delta_percent = round(((total_xp - previous_xp) / previous_xp) * 100, 1)
         else:
             delta_percent = 100.0 if total_xp > 0 else 0.0
@@ -337,6 +386,12 @@ def get_xp_history(
             entry = by_source_map.setdefault(label, {"label": label, "xp": 0, "count": 0})
             entry["xp"] += t.points_earned
             entry["count"] += 1
+
+        if period == "all":
+            ledger_sum = sum(entry["xp"] for entry in by_source_map.values())
+            gap = total_xp - ledger_sum
+            if gap > 0:
+                by_source_map["Earlier Activity"] = {"label": "Earlier Activity", "xp": gap, "count": 0}
 
         by_source = sorted(by_source_map.values(), key=lambda e: e["xp"], reverse=True)
         for entry in by_source:
