@@ -218,7 +218,7 @@ export async function getDashboardData(userId: string): Promise<{
 export type XpPoint = { date: string; label: string; xp: number };
 export type XpSource = { label: string; xp: number; count: number; percent: number };
 export type XpHistory = {
-  period: 'week' | 'month' | 'year';
+  period: 'week' | 'month' | 'year' | 'all';
   total_xp: number;
   delta_percent: number;
   points: XpPoint[];
@@ -231,7 +231,7 @@ export type XpHistory = {
 
 export async function getXpHistory(
   userId: string,
-  period: 'week' | 'month' | 'year' = 'week',
+  period: 'week' | 'month' | 'year' | 'all' = 'week',
   weekOffset = 0
 ): Promise<XpHistory> {
   const headers = await authHeaders();
@@ -239,6 +239,18 @@ export async function getXpHistory(
     `${API_URL}/analytics/xp_history?user_id=${encodeURIComponent(userId)}&period=${period}&week_offset=${weekOffset}`,
     { headers }
   );
+  return res.json();
+}
+
+export type RecentPointActivity = { description: string; points: number; time_ago: string; activity_type: string };
+
+export async function getRecentPointActivities(userId: string, limit = 100): Promise<{ activities: RecentPointActivity[] }> {
+  const headers = await authHeaders();
+  const res = await fetch(
+    `${API_URL}/get_recent_point_activities?user_id=${encodeURIComponent(userId)}&limit=${limit}`,
+    { headers }
+  );
+  if (!res.ok) return { activities: [] };
   return res.json();
 }
 

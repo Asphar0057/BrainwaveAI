@@ -15,7 +15,7 @@ import { useAppTheme } from '../contexts/ThemeContext';
 import { rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
-type ExploreTarget = 'flashcards' | 'notes' | 'aimedia' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'weaknessPractice' | 'topicsHub' | 'learningPaths';
+type ExploreTarget = 'flashcards' | 'notes' | 'aimedia' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'xpAnalytics' | 'weaknessPractice' | 'topicsHub' | 'learningPaths';
 type Props = { user: AuthUser; onNavigate?: (screen: ExploreTarget) => void; onNavigateToAI?: () => void };
 
 function BentoMini({
@@ -24,6 +24,7 @@ function BentoMini({
   styles,
   onPress,
   tall = false,
+  verticalTitle = false,
 }: {
   index: string;
   title: string;
@@ -31,6 +32,8 @@ function BentoMini({
   onPress?: () => void;
   /** Fills the full hero-row height as one rectangle instead of a square in a stack. */
   tall?: boolean;
+  /** Runs the title bottom-to-top along the left edge, spine-label style, instead of a horizontal line. */
+  verticalTitle?: boolean;
 }) {
   return (
     <TileGleam
@@ -52,7 +55,13 @@ function BentoMini({
         <Ionicons name="chevron-forward" size={15} color={styles.miniArrow.color} />
       </View>
       <View style={{ flex: 1 }} />
-      <Text style={styles.miniTitle}>{title}</Text>
+      {verticalTitle ? (
+        <View style={styles.miniTitleVerticalWrap}>
+          <Text style={[styles.miniTitle, styles.miniTitleVertical]} numberOfLines={1}>{title}</Text>
+        </View>
+      ) : (
+        <Text style={styles.miniTitle}>{title}</Text>
+      )}
     </TileGleam>
   );
 }
@@ -109,7 +118,7 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
             </View>
           </TileGleam>
 
-          <BentoMini index="02" title="notes" styles={s} tall onPress={() => onNavigate?.('notes')} />
+          <BentoMini index="02" title="notes" styles={s} tall verticalTitle onPress={() => onNavigate?.('notes')} />
         </View>
 
         {/* Row 2: media notes — its own destination now, not nested inside notes */}
@@ -156,7 +165,7 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
         {/* Row 6: primary creation tools stay above the fold */}
         <View style={s.bentoRow}>
           <BentoMini index="09" title="slides" styles={s} onPress={() => onNavigate?.('slideExplorer')} />
-          <BentoMini index="10" title="analytics" styles={s} onPress={() => onNavigate?.('analytics')} />
+          <BentoMini index="10" title="analytics" styles={s} onPress={() => onNavigate?.('xpAnalytics')} />
         </View>
         <View style={s.bentoRow}>
           <BentoMini index="11" title="weakness" styles={s} onPress={() => onNavigate?.('weaknessPractice')} />
@@ -222,6 +231,11 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   miniIndex: { fontFamily: 'Inter_700Bold', fontSize: 11, letterSpacing: 1.5, color: DIM },
   miniArrow: { color: GOLD_L },
   miniTitle: { fontFamily: 'Inter_900Black', fontSize: 19, color: GOLD_L, letterSpacing: -0.4 },
+  // Enough clearance above/below the un-rotated text box for the rotated
+  // footprint (roughly the text's own width) to clear the tile's edges
+  // instead of getting clipped by its overflow:hidden.
+  miniTitleVerticalWrap: { alignItems: 'flex-start', justifyContent: 'flex-end', paddingVertical: 26 },
+  miniTitleVertical: { transform: [{ rotate: '-90deg' }] },
 
   flashcardCard: {
     borderRadius: 26, overflow: 'hidden',

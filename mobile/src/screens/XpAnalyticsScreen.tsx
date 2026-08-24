@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, ViewStyle, RefreshControl, ActivityIndicator } from 'react-native';
-import { PAST_WEEK_COUNT, weekChipLabel } from '../utils/xpWeeks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Modal, ScrollView, StyleSheet, Text, View, ViewStyle, RefreshControl, ActivityIndicator } from 'react-native';
+import { PAST_WEEK_COUNT, weekDateRangeLabel } from '../utils/xpWeeks';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
@@ -16,20 +16,28 @@ import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
-type Props = { user: AuthUser; onBack: () => void; onOpenAchievements?: () => void };
-type Period = 'week' | 'month' | 'year';
+type Props = {
+  user: AuthUser;
+  onBack: () => void;
+  onOpenAchievements?: () => void;
+  onOpenHistory?: () => void;
+};
+type MenuKey = 'overview' | 'history' | 'achievements' | 'weeks';
+type Period = 'week' | 'month' | 'year' | 'all';
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
 const PERIODS: { key: Period; label: string }[] = [
   { key: 'week', label: 'week' },
   { key: 'month', label: 'month' },
   { key: 'year', label: 'year' },
+  { key: 'all', label: 'all' },
 ];
 
 const PERIOD_COPY: Record<Period, string> = {
   week: 'last 7 days',
   month: 'last 30 days',
   year: 'last 12 months',
+  all: 'all time',
 };
 
 const SOURCE_ICONS: Record<string, IoniconsName> = {
@@ -50,7 +58,7 @@ function sourceIcon(label: string): IoniconsName {
   return SOURCE_ICONS[label] ?? 'ellipse-outline';
 }
 
-export default function XpAnalyticsScreen({ user, onBack, onOpenAchievements }: Props) {
+export default function XpAnalyticsScreen({ user, onBack, onOpenAchievements, onOpenHistory }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
   const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
@@ -62,6 +70,29 @@ export default function XpAnalyticsScreen({ user, onBack, onOpenAchievements }: 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [chartWidth, setChartWidth] = useState(0);
+
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarWidth = Math.min(layout.width * (layout.isLandscape ? 0.42 : 0.8), 340);
+  const slideAnim = useRef(new Animated.Value(-sidebarWidth)).current;
+
+  const openSidebar = () => {
+    setSidebarOpen(true);
+    Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 100, friction: 14 }).start();
+  };
+  const closeSidebar = () => {
+    Animated.timing(slideAnim, { toValue: -sidebarWidth, duration: 200, useNativeDriver: true }).start(() => setSidebarOpen(false));
+  };
+
+  const [weeksOpen, setWeeksOpen] = useState(false);
+  const weeksSlideAnim = useRef(new Animated.Value(layout.width)).current;
+
+  const openWeeks = () => {
+    setWeeksOpen(true);
+    Animated.spring(weeksSlideAnim, { toValue: 0, useNativeDriver: true, tension: 100, friction: 14 }).start();
+  };
+  const closeWeeks = () => {
+    Animated.timing(weeksSlideAnim, { toValue: layout.width, duration: 200, useNativeDriver: true }).start(() => setWeeksOpen(false));
+  };
 
   const load = useCallback((nextPeriod: Period, nextWeekOffset: number) => {
     getXpHistory(user.username, nextPeriod, nextWeekOffset)
@@ -102,17 +133,15 @@ export default function XpAnalyticsScreen({ user, onBack, onOpenAchievements }: 
       <GeoBackground />
 
       <View style={s.topBar}>
-        <HapticTouchable onPress={onBack} style={s.iconBtn} haptic="light">
-          <Ionicons name="chevron-back" size={18} color={selectedTheme.accent} />
+        <HapticTouchable onPress={onBack} style={{ marginRight: 12 }} haptic="light">
+          <Ionicons name="chevron-back" size={22} color={selectedTheme.accent} />
         </HapticTouchable>
-        <Text style={s.topTitle}>xp analytics</Text>
-        {onOpenAchievements ? (
-          <HapticTouchable onPress={onOpenAchievements} style={s.iconBtn} haptic="light" accessibilityLabel="Achievements">
-            <Ionicons name="trophy-outline" size={18} color={selectedTheme.accent} />
-          </HapticTouchable>
-        ) : (
-          <View style={s.iconBtnGhost} />
-        )}
+        <View style={{ flex: 1 }}>
+          <Text style={s.topTitle}>xp analytics</Text>
+        </View>
+        <HapticTouchable onPress={openSidebar} haptic="selection" accessibilityLabel="Open menu">
+          <Ionicons name="menu-outline" size={24} color={selectedTheme.accent} />
+        </HapticTouchable>
       </View>
 
       <ScrollView
@@ -137,37 +166,10 @@ export default function XpAnalyticsScreen({ user, onBack, onOpenAchievements }: 
           })}
         </View>
 
-        {period === 'week' ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={s.weekPickerRow}
-          >
-            {Array.from({ length: PAST_WEEK_COUNT + 1 }, (_, offset) => offset).map((offset) => {
-              const active = offset === weekOffset;
-              return (
-                <HapticTouchable
-                  key={offset}
-                  style={[s.weekChip, active && s.weekChipActive]}
-                  onPress={() => setWeekOffset(offset)}
-                  haptic="selection"
-                  activeOpacity={0.85}
-                >
-                  <Text style={[s.weekChipLabel, active && s.weekChipLabelActive]}>{weekChipLabel(offset)}</Text>
-                </HapticTouchable>
-              );
-            })}
-          </ScrollView>
-        ) : null}
-
         <View style={s.hero}>
           <NeumorphicLayer grainOpacity={0.26} />
           <Text style={s.heroGhost}>xp</Text>
-          <Text style={s.eyebrow}>
-            {period === 'week'
-              ? (weekOffset === 0 ? PERIOD_COPY.week : weekChipLabel(weekOffset))
-              : PERIOD_COPY[period]}
-          </Text>
+          <Text style={s.eyebrow}>{PERIOD_COPY[period]}</Text>
           <View style={s.heroValueRow}>
             <Text style={s.heroTitle}>{loading ? '—' : totalXp}</Text>
             {!loading && deltaPercent !== 0 ? (
@@ -180,7 +182,9 @@ export default function XpAnalyticsScreen({ user, onBack, onOpenAchievements }: 
             ) : null}
           </View>
           <Text style={s.heroCopy}>
-            {period === 'week' ? 'vs. the week before' : `vs. the previous ${period === 'month' ? '30 days' : '12 months'}`}
+            {period === 'week' ? 'vs. the week before'
+              : period === 'all' ? 'total XP earned since day one'
+              : `vs. the previous ${period === 'month' ? '30 days' : '12 months'}`}
           </Text>
         </View>
 
@@ -194,7 +198,7 @@ export default function XpAnalyticsScreen({ user, onBack, onOpenAchievements }: 
                 height={168}
                 color={selectedTheme.accentHover}
                 labelColor={selectedTheme.textSecondary}
-                maxLabels={period === 'week' ? 7 : period === 'year' ? 12 : 8}
+                maxLabels={period === 'week' ? 7 : (period === 'year' || period === 'all') ? 12 : 8}
               />
             ) : (
               <View style={s.chartLoading}>
@@ -236,7 +240,180 @@ export default function XpAnalyticsScreen({ user, onBack, onOpenAchievements }: 
           )}
         </View>
       </ScrollView>
+
+      <XpMenuSidebar
+        visible={sidebarOpen}
+        sidebarWidth={sidebarWidth}
+        slideAnim={slideAnim}
+        onClose={closeSidebar}
+        onHistory={onOpenHistory}
+        onAchievements={onOpenAchievements}
+        onWeeks={openWeeks}
+      />
+
+      <XpWeeksPanel
+        visible={weeksOpen}
+        width={layout.width}
+        slideAnim={weeksSlideAnim}
+        onClose={closeWeeks}
+        weekOffset={weekOffset}
+        onSelect={(offset) => {
+          setPeriod('week');
+          setWeekOffset(offset);
+          closeWeeks();
+        }}
+      />
     </SafeAreaView>
+  );
+}
+
+// Hamburger-menu sidebar for the XP analytics page — mirrors the sliding
+// panel pattern from FlashcardsScreen's menu (Modal + Animated translateX)
+// so the two feel like the same app, with "history" (the recent XP activity
+// feed) as its own full page instead of being crammed into this scroll view.
+function XpMenuSidebar({
+  visible,
+  sidebarWidth,
+  slideAnim,
+  onClose,
+  onHistory,
+  onAchievements,
+  onWeeks,
+}: {
+  visible: boolean;
+  sidebarWidth: number;
+  slideAnim: Animated.Value;
+  onClose: () => void;
+  onHistory?: () => void;
+  onAchievements?: () => void;
+  onWeeks?: () => void;
+}) {
+  const { selectedTheme: theme } = useAppTheme();
+  const s = useMemo(() => createSidebarStyles(theme), [theme]);
+  if (!visible) return null;
+
+  const items: { key: MenuKey; label: string; icon: IoniconsName; iconActive: IoniconsName; onPress?: () => void }[] = [
+    { key: 'overview', label: 'Overview', icon: 'stats-chart-outline', iconActive: 'stats-chart' },
+    { key: 'weeks', label: 'Weeks', icon: 'calendar-outline', iconActive: 'calendar', onPress: onWeeks },
+    { key: 'history', label: 'History', icon: 'time-outline', iconActive: 'time', onPress: onHistory },
+    { key: 'achievements', label: 'Achievements', icon: 'trophy-outline', iconActive: 'trophy', onPress: onAchievements },
+  ];
+
+  return (
+    <Modal transparent animationType="none" onRequestClose={onClose}>
+      <View style={s.overlay}>
+        <HapticTouchable style={StyleSheet.absoluteFill} onPress={onClose} activeOpacity={1} haptic="none" />
+        <Animated.View style={[s.panel, { width: sidebarWidth, transform: [{ translateX: slideAnim }] }]}>
+          <LinearGradient
+            colors={[darkenColor(theme.bgTop, theme.isLight ? 4 : 0), theme.panelAlt, theme.bgPrimary]}
+            style={StyleSheet.absoluteFill}
+          />
+          <SafeAreaView style={{ flex: 1, paddingBottom: 6 }} edges={['top', 'bottom']}>
+            <View style={s.hero}>
+              <NeumorphicLayer grainOpacity={0.22} />
+              <Text style={s.heroTitle}>xp</Text>
+              <Text style={s.heroSub}>analytics menu</Text>
+            </View>
+
+            <View style={s.menu}>
+              {items.map((item) => {
+                const active = item.key === 'overview';
+                return active ? (
+                  <View key={item.key} style={[s.card, s.cardActive]}>
+                    <View style={s.row}>
+                      <View style={[s.iconWrap, s.iconWrapActive]}>
+                        <Ionicons name={item.iconActive} size={16} color={theme.bgPrimary} />
+                      </View>
+                      <Text style={[s.label, s.labelActive]}>{item.label}</Text>
+                      <View style={s.activeDot} />
+                    </View>
+                  </View>
+                ) : (
+                  <HapticTouchable
+                    key={item.key}
+                    style={s.card}
+                    onPress={() => { onClose(); item.onPress?.(); }}
+                    haptic="selection"
+                    activeOpacity={0.85}
+                    disabled={!item.onPress}
+                  >
+                    <View style={s.row}>
+                      <View style={s.iconWrap}>
+                        <Ionicons name={item.icon} size={16} color={theme.accentHover} />
+                      </View>
+                      <Text style={s.label}>{item.label}</Text>
+                      <Ionicons name="chevron-forward" size={15} color={theme.textSecondary} />
+                    </View>
+                  </HapticTouchable>
+                );
+              })}
+            </View>
+          </SafeAreaView>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
+// Dedicated full-page week list, opened from the hamburger menu's "Weeks"
+// item instead of a picker crammed onto the main scroll view. Slides in from
+// the right (the hamburger sidebar slides from the left) so the two read as
+// separate, distinct panels.
+function XpWeeksPanel({
+  visible,
+  width,
+  slideAnim,
+  onClose,
+  weekOffset,
+  onSelect,
+}: {
+  visible: boolean;
+  width: number;
+  slideAnim: Animated.Value;
+  onClose: () => void;
+  weekOffset: number;
+  onSelect: (offset: number) => void;
+}) {
+  const { selectedTheme: theme } = useAppTheme();
+  const layout = useResponsiveLayout();
+  const s = useMemo(() => createWeeksStyles(theme, layout), [theme, layout]);
+  if (!visible) return null;
+
+  const weeks = Array.from({ length: PAST_WEEK_COUNT + 1 }, (_, offset) => offset);
+
+  return (
+    <Modal transparent animationType="none" onRequestClose={onClose}>
+      <View style={s.overlay}>
+        <Animated.View style={[s.panel, { width, transform: [{ translateX: slideAnim }] }]}>
+          <LinearGradient colors={[theme.bgTop, theme.bgPrimary, theme.bgBottom]} style={StyleSheet.absoluteFillObject} />
+          <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+            <View style={s.header}>
+              <HapticTouchable style={s.iconBtn} onPress={onClose} haptic="light" accessibilityLabel="Close">
+                <Ionicons name="chevron-back" size={20} color={theme.accentHover} />
+              </HapticTouchable>
+              <Text style={s.title}>weeks</Text>
+            </View>
+            <ScrollView contentContainerStyle={s.list} showsVerticalScrollIndicator={false}>
+              {weeks.map((offset) => {
+                const active = offset === weekOffset;
+                return (
+                  <HapticTouchable
+                    key={offset}
+                    style={[s.row, active && s.rowActive]}
+                    onPress={() => onSelect(offset)}
+                    haptic="selection"
+                    activeOpacity={0.85}
+                  >
+                    <Text style={[s.rowLabel, active && s.rowLabelActive]}>{weekDateRangeLabel(offset)}</Text>
+                    {active ? <Ionicons name="checkmark-circle" size={18} color={theme.accentHover} /> : null}
+                  </HapticTouchable>
+                );
+              })}
+            </ScrollView>
+          </SafeAreaView>
+        </Animated.View>
+      </View>
+    </Modal>
   );
 }
 
@@ -265,14 +442,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       alignItems: 'center',
       justifyContent: 'space-between',
     },
-    iconBtn: {
-      width: 40, height: 40, borderRadius: 16,
-      borderWidth: 1, borderColor: border,
-      backgroundColor: rgbaFromHex(surface, 0.72),
-      alignItems: 'center', justifyContent: 'center',
-      boxShadow: cbTileShadow(0.06),
-    } as ViewStyle,
-    iconBtnGhost: { width: 40, height: 40 },
     topTitle: {
       fontFamily: 'Inter_900Black',
       fontSize: 15,
@@ -291,9 +460,11 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     periodBtn: {
       flex: 1,
-      paddingVertical: 8,
+      paddingVertical: 10,
+      paddingHorizontal: 8,
       borderRadius: 12,
       alignItems: 'center',
+      justifyContent: 'center',
     },
     periodBtnActive: {
       backgroundColor: theme.accent,
@@ -306,32 +477,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       color: theme.textSecondary,
     },
     periodLabelActive: {
-      color: theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary,
-    },
-    weekPickerRow: {
-      gap: 8,
-      paddingHorizontal: 4,
-    },
-    weekChip: {
-      paddingHorizontal: 14,
-      paddingVertical: 8,
-      borderRadius: 12,
-      backgroundColor: rgbaFromHex(surface, 0.6),
-      borderWidth: 1,
-      borderColor: border,
-    },
-    weekChipActive: {
-      backgroundColor: theme.accent,
-      borderColor: theme.accent,
-    },
-    weekChipLabel: {
-      fontFamily: 'Inter_600SemiBold',
-      fontSize: 11,
-      letterSpacing: 0.3,
-      color: theme.textSecondary,
-      textTransform: 'lowercase',
-    },
-    weekChipLabelActive: {
       color: theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary,
     },
     hero: { borderRadius: 26, padding: 20, overflow: 'hidden', boxShadow: cbModalShadow(0.14) } as ViewStyle,
@@ -425,5 +570,74 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     sourceRailFill: { height: '100%', borderRadius: 3, backgroundColor: theme.accent },
     sourceMeta: { fontFamily: 'Inter_400Regular', fontSize: 10, color: theme.textSecondary, marginTop: 5, letterSpacing: 0.3 },
+  });
+}
+
+function createSidebarStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
+  const border = rgbaFromHex(theme.accentHover, theme.isLight ? 0.2 : 0.31);
+  return StyleSheet.create({
+    overlay: { flex: 1, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.58)' },
+    panel: {
+      height: '100%', borderRightWidth: 1, borderRightColor: border,
+      overflow: 'hidden', boxShadow: cbModalShadow(0.2),
+    },
+    hero: {
+      marginHorizontal: 14, marginTop: 12, marginBottom: 14,
+      borderRadius: 22, padding: 16, overflow: 'hidden',
+      boxShadow: cbModalShadow(0.14),
+    } as ViewStyle,
+    heroTitle: { fontFamily: 'Inter_900Black', fontSize: 22, color: theme.accentHover, letterSpacing: -0.5 },
+    heroSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: theme.textSecondary, marginTop: 3 },
+
+    menu: { paddingHorizontal: 10, gap: 4 },
+    card: { borderRadius: 16, overflow: 'hidden' },
+    cardActive: { backgroundColor: rgbaFromHex(theme.accent, 0.14) },
+    row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 12 },
+    iconWrap: {
+      width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center',
+      backgroundColor: rgbaFromHex(theme.accent, theme.isLight ? 0.12 : 0.18), borderWidth: 1, borderColor: border,
+    },
+    iconWrapActive: { backgroundColor: theme.accentHover, borderColor: theme.accentHover },
+    label: { flex: 1, fontFamily: 'Inter_600SemiBold', fontSize: 14, color: theme.accentHover },
+    labelActive: { color: theme.accentHover, fontFamily: 'Inter_700Bold' },
+    activeDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: theme.accentHover },
+  });
+}
+
+function createWeeksStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
+  const border = rgbaFromHex(theme.accentHover, theme.isLight ? 0.18 : 0.2);
+  const surface = theme.panel;
+  return StyleSheet.create({
+    overlay: { flex: 1, backgroundColor: theme.bgPrimary },
+    panel: { height: '100%' },
+    header: {
+      width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
+      paddingHorizontal: 4, paddingTop: 10, paddingBottom: 6,
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+    },
+    iconBtn: {
+      width: 40, height: 40, borderRadius: 16,
+      borderWidth: 1, borderColor: border,
+      backgroundColor: rgbaFromHex(surface, 0.72),
+      alignItems: 'center', justifyContent: 'center',
+      boxShadow: cbTileShadow(0.06),
+    } as ViewStyle,
+    title: {
+      fontFamily: 'Inter_900Black', fontSize: 15, color: theme.accentHover,
+      letterSpacing: 0.4, textTransform: 'uppercase',
+    },
+    list: {
+      width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
+      paddingHorizontal: 4, paddingTop: 12, paddingBottom: 40, gap: 8,
+    },
+    row: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      borderRadius: 16, paddingHorizontal: 16, paddingVertical: 15,
+      backgroundColor: rgbaFromHex(surface, 0.72), borderWidth: 1, borderColor: border,
+      boxShadow: cbTileShadow(0.05),
+    } as ViewStyle,
+    rowActive: { backgroundColor: rgbaFromHex(theme.accent, theme.isLight ? 0.12 : 0.16), borderColor: theme.accentHover },
+    rowLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: theme.textPrimary },
+    rowLabelActive: { color: theme.accentHover, fontFamily: 'Inter_700Bold' },
   });
 }

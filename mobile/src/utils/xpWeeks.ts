@@ -1,4 +1,4 @@
-/** How many past calendar weeks (beyond the current one) the week picker offers. */
+/** How many past calendar weeks (beyond the current one) the week list offers. */
 export const PAST_WEEK_COUNT = 7;
 
 function mondayOfWeek(date: Date): Date {
@@ -9,7 +9,7 @@ function mondayOfWeek(date: Date): Date {
   return d;
 }
 
-/** Monday–Sunday range label for the calendar week `weekOffset` weeks before this one. */
+/** Monday–Sunday calendar range for the week `weekOffset` weeks before this one. */
 export function weekDateRangeLabel(weekOffset: number): string {
   const monday = mondayOfWeek(new Date());
   monday.setDate(monday.getDate() - 7 * weekOffset);
@@ -21,11 +21,4 @@ export function weekDateRangeLabel(weekOffset: number): string {
     return `${monthLabel(monday)} ${monday.getDate()}–${sunday.getDate()}`;
   }
   return `${monthLabel(monday)} ${monday.getDate()} – ${monthLabel(sunday)} ${sunday.getDate()}`;
-}
-
-/** Short chip label for the week picker: "this week", "last week", or a date range. */
-export function weekChipLabel(weekOffset: number): string {
-  if (weekOffset === 0) return 'this week';
-  if (weekOffset === 1) return 'last week';
-  return weekDateRangeLabel(weekOffset);
 }

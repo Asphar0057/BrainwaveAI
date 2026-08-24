@@ -59,7 +59,7 @@ import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 import MathText from '../components/MathText';
 
 type HubTab = 'vault' | 'ask' | 'concepts' | 'reviews' | 'commands';
-type AppTarget = 'flashcards' | 'notes' | 'aimedia' | 'settings' | 'questionBank' | 'knowledgeMaps' | 'slideExplorer' | 'canvasHub' | 'analytics' | 'weaknessPractice' | 'learningPaths';
+type AppTarget = 'flashcards' | 'notes' | 'aimedia' | 'settings' | 'questionBank' | 'knowledgeMaps' | 'slideExplorer' | 'canvasHub' | 'xpAnalytics' | 'weaknessPractice' | 'learningPaths';
 type Props = { user: AuthUser; onBack: () => void; onNavigate?: (screen: AppTarget) => void };
 
 type AskResult = {
