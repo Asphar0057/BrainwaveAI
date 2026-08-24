@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signInWithPopup } from 'firebase/auth';
 import axios from 'axios';
+import { Eye, EyeOff } from 'lucide-react';
 import { auth, googleProvider } from '../firebase/config';
 import LoadingSpinner from '../components/LoadingSpinner';
 import GeometricGrid from '../components/GeometricGrid';
@@ -22,6 +23,8 @@ function Register() {
   });
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [verificationStep, setVerificationStep] = useState('form');
   const [registrationOtp, setRegistrationOtp] = useState('');
   const [registrationStatus, setRegistrationStatus] = useState('');
@@ -345,31 +348,55 @@ function Register() {
                   </div>
                   <div className="lg-field">
                     <label className="lg-label" htmlFor="rg-password">Password</label>
-                    <input
-                      id="rg-password"
-                      type="password"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      className="lg-input"
-                      placeholder="Create a password"
-                      required
-                      disabled={disabled}
-                    />
+                    <div className="lg-input-group">
+                      <input
+                        id="rg-password"
+                        type={showPassword ? 'text' : 'password'}
+                        name="password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        className="lg-input lg-input--pw"
+                        placeholder="Create a password"
+                        required
+                        disabled={disabled}
+                      />
+                      <button
+                        type="button"
+                        className="lg-eye-btn"
+                        onClick={() => setShowPassword(v => !v)}
+                        disabled={disabled}
+                        tabIndex={-1}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
                   </div>
                   <div className="lg-field">
                     <label className="lg-label" htmlFor="rg-confirm">Confirm password</label>
-                    <input
-                      id="rg-confirm"
-                      type="password"
-                      name="confirmPassword"
-                      value={formData.confirmPassword}
-                      onChange={handleChange}
-                      className="lg-input"
-                      placeholder="Re-enter your password"
-                      required
-                      disabled={disabled}
-                    />
+                    <div className="lg-input-group">
+                      <input
+                        id="rg-confirm"
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        name="confirmPassword"
+                        value={formData.confirmPassword}
+                        onChange={handleChange}
+                        className="lg-input lg-input--pw"
+                        placeholder="Re-enter your password"
+                        required
+                        disabled={disabled}
+                      />
+                      <button
+                        type="button"
+                        className="lg-eye-btn"
+                        onClick={() => setShowConfirmPassword(v => !v)}
+                        disabled={disabled}
+                        tabIndex={-1}
+                        aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
                   </div>
                   <button type="submit" className="lg-submit" disabled={disabled}>
                     {loading ? 'Sending OTP...' : 'Create Account'}

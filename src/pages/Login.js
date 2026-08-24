@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { Eye, EyeOff } from 'lucide-react';
 import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase/config';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -24,10 +25,13 @@ function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetStep, setResetStep] = useState('request');
   const [resetLoading, setResetLoading] = useState(false);
   const [resetStatus, setResetStatus] = useState('');
+  const [showResetNewPassword, setShowResetNewPassword] = useState(false);
+  const [showResetConfirmPassword, setShowResetConfirmPassword] = useState(false);
   const [resetForm, setResetForm] = useState({
     identifier: '',
     otp: '',
@@ -264,6 +268,8 @@ function Login() {
       setPassword('');
       setResetStep('request');
       setResetForm({ identifier: '', otp: '', newPassword: '', confirmPassword: '' });
+      setShowResetNewPassword(false);
+      setShowResetConfirmPassword(false);
       setTimeout(() => setResetOpen(false), 1200);
     } catch (err) {
       setResetStatus(err.response?.data?.detail || 'Could not reset password. Try again.');
@@ -339,16 +345,28 @@ function Login() {
               </div>
               <div className="lg-field">
                 <label className="lg-label" htmlFor="lg-password">Password</label>
-                <input
-                  id="lg-password"
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  className="lg-input"
-                  placeholder="Enter your password"
-                  required
-                  disabled={loading || googleLoading}
-                />
+                <div className="lg-input-group">
+                  <input
+                    id="lg-password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    className="lg-input lg-input--pw"
+                    placeholder="Enter your password"
+                    required
+                    disabled={loading || googleLoading}
+                  />
+                  <button
+                    type="button"
+                    className="lg-eye-btn"
+                    onClick={() => setShowPassword(v => !v)}
+                    disabled={loading || googleLoading}
+                    tabIndex={-1}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
               <button type="submit" className="lg-submit" disabled={loading || googleLoading}>
                 {loading ? 'Signing in…' : 'Sign In'}
@@ -407,29 +425,53 @@ function Login() {
                     </div>
                     <div className="lg-field">
                       <label className="lg-label" htmlFor="lg-reset-newpw">New password</label>
-                      <input
-                        id="lg-reset-newpw"
-                        type="password"
-                        value={resetForm.newPassword}
-                        onChange={e => handleResetChange('newPassword', e.target.value)}
-                        className="lg-input"
-                        placeholder="Enter a new password"
-                        required
-                        disabled={resetLoading}
-                      />
+                      <div className="lg-input-group">
+                        <input
+                          id="lg-reset-newpw"
+                          type={showResetNewPassword ? 'text' : 'password'}
+                          value={resetForm.newPassword}
+                          onChange={e => handleResetChange('newPassword', e.target.value)}
+                          className="lg-input lg-input--pw"
+                          placeholder="Enter a new password"
+                          required
+                          disabled={resetLoading}
+                        />
+                        <button
+                          type="button"
+                          className="lg-eye-btn"
+                          onClick={() => setShowResetNewPassword(v => !v)}
+                          disabled={resetLoading}
+                          tabIndex={-1}
+                          aria-label={showResetNewPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showResetNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
                     </div>
                     <div className="lg-field">
                       <label className="lg-label" htmlFor="lg-reset-confirmpw">Confirm password</label>
-                      <input
-                        id="lg-reset-confirmpw"
-                        type="password"
-                        value={resetForm.confirmPassword}
-                        onChange={e => handleResetChange('confirmPassword', e.target.value)}
-                        className="lg-input"
-                        placeholder="Re-enter the new password"
-                        required
-                        disabled={resetLoading}
-                      />
+                      <div className="lg-input-group">
+                        <input
+                          id="lg-reset-confirmpw"
+                          type={showResetConfirmPassword ? 'text' : 'password'}
+                          value={resetForm.confirmPassword}
+                          onChange={e => handleResetChange('confirmPassword', e.target.value)}
+                          className="lg-input lg-input--pw"
+                          placeholder="Re-enter the new password"
+                          required
+                          disabled={resetLoading}
+                        />
+                        <button
+                          type="button"
+                          className="lg-eye-btn"
+                          onClick={() => setShowResetConfirmPassword(v => !v)}
+                          disabled={resetLoading}
+                          tabIndex={-1}
+                          aria-label={showResetConfirmPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showResetConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
                     </div>
                     <button type="submit" className="lg-submit lg-submit-secondary" disabled={resetLoading}>
                       {resetLoading ? 'Updating…' : 'Reset Password'}

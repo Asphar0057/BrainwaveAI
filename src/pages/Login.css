@@ -303,6 +303,42 @@
   opacity: 0.5;
 }
 
+.lg-input-group {
+  position: relative;
+}
+
+.lg-input--pw {
+  padding-right: 44px;
+}
+
+.lg-eye-btn {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--lg-fg-dim);
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.lg-eye-btn:hover:not(:disabled) {
+  color: var(--lg-accent);
+}
+
+.lg-eye-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .lg-submit {
   width: 100%;
   padding: 14px;
