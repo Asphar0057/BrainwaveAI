@@ -1233,7 +1233,7 @@ function FlashcardsSets({
           ) : viewMode === 'grid' ? (
             <ScrollView
               style={s.collectionScroll}
-              contentContainerStyle={[s.collectionGrid, { gap: columns === 3 ? 10 : 9 }]}
+              contentContainerStyle={[s.collectionGrid, { gap: columns === 3 ? 10 : 8 }]}
               showsVerticalScrollIndicator={false}
               bounces
               refreshControl={(
@@ -1248,7 +1248,7 @@ function FlashcardsSets({
               {filteredSets.map((item, index) => (
                 <View
                   key={item.id}
-                  style={[s.collectionCard, { width: columns === 3 ? '31.8%' : '48.6%' }]}
+                  style={[s.collectionCard, { width: columns === 3 ? '31.8%' : '48.8%' }]}
                 >
                   <View style={[s.collectionCover, { backgroundColor: coverColors[index % coverColors.length] }]}>
                     <HapticTouchable
@@ -1472,7 +1472,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     paddingTop: 18,
     paddingBottom: 12,
   },
@@ -1483,7 +1483,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     width: '100%',
     maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
     paddingBottom: 16,
   },
   // One full-width, cinematically letter-spaced call to action -- replaces the old three-button row.
@@ -1518,18 +1518,20 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   viewToggleBtnActive: { backgroundColor: ACCENT },
   collectionScroll: { flex: 1 },
   collectionGrid: { flexDirection: 'row', flexWrap: 'wrap', alignContent: 'flex-start', paddingBottom: 18 },
-  // Square like the notes page's cards -- width comes from the inline percentage below, aspectRatio:1 follows it.
-  collectionCard: { aspectRatio: 1, borderRadius: 17, backgroundColor: rgbaFromHex(SURFACE, 0.95), overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
-  collectionCover: { flex: 0.82, paddingHorizontal: 14, paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
+  // Width comes from the inline percentage below; height is intrinsic to
+  // content (no aspectRatio) -- a forced square couldn't fit a 3-line title
+  // plus the count/mastery/action rows below it without the title spilling
+  // past the card's own bounds, so the card grows to whatever it needs.
+  collectionCard: { borderRadius: 17, backgroundColor: rgbaFromHex(SURFACE, 0.95), overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
+  collectionCover: { minHeight: 104, paddingHorizontal: 14, paddingVertical: 16, alignItems: 'center', justifyContent: 'center' },
   collectionFavoriteBtn: {
     position: 'absolute', top: 8, right: 8,
     width: 26, height: 26, borderRadius: 13,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(23,20,17,0.16)',
   },
   collectionCardTitle: { fontFamily: 'Inter_900Black', fontSize: 14, lineHeight: 17, color: '#171411', textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 },
   collectionCardCount: { fontFamily: 'Inter_700Bold', fontSize: 9, color: rgbaFromHex('#171411', 0.66), letterSpacing: 1.2, marginTop: 7 },
-  collectionCardMeta: { flex: 1, padding: 14, justifyContent: 'space-between', gap: 8 },
+  collectionCardMeta: { padding: 14, gap: 10 },
   collectionMasteryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   collectionMasteryLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: DIM2, letterSpacing: 1 },
   collectionMasteryValue: { fontFamily: 'Inter_700Bold', fontSize: 11, color: ACCENT },
@@ -1608,9 +1610,9 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
 
   // Same module as the explore page's bento tiles: index number + check
   // top row, big bold title bottom, no icon glyph -- generously padded, not cramped.
-  modeGrid: { flexDirection: 'row', gap: 12 },
+  modeGrid: { flexDirection: 'row', gap: 14 },
   modeCard: {
-    flex: 1, minHeight: 96, borderRadius: 16, padding: 16, overflow: 'hidden',
+    flex: 1, minHeight: 118, borderRadius: 16, padding: 20, overflow: 'hidden',
   },
   modeActiveWash: {
     ...StyleSheet.absoluteFillObject,
