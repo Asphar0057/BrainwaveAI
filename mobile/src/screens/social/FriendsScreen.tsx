@@ -10,11 +10,12 @@ import { AuthUser } from '../../services/auth';
 import {
   getFriends, getFriendRequests, getFriendActivityFeed,
   respondFriendRequest, searchUsers, sendFriendRequest,
-  removeFriend, giveKudos,
+  removeFriend, giveKudos, getLeaderboard,
 } from '../../services/api';
 import HapticTouchable from '../../components/HapticTouchable';
 import GeoBackground from '../../components/GeoBackground';
 import SocialTileMaterial from '../../components/SocialTileMaterial';
+import SectionSidebar from '../../components/SectionSidebar';
 import { cbTileShadow, cbModalShadow, cbTileBorder } from '../../components/NeumorphicTexture';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../../utils/theme';
@@ -78,17 +79,37 @@ export default function FriendsScreen({ user, onBack }: Props) {
   const [searching, setSearching]   = useState(false);
   const [sentIds, setSentIds]       = useState<Set<string>>(new Set());
   const [kudosSent, setKudosSent]   = useState<Set<number>>(new Set());
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [fr, rq, fd] = await Promise.all([
+      const [fr, rq, fd, lb] = await Promise.all([
         getFriends(user.username),
         getFriendRequests(user.username),
         getFriendActivityFeed(user.username),
+        getLeaderboard('global', 15).catch(() => null),
       ]);
-      setFriends(Array.isArray(fr) ? fr : fr?.friends ?? []);
+      const friendList = Array.isArray(fr) ? fr : fr?.friends ?? [];
+      setFriends(friendList);
       setRequests(Array.isArray(rq) ? rq : rq?.received ?? []);
       setFeed(Array.isArray(fd) ? fd : fd?.activities ?? fd?.feed ?? []);
+
+      // "People you may know" -- no dedicated suggestions endpoint exists
+      // anywhere in this app (checked both web and backend), so this reuses
+      // the global leaderboard as a real, already-working source of other
+      // users, filtered down to people who aren't already friends or you.
+      const board = lb?.leaderboard ?? (Array.isArray(lb) ? lb : []);
+      const friendUsernames = new Set(friendList.map((f: any) => (f.username || f.friend_username || '').toLowerCase()));
+      setSuggestions(
+        board
+          .filter((e: any) => {
+            const uname = (e.username || e.name || '').toLowerCase();
+            return uname && uname !== user.username.toLowerCase() && !friendUsernames.has(uname) && !e.is_current_user;
+          })
+          .slice(0, 6)
+      );
     } catch {} finally {
       setLoading(false);
       setRefreshing(false);
@@ -162,41 +183,17 @@ export default function FriendsScreen({ user, onBack }: Props) {
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
       <GeoBackground />
 
-      {/* Product header */}
-      <View style={s.topBar}>
-        <HapticTouchable onPress={onBack} style={s.backBtn} haptic="light">
-          <Ionicons name="chevron-back" size={18} color={selectedTheme.accent} />
+      {/* Same header construction as Solo Quiz / Battles / Flashcards. */}
+      <View style={s.header}>
+        <HapticTouchable onPress={onBack} style={{ marginRight: 12 }} haptic="selection">
+          <Ionicons name="chevron-back" size={22} color={selectedTheme.accentHover} />
         </HapticTouchable>
-        <Text style={s.headerTitle}>friends</Text>
-        <HapticTouchable style={s.headerSignal} onPress={() => setTab('requests')} haptic="light">
-          <Ionicons name="mail-outline" size={17} color={selectedTheme.accentHover} />
-          {requests.length > 0 && (
-            <View style={s.headerSignalBadge}>
-              <Text style={s.headerSignalBadgeText}>{requests.length}</Text>
-            </View>
-          )}
-        </HapticTouchable>
-      </View>
-
-      {/* Circle summary */}
-      <View style={s.hero}>
-        <View style={s.heroPanel}>
-          <SocialTileMaterial />
-          <View style={s.heroStat}>
-            <Text style={s.heroStatValue}>{friends.length}</Text>
-            <Text style={s.heroStatLabel}>friends</Text>
-          </View>
-          <View style={s.heroStatDivider} />
-          <View style={s.heroStat}>
-            <Text style={s.heroStatValue}>{requests.length}</Text>
-            <Text style={s.heroStatLabel}>requests</Text>
-          </View>
-          <View style={s.heroStatDivider} />
-          <View style={s.heroStat}>
-            <Text style={s.heroStatValue}>{feed.length}</Text>
-            <Text style={s.heroStatLabel}>activity</Text>
-          </View>
+        <View style={{ flex: 1 }}>
+          <Text style={s.title}>friends</Text>
         </View>
+        <HapticTouchable onPress={() => setSidebarOpen(true)} haptic="selection" accessibilityLabel="Open menu">
+          <Ionicons name="menu-outline" size={24} color={selectedTheme.accentHover} />
+        </HapticTouchable>
       </View>
 
       {/* Search */}
@@ -251,20 +248,12 @@ export default function FriendsScreen({ user, onBack }: Props) {
         </View>
       )}
 
-      {/* Tabs */}
-      <View style={s.tabShell}>
-      <View style={s.tabRow}>
-        {(['friends', 'requests', 'activity'] as const).map(t => (
-          <HapticTouchable key={t} style={[s.tabItem, tab === t && s.tabItemActive]} onPress={() => setTab(t)} haptic="selection">
-            <Text style={[s.tabText, tab === t && s.tabTextActive]}>
-              {t}
-            </Text>
-            {t === 'requests' && requests.length > 0 && (
-              <View style={s.tabCount}><Text style={s.tabCountText}>{requests.length}</Text></View>
-            )}
-          </HapticTouchable>
-        ))}
-      </View>
+      <View style={s.collectionHeader}>
+        <Text style={s.collectionCount}>
+          {tab === 'friends' ? `${friends.length} ${friends.length === 1 ? 'friend' : 'friends'}`
+            : tab === 'requests' ? `${requests.length} pending`
+            : `${feed.length} recent`}
+        </Text>
       </View>
 
       <ScrollView
@@ -275,13 +264,43 @@ export default function FriendsScreen({ user, onBack }: Props) {
         {/* Friends tab */}
         {tab === 'friends' && (
           friends.length === 0 ? (
-            <View style={empty.wrap}>
-              <SocialTileMaterial />
-              <LinearGradient colors={[rgbaFromHex(darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26), 0.18), rgbaFromHex(darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26), 0.04)]} style={empty.icon}>
-                <Ionicons name="people-outline" size={40} color={darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26)} />
-              </LinearGradient>
-              <Text style={empty.title}>no friends yet</Text>
-            </View>
+            <>
+              <View style={empty.wrap}>
+                <SocialTileMaterial />
+                <LinearGradient colors={[rgbaFromHex(darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26), 0.18), rgbaFromHex(darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26), 0.04)]} style={empty.icon}>
+                  <Ionicons name="people-outline" size={40} color={darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26)} />
+                </LinearGradient>
+                <Text style={empty.title}>no friends yet</Text>
+              </View>
+
+              {suggestions.length > 0 && (
+                <View style={s.suggestBlock}>
+                  <Text style={s.suggestLabel}>PEOPLE YOU MAY KNOW</Text>
+                  <View style={s.resultsSheet}>
+                    {suggestions.map((sug: any, i: number) => {
+                    const uname = sug.username || sug.name || '?';
+                    const sent = sentIds.has(uname);
+                    return (
+                      <View key={sug.id ?? sug.user_id ?? i} style={[s.resultRow, i < suggestions.length - 1 && s.resultDivider]}>
+                        <Avatar name={uname} size={36} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={s.resultName}>{uname}</Text>
+                          <Text style={s.resultSub}>{(sug.score ?? sug.total_points ?? sug.points) ? `${sug.score ?? sug.total_points ?? sug.points} xp` : 'active learner'}</Text>
+                        </View>
+                        <HapticTouchable
+                          style={[s.addChip, sent && s.addChipSent]}
+                          onPress={() => !sent && doSend(uname)}
+                          haptic="medium"
+                        >
+                          <Text style={[s.addChipText, sent && { color: darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 26) }]}>{sent ? 'sent' : '+ add'}</Text>
+                        </HapticTouchable>
+                      </View>
+                    );
+                    })}
+                  </View>
+                </View>
+              )}
+            </>
           ) : friends.map((f: any, i: number) => {
             const streak  = fstreak(f);
             const mastered = fmaster(f);
@@ -400,6 +419,21 @@ export default function FriendsScreen({ user, onBack }: Props) {
 
         <View style={{ height: 48 }} />
       </ScrollView>
+
+      <SectionSidebar
+        visible={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        pageTitle="friends"
+        items={[
+          { key: 'friends', label: 'Friends', icon: 'people', iconOutline: 'people-outline' },
+          { key: 'requests', label: 'Requests', icon: 'mail', iconOutline: 'mail-outline', badge: requests.length },
+          { key: 'activity', label: 'Activity', icon: 'pulse', iconOutline: 'pulse-outline' },
+        ]}
+        activeKey={tab}
+        onSelect={(key) => setTab(key as 'friends' | 'requests' | 'activity')}
+        footerLabel="Social"
+        onFooterPress={onBack}
+      />
     </View>
   );
 }
@@ -410,53 +444,13 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   const SURFACE_ALT = theme.panelAlt;
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bgPrimary },
-    topBar: {
+    // Same header construction as Solo Quiz / Battles / Flashcards.
+    header: {
       width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
-      height: 70, flexDirection: 'row', alignItems: 'center',
-      paddingHorizontal: 4, gap: 12,
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingHorizontal: 10, paddingTop: 18, paddingBottom: 12,
     },
-    backBtn: {
-      width: 40, height: 40, borderRadius: 14,
-      backgroundColor: rgbaFromHex(SURFACE_ALT, 0.76),
-      borderWidth: 1, borderColor: theme.borderStrong,
-      alignItems: 'center', justifyContent: 'center',
-    },
-    headerTitle: {
-      flex: 1, fontFamily: 'Inter_900Black', fontSize: 25,
-      color: theme.textPrimary, letterSpacing: -0.8,
-    },
-    headerSignal: {
-      width: 40, height: 40, borderRadius: 14, alignItems: 'center',
-      justifyContent: 'center', borderWidth: 1, borderColor: theme.borderStrong,
-      backgroundColor: rgbaFromHex(SURFACE_ALT, 0.76),
-    },
-    headerSignalBadge: {
-      position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18,
-      borderRadius: 9, paddingHorizontal: 4, alignItems: 'center',
-      justifyContent: 'center', backgroundColor: theme.danger,
-      borderWidth: 2, borderColor: theme.bgPrimary,
-    },
-    headerSignalBadgeText: { fontFamily: 'Inter_900Black', fontSize: 9, color: '#fff' },
-    hero: {
-      width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
-      paddingHorizontal: 4, marginTop: 8,
-    },
-    heroPanel: {
-      minHeight: 68, flexDirection: 'row', alignItems: 'center',
-      overflow: 'hidden', borderRadius: 20,
-      boxShadow: cbTileShadow(0.06),
-      ...cbTileBorder(0.16),
-    },
-    heroStat: { flex: 1, alignItems: 'center' },
-    heroStatValue: {
-      fontFamily: 'Inter_900Black', fontSize: 18,
-      color: theme.accentHover, letterSpacing: -0.3,
-    },
-    heroStatLabel: {
-      marginTop: 2, fontFamily: 'Inter_600SemiBold', fontSize: 9.5,
-      color: theme.textSecondary, letterSpacing: 0.8, textTransform: 'uppercase',
-    },
-    heroStatDivider: { width: 1, height: 24, backgroundColor: theme.border },
+    title: { fontFamily: 'Inter_900Black', fontSize: 32, color: theme.accentHover, letterSpacing: -0.8 },
     searchWrap: {
       width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
       paddingHorizontal: 4, marginTop: 12, marginBottom: 12,
@@ -492,34 +486,17 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     addChip: { backgroundColor: rgbaFromHex(ACCENT_DARK, 0.14), borderRadius: 999, paddingHorizontal: 11, paddingVertical: 7, borderWidth: 1, borderColor: theme.borderStrong },
     addChipSent: { backgroundColor: 'transparent', borderColor: theme.border },
     addChipText: { fontFamily: 'Inter_700Bold', fontSize: 10, color: theme.accentHover },
-    tabShell: {
+    // Same construction as Flashcards'/Solo Quiz's/Battles' collection-count
+    // row -- section switching now lives in the hamburger sidebar instead
+    // of an inline segmented tab row.
+    collectionHeader: {
       width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
-      paddingHorizontal: 4, marginBottom: 12,
+      paddingHorizontal: 4, minHeight: 24, marginBottom: 10,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     },
-    tabRow: {
-      height: 45, flexDirection: 'row', padding: 4,
-      borderRadius: 17, borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)',
-      backgroundColor: '#050506',
-    },
-    tabItem: {
-      flex: 1, flexDirection: 'row', alignItems: 'center',
-      justifyContent: 'center', gap: 5, borderRadius: 13,
-    },
-    tabItemActive: {
-      backgroundColor: rgbaFromHex(theme.accentHover, 0.13),
-      borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.18),
-    },
-    tabText: {
-      fontFamily: 'Inter_600SemiBold', fontSize: 9,
-      color: theme.textSecondary, textTransform: 'uppercase', letterSpacing: 0.6,
-    },
-    tabTextActive: { color: theme.accentHover },
-    tabCount: {
-      minWidth: 15, height: 15, borderRadius: 8, paddingHorizontal: 4,
-      alignItems: 'center', justifyContent: 'center',
-      backgroundColor: theme.accentHover,
-    },
-    tabCountText: { fontFamily: 'Inter_900Black', fontSize: 8.5, color: theme.bgPrimary },
+    collectionCount: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: theme.textSecondary, letterSpacing: 0.3, textTransform: 'capitalize' },
+    suggestBlock: { marginTop: 6 },
+    suggestLabel: { fontFamily: 'Inter_700Bold', fontSize: 9, color: theme.textSecondary, letterSpacing: 2.5, marginBottom: 10 },
     list: {
       width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
       paddingHorizontal: 4, gap: 9, paddingBottom: 48,
