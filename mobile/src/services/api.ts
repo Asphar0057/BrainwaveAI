@@ -2307,6 +2307,10 @@ export async function createQuizBattle(payload: {
   difficulty?: string;
   question_count?: number;
   time_limit_seconds?: number;
+  // Not a stored backend field (silently dropped) -- sent anyway to mirror
+  // the web client's exact request shape. The real effect of "game mode"
+  // is client-side only: it decides the time_limit_seconds computed above.
+  game_mode?: string;
 }) {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}/create_quiz_battle`, {
@@ -2450,6 +2454,26 @@ export async function completeSoloQuiz(payload: {
   });
   if (!res.ok) await readApiError(res, 'Could not save quiz results');
   return res.json();
+}
+
+export type SoloQuizHistoryEntry = {
+  id: number;
+  uid: string;
+  subject: string;
+  difficulty: string;
+  question_count: number;
+  score: number;
+  completed_at: string | null;
+};
+
+export async function getSoloQuizHistory() {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/solo_quiz_history`, { headers });
+  if (!res.ok) await readApiError(res, 'Could not load quiz history');
+  return res.json() as Promise<{
+    history: SoloQuizHistoryEntry[];
+    statistics: { total_quizzes: number; average_score: number; best_score: number; total_questions: number };
+  }>;
 }
 
 // ── Challenges ────────────────────────────────────────────────────────

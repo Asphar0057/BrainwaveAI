@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator,
-  RefreshControl, TextInput, Modal, Alert, BackHandler,
+  RefreshControl, TextInput, Modal, BackHandler, ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -14,14 +14,41 @@ import {
 import HapticTouchable from '../../components/HapticTouchable';
 import GeoBackground from '../../components/GeoBackground';
 import SocialTileMaterial from '../../components/SocialTileMaterial';
-import { cbTileShadow, cbModalShadow, cbTileBorder } from '../../components/NeumorphicTexture';
+import PulsingSquares from '../../components/PulsingSquares';
+import SectionSidebar, { SidebarItem } from '../../components/SectionSidebar';
+import { cbTileShadow, cbTileBorder, CB_CARD_TOP, cbPlainPressedShadow } from '../../components/NeumorphicTexture';
 import BattlePlayScreen from './BattlePlayScreen';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../../utils/theme';
 import { useResponsiveLayout } from '../../hooks/useResponsiveLayout';
 
 const SUBJECTS     = ['Mathematics', 'Biology', 'Chemistry', 'Physics', 'History', 'Literature', 'Computer Science', 'Economics'];
-const DIFFICULTIES = ['easy', 'medium', 'hard'];
+// Matches web's actual values (QuizBattle.js) -- backend stores difficulty
+// as free text with no validation, but web writes 'beginner'/'intermediate'/
+// 'advanced', not 'easy'/'medium'/'hard', so mobile-created battles should
+// read the same way as web-created ones in shared lists.
+const DIFFICULTIES = ['beginner', 'intermediate', 'advanced'];
+const GAME_MODES: { key: string; label: string; desc: string; icon: string }[] = [
+  { key: 'classic', label: 'Classic', desc: 'Most correct answers wins.', icon: 'trophy' },
+  { key: 'speed', label: 'Speed Battle', desc: 'Fastest to finish all questions wins the tie.', icon: 'flash' },
+  { key: 'blitz', label: 'Blitz', desc: '15 seconds per question. Think fast.', icon: 'flame' },
+  { key: 'sudden_death', label: 'Sudden Death', desc: 'One wrong answer ends your run.', icon: 'shield' },
+];
+const TIME_LIMIT_OPTIONS = [
+  { val: 120, label: '2 min', desc: 'Quick' },
+  { val: 300, label: '5 min', desc: 'Standard' },
+  { val: 600, label: '10 min', desc: 'Extended' },
+  { val: 900, label: '15 min', desc: 'Marathon' },
+];
+// game_mode isn't a stored backend field -- its only real effect (on both
+// clients) is deciding what time_limit_seconds gets sent.
+function getTimeLimitForMode(mode: string, count: number, classicLimit: number): number {
+  if (mode === 'blitz') return count * 15;
+  if (mode === 'sudden_death') return count * 30;
+  if (mode === 'classic') return classicLimit;
+  return 300; // speed
+}
+type StatusFilter = 'pending' | 'active' | 'completed' | 'all';
 
 function DotGrid() {
   const { selectedTheme } = useAppTheme();
@@ -74,15 +101,14 @@ function Avatar({ name, size = 40 }: { name: string; size?: number }) {
   );
 }
 
-type Props = { user: AuthUser; onBack: () => void; onOpenMenu?: () => void };
+type Props = { user: AuthUser; onBack: () => void };
 
-export default function GamesScreen({ user, onBack, onOpenMenu }: Props) {
+export default function GamesScreen({ user, onBack }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
   const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
   const card = useMemo(() => createCardStyles(selectedTheme), [selectedTheme]);
   const vs = useMemo(() => createVersusStyles(selectedTheme), [selectedTheme]);
-  const empty = useMemo(() => createEmptyStyles(selectedTheme), [selectedTheme]);
   const modal = useMemo(() => createModalStyles(selectedTheme), [selectedTheme]);
   const [fontsLoaded] = useFonts({ Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold });
   const [battles, setBattles]       = useState<any[]>([]);
@@ -91,19 +117,28 @@ export default function GamesScreen({ user, onBack, onOpenMenu }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating]     = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [search, setSearch] = useState('');
 
   const [activeBattleId, setActiveBattleId] = useState<number | null>(null);
   const [selectedFriend, setSelectedFriend] = useState<any>(null);
   const [subject, setSubject]               = useState('Mathematics');
-  const [difficulty, setDifficulty]         = useState('medium');
+  const [difficulty, setDifficulty]         = useState('intermediate');
   const [customSubject, setCustomSubject]   = useState('');
   const [useCustom, setUseCustom]           = useState(false);
+  const [questionCount, setQuestionCount]         = useState(10);
+  const [questionCountText, setQuestionCountText] = useState('10');
+  const [gameMode, setGameMode]                   = useState('classic');
+  const [classicTimeLimit, setClassicTimeLimit]   = useState(300);
+  const [createError, setCreateError]             = useState('');
   const GOLD_XL = selectedTheme.accent;
   const GOLD_L = selectedTheme.accentHover;
   const GOLD_M = selectedTheme.accent;
   const GOLD_D = darkenColor(selectedTheme.accent, selectedTheme.isLight ? 12 : 26);
   const DIM = selectedTheme.textSecondary;
   const INK = selectedTheme.isLight ? darkenColor(selectedTheme.accent, 34) : selectedTheme.bgPrimary;
+
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -146,16 +181,35 @@ export default function GamesScreen({ user, onBack, onOpenMenu }: Props) {
     } catch {}
   };
   const doCreate  = async () => {
-    if (!selectedFriend) { Alert.alert('Select a friend first'); return; }
+    const sub = useCustom && customSubject.trim() ? customSubject.trim() : subject;
+    if (!selectedFriend || !sub.trim()) {
+      setCreateError('Please select a friend and enter a subject');
+      return;
+    }
+    setCreateError('');
     setCreating(true);
     try {
-      const sub = useCustom && customSubject.trim() ? customSubject.trim() : subject;
-      await createQuizBattle({ challenger_id: user.username, opponent_id: selectedFriend.id, subject: sub, difficulty, question_count: 10, time_limit_seconds: 300 });
+      await createQuizBattle({
+        challenger_id: user.username,
+        opponent_id: selectedFriend.id,
+        subject: sub,
+        difficulty,
+        question_count: questionCount,
+        time_limit_seconds: getTimeLimitForMode(gameMode, questionCount, classicTimeLimit),
+        game_mode: gameMode,
+      });
       setShowCreate(false);
       setSelectedFriend(null);
+      setGameMode('classic');
+      setClassicTimeLimit(300);
+      setQuestionCount(10);
+      setQuestionCountText('10');
       load();
-    } catch { Alert.alert('Failed to create battle'); }
-    finally { setCreating(false); }
+    } catch {
+      setCreateError('Failed to create battle. Please try again.');
+    } finally {
+      setCreating(false);
+    }
   };
 
   const isChallenger = (b: any) => !!b.is_challenger;
@@ -163,10 +217,15 @@ export default function GamesScreen({ user, onBack, onOpenMenu }: Props) {
   const opponentName = (b: any) => opponent(b)?.username ?? opponent(b)?.first_name ?? opponent(b)?.name ?? '?';
   const friendName   = (f: any) => f.username || f.friend_username || f.name || '?';
 
-  const pending  = battles.filter((b: any) => b.status === 'pending' && !isChallenger(b));
-  const active   = battles.filter((b: any) => b.status === 'active');
-  const history  = battles.filter((b: any) => ['completed', 'declined'].includes(b.status));
-  const outgoing = battles.filter((b: any) => b.status === 'pending' && isChallenger(b));
+  const query = search.trim().toLowerCase();
+  const matchesSearch = (b: any) => !query
+    || opponentName(b).toLowerCase().includes(query)
+    || String(b.subject ?? '').toLowerCase().includes(query);
+
+  const pending  = battles.filter((b: any) => b.status === 'pending' && !isChallenger(b)).filter(matchesSearch);
+  const active   = battles.filter((b: any) => b.status === 'active').filter(matchesSearch);
+  const history  = battles.filter((b: any) => ['completed', 'declined'].includes(b.status)).filter(matchesSearch);
+  const outgoing = battles.filter((b: any) => b.status === 'pending' && isChallenger(b)).filter(matchesSearch);
 
   if (!fontsLoaded) return null;
 
@@ -184,56 +243,77 @@ export default function GamesScreen({ user, onBack, onOpenMenu }: Props) {
     <View style={{ flex: 1 }}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.58, 1]} style={StyleSheet.absoluteFillObject} />
       <GeoBackground />
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={GOLD_M} size="large" />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 22 }}>
+        <PulsingSquares />
+        <Text style={s.loadingText}>LOADING BATTLES</Text>
       </View>
     </View>
   );
+
+  const showPending = statusFilter === 'all' || statusFilter === 'pending';
+  const showActive = statusFilter === 'all' || statusFilter === 'active';
+  const showHistory = statusFilter === 'all' || statusFilter === 'completed';
 
   return (
     <View style={s.root}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.58, 1]} style={StyleSheet.absoluteFillObject} />
       <GeoBackground />
 
-{/* Top bar */}
-      <View style={s.topBar}>
-        <HapticTouchable onPress={onBack} style={s.backBtn} haptic="light">
-          <Ionicons name="chevron-back" size={18} color={GOLD_M} />
+      {/* Same header construction as Solo Quiz / Flashcards: back chevron,
+          large left-aligned title, hamburger. */}
+      <View style={s.header}>
+        <HapticTouchable onPress={onBack} style={{ marginRight: 12 }} haptic="selection">
+          <Ionicons name="chevron-back" size={22} color={GOLD_L} />
         </HapticTouchable>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <HapticTouchable onPress={() => setShowCreate(true)} haptic="medium">
-            <LinearGradient colors={[selectedTheme.accentHover, selectedTheme.accent]} start={{ x: 0.05, y: 0 }} end={{ x: 0.95, y: 1 }} style={s.cta}>
-              <Text style={s.ctaText}>+ challenge</Text>
-            </LinearGradient>
-          </HapticTouchable>
-          {onOpenMenu ? (
-            <HapticTouchable onPress={onOpenMenu} style={s.backBtn} haptic="selection" accessibilityLabel="Open menu">
-              <Ionicons name="menu-outline" size={18} color={GOLD_M} />
-            </HapticTouchable>
-          ) : null}
+        <View style={{ flex: 1 }}>
+          <Text style={s.title}>battles</Text>
         </View>
+        <HapticTouchable onPress={() => setSidebarOpen(true)} haptic="selection" accessibilityLabel="Open menu">
+          <Ionicons name="menu-outline" size={24} color={GOLD_L} />
+        </HapticTouchable>
       </View>
-
-      {/* Hero */}
-      <View style={s.hero}>
-        <SocialTileMaterial />
-        <View style={s.heroGlow}>
-          <Ionicons name="flash" size={46} color={GOLD_XL} />
-        </View>
-        <Text style={s.heroTitle}>battles</Text>
-        <Text style={s.heroSub}>{active.length} active · {pending.length} incoming</Text>
-      </View>
-
-      <View style={s.divider} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={s.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={GOLD_D} />}
       >
+        {/* Same construction as Flashcards' main page: hero CTA right below
+            the header, then search, then a count row -- no repeated title
+            text, the header already says "battles". */}
+        <HapticTouchable onPress={() => setShowCreate(true)} haptic="medium" style={{ width: '100%' }}>
+          <View style={s.heroBtn}>
+            <Ionicons name="add" size={16} color={INK} />
+            <Text style={s.heroBtnText}>Create Battle</Text>
+          </View>
+        </HapticTouchable>
+
+        <View style={s.searchRow}>
+          <View style={s.searchBar}>
+            <Ionicons name="search-outline" size={15} color={GOLD_D} />
+            <TextInput
+              style={s.searchInput}
+              placeholder="search battles..."
+              placeholderTextColor={DIM}
+              value={search}
+              onChangeText={setSearch}
+            />
+            {!!search && (
+              <HapticTouchable onPress={() => setSearch('')} haptic="selection">
+                <Ionicons name="close-circle" size={16} color={GOLD_D} />
+              </HapticTouchable>
+            )}
+          </View>
+        </View>
+
+        <View style={s.collectionHeader}>
+          <Text style={s.collectionCount}>
+            {statusFilter === 'all' ? `${active.length} active · ${pending.length} incoming` : `${statusFilter} battles`}
+          </Text>
+        </View>
 
         {/* Incoming */}
-        {pending.length > 0 && (
+        {showPending && pending.length > 0 && (
           <>
             <Text style={s.section}>incoming challenges</Text>
             {pending.map((b: any, i: number) => (
@@ -267,7 +347,7 @@ export default function GamesScreen({ user, onBack, onOpenMenu }: Props) {
         )}
 
         {/* Active */}
-        {active.length > 0 && (
+        {showActive && active.length > 0 && (
           <>
             <Text style={s.section}>live battles</Text>
             {active.map((b: any, i: number) => (
@@ -308,7 +388,7 @@ export default function GamesScreen({ user, onBack, onOpenMenu }: Props) {
         )}
 
         {/* Sent */}
-        {outgoing.length > 0 && (
+        {showPending && outgoing.length > 0 && (
           <>
             <Text style={s.section}>sent challenges</Text>
             {outgoing.map((b: any, i: number) => (
@@ -329,7 +409,7 @@ export default function GamesScreen({ user, onBack, onOpenMenu }: Props) {
         )}
 
         {/* History */}
-        {history.length > 0 && (
+        {showHistory && history.length > 0 && (
           <>
             <Text style={s.section}>history</Text>
             {history.map((b: any, i: number) => {
@@ -356,20 +436,14 @@ export default function GamesScreen({ user, onBack, onOpenMenu }: Props) {
           </>
         )}
 
-        {/* Empty */}
-        {battles.length === 0 && (
-          <View style={empty.wrap}>
-            <SocialTileMaterial />
-            <LinearGradient colors={[rgbaFromHex(selectedTheme.accent, 0.14), rgbaFromHex(selectedTheme.panelAlt, 0.04)]} style={empty.icon}>
-              <Ionicons name="game-controller-outline" size={44} color={GOLD_D} />
-            </LinearGradient>
-            <Text style={empty.title}>no battles yet</Text>
-            <Text style={empty.hint}>challenge a friend to a quiz battle</Text>
-            <HapticTouchable onPress={() => setShowCreate(true)} haptic="medium">
-              <LinearGradient colors={[selectedTheme.accentHover, selectedTheme.accent]} start={{ x: 0.05, y: 0 }} end={{ x: 0.95, y: 1 }} style={empty.btn}>
-                <Text style={empty.btnText}>start a battle</Text>
-              </LinearGradient>
-            </HapticTouchable>
+        {/* Empty -- same icon + capitalized-label treatment as Solo Quiz's
+            "Past Quizzes" empty state, no card/container. */}
+        {(showPending ? pending.length + outgoing.length : 0) + (showActive ? active.length : 0) + (showHistory ? history.length : 0) === 0 && (
+          <View style={s.emptyWrap}>
+            <Ionicons name="game-controller-outline" size={40} color={selectedTheme.textSecondary} />
+            <Text style={s.loadingText}>
+              {query ? 'NO MATCHING BATTLES' : statusFilter === 'all' ? 'NO BATTLES YET' : `NO ${statusFilter.toUpperCase()} BATTLES`}
+            </Text>
           </View>
         )}
 
@@ -388,7 +462,7 @@ export default function GamesScreen({ user, onBack, onOpenMenu }: Props) {
               <Text style={modal.title}>new challenge</Text>
               <Text style={modal.sub}>pick opponent & settings</Text>
             </View>
-            <HapticTouchable onPress={() => setShowCreate(false)} style={modal.closeBtn} haptic="light">
+            <HapticTouchable onPress={() => { setShowCreate(false); setCreateError(''); }} style={modal.closeBtn} haptic="light">
               <Ionicons name="close" size={18} color={GOLD_M} />
             </HapticTouchable>
           </View>
@@ -459,6 +533,59 @@ export default function GamesScreen({ user, onBack, onOpenMenu }: Props) {
               })}
             </View>
 
+            <Text style={modal.label}>QUESTIONS (5–20)</Text>
+            <TextInput
+              style={modal.input}
+              value={questionCountText}
+              onChangeText={(t) => {
+                const digits = t.replace(/[^0-9]/g, '');
+                setQuestionCountText(digits);
+                const n = parseInt(digits, 10);
+                if (!Number.isNaN(n)) setQuestionCount(Math.min(20, Math.max(5, n)));
+              }}
+              onBlur={() => setQuestionCountText(String(questionCount))}
+              placeholder="10"
+              placeholderTextColor={DIM}
+              keyboardType="number-pad"
+              maxLength={2}
+            />
+
+            <Text style={modal.label}>GAME MODE</Text>
+            <View style={{ gap: 8, marginBottom: 20 }}>
+              {GAME_MODES.map(m => {
+                const sel = gameMode === m.key;
+                return (
+                  <HapticTouchable key={m.key} style={[modal.gmCard, sel && modal.gmCardSel]} onPress={() => setGameMode(m.key)} haptic="selection">
+                    <View style={[modal.gmIconWrap, sel && modal.gmIconWrapSel]}>
+                      <Ionicons name={m.icon as any} size={18} color={sel ? INK : GOLD_L} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[modal.gmName, sel && { color: GOLD_L }]}>{m.label}</Text>
+                      <Text style={modal.gmDesc}>{m.desc}</Text>
+                    </View>
+                  </HapticTouchable>
+                );
+              })}
+            </View>
+
+            {gameMode === 'classic' && (
+              <>
+                <Text style={modal.label}>TIME LIMIT</Text>
+                <View style={modal.chipGrid}>
+                  {TIME_LIMIT_OPTIONS.map(t => {
+                    const sel = classicTimeLimit === t.val;
+                    return (
+                      <HapticTouchable key={t.val} onPress={() => setClassicTimeLimit(t.val)} haptic="selection">
+                        <View style={[modal.chip, sel && modal.chipSel]}>
+                          <Text style={[modal.chipText, sel && modal.chipTextSel]}>{t.label}</Text>
+                        </View>
+                      </HapticTouchable>
+                    );
+                  })}
+                </View>
+              </>
+            )}
+
             {selectedFriend && (
               <View style={modal.summary}>
                 <LinearGradient colors={[rgbaFromHex(selectedTheme.accent, 0.14), rgbaFromHex(selectedTheme.panelAlt, 0.04)]} style={[StyleSheet.absoluteFillObject, { borderRadius: 14 }]} />
@@ -468,13 +595,22 @@ export default function GamesScreen({ user, onBack, onOpenMenu }: Props) {
                   <Avatar name={friendName(selectedFriend)} size={40} />
                   <View style={{ flex: 1 }}>
                     <Text style={modal.sumTitle}>{useCustom && customSubject ? customSubject : subject}</Text>
-                    <Text style={modal.sumMeta}>{difficulty} · 10Q · 5 min</Text>
+                    <Text style={modal.sumMeta}>
+                      {difficulty} · {questionCount}Q · {Math.round(getTimeLimitForMode(gameMode, questionCount, classicTimeLimit) / 60) || 1} min
+                    </Text>
                   </View>
                 </View>
               </View>
             )}
 
-            <HapticTouchable onPress={doCreate} haptic="medium" style={{ opacity: (creating || !selectedFriend) ? 0.45 : 1 }}>
+            {!!createError && (
+              <View style={modal.errorBox}>
+                <Ionicons name="alert-circle-outline" size={16} color={selectedTheme.danger} />
+                <Text style={modal.errorText}>{createError}</Text>
+              </View>
+            )}
+
+            <HapticTouchable onPress={doCreate} haptic="medium" style={{ opacity: creating ? 0.7 : 1, width: '100%' }}>
               <LinearGradient colors={[selectedTheme.accentHover, selectedTheme.accent]} start={{ x: 0.05, y: 0 }} end={{ x: 0.95, y: 1 }} style={modal.launchBtn}>
                 {creating
                   ? <ActivityIndicator color={INK} />
@@ -488,9 +624,32 @@ export default function GamesScreen({ user, onBack, onOpenMenu }: Props) {
           </ScrollView>
         </View>
       </Modal>
+
+      <SectionSidebar
+        visible={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        pageTitle="battles"
+        items={BATTLES_SIDEBAR_ITEMS}
+        activeKey={statusFilter}
+        onSelect={(key) => { if (key === 'create') setShowCreate(true); else setStatusFilter(key as StatusFilter); }}
+        footerLabel="Quiz Modes"
+        onFooterPress={onBack}
+      />
     </View>
   );
 }
+
+// ─── Hamburger sidebar — mirrors web QuizBattle.js's own sidebar: a
+// "Create battle" lead action, a "Battle Workspace" group of status
+// filters (Pending/Active/Completed/All), and a back-to-quiz-modes link.
+// Same slide-in gradient panel construction as Solo Quiz's sidebar. ───────
+const BATTLES_SIDEBAR_ITEMS: SidebarItem[] = [
+  { key: 'create', label: 'Create Battle', icon: 'flash', iconOutline: 'flash-outline' },
+  { key: 'pending', label: 'Pending battles', icon: 'time', iconOutline: 'time-outline' },
+  { key: 'active', label: 'Active battles', icon: 'flame', iconOutline: 'flame-outline' },
+  { key: 'completed', label: 'Completed battles', icon: 'trophy', iconOutline: 'trophy-outline' },
+  { key: 'all', label: 'All battles', icon: 'albums', iconOutline: 'albums-outline' },
+];
 
 function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
   const ACCENT = theme.accent;
@@ -501,21 +660,34 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   const INK = theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary;
   return StyleSheet.create({
     root: { flex: 1 },
-    topBar: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 5, paddingTop: 16, paddingBottom: 8 },
-    backBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: rgbaFromHex(SURFACE, 0.92), borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center' },
-    cta: { borderRadius: 12, paddingHorizontal: 15, paddingVertical: 10 },
-    ctaText: { fontFamily: 'Inter_700Bold', fontSize: 13, color: INK },
-    hero: {
-      width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', marginHorizontal: 5,
-      minHeight: 180, alignItems: 'flex-start', justifyContent: 'flex-end', padding: 20, gap: 6,
-      borderRadius: 26, overflow: 'hidden', boxShadow: cbModalShadow(0.14), ...cbTileBorder(0.22),
+    // Same header construction as Solo Quiz / Flashcards.
+    header: {
+      width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingHorizontal: 10, paddingTop: 18, paddingBottom: 12,
     },
-    heroGlow: { position: 'absolute', right: 18, top: 18, width: 58, height: 58, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(216,179,141,0.22)', backgroundColor: 'rgba(216,179,141,0.08)' },
-    heroTitle: { fontFamily: 'Inter_900Black', fontSize: 38, color: '#D8B38D', letterSpacing: -1.8 },
-    heroSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM, letterSpacing: 1 },
-    divider: { height: 1, width: '100%', maxWidth: layout.contentMaxWidth - 10, alignSelf: 'center', marginLeft: 5, marginRight: 5, backgroundColor: BORDER },
-    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingLeft: 5, paddingRight: 5, paddingTop: 16, gap: 8 },
+    title: { fontFamily: 'Inter_900Black', fontSize: 32, color: '#D8B38D', letterSpacing: -0.8 },
+    loadingText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: DIM, letterSpacing: 3, textTransform: 'uppercase' },
+    // Same construction as Flashcards' main-page "Generate" hero + search +
+    // collection-count row (generateHero/searchRow/collectionHeader).
+    heroBtn: {
+      width: '100%', minHeight: 54, borderRadius: 18, marginTop: 4, marginBottom: 18,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+      backgroundColor: ACCENT, overflow: 'hidden', boxShadow: cbTileShadow(0.12),
+    } as ViewStyle,
+    heroBtnText: { fontFamily: 'Inter_900Black', fontSize: 12, color: INK, letterSpacing: 4, textTransform: 'uppercase' },
+    searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
+    searchBar: {
+      flex: 1, height: 44, flexDirection: 'row', alignItems: 'center', gap: 10,
+      backgroundColor: rgbaFromHex(SURFACE, 0.96), borderRadius: 14, borderWidth: 1, borderColor: BORDER,
+      paddingHorizontal: 14,
+    } as ViewStyle,
+    searchInput: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 13, color: theme.accentHover },
+    collectionHeader: { minHeight: 24, marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    collectionCount: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: DIM, letterSpacing: 0.3, textTransform: 'capitalize' },
+    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingLeft: 5, paddingRight: 5, paddingTop: 4, gap: 8 },
     section: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: DIM, letterSpacing: 2.5, marginTop: 8, marginBottom: 2 },
+    emptyWrap: { alignItems: 'center', justifyContent: 'center', gap: 14, paddingVertical: 40 },
   });
 }
 
@@ -560,18 +732,6 @@ function createVersusStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme
   });
 }
 
-function createEmptyStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
-  const INK = theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary;
-  return StyleSheet.create({
-    wrap: { minHeight: 230, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 14, borderRadius: 26, overflow: 'hidden', backgroundColor: '#0b0c0f', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
-    icon: { width: 88, height: 88, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: rgbaFromHex(theme.accent, 0.22) },
-    title: { fontFamily: 'Inter_900Black', fontSize: 18, color: darkenColor(theme.accent, theme.isLight ? 12 : 26) },
-    hint: { fontFamily: 'Inter_400Regular', fontSize: 13, color: theme.textSecondary },
-    btn: { borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 },
-    btnText: { fontFamily: 'Inter_700Bold', fontSize: 14, color: INK },
-  });
-}
-
 function createModalStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
   const ACCENT = theme.accent;
   const DIM = theme.textSecondary;
@@ -592,7 +752,12 @@ function createModalStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'
     chipSel: { borderColor: rgbaFromHex(ACCENT, 0.34), backgroundColor: rgbaFromHex(ACCENT, 0.14) },
     chipText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: DIM },
     chipTextSel: { color: theme.accentHover },
-    input: { backgroundColor: rgbaFromHex(SURFACE, 0.84), borderRadius: 10, borderWidth: 1, borderColor: BORDER, paddingHorizontal: 14, paddingVertical: 11, fontFamily: 'Inter_400Regular', fontSize: 14, color: theme.accentHover, marginBottom: 20 },
+    // Same "pressed into the surface" neumorphic inset as the login screen.
+    input: {
+      backgroundColor: CB_CARD_TOP, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 14,
+      fontFamily: 'Inter_400Regular', fontSize: 14, color: theme.accentHover, marginBottom: 20,
+      boxShadow: cbPlainPressedShadow(),
+    } as ViewStyle,
     diffRow: { flexDirection: 'row', gap: 8, marginBottom: 24 },
     diffBtn: { alignItems: 'center', paddingVertical: 12, backgroundColor: rgbaFromHex(SURFACE, 0.84), borderRadius: 10, borderWidth: 1, borderColor: BORDER },
     diffBtnSel: { borderColor: rgbaFromHex(ACCENT, 0.34), backgroundColor: rgbaFromHex(ACCENT, 0.14) },
@@ -602,6 +767,17 @@ function createModalStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'
     sumTitle: { fontFamily: 'Inter_700Bold', fontSize: 14, color: theme.accentHover },
     sumMeta: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM, marginTop: 2 },
     launchBtn: { borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
-    launchText: { fontFamily: 'Inter_900Black', fontSize: 15, color: INK, letterSpacing: 0.5 },
+    launchText: { fontFamily: 'Inter_700Bold', fontSize: 13, color: INK, textTransform: 'uppercase', letterSpacing: 2 },
+
+    gmCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: rgbaFromHex(SURFACE, 0.84), borderRadius: 14, borderWidth: 1, borderColor: BORDER, padding: 12 },
+    gmCardSel: { borderColor: rgbaFromHex(ACCENT, 0.4), backgroundColor: rgbaFromHex(ACCENT, 0.12) },
+    gmIconWrap: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: rgbaFromHex(ACCENT, 0.1) },
+    gmIconWrapSel: { backgroundColor: theme.accent },
+    gmName: { fontFamily: 'Inter_700Bold', fontSize: 13.5, color: theme.textPrimary },
+    gmDesc: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM, marginTop: 2, lineHeight: 15 },
+
+    errorBox: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, borderWidth: 1, borderColor: rgbaFromHex(theme.danger, 0.3), backgroundColor: rgbaFromHex(theme.danger, 0.1), padding: 12, marginBottom: 16 },
+    errorText: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 12, color: theme.danger },
   });
 }
+
