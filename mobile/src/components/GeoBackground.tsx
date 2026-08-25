@@ -87,6 +87,28 @@ export default function GeoBackground() {
 
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {/* .cb-bg-grain — drawn first since this Canvas repaints an opaque
+          copy of the page gradient internally (Skia can't blend against
+          sibling views beneath it) and would otherwise paint over every
+          layer below it if placed later in the stack, as it originally was. */}
+      <Canvas ref={canvasRef} style={StyleSheet.absoluteFill}>
+        {canvasSize.width > 0 && canvasSize.height > 0 && (
+          <>
+            <Fill>
+              <SkLinearGradient
+                start={vec(canvasSize.width * 0.5, 0)}
+                end={vec(canvasSize.width * 0.5, canvasSize.height)}
+                colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]}
+                positions={[0, 0.55, 1]}
+              />
+            </Fill>
+            <Fill blendMode="overlay" opacity={0.4 * dim}>
+              <GrainNoise baseFrequency={0.68} seed={5} />
+            </Fill>
+          </>
+        )}
+      </Canvas>
+
       {/* .cb-bg-wash */}
       <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
         <Defs>
@@ -145,32 +167,6 @@ export default function GeoBackground() {
           ))}
         </G>
       </Svg>
-
-      {/* .cb-bg-grain — real Perlin fractal noise (Skia SkPerlinNoiseShader, the
-          same primitive family as feTurbulence) blended with BlendMode.Overlay,
-          which runs inside Skia's own compositor rather than the RN
-          mixBlendMode style prop. The canvas repaints the page's own base
-          gradient first so the overlay blend has real destination pixels to
-          react against — a Skia canvas composites into the view tree as one
-          flat texture, it can't blend against the sibling views beneath it.
-          Opacity boosted above the literal 0.13 per explicit "more grain" ask. */}
-      <Canvas ref={canvasRef} style={StyleSheet.absoluteFill}>
-        {canvasSize.width > 0 && canvasSize.height > 0 && (
-          <>
-            <Fill>
-              <SkLinearGradient
-                start={vec(canvasSize.width * 0.5, 0)}
-                end={vec(canvasSize.width * 0.5, canvasSize.height)}
-                colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]}
-                positions={[0, 0.55, 1]}
-              />
-            </Fill>
-            <Fill blendMode="overlay" opacity={0.4 * dim}>
-              <GrainNoise baseFrequency={0.68} seed={5} />
-            </Fill>
-          </>
-        )}
-      </Canvas>
 
       {/* .cb-bg-vignette */}
       <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>

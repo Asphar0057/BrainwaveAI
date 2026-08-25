@@ -28,20 +28,44 @@ type RingSpec = {
   label?: string; labelAngleDeg?: number;
 };
 
+// fx/fy/fr are fractions of the *live* screen width/height/height, not
+// pixels in some fixed canvas -- see FractionalRing below for why.
+type FractionalRing = {
+  fx: number; fy: number; fr: number;
+  strokeOpacity: number; strokeWidth: number; dashed?: boolean;
+  label?: string; labelAngleDeg?: number;
+};
+
 // A scattered "orbit constellation" instead of a straight-line grid — thin
 // circle outlines at varied radii, a couple with a radius tick + small
 // numeral label like a blueprint annotation, matching the app's existing
 // Swiss-numbered design language (Home.css "01 TEAM" tiles etc.) but in a
 // circular idiom instead of a rectilinear one.
-const RINGS: RingSpec[] = [
-  { cx: 230,  cy: 190, r: 150, strokeOpacity: 0.16, strokeWidth: 0.7, label: '01', labelAngleDeg: -35 },
-  { cx: 1390, cy: 230, r: 96,  strokeOpacity: 0.14, strokeWidth: 0.6, label: '02', labelAngleDeg: 40 },
-  { cx: 800,  cy: 520, r: 280, strokeOpacity: 0.1,  strokeWidth: 0.6, dashed: true },
-  { cx: 270,  cy: 800, r: 118, strokeOpacity: 0.15, strokeWidth: 0.7, label: '03', labelAngleDeg: -60 },
-  { cx: 1320, cy: 810, r: 178, strokeOpacity: 0.13, strokeWidth: 0.6, label: '04', labelAngleDeg: 20 },
-  { cx: 960,  cy: 130, r: 58,  strokeOpacity: 0.18, strokeWidth: 0.8 },
-  { cx: 620,  cy: 340, r: 34,  strokeOpacity: 0.22, strokeWidth: 1 },
-  { cx: 1120, cy: 600, r: 22,  strokeOpacity: 0.24, strokeWidth: 1 },
+//
+// Positions are fractions of the screen (0..1), not a fixed 1600x1000
+// landscape canvas -- an earlier version used a hardcoded landscape canvas
+// with preserveAspectRatio="slice", which on a real portrait phone
+// (~0.45 width/height) only shows the narrow vertical strip roughly
+// x in [575,1025] of that 1600-wide canvas. Half the rings (the four
+// labeled "hero" ones, positioned near the canvas corners) sat entirely
+// outside that visible strip and never rendered. Building the layout from
+// the actual window dimensions instead removes that whole class of bug.
+const FRACTIONAL_RINGS: FractionalRing[] = [
+  { fx: 0.16, fy: 0.14, fr: 0.1,   strokeOpacity: 0.16, strokeWidth: 0.7, label: '01', labelAngleDeg: -35 },
+  { fx: 0.84, fy: 0.11, fr: 0.065, strokeOpacity: 0.14, strokeWidth: 0.6, label: '02', labelAngleDeg: 40 },
+  { fx: 0.5,  fy: 0.5,  fr: 0.19,  strokeOpacity: 0.1,  strokeWidth: 0.6, dashed: true },
+  { fx: 0.14, fy: 0.82, fr: 0.08,  strokeOpacity: 0.15, strokeWidth: 0.7, label: '03', labelAngleDeg: -60 },
+  { fx: 0.85, fy: 0.84, fr: 0.12,  strokeOpacity: 0.13, strokeWidth: 0.6, label: '04', labelAngleDeg: 20 },
+  { fx: 0.62, fy: 0.22, fr: 0.04,  strokeOpacity: 0.18, strokeWidth: 0.8 },
+  { fx: 0.28, fy: 0.32, fr: 0.023, strokeOpacity: 0.22, strokeWidth: 1 },
+  { fx: 0.7,  fy: 0.62, fr: 0.015, strokeOpacity: 0.24, strokeWidth: 1 },
+  // Center-weighted cluster -- the mask peaks around the middle of the
+  // screen, which previously had the fewest rings in it.
+  { fx: 0.48, fy: 0.44, fr: 0.032, strokeOpacity: 0.18, strokeWidth: 0.7, label: '05', labelAngleDeg: 200 },
+  { fx: 0.56, fy: 0.48, fr: 0.095, strokeOpacity: 0.08, strokeWidth: 0.6, dashed: true },
+  { fx: 0.52, fy: 0.34, fr: 0.011, strokeOpacity: 0.24, strokeWidth: 1 },
+  { fx: 0.42, fy: 0.47, fr: 0.006, strokeOpacity: 0.3,  strokeWidth: 1.2 },
+  { fx: 0.6,  fy: 0.34, fr: 0.019, strokeOpacity: 0.2,  strokeWidth: 0.8 },
 ];
 
 function ringLabelPos(ring: RingSpec) {
@@ -87,11 +111,38 @@ export default function CircleBackground() {
     ] as any,
   };
 
-  const GW = 1600;
-  const GH = 1000;
+  const GW = W;
+  const GH = H;
+  const RINGS: RingSpec[] = useMemo(() => FRACTIONAL_RINGS.map((fr) => ({
+    cx: fr.fx * GW, cy: fr.fy * GH, r: fr.fr * GH,
+    strokeOpacity: fr.strokeOpacity, strokeWidth: fr.strokeWidth,
+    dashed: fr.dashed, label: fr.label, labelAngleDeg: fr.labelAngleDeg,
+  })), [GW, GH]);
 
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {/* base surface + grain — drawn first since this Canvas repaints an
+          opaque copy of the page gradient internally (Skia can't blend
+          against sibling views beneath it) and would otherwise paint over
+          every layer below it if placed later in the stack. */}
+      <Canvas ref={canvasRef} style={StyleSheet.absoluteFill}>
+        {canvasSize.width > 0 && canvasSize.height > 0 && (
+          <>
+            <Fill>
+              <SkLinearGradient
+                start={vec(canvasSize.width * 0.5, 0)}
+                end={vec(canvasSize.width * 0.5, canvasSize.height)}
+                colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]}
+                positions={[0, 0.55, 1]}
+              />
+            </Fill>
+            <Fill blendMode="overlay" opacity={0.4 * dim}>
+              <GrainNoise baseFrequency={0.68} seed={5} />
+            </Fill>
+          </>
+        )}
+      </Canvas>
+
       {/* wash */}
       <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
         <Defs>
@@ -182,25 +233,6 @@ export default function CircleBackground() {
           </SvgText>
         </G>
       </Svg>
-
-      {/* grain */}
-      <Canvas ref={canvasRef} style={StyleSheet.absoluteFill}>
-        {canvasSize.width > 0 && canvasSize.height > 0 && (
-          <>
-            <Fill>
-              <SkLinearGradient
-                start={vec(canvasSize.width * 0.5, 0)}
-                end={vec(canvasSize.width * 0.5, canvasSize.height)}
-                colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]}
-                positions={[0, 0.55, 1]}
-              />
-            </Fill>
-            <Fill blendMode="overlay" opacity={0.4 * dim}>
-              <GrainNoise baseFrequency={0.68} seed={5} />
-            </Fill>
-          </>
-        )}
-      </Canvas>
 
       {/* vignette */}
       <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
