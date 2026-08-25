@@ -309,7 +309,7 @@ export default function SocialScreen({ user, onOpenLeaderboard }: Props) {
                 <View style={s.bentoCol}>
                   <BentoTile
                     icon="library-outline"
-                    title="quiz hub" subtitle={`${data.challengeCount} challenges`}
+                    title="quiz hub" subtitle="solo or 1v1"
                     onPress={() => setScreen('quiz')} style={s.bentoHalf}
                   />
                   <BentoTile
