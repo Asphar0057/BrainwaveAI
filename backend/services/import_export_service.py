@@ -1026,6 +1026,9 @@ Write at least 500 words of educational content."""
             items = self.db.query(PlaylistItem).filter(
                 PlaylistItem.playlist_id == playlist_id
             ).all()
+
+            if not items:
+                return {"success": False, "error": "Add at least one playlist item before generating flashcards"}
             
             combined_content = "\n\n".join([
                 f"Title: {item.title or 'Untitled'}\n"

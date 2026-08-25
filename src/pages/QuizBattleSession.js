@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Clock, Target, Trophy, CheckCircle, XCircle, Loader, ArrowLeft, Play, Swords } from 'lucide-react';
 import './QuizBattleSession.css';
@@ -10,6 +10,7 @@ import useSharedWebSocket from '../hooks/useSharedWebSocket';
 import gamificationService from '../services/gamificationService';
 import { extractQuestionText, normalizeQuestions } from '../utils/quizQuestionUtils';
 import MathRenderer from '../components/MathRenderer';
+import { formatBattleMode, getQuestionTimeLimit, shouldEndRun } from '../utils/battleRules';
 
 const QuizBattleSession = () => {
   const navigate = useNavigate();
@@ -23,6 +24,7 @@ const QuizBattleSession = () => {
   const [answeredQuestions, setAnsweredQuestions] = useState([]);
   const [score, setScore] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(0);
+  const [questionTimeRemaining, setQuestionTimeRemaining] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
   const [showResult, setShowResult] = useState(false);
@@ -39,6 +41,7 @@ const QuizBattleSession = () => {
   const opponentNotifTimeoutRef = useRef(null);
   const lastSubmitAttemptRef = useRef(null);
   const resultsRequestIdRef = useRef(0);
+  const startedAtRef = useRef(Date.now());
 
   useEffect(() => {
     return () => {
@@ -47,6 +50,11 @@ const QuizBattleSession = () => {
       if (opponentNotifTimeoutRef.current) clearTimeout(opponentNotifTimeoutRef.current);
     };
   }, []);
+
+  useLayoutEffect(() => {
+    const scrollSurface = document.querySelector('.battle-quiz-flow .shc-main');
+    scrollSurface?.scrollTo({ top: 0, left: 0 });
+  }, [battleId, showResult, showDetailedResults]);
 
 
   const { isConnected } = useSharedWebSocket(token, (message) => {
@@ -134,15 +142,27 @@ const QuizBattleSession = () => {
   }, [opponentNotification]);
 
   useEffect(() => {
-    if (timeRemaining > 0 && !showResult) {
+    if (battle?.game_mode === 'blitz' || showResult || questions.length === 0) return undefined;
+    if (timeRemaining > 0) {
       const timer = setTimeout(() => {
         setTimeRemaining(prev => prev - 1);
       }, 1000);
       return () => clearTimeout(timer);
-    } else if (timeRemaining === 0 && questions.length > 0) {
+    } else if (timeRemaining === 0) {
       handleTimeUp();
     }
-  }, [timeRemaining, showResult, questions.length]);
+    return undefined;
+  }, [timeRemaining, showResult, questions.length, battle?.game_mode]);
+
+  useEffect(() => {
+    if (battle?.game_mode !== 'blitz' || showResult || questions.length === 0 || selectedAnswer !== null) return undefined;
+    if (questionTimeRemaining > 0) {
+      const timer = setTimeout(() => setQuestionTimeRemaining((value) => value - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+    if (questionTimeRemaining === 0) handleNextQuestion(null);
+    return undefined;
+  }, [questionTimeRemaining, showResult, questions.length, selectedAnswer, battle?.game_mode]);
 
   const loadBattle = async () => {
     try {
@@ -154,14 +174,35 @@ const QuizBattleSession = () => {
         const data = await response.json();
         setBattle(data.battle);
         setTimeRemaining(data.battle.time_limit_seconds);
-        
-        
+        setQuestionTimeRemaining(getQuestionTimeLimit(data.battle.game_mode));
+        startedAtRef.current = Date.now();
+
         if (data.questions && data.questions.length > 0) {
-          setQuestions(normalizeQuestions(data.questions));
+          const normalized = normalizeQuestions(data.questions);
+          setQuestions(normalized);
+          if (data.battle.your_completed) {
+            setScore(data.battle.your_score || 0);
+            setOpponentCompleted(Boolean(data.battle.opponent_completed));
+            setShowResult(true);
+            if (data.battle.opponent_completed) {
+              setDetailedBattleData({ ...data, questions: normalized });
+              setShowDetailedResults(true);
+            }
+          }
           setLoading(false);
         } else {
-
-          await generateQuestions(data.battle);
+          if (data.battle.your_completed) {
+            setScore(data.battle.your_score || 0);
+            setOpponentCompleted(Boolean(data.battle.opponent_completed));
+            setShowResult(true);
+            if (data.battle.opponent_completed) {
+              setDetailedBattleData(data);
+              setShowDetailedResults(true);
+            }
+            setLoading(false);
+          } else {
+            await generateQuestions();
+          }
         }
       } else {
         const errorData = await response.json().catch(() => ({}));
@@ -174,7 +215,7 @@ const QuizBattleSession = () => {
     }
   };
 
-  const generateQuestions = async (battleData) => {
+  const generateQuestions = async () => {
     setGeneratingQuestions(true);
     
     try {
@@ -185,10 +226,7 @@ const QuizBattleSession = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          battle_id: battleId,
-          subject: battleData.subject,
-          difficulty: battleData.difficulty,
-          question_count: battleData.question_count
+          battle_id: battleId
         })
       });
 
@@ -215,7 +253,7 @@ const QuizBattleSession = () => {
 
     answerTimeoutRef.current = setTimeout(() => {
       if (mountedRef.current) handleNextQuestion(answerIndex);
-    }, 2000);
+    }, 1200);
   };
 
   const submitAnswerNotification = async (questionIndex, isCorrect) => {
@@ -256,7 +294,8 @@ const QuizBattleSession = () => {
         explanation: currentQuestion.explanation || '',
         selected_answer: answerIndex,
         is_correct: isCorrect,
-        time_taken: battle.time_limit_seconds - timeRemaining
+        time_taken: Math.max(0, Math.round((Date.now() - startedAtRef.current) / 1000)),
+        time_taken_ms: Math.max(0, Date.now() - startedAtRef.current)
       }
     ];
     
@@ -268,9 +307,12 @@ const QuizBattleSession = () => {
     
     submitAnswerNotification(currentQuestionIndex, isCorrect);
 
-    if (currentQuestionIndex < questions.length - 1) {
+    if (shouldEndRun(battle.game_mode, isCorrect)) {
+      submitBattle(newScore, newAnsweredQuestions);
+    } else if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setSelectedAnswer(null);
+      setQuestionTimeRemaining(getQuestionTimeLimit(battle.game_mode));
     } else {
       submitBattle(newScore, newAnsweredQuestions);
     }
@@ -294,7 +336,6 @@ const QuizBattleSession = () => {
         },
         body: JSON.stringify({
           battle_id: parseInt(battleId),
-          score: finalScore,
           answers: answers
         })
       });
@@ -419,15 +460,15 @@ const QuizBattleSession = () => {
       const totalBattleQuestions = Math.max(battleQuestions.length, battleData.question_count || 0, 1);
       const yourAnswers = battleData.your_answers || [];
       const opponentAnswers = battleData.opponent_answers || [];
-      const youWon = battleData.your_score > battleData.opponent_score;
-      const isDraw = battleData.your_score === battleData.opponent_score;
+      const youWon = battleData.your_result === 'win';
+      const isDraw = battleData.your_result === 'draw';
 
       return renderBattleChrome(
         <main className="battle-result-page detailed">
           <div className="result-container detailed">
             <div className="result-header">
               <Trophy size={64} className={`result-icon ${youWon ? 'winner' : isDraw ? 'draw' : 'loser'}`} />
-              <h1>{youWon ? ' Victory!' : isDraw ? ' Draw!' : ' Good Try!'}</h1>
+              <h1>{youWon ? 'Victory!' : isDraw ? 'Draw!' : 'Good Try!'}</h1>
             </div>
 
             <div className="result-comparison">
@@ -446,6 +487,11 @@ const QuizBattleSession = () => {
 
             <div className="question-by-question">
               <h3>Question by Question Breakdown</h3>
+              {!battleData.question_quality_version && (
+                <div className="battle-legacy-warning" role="note">
+                  Legacy result: these questions predate answer-key validation, so explanations may not match the recorded key.
+                </div>
+              )}
               <div className="questions-comparison-list">
                 {battleQuestions.map((question, index) => {
                   const yourAnswer = yourAnswers[index];
@@ -618,7 +664,7 @@ const QuizBattleSession = () => {
         <div className="session-info">
           <div className="info-item">
             <Target size={16} />
-            <span>{battle?.subject}</span>
+            <span>{battle?.subject} · {formatBattleMode(battle?.game_mode)}</span>
           </div>
           <div className="info-item">
             <span className="question-counter">
@@ -630,13 +676,13 @@ const QuizBattleSession = () => {
         <div className="session-timer">
           <Clock size={20} />
           <span className={timeRemaining < 60 ? 'time-warning' : ''}>
-            {formatTime(timeRemaining)}
+            {battle?.game_mode === 'blitz' ? `${questionTimeRemaining ?? 15}s` : formatTime(timeRemaining)}
           </span>
         </div>
       </div>
 
       <div className="progress-bar">
-        <div className="progress-fill" style={{ width: `${progress}%` }} />
+        <div className="progress-fill" style={{ transform: `scaleX(${progress / 100})` }} />
       </div>
 
       <div className="battle-session-container">
@@ -647,6 +693,7 @@ const QuizBattleSession = () => {
               <span className={`difficulty-badge ${battle?.difficulty}`}>
                 {battle?.difficulty}
               </span>
+              <span className="battle-mode-badge">{formatBattleMode(battle?.game_mode)}</span>
             </div>
           </div>
 
@@ -665,7 +712,7 @@ const QuizBattleSession = () => {
                   disabled={selectedAnswer !== null}
                 >
                   <span className="option-letter">{String.fromCharCode(65 + index)}</span>
-                  <span className="option-text">{option}</span>
+                  <MathRenderer content={String(option)} className="option-text" />
                   {showCorrect && <CheckCircle size={20} className="option-icon" />}
                   {showIncorrect && <XCircle size={20} className="option-icon" />}
                 </button>

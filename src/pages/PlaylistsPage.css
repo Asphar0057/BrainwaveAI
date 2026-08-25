@@ -5097,3 +5097,58 @@
     margin: 0 4px;
   }
 }
+/* Playlist audit hardening: reachable controls, compact screens, and recovery states. */
+.modal-form-error,
+.add-item-error {
+  margin: 0;
+  color: var(--error, #b42318);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.plx-state--error {
+  border: 1px solid color-mix(in srgb, var(--error, #b42318) 35%, transparent);
+}
+
+.plx-layout-switch button,
+.plx-card-controls button,
+.playlists-icon-action-btn,
+.modal-footer button,
+.tag-input-row .add-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+@media (max-width: 500px) {
+  .plx-control-deck {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .plx-search,
+  .plx-sort,
+  .plx-layout-switch {
+    grid-column: 1;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .plx-sort select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .modal-container {
+    max-height: calc(100dvh - 20px);
+  }
+
+  .modal-form {
+    padding-bottom: 20px;
+  }
+
+  .modal-footer {
+    position: static;
+    margin: 18px 0 0;
+    padding: 18px 0 0;
+    background: transparent;
+  }
+}

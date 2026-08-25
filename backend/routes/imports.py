@@ -17,6 +17,7 @@ from deps import call_ai, get_current_user, get_user_by_email, get_user_by_usern
 from services.api_key_pool import ApiKeyPoolExhausted
 from services.import_export_service import ImportExportService
 from services.storage_service import StorageService
+from uid_utils import resolve_by_id_or_uid
 
 try:
     import PyPDF2
@@ -565,7 +566,18 @@ async def convert_playlist_to_notes(
     db: Session = Depends(get_db)
 ):
     try:
-        playlist_id = int(payload.get("playlist_id"))
+        playlist_ref = payload.get("playlist_id")
+        playlist = resolve_by_id_or_uid(
+            db.query(models.LearningPlaylist),
+            models.LearningPlaylist,
+            str(playlist_ref or ""),
+            uid_field="uid",
+        ).first()
+        if not playlist:
+            raise HTTPException(status_code=404, detail="Playlist not found")
+        if not playlist.is_public and playlist.creator_id != current_user.id:
+            raise HTTPException(status_code=403, detail="You do not have access to this playlist")
+        playlist_id = playlist.id
 
         service = ImportExportService(db)
         result = await service.playlist_to_notes(
@@ -591,6 +603,8 @@ async def convert_playlist_to_notes(
         return result
     except ApiKeyPoolExhausted:
         raise
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in playlist_to_notes: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -602,7 +616,18 @@ async def convert_playlist_to_flashcards(
     db: Session = Depends(get_db)
 ):
     try:
-        playlist_id = int(payload.get("playlist_id"))
+        playlist_ref = payload.get("playlist_id")
+        playlist = resolve_by_id_or_uid(
+            db.query(models.LearningPlaylist),
+            models.LearningPlaylist,
+            str(playlist_ref or ""),
+            uid_field="uid",
+        ).first()
+        if not playlist:
+            raise HTTPException(status_code=404, detail="Playlist not found")
+        if not playlist.is_public and playlist.creator_id != current_user.id:
+            raise HTTPException(status_code=403, detail="You do not have access to this playlist")
+        playlist_id = playlist.id
         card_count = int(payload.get("card_count", 15))
 
         service = ImportExportService(db)
@@ -629,6 +654,8 @@ async def convert_playlist_to_flashcards(
 
         return result
     except ApiKeyPoolExhausted:
+        raise
+    except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error in playlist_to_flashcards: {e}")

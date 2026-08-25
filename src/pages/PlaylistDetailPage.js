@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Plus, Trash2, Check, Users, Clock, BookOpen, X,
@@ -13,6 +13,7 @@ import MathRenderer from '../components/MathRenderer';
 import { renderMarkdownWithMath } from '../utils/mathMarkdown';
 import PlaylistShareModal from '../components/PlaylistShareModal';
 import SocialHubChrome from '../components/SocialHubChrome';
+import useDialogA11y from '../hooks/useDialogA11y';
 
 const renderPlaylistMarkdown = (value = '') => renderMarkdownWithMath(value, {});
 
@@ -40,6 +41,8 @@ const PlaylistDetailPage = () => {
   const [updatingItem, setUpdatingItem] = useState(null);
   const [forkLoading, setForkLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [pageError, setPageError] = useState('');
+  const [actionError, setActionError] = useState('');
 
   useEffect(() => {
     fetchPlaylistDetails();
@@ -70,22 +73,25 @@ const PlaylistDetailPage = () => {
 
   const fetchPlaylistDetails = async () => {
     setLoading(true);
+    setPageError('');
     try {
       const response = await fetch(`${API_URL}/playlists/${playlistId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setPlaylist(data);
-        setIsFollowing(data.is_following || false);
-      }
-    } catch (error) { /* silenced */ } finally {
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || 'Could not load this playlist');
+      setPlaylist(data);
+      setIsFollowing(data.is_following || false);
+    } catch (error) {
+      setPageError(error.message || 'Could not load this playlist');
+    } finally {
       setLoading(false);
     }
   };
 
   const handleFollowToggle = async () => {
+    setActionError('');
     setFollowLoading(true);
     try {
       const method = isFollowing ? 'DELETE' : 'POST';
@@ -102,8 +108,13 @@ const PlaylistDetailPage = () => {
             ? Math.max(0, (prev.follower_count || 0) - 1)
             : (prev.follower_count || 0) + 1
         }));
+      } else {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || 'Could not update the follow state');
       }
-    } catch (error) { /* silenced */ } finally {
+    } catch (error) {
+      setActionError(`${error.message || 'Could not update the follow state'}. Try again.`);
+    } finally {
       setFollowLoading(false);
     }
   };
@@ -119,8 +130,12 @@ const PlaylistDetailPage = () => {
       const data = await response.json().catch(() => ({}));
       if (response.ok && data.id) {
         navigate(`/playlists/${data.uid || data.id}`);
+      } else {
+        throw new Error(data.detail || 'Could not fork this playlist');
       }
-    } catch (error) { /* silenced */ } finally {
+    } catch (error) {
+      setActionError(`${error.message || 'Could not fork this playlist'}. Try again.`);
+    } finally {
       setForkLoading(false);
     }
   };
@@ -136,7 +151,7 @@ const PlaylistDetailPage = () => {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ playlist_id: playlistId })
+        body: JSON.stringify({ playlist_id: playlist?.id || playlistId })
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data.success === false) {
@@ -168,7 +183,7 @@ const PlaylistDetailPage = () => {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ playlist_id: playlistId, card_count: 15 })
+        body: JSON.stringify({ playlist_id: playlist?.id || playlistId, card_count: 15 })
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data.success === false) {
@@ -233,28 +248,32 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
             progress_percentage: data.progress_percentage || 0
           }
         }));
+      } else {
+        throw new Error(data.detail || 'Could not update progress');
       }
-    } catch (error) { /* silenced */ } finally {
+    } catch (error) {
+      setActionError(`${error.message || 'Could not update progress'}. Try again.`);
+    } finally {
       setUpdatingItem(null);
     }
   };
 
   const handleAddItem = async (itemData) => {
-    try {
-      const response = await fetch(`${API_URL}/playlists/${playlistId}/items`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(itemData)
-      });
-
-      if (response.ok) {
-        setShowAddItemModal(false);
-        fetchPlaylistDetails();
-      }
-    } catch (error) { /* silenced */ }
+    const response = await fetch(`${API_URL}/playlists/${playlistId}/items`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(itemData)
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const detail = Array.isArray(data.detail) ? data.detail[0]?.msg : data.detail;
+      throw new Error(detail || data.error || 'Could not add this item');
+    }
+    await fetchPlaylistDetails();
+    return data;
   };
 
   const handleDeleteItem = async (itemId) => {
@@ -373,7 +392,8 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
             <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
           </div>
         </div>
-        <h2>Playlist not found</h2>
+        <h2 role={pageError ? 'alert' : undefined}>{pageError || 'Playlist not found'}</h2>
+        {pageError && <button type="button" onClick={fetchPlaylistDetails} className="error-back-btn">Try again</button>}
         <button onClick={() => navigate('/playlists')} className="error-back-btn">
           <span>Back to Playlists</span>
           <ChevronRight size={18} />
@@ -586,6 +606,13 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
               <button className="pdp-toast-close" type="button" aria-label="Dismiss conversion result" onClick={() => setAiResult(null)}><X size={13} /></button>
             </div>
           )}
+          {actionError && (
+            <div className="pdp-ai-toast error" role="alert">
+              <X size={15} />
+              <span>{actionError}</span>
+              <button className="pdp-toast-close" type="button" aria-label="Dismiss action error" onClick={() => setActionError('')}><X size={13} /></button>
+            </div>
+          )}
 
           <section id="playlist-items" className="pdx-items">
             <div className="pdx-section-heading">
@@ -598,11 +625,12 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
 
             {allItems.length > 0 && (
               <div className="pdx-toolbox">
-                <label className="pdx-item-search">
+                <div className="pdx-item-search">
                   <Search size={15} />
-                  <input type="search" value={itemSearch} onChange={(event) => setItemSearch(event.target.value)} placeholder="Find an item" />
+                  <label className="sr-only" htmlFor="playlist-item-search">Search playlist items</label>
+                  <input id="playlist-item-search" type="search" value={itemSearch} onChange={(event) => setItemSearch(event.target.value)} placeholder="Find an item" />
                   {itemSearch && <button type="button" onClick={() => setItemSearch('')} aria-label="Clear item search"><X size={13} /></button>}
-                </label>
+                </div>
                 <div className="pdx-segment" role="group" aria-label="Completion status">
                   {[
                     ['all', 'All'],
@@ -651,7 +679,7 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
                         {isCompleted && <span className="complete">Complete</span>}
                       </div>
                       <div className="pdx-row-actions">
-                        {isFollowing && (
+                        {(isFollowing || playlist.is_owner) && (
                           <button className={isCompleted ? 'active' : ''} type="button" onClick={() => handleToggleCompletion(item.id, !isCompleted)} disabled={updatingItem === item.id} aria-label={isCompleted ? `Mark ${item.title} incomplete` : `Mark ${item.title} complete`} title={isCompleted ? 'Mark incomplete' : 'Mark complete'}>
                             <CheckCircle size={16} />
                           </button>
@@ -699,403 +727,13 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
     </div>
   );
 
-  return (
-    <div className="playlist-detail-container playlist-detail-page">
-      <svg className="pdp-geo-bg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-        <circle cx="1150" cy="180" r="460" fill="none" stroke="currentColor" strokeWidth="1"/>
-        <circle cx="1150" cy="180" r="310" fill="none" stroke="currentColor" strokeWidth="0.6"/>
-        <circle cx="1150" cy="180" r="170" fill="none" stroke="currentColor" strokeWidth="0.4"/>
-        <circle cx="180" cy="720" r="280" fill="none" stroke="currentColor" strokeWidth="0.6"/>
-        <circle cx="180" cy="720" r="160" fill="none" stroke="currentColor" strokeWidth="0.4"/>
-        <line x1="0" y1="0" x2="1400" y2="900" stroke="currentColor" strokeWidth="0.4"/>
-        <line x1="0" y1="900" x2="750" y2="0" stroke="currentColor" strokeWidth="0.3"/>
-        <circle cx="1150" cy="180" r="4" fill="currentColor" opacity="0.5"/>
-        <circle cx="180" cy="720" r="3" fill="currentColor" opacity="0.5"/>
-        <circle cx="700" cy="450" r="2.5" fill="currentColor" opacity="0.4"/>
-        <circle cx="400" cy="130" r="2" fill="currentColor" opacity="0.3"/>
-        <circle cx="1050" cy="700" r="2" fill="currentColor" opacity="0.3"/>
-      </svg>
-      <div className="shc-topbar">
-        <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-        <div className="shc-topbar-right">
-          <button className="shc-top-btn" type="button" onClick={() => navigate('/playlists')}>Playlists</button>
-          <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-        </div>
-      </div>
-      <div className="detail-main">
-
-      <div className="detail-header">
-        <div
-          className="pdp-cover-art"
-          style={{
-            '--playlist-cover': playlist.cover_color || '#D7B38C',
-            background: `linear-gradient(145deg, color-mix(in srgb, ${playlist.cover_color || '#D7B38C'} 84%, white), ${playlist.cover_color || '#D7B38C'} 56%, color-mix(in srgb, ${playlist.cover_color || '#D7B38C'} 76%, black))`
-          }}
-          aria-hidden="true"
-        >
-          <div className="pdp-cover-topline">
-            <span>Cerbyl</span>
-            <span>{allItems.length} {allItems.length === 1 ? 'item' : 'items'}</span>
-          </div>
-          <div className="pdp-cover-mark">{coverMark}</div>
-          <div className="pdp-cover-orbit">
-            <span />
-            <span />
-            <span />
-          </div>
-          <div className="pdp-cover-footer">
-            <span>{playlist.category || 'Study collection'}</span>
-            <BookOpen size={18} strokeWidth={1.35} />
-          </div>
-        </div>
-
-        <div className="header-content">
-          <div className="header-meta">
-            <span className="meta-badge meta-badge--kicker">Learning Playlist</span>
-            <span className="meta-badge">
-              {playlist.is_public ? <Globe size={12} /> : <Lock size={12} />}
-              {playlist.is_public ? 'Public' : 'Private'}
-            </span>
-            {playlist.category && (
-              <span className="meta-badge category">{playlist.category}</span>
-            )}
-            {playlist.difficulty_level && (
-              <span className="meta-badge difficulty">{playlist.difficulty_level}</span>
-            )}
-          </div>
-
-          <h1 className="header-title">{playlist.title}</h1>
-          {playlist.description && <p className="header-description">{playlist.description}</p>}
-
-          <div className="header-stats">
-            <div className="stat-item">
-              <BookOpen size={14} />
-              <span>{playlist.items?.length || 0} items</span>
-            </div>
-            <div className="stat-item">
-              <Users size={14} />
-              <span>{playlist.follower_count || 0} followers</span>
-            </div>
-            {totalHours > 0 && (
-              <div className="stat-item">
-                <Clock size={14} />
-                <span>{totalHours}h</span>
-              </div>
-            )}
-            <div className="stat-item stat-creator">
-              {playlist.creator.picture_url ? (
-                <img src={playlist.creator.picture_url} alt="" className="creator-img" />
-              ) : (
-                <div className="creator-avatar">
-                  {(playlist.creator.first_name?.[0] || playlist.creator.username[0]).toUpperCase()}
-                </div>
-              )}
-              <span>by {playlist.creator.first_name || playlist.creator.username}</span>
-            </div>
-          </div>
-
-          {progressPercentage > 0 && (
-            <div className="progress-section">
-              <div className="progress-header">
-                <span className="progress-label">Your Progress</span>
-                <span className="progress-value">{Math.round(progressPercentage)}%</span>
-              </div>
-              <div className="progress-track">
-                <div className="progress-bar" style={{ width: `${progressPercentage}%` }}></div>
-              </div>
-            </div>
-          )}
-
-          <div className="header-actions" aria-label="Playlist actions">
-            {playlist.is_owner ? (
-              <>
-                <button className="ha-btn ha-btn--primary" type="button" onClick={() => setShowAddItemModal(true)}>
-                  <Plus size={14} /> Add Item
-                </button>
-                <button className="ha-btn" type="button" onClick={() => setShowShareModal(true)}>
-                  <Share2 size={14} /> Share
-                </button>
-                <button className="ha-btn ha-btn--danger" type="button" onClick={handleDeletePlaylist} disabled={deleteLoading}>
-                  <Trash2 size={14} /> {deleteLoading ? 'Deleting…' : 'Delete'}
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  className={`ha-btn ${isFollowing ? 'ha-btn--success' : 'ha-btn--primary'}`}
-                  type="button" onClick={handleFollowToggle} disabled={followLoading}
-                >
-                  {isFollowing ? <Check size={14} /> : <Heart size={14} />}
-                  {followLoading ? '…' : isFollowing ? 'Following' : 'Follow'}
-                </button>
-                <button className="ha-btn" type="button" onClick={() => setShowShareModal(true)}>
-                  <Share2 size={14} /> Share
-                </button>
-                <button className="ha-btn" type="button" onClick={handleForkPlaylist} disabled={forkLoading}>
-                  <GitFork size={14} /> {forkLoading ? 'Forking…' : 'Fork'}
-                </button>
-              </>
-            )}
-            <span className="ha-sep" />
-            <button className="ha-btn ha-btn--ai" type="button" onClick={handleGenerateNotes} disabled={aiLoading.notes || allItems.length === 0}>
-              {aiLoading.notes ? <span className="detail-btn-spinner" /> : <FileText size={14} />} Notes
-            </button>
-            <button className="ha-btn ha-btn--ai" type="button" onClick={handleGenerateFlashcards} disabled={aiLoading.flashcards || allItems.length === 0}>
-              {aiLoading.flashcards ? <span className="detail-btn-spinner" /> : <Zap size={14} />} Flashcards
-            </button>
-            <button className="ha-btn ha-btn--ai" type="button" onClick={handleAskAI}>
-              <Sparkles size={14} /> Ask AI
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {aiResult && (
-        <div className={`pdp-ai-toast ${aiResult.status}`}>
-          <Sparkles size={15} />
-          {aiResult.status === 'success' ? (
-            <>
-              <span>AI {aiResult.type === 'notes' ? 'notes' : 'flashcards'} ready:</span>
-              {aiResult.type === 'notes' && aiResult.noteId && (
-                <button className="pdp-toast-link" onClick={() => navigate(`/notes/editor/${aiResult.noteId}`)}>Open Notes</button>
-              )}
-              {aiResult.type === 'flashcards' && (
-                <button className="pdp-toast-link" onClick={() => navigate('/flashcards')}>Open Flashcards</button>
-              )}
-            </>
-          ) : (
-            <span>{aiResult.message}</span>
-          )}
-          <button className="pdp-toast-close" type="button" aria-label="Dismiss conversion result" onClick={() => setAiResult(null)}><X size={13} /></button>
-        </div>
-      )}
-
-      <div className="detail-body">
-        <div className="items-header">
-          <div className="view-heading" style={{ marginBottom: 0, paddingBottom: 0, border: 'none' }}>
-            <span className="view-kicker">Collection</span>
-            <h2 className="view-title">Playlist Items</h2>
-            <p className="view-sub">{filteredItems.length} of {allItems.length} items</p>
-          </div>
-        </div>
-
-        {allItems.length > 0 && (
-          <div className="items-toolbar">
-            <div className="item-filters">
-              <button
-                className={`filter-pill ${itemFilter === 'all' ? 'active' : ''}`}
-                onClick={() => setItemFilter('all')}
-                type="button"
-                aria-pressed={itemFilter === 'all'}
-              >
-                All
-              </button>
-              {itemTypes.map(type => (
-                <button
-                  key={type}
-                  className={`filter-pill ${itemFilter === type ? 'active' : ''}`}
-                  onClick={() => setItemFilter(type)}
-                  type="button"
-                  aria-pressed={itemFilter === type}
-                >
-                  {type.replace('_', ' ')}
-                </button>
-              ))}
-            </div>
-            <button
-              className={`required-toggle ${showOnlyRequired ? 'active' : ''}`}
-              onClick={() => setShowOnlyRequired(prev => !prev)}
-              type="button"
-              aria-pressed={showOnlyRequired}
-            >
-              {showOnlyRequired ? 'Showing Required' : 'Required Only'}
-            </button>
-          </div>
-        )}
-
-        {filteredItems.length > 0 ? (
-          <div className="items-container">
-            {filteredItems.map((item, index) => {
-              const ItemIcon = getItemIcon(item.item_type);
-              const isCompleted = completedItems.includes(item.id);
-              const isExpanded = expandedItems[item.id];
-
-              return (
-                <div
-                  key={item.id}
-                  className={`playlist-item ${isCompleted ? 'completed' : ''}`}
-                >
-                  <div
-                    className="item-header"
-                    onClick={() => handleOpenItem(item)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        handleOpenItem(item);
-                      }
-                    }}
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`Open ${item.title}`}
-                  >
-                    <div className="item-number">{index + 1}</div>
-
-                    <div className="item-icon-wrapper">
-                      <ItemIcon size={20} />
-                    </div>
-
-                    <div className="item-info">
-                      <div className="item-name">{item.title}</div>
-                      <div className="item-meta">
-                        <span className="item-type">{item.item_type.replace('_', ' ')}</span>
-                        {item.platform && (
-                          <>
-                            <span className="meta-separator">•</span>
-                            <span>{item.platform}</span>
-                          </>
-                        )}
-                        {item.duration_minutes && (
-                          <>
-                            <span className="meta-separator">•</span>
-                            <span>{item.duration_minutes} min</span>
-                          </>
-                        )}
-                        <span className="item-requirement">{item.is_required ? 'Required' : 'Optional'}</span>
-                      </div>
-                    </div>
-
-                    <div className="item-actions">
-                      {isFollowing && (
-                        <button
-                          className={`item-btn complete ${isCompleted ? 'active' : ''}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleCompletion(item.id, !isCompleted);
-                          }}
-                          disabled={updatingItem === item.id}
-                          title={isCompleted ? 'Mark incomplete' : 'Mark complete'}
-                          aria-label={isCompleted ? `Mark ${item.title} incomplete` : `Mark ${item.title} complete`}
-                          type="button"
-                        >
-                          <CheckCircle size={18} />
-                        </button>
-                      )}
-                      {(item.description || item.notes) && (
-                        <button
-                          className="item-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleItem(item.id);
-                          }}
-                          aria-label={isExpanded ? `Collapse details for ${item.title}` : `Expand details for ${item.title}`}
-                          aria-expanded={isExpanded}
-                          type="button"
-                        >
-                          {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                        </button>
-                      )}
-                      {playlist.is_owner && (
-                        <button
-                          className="item-btn delete"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteItem(item.id);
-                          }}
-                          aria-label={`Remove ${item.title} from playlist`}
-                          type="button"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {isExpanded && (item.description || item.notes) && (
-                    <div className="item-details">
-                      {item.description && (
-                        <div className="detail-block">
-                          <strong>Description</strong>
-                          <p>{item.description}</p>
-                        </div>
-                      )}
-                      {item.notes && (
-                        <div className="detail-block">
-                          <strong>Notes</strong>
-                          <p>{item.notes}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="empty-items">
-            <div className="empty-icon-ring">
-              <div className="empty-icon-inner">
-                <BookOpen size={30} strokeWidth={1.5} />
-              </div>
-            </div>
-            <span className="empty-kicker">
-              {allItems.length > 0 ? 'Filter Results' : 'Empty Collection'}
-            </span>
-            <h3 className="empty-title">
-              {allItems.length > 0 ? 'No Matches Found' : 'No Items Yet'}
-            </h3>
-            <p className="empty-sub">
-              {allItems.length > 0
-                ? 'Try adjusting your filters to find what you\'re looking for'
-                : playlist.is_owner
-                  ? 'Start building your playlist. Add notes, videos, quizzes and more.'
-                  : 'This playlist hasn\'t been populated yet'}
-            </p>
-            {allItems.length > 0 && (
-              <button className="empty-action-btn" type="button" onClick={() => {
-                setItemFilter('all');
-                setShowOnlyRequired(false);
-              }}>
-                Clear Filters
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-      </div>
-
-      {showViewModal && itemContent && (
-        <ViewItemModal
-          item={viewingItem}
-          content={itemContent}
-          onClose={() => {
-            setShowViewModal(false);
-            setViewingItem(null);
-            setItemContent(null);
-          }}
-        />
-      )}
-
-      {showAddItemModal && (
-        <AddItemModal
-          onClose={() => setShowAddItemModal(false)}
-          onAdd={handleAddItem}
-        />
-      )}
-
-      {showShareModal && (
-        <PlaylistShareModal
-          isOpen={showShareModal}
-          playlist={playlist}
-          onClose={() => setShowShareModal(false)}
-        />
-      )}
-    </div>
-  );
 };
 
 export default PlaylistDetailPage;
 
 const ViewItemModal = ({ item, content, onClose }) => {
+  const dialogRef = useRef(null);
+  useDialogA11y(true, onClose, dialogRef);
   const resourceType = item?.item_type || content.type || 'resource';
   const ResourceIcon = resourceType === 'chat' ? MessageSquare : FileText;
   const hasMessages = Array.isArray(content.messages) && content.messages.length > 0;
@@ -1103,10 +741,12 @@ const ViewItemModal = ({ item, content, onClose }) => {
   return (
     <div className="modal-backdrop pdx-view-backdrop" onClick={onClose}>
       <div
+        ref={dialogRef}
         className={`modal-box view-modal pdx-view-modal pdx-view-modal--${resourceType}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="playlist-item-modal-title"
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="pdx-view-atmosphere" aria-hidden="true">
@@ -1194,6 +834,8 @@ const ViewItemModal = ({ item, content, onClose }) => {
 };
 
 const AddItemModal = ({ onClose, onAdd }) => {
+  const dialogRef = useRef(null);
+  useDialogA11y(true, onClose, dialogRef);
   const token = localStorage.getItem('token');
   const userName = localStorage.getItem('username');
   const [itemType, setItemType] = useState('external_link');
@@ -1212,8 +854,22 @@ const AddItemModal = ({ onClose, onAdd }) => {
   const [userQuizzes, setUserQuizzes] = useState([]);
   const [userFlashcards, setUserFlashcards] = useState([]);
   const [loadingResources, setLoadingResources] = useState(false);
+  const [resourceError, setResourceError] = useState('');
   const [addedItems, setAddedItems] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
+
+  const validateItem = (item) => {
+    if (!item.title?.trim()) return 'Add a title or select a resource.';
+    if (['external_link', 'youtube', 'pdf', 'article', 'course'].includes(item.item_type)) {
+      if (!item.url?.trim()) return 'Add the URL for this item.';
+      if (!/^https?:\/\//i.test(item.url.trim())) return 'Use a full URL beginning with http:// or https://.';
+    }
+    if (['note', 'chat', 'quiz', 'flashcard'].includes(item.item_type) && !item.item_id) {
+      return `Select a ${item.item_type === 'flashcard' ? 'flashcard set' : item.item_type}.`;
+    }
+    return '';
+  };
 
   useEffect(() => {
     if (['note', 'chat', 'quiz', 'flashcard'].includes(itemType)) {
@@ -1223,6 +879,7 @@ const AddItemModal = ({ onClose, onAdd }) => {
 
   const fetchUserResources = async () => {
     setLoadingResources(true);
+    setResourceError('');
     try {
       if (itemType === 'note') {
         const response = await fetch(`${API_URL}/get_notes?user_id=${encodeURIComponent(userName)}&summary=true&limit=100`, {
@@ -1257,7 +914,9 @@ const AddItemModal = ({ onClose, onAdd }) => {
           setUserFlashcards(Array.isArray(data) ? data : (data.flashcard_history || []));
         }
       }
-    } catch (error) { /* silenced */ } finally {
+    } catch (error) {
+      setResourceError('Could not load your saved resources. Check your connection and try this type again.');
+    } finally {
       setLoadingResources(false);
     }
   };
@@ -1269,6 +928,12 @@ const AddItemModal = ({ onClose, onAdd }) => {
       ...formData,
       tempId: Date.now()
     };
+    const validationError = validateItem(newItem);
+    if (validationError) {
+      setFormError(validationError);
+      return;
+    }
+    setFormError('');
     setAddedItems(prev => [...prev, newItem]);
 
 
@@ -1290,11 +955,20 @@ const AddItemModal = ({ onClose, onAdd }) => {
       ...formData
     };
 
+    const validationError = validateItem(newItem);
+    if (validationError) {
+      setFormError(validationError);
+      return;
+    }
+
     setIsSubmitting(true);
+    setFormError('');
     try {
       await onAdd(newItem);
       onClose();
-    } catch (error) { /* silenced */ } finally {
+    } catch (error) {
+      setFormError(`${error.message || 'Could not add this item.'} Review the fields and try again.`);
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -1313,7 +987,9 @@ const AddItemModal = ({ onClose, onAdd }) => {
         await onAdd(itemData);
       }
       onClose();
-    } catch (error) { /* silenced */ } finally {
+    } catch (error) {
+      setFormError(`${error.message || 'Could not add the queued items.'} Your queue is still here; try again.`);
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -1342,36 +1018,51 @@ const AddItemModal = ({ onClose, onAdd }) => {
   };
 
   return (
-    <div className="add-item-fullpage">
-      <div className="ai-header">
-        <div className="ai-header-left">
-          <span className="ai-kicker">Playlist</span>
-          <h1 className="ai-title">Add Items</h1>
-        </div>
-        <button className="ai-close" type="button" aria-label="Close add items" onClick={onClose}>
-          <X size={18} />
-        </button>
-      </div>
-
-      <div className="add-item-body">
-        <div className="add-item-main">
-          <div className="add-item-form-section">
-            <div className="ai-section-head">
-              <span className="ai-section-kicker">Step 1</span>
-              <h2 className="ai-section-title">Choose & Configure</h2>
+    <div className="add-item-fullpage" ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="add-items-title" tabIndex={-1}>
+      <div className="add-item-shell">
+        <div className="cb-tile-texture add-item-texture" aria-hidden="true" />
+        <div className="ai-header">
+          <div className="ai-header-left pdx-identity">
+            <div className="pdx-mark add-item-mark" aria-hidden="true">
+              <span>+</span><i /><i /><i />
             </div>
+            <div className="pdx-heading">
+              <div className="pdx-badges">
+                <span>Playlist</span>
+                <span>Resource builder</span>
+              </div>
+              <h1 className="ai-title" id="add-items-title">Add resources</h1>
+              <p>Choose one resource to add now, or stage several and add them together.</p>
+            </div>
+          </div>
+          <button className="ai-close pdx-action" type="button" aria-label="Close add items" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="add-item-body">
+          <div className="add-item-main">
+            <div className="add-item-form-section">
+              <div className="ai-section-head pdx-section-heading">
+                <div>
+                  <span>Resource setup</span>
+                  <h2>Choose and configure</h2>
+                </div>
+                <p>Links and uploads need a title and URL. Saved learning resources can be selected directly.</p>
+              </div>
 
             <form onSubmit={handleAddToQueue} className="add-item-form">
               <div className="form-field">
-                <label className="ai-field-label">Item Type</label>
-                <div className="ai-type-chips">
+                <span className="ai-field-label" id="item-type-label">Item Type</span>
+                <div className="ai-type-chips pdx-toolbox" role="group" aria-labelledby="item-type-label">
                   {itemTypes.map(type => {
                     const Icon = type.icon;
                     return (
                       <button
                         key={type.value}
                         type="button"
-                        className={`ai-type-chip ${itemType === type.value ? 'active' : ''}`}
+                        className={`ai-type-chip pdx-action ${itemType === type.value ? 'active pdx-action--active' : ''}`}
+                        aria-pressed={itemType === type.value}
                         onClick={() => {
                           setItemType(type.value);
                           setFormData({ title: '', url: '', description: '', is_required: true, notes: '', item_id: null, platform: '' });
@@ -1389,9 +1080,10 @@ const AddItemModal = ({ onClose, onAdd }) => {
                 <div className="form-field">
                   <label>Select {itemType === 'flashcard' ? 'Flashcard Set' : itemType === 'quiz' ? 'Quiz' : itemType === 'note' ? 'Note' : 'Chat'}</label>
                   {loadingResources ? (
-                    <div className="loading-text">Loading...</div>
+                    <div className="loading-text" role="status">Loading your {itemType === 'flashcard' ? 'flashcard sets' : `${itemType}s`}…</div>
                   ) : (
                     <div className="resource-selector-list">
+                      {resourceError && <div className="resource-load-error" role="alert">{resourceError}</div>}
                       {itemType === 'note' && userNotes.map(note => (
                         <div
                           key={note.id}
@@ -1462,7 +1154,7 @@ const AddItemModal = ({ onClose, onAdd }) => {
                         );
                       })}
 
-                      {((itemType === 'note' && userNotes.length === 0) ||
+                      {!resourceError && ((itemType === 'note' && userNotes.length === 0) ||
                         (itemType === 'chat' && userChats.length === 0) ||
                         (itemType === 'quiz' && userQuizzes.length === 0) ||
                         (itemType === 'flashcard' && userFlashcards.length === 0)) && (
@@ -1477,8 +1169,9 @@ const AddItemModal = ({ onClose, onAdd }) => {
 
               {itemType !== 'note' && itemType !== 'chat' && itemType !== 'quiz' && itemType !== 'flashcard' && (
                 <div className="form-field">
-                  <label>Title</label>
+                  <label htmlFor="playlist-item-title">Title</label>
                   <input
+                    id="playlist-item-title"
                     type="text"
                     value={formData.title}
                     onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
@@ -1491,8 +1184,9 @@ const AddItemModal = ({ onClose, onAdd }) => {
               {(itemType === 'external_link' || itemType === 'youtube' || itemType === 'pdf' ||
                 itemType === 'article' || itemType === 'course') && (
                 <div className="form-field">
-                  <label>URL</label>
+                  <label htmlFor="playlist-item-url">URL</label>
                   <input
+                    id="playlist-item-url"
                     type="url"
                     value={formData.url}
                     onChange={(e) => setFormData(prev => ({ ...prev, url: e.target.value }))}
@@ -1526,8 +1220,9 @@ const AddItemModal = ({ onClose, onAdd }) => {
               )}
 
               <div className="form-field">
-                <label>Description (Optional)</label>
+                <label htmlFor="playlist-item-description">Description (Optional)</label>
                 <textarea
+                  id="playlist-item-description"
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="Add a description..."
@@ -1535,56 +1230,76 @@ const AddItemModal = ({ onClose, onAdd }) => {
                 />
               </div>
 
+              <label className="add-item-required">
+                <input
+                  type="checkbox"
+                  checked={formData.is_required}
+                  onChange={(e) => setFormData(prev => ({ ...prev, is_required: e.target.checked }))}
+                />
+                <span className="add-item-required-control" aria-hidden="true"><Check size={13} /></span>
+                <span><strong>Required in this path</strong><small>Learners should complete this resource.</small></span>
+              </label>
+
+              {formError && <p className="add-item-error" role="alert">{formError}</p>}
               <div className="form-actions">
-                <button type="submit" className="add-to-queue-btn">
+                <button type="submit" className="add-to-queue-btn pdx-action pdx-action--primary">
                   <Plus size={18} />
                   <span>Add to Queue</span>
                 </button>
-                <button type="button" className="done-btn" onClick={handleAddAndClose} disabled={isSubmitting}>
+                <button type="button" className="done-btn pdx-action" onClick={handleAddAndClose} disabled={isSubmitting}>
                   <Check size={18} />
-                  <span>{isSubmitting ? 'Adding...' : 'Done'}</span>
+                  <span>{isSubmitting ? 'Adding…' : 'Add now'}</span>
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-
-        <div className="add-item-sidebar">
-          <div className="queue-section">
-            <div className="queue-header">
-              <div className="ai-section-head">
-                <span className="ai-section-kicker">Step 2</span>
-                <h2 className="ai-section-title">Queue</h2>
-              </div>
-              <span className="queue-count">{addedItems.length} items</span>
             </div>
+          </div>
+
+          <div className="add-item-sidebar">
+            <div className="cb-tile-texture" aria-hidden="true" />
+            <div className="queue-section">
+              <div className="queue-header">
+                <div className="ai-section-head pdx-section-heading">
+                  <div>
+                    <span>Staged resources</span>
+                    <h2>Ready to add</h2>
+                  </div>
+                </div>
+                <span className="queue-count">{addedItems.length} {addedItems.length === 1 ? 'item' : 'items'}</span>
+              </div>
 
             {addedItems.length === 0 ? (
-              <div className="queue-empty">
-                <BookOpen size={48} />
-                <p>No items in queue</p>
-                <span>Add items to see them here</span>
+              <div className="queue-empty pdx-empty">
+                <BookOpen size={25} />
+                <span>This queue is empty</span>
+                <h3>No resources staged.</h3>
+                <p>Add a resource from the setup panel. It will appear here before you commit it to the playlist.</p>
               </div>
             ) : (
               <div className="queue-list">
-                {addedItems.map((item) => {
+                {addedItems.map((item, index) => {
                   const ItemIcon = getItemIcon(item.item_type);
                   return (
-                    <div key={item.tempId} className="queue-item">
-                      <div className="queue-item-icon">
-                        <ItemIcon size={18} />
+                    <article key={item.tempId} className="queue-item pdx-row">
+                      <div className="pdx-row-number">{String(index + 1).padStart(2, '0')}</div>
+                      <div className="pdx-row-open">
+                        <span className="pdx-row-icon"><ItemIcon size={17} /></span>
+                        <span className="pdx-row-copy">
+                          <strong>{item.title}</strong>
+                          <span>{item.item_type.replace('_', ' ')}</span>
+                        </span>
                       </div>
-                      <div className="queue-item-info">
-                        <div className="queue-item-title">{item.title}</div>
-                        <div className="queue-item-type">{item.item_type.replace('_', ' ')}</div>
+                      <div className="pdx-row-actions">
+                        <button
+                          type="button"
+                          className="danger"
+                          onClick={() => handleRemoveFromQueue(item.tempId)}
+                          aria-label={`Remove ${item.title} from queue`}
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
-                      <button
-                        className="queue-item-remove"
-                        onClick={() => handleRemoveFromQueue(item.tempId)}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+                    </article>
                   );
                 })}
               </div>
@@ -1592,7 +1307,8 @@ const AddItemModal = ({ onClose, onAdd }) => {
 
             {addedItems.length > 0 && (
               <button
-                className="submit-all-btn"
+                type="button"
+                className="submit-all-btn pdx-action pdx-action--primary"
                 onClick={handleSubmitAll}
                 disabled={isSubmitting}
               >
@@ -1606,6 +1322,7 @@ const AddItemModal = ({ onClose, onAdd }) => {
                 )}
               </button>
             )}
+            </div>
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   X, Download, FileText, HelpCircle, 
   Zap, CheckCircle, Loader, ChevronRight, Mic
@@ -6,6 +6,7 @@ import {
 import { API_URL } from '../config';
 import conversionAgentService from '../services/conversionAgentService';
 import './ImportExportModal.css';
+import useDialogA11y from '../hooks/useDialogA11y';
 
 const ImportExportModal = ({ 
   isOpen, 
@@ -14,6 +15,7 @@ const ImportExportModal = ({
   sourceType,
   onSuccess 
 }) => {
+  const dialogRef = useRef(null);
   const [step, setStep] = useState(1);
   const [selectedItems, setSelectedItems] = useState([]);
   const [availableItems, setAvailableItems] = useState([]);
@@ -299,6 +301,8 @@ const ImportExportModal = ({
     onClose();
   };
 
+  useDialogA11y(isOpen, handleClose, dialogRef);
+
   if (!isOpen) return null;
 
   const getItemTitle = (item) => {
@@ -314,12 +318,12 @@ const ImportExportModal = ({
 
   return (
     <div className="iem-overlay" onClick={handleClose}>
-      <div className="iem-modal" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} className="iem-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="import-export-title" tabIndex={-1}>
         <div className="iem-header">
           <div className="iem-header-content">
             <Zap size={24} className="iem-header-icon" />
             <div>
-              <h2>
+              <h2 id="import-export-title">
                 {mode === 'import' ? 'Convert' : 'Export'} {sourceType}
               </h2>
               <p className="iem-header-subtitle">
@@ -327,7 +331,7 @@ const ImportExportModal = ({
               </p>
             </div>
           </div>
-          <button className="iem-close-btn" onClick={handleClose}>
+          <button type="button" className="iem-close-btn" onClick={handleClose} aria-label="Close conversion dialog">
             <X size={20} />
           </button>
         </div>
@@ -368,6 +372,7 @@ const ImportExportModal = ({
                       onClick={() => handleItemToggle(item.id)}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleItemToggle(item.id); } }}
                       role="button"
+                      aria-pressed={selectedItems.includes(item.id)}
                       tabIndex={0}
                     >
                       <div className="iem-item-checkbox">
@@ -438,6 +443,7 @@ const ImportExportModal = ({
                     }}
                     role="button"
                     tabIndex={0}
+                    aria-pressed={destinationType === option.value}
                   >
                     <div className="iem-conversion-icon">{option.icon}</div>
                     <h4>{option.label}</h4>
@@ -453,8 +459,9 @@ const ImportExportModal = ({
                   {destinationType === 'flashcards' && (
                     <>
                       <div className="iem-setting-group">
-                        <label>Number of Cards</label>
+                        <label htmlFor="conversion-card-count">Number of Cards</label>
                         <input
+                          id="conversion-card-count"
                           type="number"
                           className="iem-input"
                           min="5"
@@ -468,8 +475,9 @@ const ImportExportModal = ({
                       </div>
                       
                       <div className="iem-setting-group">
-                        <label>Difficulty</label>
+                        <label htmlFor="conversion-card-difficulty">Difficulty</label>
                         <select
+                          id="conversion-card-difficulty"
                           className="iem-select"
                           value={options.difficulty}
                           onChange={(e) => setOptions(prev => ({ ...prev, difficulty: e.target.value }))}
@@ -481,8 +489,9 @@ const ImportExportModal = ({
                       </div>
 
                       <div className="iem-setting-group">
-                        <label>Depth Level</label>
+                        <label htmlFor="conversion-depth">Depth Level</label>
                         <select
+                          id="conversion-depth"
                           className="iem-select"
                           value={options.depthLevel}
                           onChange={(e) => setOptions(prev => ({ ...prev, depthLevel: e.target.value }))}
@@ -498,8 +507,9 @@ const ImportExportModal = ({
                   {destinationType === 'questions' && (
                     <>
                       <div className="iem-setting-group">
-                        <label>Number of Questions</label>
+                        <label htmlFor="conversion-question-count">Number of Questions</label>
                         <input
+                          id="conversion-question-count"
                           type="number"
                           className="iem-input"
                           min="5"
@@ -513,8 +523,9 @@ const ImportExportModal = ({
                       </div>
                       
                       <div className="iem-setting-group">
-                        <label>Difficulty</label>
+                        <label htmlFor="conversion-question-difficulty">Difficulty</label>
                         <select
+                          id="conversion-question-difficulty"
                           className="iem-select"
                           value={options.difficulty}
                           onChange={(e) => setOptions(prev => ({ ...prev, difficulty: e.target.value }))}
@@ -529,8 +540,9 @@ const ImportExportModal = ({
 
                   {destinationType === 'notes' && (
                     <div className="iem-setting-group">
-                      <label>Format Style</label>
+                      <label htmlFor="conversion-format">Format Style</label>
                       <select
+                        id="conversion-format"
                         className="iem-select"
                         value={options.formatStyle}
                         onChange={(e) => setOptions(prev => ({ ...prev, formatStyle: e.target.value }))}
@@ -570,7 +582,7 @@ const ImportExportModal = ({
           )}
 
           {step === 3 && result && (
-            <div className="iem-step-content iem-result">
+            <div className="iem-step-content iem-result" role={result.success ? 'status' : 'alert'}>
               <div className={`iem-result-icon ${result.success ? 'success' : 'error'}`}>
                 {result.success ? <CheckCircle size={64} /> : <X size={64} />}
               </div>

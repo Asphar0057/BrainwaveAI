@@ -409,8 +409,7 @@
   padding: 26px 30px;
   gap: 16px;
   background:
-    radial-gradient(ellipse 80% 60% at 15% 30%, color-mix(in srgb, var(--sh-accent) 22%, transparent) 0%, transparent 55%),
-    radial-gradient(ellipse 60% 50% at 85% 75%, color-mix(in srgb, var(--sh-accent) 10%, transparent) 0%, transparent 55%),
+    linear-gradient(118deg, color-mix(in srgb, var(--sh-accent) 5%, transparent), transparent 31%),
     linear-gradient(155deg, #0b0c0f 0%, #050506 100%);
   border-color: var(--sh-line-strong);
 }
@@ -1935,16 +1934,28 @@
   z-index: 1;
 }
 
-/* Swiss accent circle on the leaderboard hero card */
+/* Directional learning-signal treatment for the leaderboard hero card. */
 .leaderboard-hero-card::after {
   content: '';
   position: absolute;
-  bottom: -60px;
-  right: -60px;
-  width: 200px;
-  height: 200px;
-  border: 1px solid color-mix(in srgb, var(--sh-accent) 20%, transparent);
-  border-radius: 50%;
+  left: 30px;
+  right: 30px;
+  bottom: 22px;
+  height: 1px;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--sh-accent) 44%, transparent) 0 14px,
+    transparent 14px 23px
+  );
+  mask: none;
+  -webkit-mask: none;
+  opacity: .42;
+  transform: scaleX(.16);
+  transform-origin: left center;
+  transition: transform 520ms cubic-bezier(.16, 1, .3, 1), opacity 180ms ease;
   pointer-events: none;
   z-index: 0;
 }
@@ -1952,14 +1963,55 @@
 .leaderboard-hero-card::before {
   content: '';
   position: absolute;
-  bottom: -30px;
-  right: -30px;
-  width: 140px;
-  height: 140px;
-  border: 1px solid color-mix(in srgb, var(--sh-accent) 12%, transparent);
-  border-radius: 50%;
+  top: -22%;
+  bottom: -22%;
+  left: -24%;
+  width: 28%;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: linear-gradient(
+    96deg,
+    transparent 0%,
+    color-mix(in srgb, var(--sh-accent) 4%, transparent) 22%,
+    color-mix(in srgb, var(--sh-accent) 23%, transparent) 50%,
+    color-mix(in srgb, var(--sh-accent) 4%, transparent) 78%,
+    transparent 100%
+  );
+  clip-path: polygon(28% 0, 100% 0, 72% 100%, 0 100%);
+  opacity: 0;
+  transform: translate3d(0, 0, 0);
   pointer-events: none;
   z-index: 0;
+}
+
+.leaderboard-hero-card:hover::before {
+  animation: lh-signal-sweep 820ms cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.leaderboard-hero-card:hover::after {
+  opacity: .72;
+  transform: scaleX(1);
+}
+
+@keyframes lh-signal-sweep {
+  0% { opacity: 0; transform: translate3d(0, 0, 0); }
+  18% { opacity: .72; }
+  72% { opacity: .38; }
+  100% { opacity: 0; transform: translate3d(470%, 0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .leaderboard-hero-card::before {
+    display: none;
+  }
+
+  .leaderboard-hero-card::after,
+  .leaderboard-hero-card:hover::after {
+    opacity: .42;
+    transform: scaleX(.34);
+    transition: none;
+  }
 }
 
 @media (max-width: 768px) {

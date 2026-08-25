@@ -12,7 +12,7 @@
 
 .iem-modal {
   background: var(--bg-secondary, #1a1a2e);
-  border: 1px solid color-mix(in srgb, var(--accent, #D7B38C) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
   border-radius: 16px;
   width: 100%;
   max-width: 560px;
@@ -28,7 +28,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  border-bottom: 1px solid color-mix(in srgb, var(--accent, #D7B38C) 20%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
   flex-shrink: 0;
 }
 
@@ -39,7 +39,7 @@
 }
 
 .iem-header-icon {
-  color: var(--accent, #D7B38C);
+  color: var(--accent);
 }
 
 .iem-header-content h2 {
@@ -63,7 +63,7 @@
   align-items: center;
   justify-content: center;
   background: transparent;
-  border: 1px solid color-mix(in srgb, var(--accent, #D7B38C) 25%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
   border-radius: 8px;
   color: var(--text-secondary, #888);
   cursor: pointer;
@@ -71,9 +71,9 @@
 }
 
 .iem-close-btn:hover {
-  background: color-mix(in srgb, var(--accent, #D7B38C) 10%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
   color: var(--text-primary, #fff);
-  border-color: var(--accent, #D7B38C);
+  border-color: var(--accent);
 }
 
 .iem-body {
@@ -91,7 +91,7 @@
 }
 
 .iem-body::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--accent, #D7B38C) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 40%, transparent);
   border-radius: 3px;
 }
 
@@ -116,8 +116,8 @@
 
 .iem-select-all-btn {
   background: transparent;
-  border: 1px solid color-mix(in srgb, var(--accent, #D7B38C) 40%, transparent);
-  color: var(--accent, #D7B38C);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  color: var(--accent);
   padding: 6px 14px;
   font-size: 11px;
   font-weight: 600;
@@ -129,7 +129,7 @@
 }
 
 .iem-select-all-btn:hover {
-  background: color-mix(in srgb, var(--accent, #D7B38C) 12%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .iem-selection-count {
@@ -150,7 +150,7 @@
 }
 
 .iem-items-list::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--accent, #D7B38C) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 40%, transparent);
   border-radius: 2px;
 }
 
@@ -159,39 +159,39 @@
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  background: color-mix(in srgb, var(--accent, #D7B38C) 5%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent, #D7B38C) 15%, transparent);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 15%, transparent);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .iem-item-card:hover {
-  border-color: color-mix(in srgb, var(--accent, #D7B38C) 40%, transparent);
-  background: color-mix(in srgb, var(--accent, #D7B38C) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .iem-item-card.selected {
-  border-color: var(--accent, #D7B38C);
-  background: color-mix(in srgb, var(--accent, #D7B38C) 15%, transparent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 .iem-item-checkbox {
   width: 22px;
   height: 22px;
-  border: 2px solid color-mix(in srgb, var(--accent, #D7B38C) 50%, transparent);
+  border: 2px solid color-mix(in srgb, var(--accent) 50%, transparent);
   border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: var(--accent, #D7B38C);
+  color: var(--accent);
   transition: all 0.2s;
 }
 
 .iem-item-card.selected .iem-item-checkbox {
-  border-color: var(--accent, #D7B38C);
-  background: color-mix(in srgb, var(--accent, #D7B38C) 20%, transparent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .iem-item-info h4 {
@@ -230,8 +230,8 @@
   align-items: center;
   gap: 8px;
   padding: 20px 16px;
-  background: color-mix(in srgb, var(--accent, #D7B38C) 5%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent, #D7B38C) 20%, transparent);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.2s;
@@ -239,18 +239,18 @@
 }
 
 .iem-conversion-card:hover {
-  border-color: color-mix(in srgb, var(--accent, #D7B38C) 50%, transparent);
-  background: color-mix(in srgb, var(--accent, #D7B38C) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .iem-conversion-card.selected {
-  border-color: var(--accent, #D7B38C);
-  background: color-mix(in srgb, var(--accent, #D7B38C) 18%, transparent);
-  box-shadow: 0 0 16px color-mix(in srgb, var(--accent, #D7B38C) 20%, transparent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .iem-conversion-icon {
-  color: var(--accent, #D7B38C);
+  color: var(--accent);
 }
 
 .iem-conversion-card h4 {
@@ -267,8 +267,8 @@
 }
 
 .iem-settings {
-  background: color-mix(in srgb, var(--accent, #D7B38C) 5%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent, #D7B38C) 15%, transparent);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 15%, transparent);
   border-radius: 10px;
   padding: 16px;
   display: flex;
@@ -281,7 +281,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1.5px;
-  color: color-mix(in srgb, var(--accent, #D7B38C) 80%, var(--text-primary, #fff));
+  color: color-mix(in srgb, var(--accent) 80%, var(--text-primary, #fff));
   margin: 0;
 }
 
@@ -300,7 +300,7 @@
 .iem-input,
 .iem-select {
   background: var(--bg-primary, #0d0d1a);
-  border: 1px solid color-mix(in srgb, var(--accent, #D7B38C) 25%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
   color: var(--text-primary, #fff);
   padding: 8px 12px;
   border-radius: 6px;
@@ -313,7 +313,7 @@
 
 .iem-input:focus,
 .iem-select:focus {
-  border-color: var(--accent, #D7B38C);
+  border-color: var(--accent);
 }
 
 .iem-actions {
@@ -346,23 +346,23 @@
 }
 
 .iem-btn-primary {
-  background: linear-gradient(135deg, var(--accent, #D7B38C), color-mix(in srgb, var(--accent, #D7B38C) 60%, var(--bg-primary, #0d0d1a)));
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 60%, var(--bg-primary, #0d0d1a)));
   color: var(--bg-primary, #0d0d1a);
 }
 
 .iem-btn-primary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--accent, #D7B38C) 40%, transparent);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .iem-btn-secondary {
   background: transparent;
-  border: 1px solid color-mix(in srgb, var(--accent, #D7B38C) 35%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
   color: var(--text-secondary, #888);
 }
 
 .iem-btn-secondary:hover:not(:disabled) {
-  border-color: var(--accent, #D7B38C);
+  border-color: var(--accent);
   color: var(--text-primary, #fff);
 }
 
@@ -399,8 +399,8 @@
 }
 
 .iem-result-details {
-  background: color-mix(in srgb, var(--accent, #D7B38C) 8%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent, #D7B38C) 20%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
   border-radius: 8px;
   padding: 14px 20px;
   text-align: left;
@@ -414,7 +414,7 @@
 }
 
 .iem-result-details strong {
-  color: var(--accent, #D7B38C);
+  color: var(--accent);
 }
 
 @keyframes iem-spin {

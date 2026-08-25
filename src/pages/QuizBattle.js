@@ -10,6 +10,7 @@ import SocialHubChrome from '../components/SocialHubChrome';
 import { API_URL } from '../config';
 import useSharedWebSocket from '../hooks/useSharedWebSocket';
 import BattleNotification from './BattleNotification.js';
+import { formatBattleMode, getBattleTimeLimit } from '../utils/battleRules';
 
 const QuizBattle = () => {
   const navigate = useNavigate();
@@ -114,13 +115,6 @@ const QuizBattle = () => {
     }
   }, [token]);
 
-  const getTimeLimitForMode = (mode, count) => {
-    if (mode === 'blitz') return count * 15;
-    if (mode === 'sudden_death') return count * 30;
-    if (mode === 'classic') return classicTimeLimit;
-    return 300; // speed
-  };
-
   const handleCreateBattle = async (e) => {
     e.preventDefault();
     if (!selectedFriend || !subject) {
@@ -143,7 +137,7 @@ const QuizBattle = () => {
           subject,
           difficulty,
           question_count: questionCount,
-          time_limit_seconds: getTimeLimitForMode(gameMode, questionCount),
+          time_limit_seconds: getBattleTimeLimit(gameMode, questionCount, classicTimeLimit),
           game_mode: gameMode
         })
       });
@@ -165,11 +159,12 @@ const QuizBattle = () => {
           });
         }
       } else {
-        throw new Error('Failed to create battle');
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || 'The challenge could not be created. Check the settings and try again.');
       }
     } catch (error) {
       console.error('Error creating battle:', error);
-      setError('Unable to create battle. Please try again.');
+      setError(error.message || 'Unable to create battle. Please try again.');
     } finally {
       setCreating(false);
     }
@@ -239,6 +234,7 @@ const QuizBattle = () => {
 
   const getBattleWinner = useCallback((battle) => {
     if (battle.status !== 'completed') return null;
+    if (battle.your_result) return battle.your_result;
     if (battle.your_score > battle.opponent_score) return 'win';
     if (battle.your_score < battle.opponent_score) return 'loss';
     return 'draw';
@@ -338,7 +334,7 @@ const QuizBattle = () => {
                     <div className="qb-live-specs">
                       <span><strong>{questionCount}</strong> questions</span>
                       <span><strong>{difficulty}</strong> level</span>
-                      <span><strong>{gameMode.replace('_', ' ')}</strong> mode</span>
+                      <span><strong>{formatBattleMode(gameMode)}</strong> mode</span>
                     </div>
                   </div>
                 </div>
@@ -346,11 +342,12 @@ const QuizBattle = () => {
                 <form onSubmit={handleCreateBattle} className="qb-create-form">
                   <div className="qb-cform-row">
                     <div className="qb-cform-group">
-                      <label className="qb-cform-label">
+                      <label className="qb-cform-label" htmlFor="qb-opponent">
                         <Users size={13} />
                         Opponent
                       </label>
                       <select
+                        id="qb-opponent"
                         className="qb-cform-select"
                         value={selectedFriend}
                         onChange={(e) => setSelectedFriend(e.target.value)}
@@ -368,16 +365,18 @@ const QuizBattle = () => {
                     </div>
 
                     <div className="qb-cform-group">
-                      <label className="qb-cform-label">
+                      <label className="qb-cform-label" htmlFor="qb-subject">
                         <BookOpen size={13} />
                         Subject / Topic
                       </label>
                       <input
+                        id="qb-subject"
                         type="text"
                         className="qb-cform-input"
                         value={subject}
                         onChange={(e) => setSubject(e.target.value)}
                         placeholder="e.g., Mathematics, History..."
+                        maxLength="100"
                         required
                       />
                     </div>
@@ -385,11 +384,12 @@ const QuizBattle = () => {
 
                   <div className="qb-cform-row">
                     <div className="qb-cform-group">
-                      <label className="qb-cform-label">
+                      <label className="qb-cform-label" htmlFor="qb-difficulty">
                         <Gauge size={13} />
                         Difficulty
                       </label>
                       <select
+                        id="qb-difficulty"
                         className="qb-cform-select"
                         value={difficulty}
                         onChange={(e) => setDifficulty(e.target.value)}
@@ -401,11 +401,12 @@ const QuizBattle = () => {
                     </div>
 
                     <div className="qb-cform-group">
-                      <label className="qb-cform-label">
+                      <label className="qb-cform-label" htmlFor="qb-question-count">
                         <Database size={13} />
                         Questions (5–20)
                       </label>
                       <input
+                        id="qb-question-count"
                         type="number"
                         className="qb-cform-input"
                         value={questionCount}
@@ -422,7 +423,7 @@ const QuizBattle = () => {
                       <Swords size={13} />
                       Game Mode
                     </label>
-                    <div className="qb-game-mode-grid">
+                    <div className="qb-game-mode-grid" role="group" aria-label="Game mode">
                       <button
                         type="button"
                         className={`qb-gm-btn ${gameMode === 'classic' ? 'active' : ''}`}
@@ -431,7 +432,7 @@ const QuizBattle = () => {
                       >
                         <Trophy size={20} className="qb-gm-icon" />
                         <span className="qb-gm-name">Classic</span>
-                        <p className="qb-gm-desc">Most correct answers wins.</p>
+                        <p className="qb-gm-desc">Highest score wins.</p>
                       </button>
 
                       <button
@@ -442,7 +443,7 @@ const QuizBattle = () => {
                       >
                         <Zap size={20} className="qb-gm-icon" />
                         <span className="qb-gm-name">Speed Battle</span>
-                        <p className="qb-gm-desc">Fastest to finish all questions wins the tie.</p>
+                        <p className="qb-gm-desc">Highest score wins; completion time breaks a tie.</p>
                       </button>
 
                       <button
@@ -475,7 +476,7 @@ const QuizBattle = () => {
                         <Clock size={13} />
                         Time Limit
                       </label>
-                      <div className="qb-time-opt-grid">
+                      <div className="qb-time-opt-grid" role="group" aria-label="Classic time limit">
                         {[
                           { val: 120,  label: '2 min',  desc: 'Quick' },
                           { val: 300,  label: '5 min',  desc: 'Standard' },
@@ -498,7 +499,7 @@ const QuizBattle = () => {
                   )}
 
                   {error && (
-                    <div className="qb-form-error">
+                    <div className="qb-form-error" role="alert">
                       <AlertCircle size={16} />
                       <span>{error}</span>
                     </div>
@@ -620,7 +621,14 @@ const QuizBattle = () => {
                             <div className="qb-detail-card">
                               <Clock size={18} className="qb-detail-icon" />
                               <div className="qb-detail-label">Time</div>
-                              <div className="qb-detail-value">{Math.floor(battle.time_limit_seconds / 60)} min</div>
+                              <div className="qb-detail-value">
+                                {battle.game_mode === 'blitz' ? '15 sec / question' : `${Math.floor(battle.time_limit_seconds / 60)} min`}
+                              </div>
+                            </div>
+                            <div className="qb-detail-card">
+                              <Swords size={18} className="qb-detail-icon" />
+                              <div className="qb-detail-label">Mode</div>
+                              <div className="qb-detail-value">{formatBattleMode(battle.game_mode)}</div>
                             </div>
                           </div>
 

@@ -23,7 +23,6 @@
   align-items: center;
   justify-content: center;
   background: var(--qbs-bg-primary);
-  font-family: 'Inter', sans-serif;
   color: var(--qbs-text-primary);
   gap: 24px;
   padding: 20px;
@@ -52,9 +51,7 @@
   font-size: 24px;
   font-weight: 700;
   margin: 0;
-  background: var(--qbs-gradient-accent);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--qbs-accent);
 }
 
 .battle-session-loading p {
@@ -70,7 +67,6 @@
 .battle-session-page {
   min-height: 100vh;
   background: var(--qbs-bg-primary);
-  font-family: 'Inter', sans-serif;
   padding: 24px;
   position: relative;
 }
@@ -114,7 +110,6 @@
   text-transform: uppercase;
   color: var(--qbs-accent);
   opacity: 0.7;
-  font-family: 'Inter', sans-serif;
 }
 
 .session-title {
@@ -126,7 +121,6 @@
   line-height: 1.05 !important;
   margin: 0 !important;
   padding: 0 !important;
-  font-family: 'Inter', sans-serif !important;
   text-align: center !important;
   display: block !important;
   width: 100% !important;
@@ -185,7 +179,8 @@
 .progress-fill {
   height: 100%;
   background: var(--qbs-gradient-accent);
-  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: left center;
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
   box-shadow: 0 0 20px var(--qbs-accent-glow);
 }
 
@@ -312,7 +307,6 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
   text-align: left !important;
   border-radius: 12px;
-  font-family: 'Inter', sans-serif !important;
   position: relative !important;
   overflow: visible !important;
   min-height: 60px !important;
@@ -501,9 +495,7 @@
 .score-value {
   font-size: 32px;
   font-weight: 900;
-  background: var(--qbs-gradient-accent);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--qbs-accent);
 }
 
 .questions-overview {
@@ -598,7 +590,6 @@
   letter-spacing: 2px;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  font-family: 'Inter', sans-serif;
   box-shadow: none !important;
   flex-shrink: 0;
   filter: brightness(1.2);
@@ -627,7 +618,6 @@
   text-align: center;
   font-size: 13px;
   font-weight: 600;
-  font-family: 'Inter', sans-serif;
 }
 
 .feedback-correct {
@@ -671,7 +661,6 @@
   letter-spacing: 2px;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  font-family: 'Inter', sans-serif;
   margin-top: 20px;
   box-shadow: 0 4px 16px color-mix(in srgb, var(--qbs-accent) 30%, transparent);
 }
@@ -735,7 +724,6 @@
   box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
   z-index: 1000;
   animation: qbs-slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  font-family: 'Inter', sans-serif;
   backdrop-filter: blur(20px);
 }
 
@@ -785,7 +773,6 @@
   align-items: center;
   justify-content: center;
   background: var(--qbs-bg-primary);
-  font-family: 'Inter', sans-serif;
   padding: 24px;
   position: relative;
 }
@@ -829,7 +816,6 @@
   color: var(--qbs-accent);
   margin-bottom: 20px;
   filter: drop-shadow(0 0 30px var(--qbs-accent-glow));
-  animation: qbs-bounce 2s ease-in-out infinite;
 }
 
 .result-icon.winner {
@@ -886,9 +872,7 @@
 .result-stat .stat-value {
   font-size: 36px;
   font-weight: 900;
-  background: var(--qbs-gradient-accent);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--qbs-accent);
 }
 
 .result-message {
@@ -923,7 +907,6 @@
   letter-spacing: 2px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 12px;
-  font-family: 'Inter', sans-serif;
 }
 
 .result-button:hover {
@@ -1000,9 +983,7 @@
 }
 
 .player-result.you .player-score {
-  background: var(--qbs-gradient-accent);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--qbs-accent);
 }
 
 .player-result.opponent .player-score {
@@ -1079,11 +1060,11 @@
 }
 
 .question-comparison-item.correct {
-  border-left: 4px solid var(--qbs-success);
+  border-color: color-mix(in srgb, var(--qbs-success) 48%, transparent);
 }
 
 .question-comparison-item.incorrect {
-  border-left: 4px solid var(--qbs-danger);
+  border-color: color-mix(in srgb, var(--qbs-danger) 48%, transparent);
 }
 
 .question-comparison-header {
@@ -1247,7 +1228,7 @@
   gap: 12px;
   padding: 16px;
   background: color-mix(in srgb, var(--qbs-accent) 8%, transparent);
-  border-left: 3px solid var(--qbs-accent);
+  border: 1px solid color-mix(in srgb, var(--qbs-accent) 24%, transparent);
   border-radius: 10px;
   font-size: 14px;
   line-height: 1.6;

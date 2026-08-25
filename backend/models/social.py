@@ -88,6 +88,8 @@ class QuizBattle(Base):
 
     question_count = Column(Integer, default=10)
     time_limit_seconds = Column(Integer, default=300)
+    game_mode = Column(String(20), nullable=False, default="classic")
+    question_quality_version = Column(Integer, nullable=False, default=0)
 
     challenger_score = Column(Integer, default=0)
     opponent_score = Column(Integer, default=0)

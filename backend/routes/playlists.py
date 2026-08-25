@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ValidationError, field_validator, model_validator
 from sqlalchemy import and_, desc, func, or_
 from sqlalchemy.orm import Session, joinedload
 
@@ -44,6 +44,16 @@ class PlaylistCreateRequest(BaseModel):
             return None
         return v
 
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, value: str) -> str:
+        title = value.strip()
+        if not title:
+            raise ValueError("Playlist title is required")
+        if len(title) > 200:
+            raise ValueError("Playlist title must be 200 characters or fewer")
+        return title
+
 class PlaylistItemRequest(BaseModel):
     model_config = {"extra": "ignore"}
 
@@ -56,6 +66,31 @@ class PlaylistItemRequest(BaseModel):
     platform: Optional[str] = None
     is_required: bool = True
     notes: Optional[str] = None
+
+    @field_validator("title")
+    @classmethod
+    def validate_item_title(cls, value: str) -> str:
+        title = value.strip()
+        if not title:
+            raise ValueError("Item title is required")
+        if len(title) > 300:
+            raise ValueError("Item title must be 300 characters or fewer")
+        return title
+
+    @model_validator(mode="after")
+    def validate_item_source(self):
+        linked_types = {"external_link", "youtube", "pdf", "article", "course"}
+        library_types = {"note", "chat", "quiz", "flashcard"}
+        if self.item_type in linked_types:
+            url = (self.url or "").strip()
+            if not url:
+                raise ValueError("A URL is required for this item type")
+            if not url.startswith(("http://", "https://")):
+                raise ValueError("URL must start with http:// or https://")
+            self.url = url
+        if self.item_type in library_types and self.item_id is None:
+            raise ValueError("Select an existing resource before adding it")
+        return self
 
 @router.get("/playlists/test")
 async def test_playlist_endpoint():
@@ -83,7 +118,10 @@ async def get_playlists(
                 models.PlaylistFollower.user_id == current_user.id
             ).all()
             followed_ids = [f[0] for f in followed_ids]
-            query = query.filter(models.LearningPlaylist.id.in_(followed_ids))
+            query = query.filter(
+                models.LearningPlaylist.id.in_(followed_ids),
+                models.LearningPlaylist.creator_id != current_user.id,
+            )
         else:
             query = query.filter(models.LearningPlaylist.is_public == True)
 
@@ -125,7 +163,7 @@ async def get_playlists(
         result = []
         for p in playlists:
             follower = followers_by_playlist.get(p.id)
-            is_following = follower is not None
+            is_following = follower is not None and current_user.id != p.creator_id
 
             user_progress = None
             if follower:
@@ -215,6 +253,12 @@ async def create_playlist(
             "is_owner": True,
             "message": "Playlist created successfully",
         }
+    except ValidationError as e:
+        db.rollback()
+        message = e.errors()[0].get("ctx", {}).get("error") or e.errors()[0].get("msg", "Invalid playlist")
+        raise HTTPException(status_code=422, detail=str(message).replace("Value error, ", ""))
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         logger.error(f"Error creating playlist: {str(e)}")
@@ -332,7 +376,7 @@ async def get_playlist_detail(
                 for item in items
             ],
             "is_owner": current_user.id == playlist.creator_id,
-            "is_following": follower is not None,
+            "is_following": follower is not None and current_user.id != playlist.creator_id,
             "user_progress": user_progress,
         }
     except HTTPException:
@@ -426,6 +470,8 @@ async def follow_playlist(
 ):
     try:
         playlist = _resolve_playlist(db, playlist_id)
+        if playlist.creator_id == current_user.id:
+            raise HTTPException(status_code=400, detail="You already own this playlist")
 
         existing = db.query(models.PlaylistFollower).filter(
             and_(
@@ -463,6 +509,8 @@ async def unfollow_playlist(
 ):
     try:
         playlist = _resolve_playlist(db, playlist_id)
+        if playlist.creator_id == current_user.id:
+            raise HTTPException(status_code=400, detail="Owners cannot unfollow their own playlist")
 
         follower = db.query(models.PlaylistFollower).filter(
             and_(
@@ -472,7 +520,7 @@ async def unfollow_playlist(
         ).first()
 
         if not follower:
-            raise HTTPException(status_code=404, detail="Not following this playlist")
+            raise HTTPException(status_code=404, detail="You are not following this playlist")
 
         db.delete(follower)
 
@@ -654,7 +702,15 @@ async def update_playlist_progress(
         ).first()
 
         if not follower:
-            raise HTTPException(status_code=404, detail="Not following this playlist")
+            if playlist.creator_id != current_user.id:
+                raise HTTPException(status_code=404, detail="Follow this playlist before tracking progress")
+            follower = models.PlaylistFollower(
+                playlist_id=playlist.id,
+                user_id=current_user.id,
+                completed_items=[],
+                progress_percentage=0,
+            )
+            db.add(follower)
 
         completed_items = follower.completed_items or []
 

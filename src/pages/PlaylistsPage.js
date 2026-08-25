@@ -13,6 +13,7 @@ import { API_URL } from '../config';
 import ImportExportModal from '../components/ImportExportModal';
 import PlaylistShareModal from '../components/PlaylistShareModal';
 import SocialHubChrome from '../components/SocialHubChrome';
+import useDialogA11y from '../hooks/useDialogA11y';
 
 const PlaylistsPage = () => {
   const navigate = useNavigate();
@@ -20,8 +21,6 @@ const PlaylistsPage = () => {
   const [view, setView] = useState('discover');
   const [playlists, setPlaylists] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
-  const [showDifficultyDropdown, setShowDifficultyDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterDifficulty, setFilterDifficulty] = useState('');
@@ -33,7 +32,7 @@ const PlaylistsPage = () => {
   const [sortBy, setSortBy] = useState('recent');
   const [deletingPlaylistId, setDeletingPlaylistId] = useState(null);
   const [layoutMode, setLayoutMode] = useState('grid');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const searchRef = useRef(null);
 
   const categories = [
@@ -43,32 +42,13 @@ const PlaylistsPage = () => {
 
   const difficulties = ['beginner', 'intermediate', 'advanced'];
 
-  const coverColors = [
-    '#4A90E2', '#50C878', '#FF6B6B', '#9B59B6', '#F39C12',
-    '#E74C3C', '#1ABC9C', '#3498DB', '#E91E63', '#00BCD4'
-  ];
-
   useEffect(() => {
     fetchPlaylists();
   }, [view, filterCategory, filterDifficulty, searchQuery]);
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if ((showCategoryDropdown || showDifficultyDropdown) && !event.target.closest('.custom-dropdown')) {
-        setShowCategoryDropdown(false);
-        setShowDifficultyDropdown(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showCategoryDropdown, showDifficultyDropdown]);
-
-  useEffect(() => {
     const handleEscape = (event) => {
       if (event.key !== 'Escape') return;
-      setShowCategoryDropdown(false);
-      setShowDifficultyDropdown(false);
       if (showCreateModal) setShowCreateModal(false);
     };
 
@@ -90,6 +70,7 @@ const PlaylistsPage = () => {
 
   const fetchPlaylists = async () => {
     setLoading(true);
+    setLoadError('');
     try {
       let url = `${API_URL}/playlists?`;
 
@@ -107,18 +88,18 @@ const PlaylistsPage = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setPlaylists(data.playlists || []);
-      }
-    } catch (error) { /* silenced */ } finally {
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || 'Could not load playlists');
+      setPlaylists(data.playlists || []);
+    } catch (error) {
+      setLoadError(error.message || 'Could not load playlists');
+    } finally {
       setLoading(false);
     }
   };
 
   const handleCreatePlaylist = async (playlistData) => {
-    try {
-      const response = await fetch(`${API_URL}/playlists`, {
+    const response = await fetch(`${API_URL}/playlists`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -127,11 +108,11 @@ const PlaylistsPage = () => {
         body: JSON.stringify(playlistData)
       });
 
-      if (response.ok) {
-        setShowCreateModal(false);
-        fetchPlaylists();
-      }
-    } catch (error) { /* silenced */ }
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.detail || data.error || 'Could not create the playlist');
+    setShowCreateModal(false);
+    await fetchPlaylists();
+    return data;
   };
 
   const handlePlaylistClick = (playlistUid, playlistId) => {
@@ -341,7 +322,7 @@ const PlaylistsPage = () => {
             <section className="plx-topology" aria-label="Library topology">
               <div className="plx-topology-copy">
                 <span>Library topology</span>
-                <strong>{libraryStats.items} ideas across {sortedPlaylists.length} paths</strong>
+                <strong>{libraryStats.items} {libraryStats.items === 1 ? 'item' : 'items'} across {sortedPlaylists.length} {sortedPlaylists.length === 1 ? 'playlist' : 'playlists'}</strong>
                 <p>Jump directly into a collection or let Cerbyl pick your next direction.</p>
               </div>
               <div className="plx-topology-map">
@@ -390,9 +371,11 @@ const PlaylistsPage = () => {
           )}
 
           <section className="plx-control-deck" aria-label="Playlist controls">
-            <label className="plx-search">
+            <div className="plx-search">
               <Search size={16} />
+              <label className="sr-only" htmlFor="playlist-search">Search playlists</label>
               <input
+                id="playlist-search"
                 ref={searchRef}
                 type="search"
                 value={searchQuery}
@@ -406,7 +389,7 @@ const PlaylistsPage = () => {
               ) : (
                 <kbd>/</kbd>
               )}
-            </label>
+            </div>
 
             <label className="plx-sort">
               <Filter size={14} />
@@ -472,7 +455,13 @@ const PlaylistsPage = () => {
           )}
 
           <div className="plx-library">
-            {loading ? (
+            {loadError && (
+              <div className="plx-state plx-state--error" role="alert">
+                <p>{loadError}</p>
+                <button className="plx-secondary-btn" type="button" onClick={fetchPlaylists}>Try again</button>
+              </div>
+            )}
+            {!loadError && (loading ? (
               <div className="plx-state">
                 <div className="fc-spinner"><span /><span /><span /></div>
                 <p>Loading your library</p>
@@ -506,7 +495,7 @@ const PlaylistsPage = () => {
                   />
                 ))}
               </div>
-            )}
+            ))}
           </div>
         </div>
       </SocialHubChrome>
@@ -517,7 +506,6 @@ const PlaylistsPage = () => {
           onCreate={handleCreatePlaylist}
           categories={categories}
           difficulties={difficulties}
-          coverColors={coverColors}
         />
       )}
       <ImportExportModal
@@ -544,464 +532,6 @@ const PlaylistsPage = () => {
     </div>
   );
 
-  return (
-    <div className="playlists-container playlists-page">
-      <div className="shc-topbar">
-        <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-        <div className="shc-topbar-right">
-          <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-        </div>
-      </div>
-      <svg className="geo-bg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
-        <circle cx="600" cy="400" r="360" fill="none" stroke="currentColor" strokeWidth="1"/>
-        <circle cx="600" cy="400" r="260" fill="none" stroke="currentColor" strokeWidth="0.8"/>
-        <circle cx="600" cy="400" r="168" fill="none" stroke="currentColor" strokeWidth="0.7"/>
-        <circle cx="600" cy="400" r="90" fill="none" stroke="currentColor" strokeWidth="0.6"/>
-        <line x1="600" y1="0" x2="600" y2="800" stroke="currentColor" strokeWidth="0.5"/>
-        <line x1="0" y1="400" x2="1200" y2="400" stroke="currentColor" strokeWidth="0.5"/>
-        <line x1="0" y1="800" x2="500" y2="0" stroke="currentColor" strokeWidth="0.4"/>
-        <line x1="1200" y1="0" x2="700" y2="800" stroke="currentColor" strokeWidth="0.4"/>
-        <circle cx="600" cy="40" r="5" fill="currentColor"/>
-        <circle cx="600" cy="760" r="5" fill="currentColor"/>
-        <circle cx="240" cy="400" r="5" fill="currentColor"/>
-        <circle cx="960" cy="400" r="5" fill="currentColor"/>
-        <circle cx="345" cy="146" r="3.5" fill="currentColor"/>
-        <circle cx="855" cy="654" r="3.5" fill="currentColor"/>
-        <circle cx="855" cy="146" r="3.5" fill="currentColor"/>
-        <circle cx="345" cy="654" r="3.5" fill="currentColor"/>
-        <rect x="24" y="24" width="72" height="72" fill="none" stroke="currentColor" strokeWidth="0.8"/>
-        <rect x="44" y="44" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="0.5"/>
-        <circle cx="60" cy="60" r="3" fill="currentColor"/>
-        <rect x="1104" y="704" width="72" height="72" fill="none" stroke="currentColor" strokeWidth="0.8"/>
-        <rect x="1124" y="724" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="0.5"/>
-        <circle cx="1140" cy="740" r="3" fill="currentColor"/>
-        <circle cx="120" cy="200" r="2" fill="currentColor"/>
-        <circle cx="160" cy="160" r="1.5" fill="currentColor"/>
-        <circle cx="200" cy="200" r="2" fill="currentColor"/>
-        <circle cx="160" cy="240" r="1.5" fill="currentColor"/>
-        <circle cx="1080" cy="600" r="2" fill="currentColor"/>
-        <circle cx="1040" cy="640" r="1.5" fill="currentColor"/>
-        <circle cx="1000" cy="600" r="2" fill="currentColor"/>
-        <circle cx="1040" cy="560" r="1.5" fill="currentColor"/>
-      </svg>
-      <div className={`playlists-body ${sidebarOpen ? '' : 'pl-body--collapsed'}`}>
-        <aside className={`playlists-sidebar ${sidebarOpen ? '' : 'pl-sidebar--collapsed'}`}>
-          {!sidebarOpen ? (
-            <div className="pl-collapsed-strip">
-              <button className="pl-strip-btn" data-tip="Open sidebar" aria-label="Open playlists sidebar" onClick={() => setSidebarOpen(true)} type="button">
-                <ChevronRight size={18} />
-              </button>
-              <button className="pl-strip-btn" data-tip="New Playlist" aria-label="New Playlist" onClick={() => setShowCreateModal(true)} type="button">
-                <Plus size={18} />
-              </button>
-
-              <div className="pl-strip-divider"></div>
-
-              <button
-                className={`pl-strip-btn ${view === 'discover' ? 'active' : ''}`}
-                data-tip="Discover"
-                aria-label="Discover playlists"
-                aria-pressed={view === 'discover'}
-                onClick={() => setView('discover')}
-                type="button"
-              >
-                <Globe size={18} />
-              </button>
-              <button
-                className={`pl-strip-btn ${view === 'following' ? 'active' : ''}`}
-                data-tip="Following"
-                aria-label="Following playlists"
-                aria-pressed={view === 'following'}
-                onClick={() => setView('following')}
-                type="button"
-              >
-                <Heart size={18} />
-              </button>
-              <button
-                className={`pl-strip-btn ${view === 'my-playlists' ? 'active' : ''}`}
-                data-tip="My Playlists"
-                aria-label="My Playlists"
-                aria-pressed={view === 'my-playlists'}
-                onClick={() => setView('my-playlists')}
-                type="button"
-              >
-                <Library size={18} />
-              </button>
-
-              <div className="pl-strip-spacer"></div>
-
-              <button className="pl-strip-btn" data-tip="Dashboard" aria-label="Dashboard" onClick={() => navigate('/dashboard-cerbyl')} type="button">
-                <Home size={18} />
-              </button>
-            </div>
-          ) : (
-          <>
-          <div className="pl-sidebar-brand">
-            <div className="pl-sidebar-logo">cerbyl</div>
-            <div className="pl-sidebar-kicker">PLAYLISTS</div>
-            <button
-              className="pl-sidebar-close-btn"
-              onClick={() => setSidebarOpen(false)}
-              title="Collapse sidebar"
-              aria-label="Collapse playlists sidebar"
-              type="button"
-            >
-              <ChevronLeft size={14} />
-            </button>
-          </div>
-
-          <button
-            className="pl-new-playlist-btn"
-            onClick={() => setShowCreateModal(true)}
-            type="button"
-          >
-            <Plus size={16} />
-            <span>New Playlist</span>
-          </button>
-
-          <div className="sidebar-divider"></div>
-
-          <div className="sidebar-section">
-            <h3 className="sidebar-heading">Browse</h3>
-            <nav className="sidebar-menu">
-                <button
-                  className={`menu-item ${view === 'discover' ? 'active' : ''}`}
-                  onClick={() => setView('discover')}
-                  type="button"
-                  aria-pressed={view === 'discover'}
-                >
-                <Globe size={18} />
-                <span>Discover</span>
-              </button>
-
-              <button
-                className={`menu-item ${view === 'following' ? 'active' : ''}`}
-                  onClick={() => setView('following')}
-                  type="button"
-                  aria-pressed={view === 'following'}
-              >
-                <Heart size={18} />
-                <span>Following</span>
-              </button>
-
-              <button
-                className={`menu-item ${view === 'my-playlists' ? 'active' : ''}`}
-                  onClick={() => setView('my-playlists')}
-                  type="button"
-                  aria-pressed={view === 'my-playlists'}
-              >
-                <Library size={18} />
-                <span>My Playlists</span>
-              </button>
-            </nav>
-          </div>
-
-          <div className="sidebar-divider"></div>
-
-          <div className="sidebar-section">
-            <div className="filter-item">
-              <div className="filter-header">
-                <label>Category</label>
-                {hasActiveFilters && (
-                  <button className="clear-btn-inline" onClick={clearFilters} type="button" aria-label="Clear playlist filters">
-                    <X size={12} />
-                  </button>
-                )}
-              </div>
-              <div className="custom-dropdown">
-                <button
-                  className="dropdown-trigger"
-                  onClick={() => {
-                    setShowDifficultyDropdown(false);
-                    setShowCategoryDropdown(!showCategoryDropdown);
-                  }}
-                  type="button"
-                  aria-haspopup="listbox"
-                  aria-expanded={showCategoryDropdown}
-                >
-                  <span>{filterCategory || 'All Categories'}</span>
-                  <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
-                    <path d="M1 1L6 6L11 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                  </svg>
-                </button>
-                {showCategoryDropdown && (
-                  <div className="dropdown-menu" role="listbox" aria-label="Playlist category" style={{ display: 'block', position: 'absolute' }}>
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={!filterCategory}
-                      className={`dropdown-item ${!filterCategory ? 'active' : ''}`}
-                      onClick={() => {
-                        setFilterCategory('');
-                        setShowCategoryDropdown(false);
-                      }}
-                    >
-                      All Categories
-                    </button>
-                    {categories.map(cat => (
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={filterCategory === cat}
-                        key={cat}
-                        className={`dropdown-item ${filterCategory === cat ? 'active' : ''}`}
-                        onClick={() => {
-                          setFilterCategory(cat);
-                          setShowCategoryDropdown(false);
-                        }}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="filter-item">
-              <div className="filter-header">
-                <label>Difficulty</label>
-              </div>
-              <div className="custom-dropdown">
-                <button
-                  className="dropdown-trigger"
-                  onClick={() => {
-                    setShowCategoryDropdown(false);
-                    setShowDifficultyDropdown(!showDifficultyDropdown);
-                  }}
-                  type="button"
-                  aria-haspopup="listbox"
-                  aria-expanded={showDifficultyDropdown}
-                >
-                  <span>{filterDifficulty || 'All Levels'}</span>
-                  <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
-                    <path d="M1 1L6 6L11 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                  </svg>
-                </button>
-                {showDifficultyDropdown && (
-                  <div className="dropdown-menu" role="listbox" aria-label="Playlist difficulty" style={{ display: 'block', position: 'absolute' }}>
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={!filterDifficulty}
-                      className={`dropdown-item ${!filterDifficulty ? 'active' : ''}`}
-                      onClick={() => {
-                        setFilterDifficulty('');
-                        setShowDifficultyDropdown(false);
-                      }}
-                    >
-                      All Levels
-                    </button>
-                    {difficulties.map(level => (
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={filterDifficulty === level}
-                        key={level}
-                        className={`dropdown-item ${filterDifficulty === level ? 'active' : ''}`}
-                        onClick={() => {
-                          setFilterDifficulty(level);
-                          setShowDifficultyDropdown(false);
-                        }}
-                      >
-                        {level}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="sidebar-stats">
-            <div className="stat-box">
-              <div className="stat-value">{playlists.length}</div>
-              <div className="stat-label">Total Playlists</div>
-            </div>
-          </div>
-
-          <div className="pl-sidebar-actions">
-            <button className="pl-sidebar-action" onClick={() => navigate('/dashboard-cerbyl')} type="button">
-              <Home size={16} />
-              <span>Dashboard</span>
-            </button>
-          </div>
-          </>
-          )}
-        </aside>
-
-        <main className="playlists-main">
-          <div className="content-body">
-            <div className="view-heading">
-              <span className="view-kicker">Your Library</span>
-              <h2 className="view-title">Playlists</h2>
-              <p className="view-sub">Curated collections of learning content</p>
-            </div>
-            <div className="playlists-toolbar">
-              <div className="playlists-toolbar-left">
-                <div className="playlists-search-field">
-                  <Search size={16} />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search playlists, topics, creators..."
-                  />
-                  {searchQuery && (
-                    <button className="playlists-clear-search-btn" onClick={() => setSearchQuery('')} type="button" aria-label="Clear playlist search">
-                      <X size={14} />
-                    </button>
-                  )}
-                </div>
-                <div className="playlists-toolbar-count">
-                  <span>{sortedPlaylists.length} playlists</span>
-                  {hasActiveFilters && <span className="playlists-toolbar-filtered">Filtered</span>}
-                </div>
-              </div>
-              <div className="playlists-toolbar-right">
-                <div className="playlists-sort-select">
-                  <Filter size={14} />
-                  <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-                    <option value="recent">Newest</option>
-                    <option value="popular">Most Followed</option>
-                    <option value="items">Most Items</option>
-                    <option value="hours">Most Hours</option>
-                  </select>
-                </div>
-                <button className="playlists-ai-hub-btn" onClick={() => setShowImportExport(true)} type="button">
-                  <Sparkles size={14} />
-                  <span>AI Convert</span>
-                </button>
-              </div>
-            </div>
-
-            {aiResult && (
-              <div className={`playlists-ai-result-toast ${aiResult.status}`}>
-                <div className="playlists-ai-result-text">
-                  {aiResult.status === 'success' ? (
-                    aiResult.message ? (
-                      <span>{aiResult.message}</span>
-                    ) : (
-                      <>
-                        <span>AI {aiResult.type === 'notes' ? 'notes' : 'flashcards'} ready for</span>
-                        <strong>{aiResult.playlistTitle}</strong>
-                      </>
-                    )
-                  ) : (
-                    <span>{aiResult.message}</span>
-                  )}
-                </div>
-                {aiResult.status === 'success' && aiResult.type === 'notes' && aiResult.noteId && (
-                  <button className="playlists-ai-result-action" onClick={() => navigate(`/notes/editor/${aiResult.noteId}`)} type="button">
-                    Open Notes
-                  </button>
-                )}
-                {aiResult.status === 'success' && aiResult.type === 'flashcards' && (
-                  <button className="playlists-ai-result-action" onClick={() => navigate('/flashcards')} type="button">
-                    Open Flashcards
-                  </button>
-                )}
-                <button className="playlists-ai-result-close" onClick={() => setAiResult(null)} type="button" aria-label="Dismiss conversion result">
-                  <X size={14} />
-                </button>
-              </div>
-            )}
-
-            {loading ? (
-              <div className="loading-container">
-                <div className="fc-spinner">
-                  <span></span>
-                  <span></span>
-                  <span></span>
-                </div>
-                <p>LOADING PLAYLISTS...</p>
-              </div>
-            ) : playlists.length === 0 ? (
-              <div className="empty-container">
-                <BookOpen size={56} />
-                <h3>NO PLAYLISTS FOUND</h3>
-                <p>
-                  {view === 'my-playlists'
-                    ? 'CREATE YOUR FIRST PLAYLIST TO GET STARTED'
-                    : 'TRY ADJUSTING YOUR FILTERS OR SEARCH'}
-                </p>
-              </div>
-            ) : (
-              <div className="playlists-grid">
-                {sortedPlaylists.map((playlist, index) => (
-                  <PlaylistCard
-                    key={playlist.id}
-                    index={index}
-                    playlist={playlist}
-                    onClick={() => handlePlaylistClick(playlist.uid, playlist.id)}
-                    onShare={() => setSharePlaylist(playlist)}
-                    onGenerateNotes={() => handleAiConvert(playlist, 'notes')}
-                    onGenerateFlashcards={() => handleAiConvert(playlist, 'flashcards')}
-                    onToggleFollow={() => handleFollowToggle(playlist.id, playlist.is_following)}
-                    onDelete={() => handleDeletePlaylist(playlist)}
-                    aiLoading={aiLoading}
-                    deleting={deletingPlaylistId === playlist.id}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </main>
-      </div>
-
-      {showCreateModal && (
-        <CreatePlaylistModal
-          onClose={() => setShowCreateModal(false)}
-          onCreate={handleCreatePlaylist}
-          categories={categories}
-          difficulties={difficulties}
-          coverColors={coverColors}
-        />
-      )}
-
-      <ImportExportModal
-        isOpen={showImportExport}
-        onClose={() => setShowImportExport(false)}
-        mode="import"
-        sourceType="playlist"
-        onSuccess={(result) => {
-          if (result?.shouldNavigate) {
-            const items = result.items || [];
-            if (result.destinationType === 'notes') {
-              if (result.note_id) {
-                navigate(`/notes/editor/${result.note_id}`);
-              } else if (items.length === 1 && items[0]?.note_id) {
-                navigate(`/notes/editor/${items[0].note_id}`);
-              } else {
-                navigate('/notes');
-              }
-            } else if (result.destinationType === 'flashcards') {
-              if (result.set_id) {
-                navigate(`/flashcards?set_id=${result.set_id}&mode=preview`);
-              } else if (items.length === 1 && items[0]?.set_id) {
-                navigate(`/flashcards?set_id=${items[0].set_id}&mode=preview`);
-              } else {
-                navigate('/flashcards');
-              }
-            }
-          } else {
-            setAiResult({
-              status: 'success',
-              message: 'AI conversion completed. Check your notes or flashcards.'
-            });
-          }
-        }}
-      />
-
-      {sharePlaylist && (
-        <PlaylistShareModal
-          isOpen={!!sharePlaylist}
-          playlist={sharePlaylist}
-          onClose={() => setSharePlaylist(null)}
-        />
-      )}
-    </div>
-  );
 };
 
 export default PlaylistsPage;
@@ -1323,7 +853,9 @@ const PlaylistCard = ({
   );
 };
 
-const CreatePlaylistModal = ({ onClose, onCreate, categories, difficulties, coverColors }) => {
+const CreatePlaylistModal = ({ onClose, onCreate, categories, difficulties }) => {
+  const dialogRef = useRef(null);
+  useDialogA11y(true, onClose, dialogRef);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -1342,10 +874,20 @@ const CreatePlaylistModal = ({ onClose, onCreate, categories, difficulties, cove
   const [hue, setHue] = useState(30);
   const [saturation, setSaturation] = useState(50);
   const [brightness, setBrightness] = useState(70);
+  const [submitError, setSubmitError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onCreate(formData);
+    setSubmitError('');
+    setIsSubmitting(true);
+    try {
+      await onCreate({ ...formData, title: formData.title.trim() });
+    } catch (error) {
+      setSubmitError(error.message || 'Could not create the playlist. Try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const addTag = () => {
@@ -1404,11 +946,13 @@ const CreatePlaylistModal = ({ onClose, onCreate, categories, difficulties, cove
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
+        ref={dialogRef}
         className="modal-container"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-playlist-title"
+        tabIndex={-1}
       >
         <div className="modal-header">
           <h2 id="create-playlist-title">Create Playlist</h2>
@@ -1417,8 +961,9 @@ const CreatePlaylistModal = ({ onClose, onCreate, categories, difficulties, cove
 
         <form onSubmit={handleSubmit} className="modal-form">
           <div className="form-field">
-            <label>Title</label>
+            <label htmlFor="create-playlist-name">Title</label>
             <input
+              id="create-playlist-name"
               type="text"
               value={formData.title}
               onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
@@ -1428,8 +973,9 @@ const CreatePlaylistModal = ({ onClose, onCreate, categories, difficulties, cove
           </div>
 
           <div className="form-field">
-            <label>Description</label>
+            <label htmlFor="create-playlist-description">Description</label>
             <textarea
+              id="create-playlist-description"
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
               placeholder="What's this playlist about?"
@@ -1438,8 +984,9 @@ const CreatePlaylistModal = ({ onClose, onCreate, categories, difficulties, cove
           </div>
 
           <div className="form-field">
-            <label>Category</label>
+            <label htmlFor="create-playlist-category">Category</label>
             <select
+              id="create-playlist-category"
               value={formData.category}
               onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
             >
@@ -1448,6 +995,18 @@ const CreatePlaylistModal = ({ onClose, onCreate, categories, difficulties, cove
                 <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
+          </div>
+
+          <div className="form-field">
+            <label htmlFor="create-playlist-difficulty">Difficulty</label>
+            <select id="create-playlist-difficulty" value={formData.difficulty_level} onChange={(e) => setFormData(prev => ({ ...prev, difficulty_level: e.target.value }))}>
+              {difficulties.map(level => <option key={level} value={level}>{level[0].toUpperCase() + level.slice(1)}</option>)}
+            </select>
+          </div>
+
+          <div className="form-field">
+            <label htmlFor="create-playlist-hours">Estimated hours</label>
+            <input id="create-playlist-hours" type="number" min="0" step="0.5" value={formData.estimated_hours} onChange={(e) => setFormData(prev => ({ ...prev, estimated_hours: e.target.value }))} placeholder="e.g. 6" />
           </div>
 
           <div className="form-field">
@@ -1466,9 +1025,10 @@ const CreatePlaylistModal = ({ onClose, onCreate, categories, difficulties, cove
               {isPickingColor && (
                 <div className="gradient-picker-sliders">
                   <div className="slider-group">
-                    <label className="slider-label">HUE</label>
+                    <label className="slider-label" htmlFor="cover-hue">Hue</label>
                     <div className="slider-container hue-slider">
                       <input
+                        id="cover-hue"
                         type="range"
                         min="0"
                         max="360"
@@ -1480,9 +1040,10 @@ const CreatePlaylistModal = ({ onClose, onCreate, categories, difficulties, cove
                     </div>
                   </div>
                   <div className="slider-group">
-                    <label className="slider-label">SATURATION</label>
+                    <label className="slider-label" htmlFor="cover-saturation">Saturation</label>
                     <div className="slider-container sat-slider">
                       <input
+                        id="cover-saturation"
                         type="range"
                         min="0"
                         max="100"
@@ -1501,9 +1062,10 @@ const CreatePlaylistModal = ({ onClose, onCreate, categories, difficulties, cove
                     </div>
                   </div>
                   <div className="slider-group">
-                    <label className="slider-label">BRIGHTNESS</label>
+                    <label className="slider-label" htmlFor="cover-brightness">Brightness</label>
                     <div className="slider-container bright-slider">
                       <input
+                        id="cover-brightness"
                         type="range"
                         min="0"
                         max="100"
@@ -1528,16 +1090,17 @@ const CreatePlaylistModal = ({ onClose, onCreate, categories, difficulties, cove
           </div>
 
           <div className="form-field">
-            <label>Tags</label>
+            <label htmlFor="create-playlist-tags">Tags</label>
             <div className="tag-input-row">
               <input
+                id="create-playlist-tags"
                 type="text"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
                 placeholder="Add tags..."
               />
-              <button type="button" onClick={addTag} className="add-btn">
+              <button type="button" onClick={addTag} className="add-btn" aria-label="Add tag">
                 <Plus size={16} />
               </button>
             </div>
@@ -1546,7 +1109,7 @@ const CreatePlaylistModal = ({ onClose, onCreate, categories, difficulties, cove
                 {formData.tags.map(tag => (
                   <span key={tag} className="tag-item">
                     {tag}
-                    <button type="button" onClick={() => removeTag(tag)}>×</button>
+                    <button type="button" onClick={() => removeTag(tag)} aria-label={`Remove ${tag} tag`}>×</button>
                   </span>
                 ))}
               </div>
@@ -1573,12 +1136,13 @@ const CreatePlaylistModal = ({ onClose, onCreate, categories, difficulties, cove
             </label>
           </div>
 
+          {submitError && <p className="modal-form-error" role="alert">{submitError} Check the fields and try again.</p>}
           <div className="modal-footer">
             <button type="button" className="btn-secondary" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary">
-              Create Playlist
+            <button type="submit" className="btn-primary" disabled={isSubmitting}>
+              {isSubmitting ? 'Creating…' : 'Create Playlist'}
             </button>
           </div>
         </form>

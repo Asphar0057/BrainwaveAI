@@ -13,6 +13,7 @@ import models
 from database import get_db
 from deps import get_current_user, call_ai_async, get_user_by_username, get_user_by_email, verify_token
 from services.ai_json_parser import parse_json_array_response
+from services.battle_rules import prepare_generated_questions, validate_and_score_answers, winner_id_for_battle
 from services.websocket_manager import manager, notify_battle_challenge, notify_battle_accepted, notify_battle_declined, notify_battle_started, notify_battle_completed
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,8 @@ class _KeyedLock:
 
 
 QUESTION_GENERATION_LOCKS: dict[int, _KeyedLock] = {}
+VALID_BATTLE_MODES = {"classic", "speed", "blitz", "sudden_death"}
+VALID_BATTLE_DIFFICULTIES = {"beginner", "intermediate", "advanced"}
 
 
 def _reserve_generation_lock(lock_key: int) -> _KeyedLock:
@@ -104,6 +107,8 @@ def _safe_json_list(value) -> list:
         return value
     if not isinstance(value, str) or not value.strip():
         return []
+
+
     try:
         parsed = json.loads(value)
         return parsed if isinstance(parsed, list) else []
@@ -123,13 +128,35 @@ async def create_quiz_battle(
             raise HTTPException(status_code=404, detail="User not found")
 
         opponent_id = payload.get("opponent_id")
-        subject = payload.get("subject")
-        difficulty = payload.get("difficulty", "intermediate")
-        question_count = payload.get("question_count", 10)
-        time_limit = payload.get("time_limit_seconds", 300)
+        subject = str(payload.get("subject") or "").strip()
+        difficulty = str(payload.get("difficulty", "intermediate")).lower()
+        game_mode = str(payload.get("game_mode", "classic")).lower()
+        try:
+            question_count = int(payload.get("question_count", 10))
+            time_limit = int(payload.get("time_limit_seconds", 300))
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="Question count and time limit must be numbers")
 
         if not opponent_id or not subject:
             raise HTTPException(status_code=400, detail="opponent_id and subject are required")
+        if len(subject) > 100:
+            raise HTTPException(status_code=400, detail="Subject must be 100 characters or fewer")
+        if difficulty not in VALID_BATTLE_DIFFICULTIES:
+            raise HTTPException(status_code=400, detail="Unsupported battle difficulty")
+        if game_mode not in VALID_BATTLE_MODES:
+            raise HTTPException(status_code=400, detail="Unsupported battle mode")
+        if not 5 <= question_count <= 20:
+            raise HTTPException(status_code=400, detail="Question count must be between 5 and 20")
+
+        expected_mode_time = {
+            "blitz": question_count * 15,
+            "sudden_death": question_count * 30,
+            "speed": 300,
+        }.get(game_mode)
+        if expected_mode_time is not None:
+            time_limit = expected_mode_time
+        elif time_limit not in {120, 300, 600, 900}:
+            raise HTTPException(status_code=400, detail="Unsupported Classic time limit")
 
         friendship = db.query(models.Friendship).filter(
             and_(
@@ -148,6 +175,7 @@ async def create_quiz_battle(
             difficulty=difficulty,
             question_count=question_count,
             time_limit_seconds=time_limit,
+            game_mode=game_mode,
             expires_at=datetime.now(timezone.utc) + timedelta(days=7)
         )
 
@@ -176,6 +204,7 @@ async def create_quiz_battle(
             "difficulty": battle.difficulty,
             "question_count": battle.question_count,
             "time_limit_seconds": battle.time_limit_seconds,
+            "game_mode": battle.game_mode,
             "challenger": {
                 "id": current_user.id,
                 "username": current_user.username,
@@ -203,6 +232,9 @@ async def create_quiz_battle(
             "opponent_connected": notification_sent
         }
 
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         logger.error(f"Error creating battle: {str(e)}")
         db.rollback()
@@ -252,17 +284,27 @@ async def get_quiz_battles(
                 "status": battle.status,
                 "question_count": battle.question_count,
                 "time_limit_seconds": battle.time_limit_seconds,
+                "game_mode": getattr(battle, "game_mode", "classic"),
+                "question_quality_version": getattr(battle, "question_quality_version", 0),
                 "your_score": battle.challenger_score if is_challenger else battle.opponent_score,
                 "opponent_score": battle.opponent_score if is_challenger else battle.challenger_score,
                 "your_completed": battle.challenger_completed if is_challenger else battle.opponent_completed,
                 "opponent_completed": battle.opponent_completed if is_challenger else battle.challenger_completed,
                 "is_challenger": is_challenger,
+                "your_result": (
+                    "win" if winner_id_for_battle(battle) == current_user.id
+                    else "loss" if winner_id_for_battle(battle) is not None
+                    else "draw" if battle.status == "completed"
+                    else None
+                ),
                 "created_at": battle.created_at.isoformat() + "Z",
                 "expires_at": battle.expires_at.isoformat() + "Z" if battle.expires_at else None
             })
 
         return {"battles": result}
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error fetching quiz battles: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -280,11 +322,10 @@ async def complete_quiz_battle(
             raise HTTPException(status_code=404, detail="User not found")
 
         battle_id = payload.get("battle_id")
-        score = payload.get("score")
         answers = payload.get("answers", [])
 
-        if not battle_id or score is None:
-            raise HTTPException(status_code=400, detail="battle_id and score are required")
+        if not battle_id:
+            raise HTTPException(status_code=400, detail="battle_id is required")
 
         battle = db.query(models.QuizBattle).filter(
             models.QuizBattle.id == battle_id
@@ -296,30 +337,33 @@ async def complete_quiz_battle(
         if current_user.id not in (battle.challenger_id, battle.opponent_id):
             raise HTTPException(status_code=403, detail="You are not a participant in this battle")
 
-        existing_question = db.query(models.BattleQuestion).filter(
-            models.BattleQuestion.battle_id == battle_id
-        ).first()
-
-        if not existing_question:
-            for snapshot in _question_snapshots_from_answers(answers):
-                battle_question = models.BattleQuestion(
-                    battle_id=battle_id,
-                    question=snapshot["question"],
-                    options=json.dumps(snapshot["options"]),
-                    correct_answer=snapshot["correct_answer"],
-                    explanation=snapshot.get("explanation", ""),
-                )
-                db.add(battle_question)
-
         is_challenger = battle.challenger_id == current_user.id
+        if (is_challenger and battle.challenger_completed) or (not is_challenger and battle.opponent_completed):
+            raise HTTPException(status_code=409, detail="Your battle result has already been submitted")
+
+        questions = db.query(models.BattleQuestion).filter(
+            models.BattleQuestion.battle_id == battle_id
+        ).order_by(models.BattleQuestion.id).all()
+        if not questions:
+            raise HTTPException(status_code=409, detail="Battle questions must be generated before submitting")
+
+        try:
+            score, verified_answers = validate_and_score_answers(
+                questions,
+                answers,
+                getattr(battle, "game_mode", "classic"),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
         if is_challenger:
             battle.challenger_score = score
             battle.challenger_completed = True
-            battle.challenger_answers = json.dumps(answers)
+            battle.challenger_answers = json.dumps(verified_answers)
         else:
             battle.opponent_score = score
             battle.opponent_completed = True
-            battle.opponent_answers = json.dumps(answers)
+            battle.opponent_answers = json.dumps(verified_answers)
 
         opponent_id = battle.opponent_id if is_challenger else battle.challenger_id
 
@@ -328,7 +372,8 @@ async def complete_quiz_battle(
         if battle.challenger_completed and battle.opponent_completed:
             battle.status = "completed"
             battle.completed_at = datetime.now(timezone.utc)
-            is_tie = battle.challenger_score == battle.opponent_score
+            winner_id = winner_id_for_battle(battle)
+            is_tie = winner_id is None
             total_questions = battle.question_count or 10
 
             if is_tie:
@@ -344,7 +389,6 @@ async def complete_quiz_battle(
                         notification_type="battle_tied"
                     ))
             else:
-                winner_id = battle.challenger_id if battle.challenger_score > battle.opponent_score else battle.opponent_id
                 winner = battle.challenger if winner_id == battle.challenger_id else battle.opponent
                 loser = battle.opponent if winner_id == battle.challenger_id else battle.challenger
 
@@ -409,6 +453,9 @@ async def complete_quiz_battle(
             "both_completed": battle.challenger_completed and battle.opponent_completed
         }
 
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         logger.error(f"Error completing quiz battle: {str(e)}")
         db.rollback()
@@ -614,6 +661,8 @@ async def get_quiz_battle_detail(
             opponent = db.query(models.User).filter(models.User.id == opponent_id).first()
             if not opponent:
                 raise HTTPException(status_code=404, detail="Opponent not found")
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Error getting opponent: {str(e)}")
             raise HTTPException(status_code=500, detail="Error loading battle opponent")
@@ -628,11 +677,20 @@ async def get_quiz_battle_detail(
             "status": battle.status,
             "question_count": battle.question_count,
             "time_limit_seconds": battle.time_limit_seconds,
+            "game_mode": getattr(battle, "game_mode", "classic"),
+            "question_quality_version": getattr(battle, "question_quality_version", 0),
             "your_score": battle.challenger_score if is_challenger else battle.opponent_score,
             "opponent_score": battle.opponent_score if is_challenger else battle.challenger_score,
             "your_completed": battle.challenger_completed if is_challenger else battle.opponent_completed,
             "opponent_completed": battle.opponent_completed if is_challenger else battle.challenger_completed,
             "is_challenger": is_challenger,
+            "winner_id": winner_id_for_battle(battle),
+            "your_result": (
+                "win" if winner_id_for_battle(battle) == current_user.id
+                else "loss" if winner_id_for_battle(battle) is not None
+                else "draw" if battle.status == "completed"
+                else None
+            ),
             "opponent": {
                 "id": opponent.id,
                 "username": opponent.username,
@@ -676,19 +734,6 @@ async def generate_battle_questions(
 ):
     try:
         battle_id = payload.get("battle_id")
-        subject = payload.get("subject")
-        difficulty = payload.get("difficulty", "intermediate")
-        question_count = payload.get("question_count", 10)
-        difficulty = {
-            "easy": "beginner",
-            "medium": "intermediate",
-            "hard": "advanced",
-        }.get(str(difficulty).lower(), str(difficulty).lower())
-        try:
-            question_count = max(1, min(int(question_count), 50))
-        except (TypeError, ValueError):
-            question_count = 10
-
         battle = db.query(models.QuizBattle).filter(
             models.QuizBattle.id == battle_id
         ).first()
@@ -698,6 +743,11 @@ async def generate_battle_questions(
 
         if battle.challenger_id != current_user.id and battle.opponent_id != current_user.id:
             raise HTTPException(status_code=403, detail="Not authorized")
+
+        subject = battle.subject
+        difficulty = battle.difficulty
+        question_count = battle.question_count
+        game_mode = getattr(battle, "game_mode", "classic")
 
         lock_key = int(battle_id)
         generation_lock_entry = _reserve_generation_lock(lock_key)
@@ -753,10 +803,18 @@ async def generate_battle_questions(
             },
         }
         difficulty_profile = difficulty_profiles.get(difficulty, difficulty_profiles["intermediate"])
+        mode_profiles = {
+            "classic": "Use balanced stems that reward knowledge and careful reasoning.",
+            "speed": "Keep stems and options concise enough to scan quickly; avoid lengthy calculations or trick wording.",
+            "blitz": "Every item must be answerable in about 15 seconds by a prepared learner. Prefer crisp recall or one-step application.",
+            "sudden_death": "Order questions from confidently answerable to increasingly discriminating; never rely on ambiguity or trivia traps.",
+        }
 
         prompt = f"""Generate exactly {question_count} multiple choice questions about {subject}.
 Difficulty target: {difficulty_profile["label"]}.
 Difficulty rules: {difficulty_profile["description"]}
+Battle mode: {game_mode}.
+Mode rules: {mode_profiles[game_mode]}
 
 Return ONLY a valid JSON array with this exact structure:
 [
@@ -764,6 +822,7 @@ Return ONLY a valid JSON array with this exact structure:
     "question": "Question text here?",
     "options": ["Option A", "Option B", "Option C", "Option D"],
     "correct_answer": 0,
+    "correct_answer_text": "Option A",
     "difficulty": "{difficulty}",
     "explanation": "Brief explanation of the correct answer"
   }}
@@ -772,6 +831,7 @@ Return ONLY a valid JSON array with this exact structure:
 Requirements:
 - Each question must have exactly 4 options
 - correct_answer must be 0, 1, 2, or 3 (index of the correct option)
+- correct_answer_text must exactly equal options[correct_answer]
 - Every question MUST match the requested difficulty target: {difficulty_profile["label"]}
 - Include "difficulty": "{difficulty}" on every question
 - Questions should be clear and unambiguous
@@ -792,32 +852,7 @@ Requirements:
         content = content.strip()
 
         questions_data = parse_json_array_response(content)
-        if not questions_data:
-            raise ValueError("AI returned empty or invalid questions list")
-        questions_data = questions_data[:question_count]
-
-        for q_data in questions_data:
-            question_text = str(q_data.get("question") or "").strip()
-            if not question_text:
-                raise ValueError("AI returned a question without question text")
-            options = q_data.get("options") or []
-            if isinstance(options, str):
-                options = _safe_json_list(options)
-            options = [str(option).strip() for option in options if str(option).strip()]
-            if len(options) != 4:
-                raise ValueError("AI returned a question without exactly 4 options")
-            try:
-                correct_index = int(q_data.get("correct_answer", 0))
-            except (TypeError, ValueError):
-                correct_index = 0
-            correct_index = max(0, min(correct_index, len(options) - 1))
-            correct_answer_text = options[correct_index]
-            random.shuffle(options)
-            new_correct_index = options.index(correct_answer_text)
-            q_data["options"] = options
-            q_data["correct_answer"] = new_correct_index
-            q_data["difficulty"] = difficulty
-            q_data["question"] = question_text
+        questions_data = prepare_generated_questions(questions_data, question_count, difficulty)
 
         saved_questions = []
         for q_data in questions_data:
@@ -842,6 +877,7 @@ Requirements:
         if battle.status == "pending":
             battle.status = "active"
             battle.started_at = datetime.now(timezone.utc)
+        battle.question_quality_version = 1
 
         db.commit()
 
@@ -854,6 +890,11 @@ Requirements:
             _release_generation_lock(lock_key, generation_lock_entry)
         logger.error(f"JSON decode error: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to parse AI response")
+    except HTTPException:
+        if locals().get("generation_lock_acquired"):
+            _release_generation_lock(lock_key, generation_lock_entry)
+        db.rollback()
+        raise
     except Exception as e:
         if locals().get("generation_lock_acquired"):
             _release_generation_lock(lock_key, generation_lock_entry)
