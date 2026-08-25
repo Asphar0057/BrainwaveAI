@@ -7,7 +7,7 @@ import MaskedView from '@react-native-masked-view/masked-view';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import RingProgress from '../components/RingProgress';
 import HapticTouchable from '../components/HapticTouchable';
-import GeoBackground from '../components/GeoBackground';
+import CircleBackground from '../components/CircleBackground';
 import NeumorphicTexture, { cbCardGradient, cbTileShadow, cbTileCardGradient, cbTileShadowExact, cbTileBorder } from '../components/NeumorphicTexture';
 import CerbylMark from '../components/CerbylMark';
 import XpLineChart from '../components/XpLineChart';
@@ -291,7 +291,7 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
-      <GeoBackground />
+      <CircleBackground />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} bounces={false} alwaysBounceVertical={false}>
         <View style={styles.topBar}>

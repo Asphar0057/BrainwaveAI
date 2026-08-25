@@ -8,7 +8,7 @@ import { AuthUser, signOut, updateStoredUser, updateStoredToken } from '../servi
 import { changeUsername, changePassword, getComprehensiveProfile, updateComprehensiveProfile, ComprehensiveProfile, getNotifications } from '../services/api';
 import HapticTouchable from '../components/HapticTouchable';
 import AmbientBubbles from '../components/AmbientBubbles';
-import GeoBackground from '../components/GeoBackground';
+import CircleBackground from '../components/CircleBackground';
 import NeumorphicTexture, { cbCardGradient, cbTileShadow, cbModalShadow } from '../components/NeumorphicTexture';
 import { triggerHaptic } from '../utils/haptics';
 import { useAppTheme } from '../contexts/ThemeContext';
@@ -190,7 +190,7 @@ export default function ProfileScreen({ user, onLogout, onUserUpdate, onNavigate
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFill} />
-      <GeoBackground />
+      <CircleBackground />
       <AmbientBubbles theme={selectedTheme} variant="profile" opacity={0.88} />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>

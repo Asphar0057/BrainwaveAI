@@ -10,7 +10,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../services/auth';
 import { getFlashcardStatistics } from '../services/api';
 import TileGleam from '../components/TileGleam';
-import GeoBackground from '../components/GeoBackground';
+import CircleBackground from '../components/CircleBackground';
 import NeumorphicTexture, { cbTileCardGradient } from '../components/NeumorphicTexture';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { rgbaFromHex } from '../utils/theme';
@@ -113,7 +113,7 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
   return (
     <SafeAreaView style={s.safe} edges={[]}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFill} />
-      <GeoBackground />
+      <CircleBackground />
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         <View style={s.titleRow}>
