@@ -13,7 +13,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   GestureResponderEvent,
-  Modal,
   Keyboard,
   UIManager,
   Dimensions,
@@ -28,10 +27,11 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import PagerView, { AppPagerHandle } from '../components/AppPager';
 import HapticTouchable from '../components/HapticTouchable';
 import TileGleam from '../components/TileGleam';
-import NeumorphicTexture, { NeumorphicLayer, cbTileShadow, cbModalShadow, cbTileBorder, cbTileCardGradient } from '../components/NeumorphicTexture';
+import NeumorphicTexture, { cbTileShadow, cbModalShadow, cbTileBorder, cbTileCardGradient } from '../components/NeumorphicTexture';
 import MathText from '../components/MathText';
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
+import SectionSidebar, { SidebarItem } from '../components/SectionSidebar';
 import SpacedRepetitionScreen from './SpacedRepetitionScreen';
 import { AuthUser } from '../services/auth';
 import { useAppTheme } from '../contexts/ThemeContext';
@@ -558,17 +558,6 @@ function FlashcardsCreate({
   const [submitting, setSubmitting] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const layout = useResponsiveLayout();
-  const sidebarWidth = Math.min(layout.width * (layout.isLandscape ? 0.42 : 0.8), 340);
-  const slideAnim = useRef(new Animated.Value(-sidebarWidth)).current;
-
-  const openSidebar = () => {
-    setSidebarOpen(true);
-    Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 100, friction: 14 }).start();
-  };
-
-  const closeSidebar = () => {
-    Animated.timing(slideAnim, { toValue: -sidebarWidth, duration: 200, useNativeDriver: true }).start(() => setSidebarOpen(false));
-  };
 
   useEffect(() => {
     setMode(initialMode);
@@ -743,7 +732,7 @@ function FlashcardsCreate({
             <Ionicons name="chevron-back" size={20} color={GOLD_L} />
           </HapticTouchable>
           <Text style={[s.createTitle, { flex: 1 }]}>create set</Text>
-          <HapticTouchable onPress={openSidebar} haptic="selection" accessibilityLabel="Open menu">
+          <HapticTouchable onPress={() => setSidebarOpen(true)} haptic="selection" accessibilityLabel="Open menu">
             <Ionicons name="menu-outline" size={22} color={GOLD_L} />
           </HapticTouchable>
         </View>
@@ -917,137 +906,23 @@ function FlashcardsCreate({
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <FlashcardsMenuSidebar
+      <SectionSidebar
         visible={sidebarOpen}
-        sidebarWidth={sidebarWidth}
-        slideAnim={slideAnim}
-        onClose={closeSidebar}
+        onClose={() => setSidebarOpen(false)}
+        pageTitle="flashcards"
+        items={FLASHCARDS_SIDEBAR_ITEMS}
         activeKey="generate"
-        onBrowse={onOpenSpacedRepetition}
-        onGenerate={() => setMode('ai')}
-        onMySets={onBack}
+        onSelect={(key) => { if (key === 'browse') onOpenSpacedRepetition(); else if (key === 'generate') setMode('ai'); else if (key === 'sets') onBack(); }}
       />
     </SafeAreaView>
   );
 }
 
-// Shared hamburger-menu sidebar for both the sets list and the create-set
-// screen, so the two stay visually identical and each highlights where you are.
-function FlashcardsMenuSidebar({
-  visible,
-  sidebarWidth,
-  slideAnim,
-  onClose,
-  setsCount,
-  activeKey,
-  onBrowse,
-  onGenerate,
-  onMySets,
-}: {
-  visible: boolean;
-  sidebarWidth: number;
-  slideAnim: Animated.Value;
-  onClose: () => void;
-  /** Omitted on screens that don't already track the sets list (e.g. the create screen). */
-  setsCount?: number;
-  activeKey: 'browse' | 'generate' | 'sets';
-  onBrowse: () => void;
-  onGenerate: () => void;
-  onMySets: () => void;
-}) {
-  if (!visible) return null;
-  return (
-    <Modal transparent animationType="none" onRequestClose={onClose}>
-      <View style={s.sidebarOverlay}>
-        <HapticTouchable style={StyleSheet.absoluteFill} onPress={onClose} activeOpacity={1} haptic="none" />
-        <Animated.View style={[s.sidebarPanel, { width: sidebarWidth, transform: [{ translateX: slideAnim }] }]}>
-          <LinearGradient
-            colors={[darkenColor(CURRENT_THEME.bgTop, CURRENT_THEME.isLight ? 4 : 0), CURRENT_THEME.panelAlt, CURRENT_THEME.bgPrimary]}
-            style={StyleSheet.absoluteFill}
-          />
-          <SafeAreaView style={{ flex: 1, paddingBottom: 6 }} edges={['top', 'bottom']}>
-            <View style={s.sidebarHero}>
-              <NeumorphicLayer grainOpacity={0.22} />
-              {setsCount != null ? <Text style={s.sidebarGhost}>{setsCount}</Text> : null}
-              <Text style={s.sidebarHeroTitle}>flashcards</Text>
-              <Text style={s.sidebarHeroSub}>
-                {setsCount != null ? `${setsCount} ${setsCount === 1 ? 'set' : 'sets'}` : 'study sets'}
-              </Text>
-            </View>
-
-            <View style={s.sidebarMenu}>
-              {activeKey === 'browse' ? (
-                <View style={[s.menuCard, s.menuCardActive]}>
-                  <View style={s.menuRow}>
-                    <View style={[s.menuIconWrap, s.menuIconWrapActive]}>
-                      <Ionicons name="time" size={16} color={INK} />
-                    </View>
-                    <Text style={[s.menuLabel, s.menuLabelActive]}>Browse</Text>
-                    <View style={s.menuActiveDot} />
-                  </View>
-                </View>
-              ) : (
-                <HapticTouchable style={s.menuCard} onPress={() => { onClose(); onBrowse(); }} haptic="selection" activeOpacity={0.85}>
-                  <View style={s.menuRow}>
-                    <View style={s.menuIconWrap}>
-                      <Ionicons name="time-outline" size={16} color={GOLD_L} />
-                    </View>
-                    <Text style={s.menuLabel}>Browse</Text>
-                    <Ionicons name="chevron-forward" size={15} color={DIM2} />
-                  </View>
-                </HapticTouchable>
-              )}
-
-              {activeKey === 'generate' ? (
-                <View style={[s.menuCard, s.menuCardActive]}>
-                  <View style={s.menuRow}>
-                    <View style={[s.menuIconWrap, s.menuIconWrapActive]}>
-                      <Ionicons name="sparkles" size={16} color={INK} />
-                    </View>
-                    <Text style={[s.menuLabel, s.menuLabelActive]}>Generate</Text>
-                    <View style={s.menuActiveDot} />
-                  </View>
-                </View>
-              ) : (
-                <HapticTouchable style={s.menuCard} onPress={() => { onClose(); onGenerate(); }} haptic="selection" activeOpacity={0.85}>
-                  <View style={s.menuRow}>
-                    <View style={s.menuIconWrap}>
-                      <Ionicons name="sparkles-outline" size={16} color={GOLD_L} />
-                    </View>
-                    <Text style={s.menuLabel}>Generate</Text>
-                    <Ionicons name="chevron-forward" size={15} color={DIM2} />
-                  </View>
-                </HapticTouchable>
-              )}
-
-              {activeKey === 'sets' ? (
-                <View style={[s.menuCard, s.menuCardActive]}>
-                  <View style={s.menuRow}>
-                    <View style={[s.menuIconWrap, s.menuIconWrapActive]}>
-                      <Ionicons name="albums" size={16} color={INK} />
-                    </View>
-                    <Text style={[s.menuLabel, s.menuLabelActive]}>My Sets</Text>
-                    <View style={s.menuActiveDot} />
-                  </View>
-                </View>
-              ) : (
-                <HapticTouchable style={s.menuCard} onPress={() => { onClose(); onMySets(); }} haptic="selection" activeOpacity={0.85}>
-                  <View style={s.menuRow}>
-                    <View style={s.menuIconWrap}>
-                      <Ionicons name="albums-outline" size={16} color={GOLD_L} />
-                    </View>
-                    <Text style={s.menuLabel}>My Sets</Text>
-                    <Ionicons name="chevron-forward" size={15} color={DIM2} />
-                  </View>
-                </HapticTouchable>
-              )}
-            </View>
-          </SafeAreaView>
-        </Animated.View>
-      </View>
-    </Modal>
-  );
-}
+const FLASHCARDS_SIDEBAR_ITEMS: SidebarItem[] = [
+  { key: 'browse', label: 'Browse' },
+  { key: 'generate', label: 'Generate' },
+  { key: 'sets', label: 'My Sets' },
+];
 
 function FlashcardsSets({
   user,
@@ -1072,8 +947,6 @@ function FlashcardsSets({
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const layout = useResponsiveLayout();
-  const sidebarWidth = Math.min(layout.width * (layout.isLandscape ? 0.42 : 0.8), 340);
-  const slideAnim = useRef(new Animated.Value(-sidebarWidth)).current;
 
   useEffect(() => {
     setLoading(true);
@@ -1107,15 +980,6 @@ function FlashcardsSets({
     } finally {
       setRefreshing(false);
     }
-  };
-
-  const openSidebar = () => {
-    setSidebarOpen(true);
-    Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 100, friction: 14 }).start();
-  };
-
-  const closeSidebar = () => {
-    Animated.timing(slideAnim, { toValue: -sidebarWidth, duration: 200, useNativeDriver: true }).start(() => setSidebarOpen(false));
   };
 
   const startStudy = async (set: FlashcardSet, shuffle = false) => {
@@ -1162,7 +1026,7 @@ function FlashcardsSets({
         <View style={{ flex: 1 }}>
           <Text style={s.title}>flashcards</Text>
         </View>
-        <HapticTouchable onPress={openSidebar} haptic="selection" accessibilityLabel="Open menu">
+        <HapticTouchable onPress={() => setSidebarOpen(true)} haptic="selection" accessibilityLabel="Open menu">
           <Ionicons name="menu-outline" size={24} color={GOLD_L} />
         </HapticTouchable>
       </View>
@@ -1344,16 +1208,13 @@ function FlashcardsSets({
         </View>
       )}
 
-      <FlashcardsMenuSidebar
+      <SectionSidebar
         visible={sidebarOpen}
-        sidebarWidth={sidebarWidth}
-        slideAnim={slideAnim}
-        onClose={closeSidebar}
-        setsCount={sets.length}
+        onClose={() => setSidebarOpen(false)}
+        pageTitle="flashcards"
+        items={FLASHCARDS_SIDEBAR_ITEMS}
         activeKey="sets"
-        onBrowse={onOpenSpacedRepetition}
-        onGenerate={() => onOpenCreate('ai')}
-        onMySets={() => {}}
+        onSelect={(key) => { if (key === 'browse') onOpenSpacedRepetition(); else if (key === 'generate') onOpenCreate('ai'); }}
       />
     </SafeAreaView>
   );
@@ -1553,37 +1414,6 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   listSwatch: { width: 42, height: 42, borderRadius: 10 },
   listTitle: { fontFamily: 'Inter_900Black', fontSize: 14, color: GOLD_L },
   listMeta: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM2, marginTop: 2 },
-
-  sidebarOverlay: { flex: 1, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.58)' },
-  sidebarPanel: {
-    height: '100%', borderRightWidth: 1, borderRightColor: rgbaFromHex(GOLD_D, 0.31),
-    overflow: 'hidden', boxShadow: cbModalShadow(0.2),
-  },
-  sidebarHero: {
-    marginHorizontal: 14, marginTop: 12, marginBottom: 14,
-    borderRadius: 22, padding: 16, overflow: 'hidden',
-    boxShadow: cbModalShadow(0.14),
-  },
-  sidebarGhost: {
-    position: 'absolute', right: 10, top: -8,
-    fontFamily: 'Inter_900Black', fontSize: 60, lineHeight: 64,
-    color: rgbaFromHex(GOLD_L, 0.07), letterSpacing: -3,
-  },
-  sidebarHeroTitle: { fontFamily: 'Inter_900Black', fontSize: 22, color: GOLD_L, letterSpacing: -0.5 },
-  sidebarHeroSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM2, marginTop: 3 },
-
-  sidebarMenu: { paddingHorizontal: 10, gap: 4 },
-  menuCard: { borderRadius: 16, overflow: 'hidden' },
-  menuCardActive: { backgroundColor: rgbaFromHex(ACCENT, 0.14) },
-  menuRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 12 },
-  menuIconWrap: {
-    width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: rgbaFromHex(GOLD_D, 0.18), borderWidth: 1, borderColor: rgbaFromHex(GOLD_L, 0.2),
-  },
-  menuIconWrapActive: { backgroundColor: ACCENT2, borderColor: ACCENT2 },
-  menuLabel: { flex: 1, fontFamily: 'Inter_600SemiBold', fontSize: 14, color: GOLD_L },
-  menuLabelActive: { color: ACCENT2, fontFamily: 'Inter_700Bold' },
-  menuActiveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: ACCENT2 },
 
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8, paddingVertical: 50 },
   emptyTitle: { fontFamily: 'Inter_900Black', fontSize: 18, color: GOLD_D },
