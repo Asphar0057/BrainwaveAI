@@ -1,27 +1,30 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import {
-  View, Text, StyleSheet, ScrollView, ActivityIndicator,
+  View, Text, StyleSheet, ScrollView,
   TextInput, ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../../services/auth';
-import { createSoloQuiz, getSoloQuiz, completeSoloQuiz, SoloQuizQuestion } from '../../services/api';
+import { createSoloQuiz, getSoloQuiz, completeSoloQuiz, getSoloQuizHistory, SoloQuizQuestion, SoloQuizHistoryEntry } from '../../services/api';
 import HapticTouchable from '../../components/HapticTouchable';
 import GeoBackground from '../../components/GeoBackground';
 import MathText from '../../components/MathText';
 import SocialTileMaterial from '../../components/SocialTileMaterial';
-import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../../components/NeumorphicTexture';
+import PulsingSquares from '../../components/PulsingSquares';
+import SectionSidebar, { SidebarItem } from '../../components/SectionSidebar';
+import { NeumorphicLayer, cbTileShadow, cbModalShadow, CB_CARD_TOP, cbPlainPressedShadow } from '../../components/NeumorphicTexture';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../../utils/theme';
 import { useResponsiveLayout } from '../../hooks/useResponsiveLayout';
 
-type Props = { user: AuthUser; onBack: () => void; onOpenMenu?: () => void };
-type Stage = 'generator' | 'loading' | 'session' | 'review';
+type Props = { user: AuthUser; onBack: () => void };
+type Stage = 'generator' | 'loading' | 'session' | 'review' | 'history' | 'stats';
 type Difficulty = 'adaptive' | 'easy' | 'medium' | 'hard';
 type QuizMode = 'standard' | 'sequential' | 'instant';
 type TimingMode = 'timed' | 'stopwatch' | 'none';
+type QuizStats = { total_quizzes: number; average_score: number; best_score: number; total_questions: number };
 
 type AnsweredResult = {
   question_text: string;
@@ -38,7 +41,7 @@ function isAnswerCorrect(userIndex: number | undefined, correctAnswer: number | 
   return String(userIndex) === String(correctAnswer);
 }
 
-export default function SoloQuizScreen({ user, onBack, onOpenMenu }: Props) {
+export default function SoloQuizScreen({ user, onBack }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
   const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
@@ -49,13 +52,17 @@ export default function SoloQuizScreen({ user, onBack, onOpenMenu }: Props) {
   const DIM = selectedTheme.textSecondary;
   const INK = selectedTheme.isLight ? darkenColor(selectedTheme.accent, 34) : selectedTheme.bgPrimary;
 
-  const [stage, setStage] = useState<Stage>('generator');
+  // Landing is the quiz list (mirrors Battles: main page = the list, with a
+  // "create" CTA up top; the generator/create form is a destination you tap
+  // into, not the default page).
+  const [stage, setStage] = useState<Stage>('history');
   const [error, setError] = useState('');
 
   // Generator form
   const [subject, setSubject] = useState('');
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [questionCount, setQuestionCount] = useState(10);
+  const [questionCountText, setQuestionCountText] = useState('10');
   const [quizMode, setQuizMode] = useState<QuizMode>('standard');
   const [timingMode, setTimingMode] = useState<TimingMode>('timed');
 
@@ -68,6 +75,31 @@ export default function SoloQuizScreen({ user, onBack, onOpenMenu }: Props) {
   // Review state
   const [results, setResults] = useState<AnsweredResult[]>([]);
   const [score, setScore] = useState(0);
+
+  // Past Quizzes / Analyze (hamburger sections) -- one fetch backs both,
+  // since the history endpoint returns the list and the aggregate stats
+  // computed from it together.
+  const [historyData, setHistoryData] = useState<{ history: SoloQuizHistoryEntry[]; statistics: QuizStats } | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const loadHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const data = await getSoloQuizHistory();
+      setHistoryData(data);
+    } catch {
+      setHistoryData({ history: [], statistics: { total_quizzes: 0, average_score: 0, best_score: 0, total_questions: 0 } });
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => { loadHistory(); }, []);
+
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const goSection = (next: 'generator' | 'history' | 'stats') => {
+    setStage(next);
+    if (next !== 'generator') loadHistory();
+  };
 
   const startQuiz = async () => {
     if (!subject.trim()) {
@@ -138,6 +170,19 @@ export default function SoloQuizScreen({ user, onBack, onOpenMenu }: Props) {
     setQuizId(null);
   };
 
+  // "done" lands back on Solo Quiz's own main page (the list), refreshed
+  // with the quiz just completed -- same as Battles closing its create
+  // sheet back onto its own list instead of exiting the whole page.
+  const goDone = () => {
+    setStage('history');
+    setQuestions([]);
+    setAnswers({});
+    setResults([]);
+    setScore(0);
+    setQuizId(null);
+    loadHistory();
+  };
+
   if (!fontsLoaded) return null;
 
   return (
@@ -156,11 +201,9 @@ export default function SoloQuizScreen({ user, onBack, onOpenMenu }: Props) {
         <View style={{ flex: 1 }}>
           <Text style={s.title}>solo quiz</Text>
         </View>
-        {onOpenMenu ? (
-          <HapticTouchable onPress={onOpenMenu} haptic="selection" accessibilityLabel="Open menu">
-            <Ionicons name="menu-outline" size={24} color={ACCENT_HOVER} />
-          </HapticTouchable>
-        ) : null}
+        <HapticTouchable onPress={() => setSidebarOpen(true)} haptic="selection" accessibilityLabel="Open menu">
+          <Ionicons name="menu-outline" size={24} color={ACCENT_HOVER} />
+        </HapticTouchable>
       </View>
 
       {stage === 'generator' && (
@@ -191,26 +234,22 @@ export default function SoloQuizScreen({ user, onBack, onOpenMenu }: Props) {
             ))}
           </View>
 
-          <Text style={s.fieldLabel}>QUESTIONS · {questionCount}</Text>
-          <View style={s.stepperRow}>
-            <HapticTouchable
-              style={s.stepperBtn}
-              onPress={() => setQuestionCount(c => Math.max(5, c - 5))}
-              haptic="light"
-            >
-              <Ionicons name="remove" size={18} color={ACCENT_HOVER} />
-            </HapticTouchable>
-            <View style={s.stepperTrack}>
-              <View style={[s.stepperFill, { width: `${((questionCount - 5) / 15) * 100}%` as any }]} />
-            </View>
-            <HapticTouchable
-              style={s.stepperBtn}
-              onPress={() => setQuestionCount(c => Math.min(20, c + 5))}
-              haptic="light"
-            >
-              <Ionicons name="add" size={18} color={ACCENT_HOVER} />
-            </HapticTouchable>
-          </View>
+          <Text style={s.fieldLabel}>QUESTIONS (5–20)</Text>
+          <TextInput
+            style={s.input}
+            value={questionCountText}
+            onChangeText={(t) => {
+              const digits = t.replace(/[^0-9]/g, '');
+              setQuestionCountText(digits);
+              const n = parseInt(digits, 10);
+              if (!Number.isNaN(n)) setQuestionCount(Math.min(20, Math.max(5, n)));
+            }}
+            onBlur={() => setQuestionCountText(String(questionCount))}
+            placeholder="10"
+            placeholderTextColor={DIM}
+            keyboardType="number-pad"
+            maxLength={2}
+          />
 
           <Text style={s.fieldLabel}>ANSWER FLOW</Text>
           <View style={{ gap: 8, marginBottom: 20 }}>
@@ -258,17 +297,28 @@ export default function SoloQuizScreen({ user, onBack, onOpenMenu }: Props) {
             disabled={!subject.trim()}
             haptic="medium"
           >
-            <Text style={s.launchBtnText}>start quiz</Text>
+            <Text style={s.launchBtnText}>create quiz</Text>
             <Ionicons name="chevron-forward" size={16} color={INK} />
           </HapticTouchable>
         </ScrollView>
       )}
 
       {stage === 'loading' && (
-        <View style={s.centerFill}>
-          <ActivityIndicator color={ACCENT} size="large" />
-          <Text style={s.loadingText}>generating your quiz...</Text>
+        <View style={[s.centerFill, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
+          <PulsingSquares />
+          <Text style={s.loadingText}>GENERATING YOUR QUIZ</Text>
         </View>
+      )}
+
+      {stage === 'history' && (
+        <HistoryView
+          s={s} theme={selectedTheme} loading={historyLoading} entries={historyData?.history ?? []}
+          onCreateQuiz={() => setStage('generator')}
+        />
+      )}
+
+      {stage === 'stats' && (
+        <StatsView s={s} theme={selectedTheme} loading={historyLoading} statistics={historyData?.statistics ?? null} />
       )}
 
       {stage === 'session' && questions.length > 0 && (
@@ -298,9 +348,20 @@ export default function SoloQuizScreen({ user, onBack, onOpenMenu }: Props) {
           score={score}
           results={results}
           onRetry={retryQuiz}
-          onDone={onBack}
+          onDone={goDone}
         />
       )}
+
+      <SectionSidebar
+        visible={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        pageTitle="solo quiz"
+        items={SOLO_SIDEBAR_ITEMS}
+        activeKey={stage === 'history' || stage === 'stats' ? stage : 'generator'}
+        onSelect={(key) => goSection(key as 'generator' | 'history' | 'stats')}
+        footerLabel="Quiz Modes"
+        onFooterPress={onBack}
+      />
     </View>
   );
 }
@@ -489,6 +550,146 @@ function QuizReview({
   );
 }
 
+const SOLO_SIDEBAR_ITEMS: SidebarItem[] = [
+  { key: 'generator', label: 'Generator', icon: 'sparkles', iconOutline: 'sparkles-outline' },
+  { key: 'history', label: 'Past Quizzes', icon: 'time', iconOutline: 'time-outline' },
+  { key: 'stats', label: 'Analyze', icon: 'trending-up', iconOutline: 'trending-up-outline' },
+];
+
+// ─── Past Quizzes ───────────────────────────────────────────────────────
+// This is Solo Quiz's main/landing page -- mirrors Battles' own main page:
+// a list (past quizzes here, battles there) with a "create" CTA up top.
+// The generator form is a destination reached by tapping that CTA, not
+// the default view.
+function HistoryView({
+  s, theme, loading, entries, onCreateQuiz,
+}: {
+  s: ReturnType<typeof createStyles>;
+  theme: ReturnType<typeof useAppTheme>['selectedTheme'];
+  loading: boolean;
+  entries: SoloQuizHistoryEntry[];
+  onCreateQuiz: () => void;
+}) {
+  const [search, setSearch] = useState('');
+
+  if (loading) {
+    return (
+      <View style={[s.centerFill, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
+        <PulsingSquares size="small" />
+      </View>
+    );
+  }
+
+  const query = search.trim().toLowerCase();
+  const filtered = query ? entries.filter((q) => q.subject.toLowerCase().includes(query)) : entries;
+
+  return (
+    <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+      {/* Same construction as Flashcards' main page: hero CTA right below
+          the header, then search, then a count row -- no repeated title
+          text, the header already says "solo quiz". */}
+      <HapticTouchable onPress={onCreateQuiz} haptic="medium" style={{ width: '100%' }}>
+        <View style={s.heroBtn}>
+          <Ionicons name="add" size={16} color={theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary} />
+          <Text style={s.heroBtnText}>Create Quiz</Text>
+        </View>
+      </HapticTouchable>
+
+      <View style={s.searchRow}>
+        <View style={s.searchBar}>
+          <Ionicons name="search-outline" size={15} color={theme.accent} />
+          <TextInput
+            style={s.searchInput}
+            placeholder="search past quizzes..."
+            placeholderTextColor={theme.textSecondary}
+            value={search}
+            onChangeText={setSearch}
+          />
+          {!!search && (
+            <HapticTouchable onPress={() => setSearch('')} haptic="selection">
+              <Ionicons name="close-circle" size={16} color={theme.accent} />
+            </HapticTouchable>
+          )}
+        </View>
+      </View>
+
+      <View style={s.collectionHeader}>
+        <Text style={s.collectionCount}>{filtered.length} {filtered.length === 1 ? 'quiz' : 'quizzes'} completed</Text>
+      </View>
+
+      {filtered.length === 0 && (
+        <View style={s.emptyWrap}>
+          <Ionicons name="time-outline" size={40} color={theme.textSecondary} />
+          <Text style={s.loadingText}>{query ? 'NO MATCHING QUIZZES' : 'NO QUIZZES YET'}</Text>
+        </View>
+      )}
+
+      {filtered.map((q) => (
+        <View key={q.id} style={s.historyCard}>
+          <SocialTileMaterial />
+          <View style={{ flex: 1 }}>
+            <Text style={s.historySubject} numberOfLines={1}>{q.subject}</Text>
+            <Text style={s.historyMeta}>
+              {q.difficulty} · {q.question_count} questions{q.completed_at ? ` · ${new Date(q.completed_at).toLocaleDateString()}` : ''}
+            </Text>
+          </View>
+          <Text style={[s.historyScore, { color: q.score >= 80 ? theme.success : q.score >= 60 ? theme.accent : theme.danger }]}>
+            {Math.round(q.score)}%
+          </Text>
+        </View>
+      ))}
+    </ScrollView>
+  );
+}
+
+// ─── Analyze ────────────────────────────────────────────────────────────
+function StatsView({
+  s, theme, loading, statistics,
+}: {
+  s: ReturnType<typeof createStyles>;
+  theme: ReturnType<typeof useAppTheme>['selectedTheme'];
+  loading: boolean;
+  statistics: QuizStats | null;
+}) {
+  if (loading) {
+    return (
+      <View style={[s.centerFill, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
+        <PulsingSquares size="small" />
+      </View>
+    );
+  }
+  const stats = statistics ?? { total_quizzes: 0, average_score: 0, best_score: 0, total_questions: 0 };
+  if (stats.total_quizzes === 0) {
+    return (
+      <View style={s.centerFill}>
+        <Ionicons name="trending-up-outline" size={40} color={theme.textSecondary} />
+        <Text style={s.loadingText}>COMPLETE A QUIZ TO SEE STATS</Text>
+      </View>
+    );
+  }
+  const tiles: { label: string; value: string }[] = [
+    { label: 'total quizzes', value: String(stats.total_quizzes) },
+    { label: 'average score', value: `${stats.average_score}%` },
+    { label: 'best score', value: `${stats.best_score}%` },
+    { label: 'total questions', value: String(stats.total_questions) },
+  ];
+  return (
+    <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+      <Text style={s.plainTitle}>analyze</Text>
+      <Text style={[s.plainSubtitle, { marginBottom: 18 }]}>your solo quiz performance</Text>
+      <View style={s.statGrid}>
+        {tiles.map((t) => (
+          <View key={t.label} style={s.statTile}>
+            <SocialTileMaterial />
+            <Text style={s.statValue}>{t.value}</Text>
+            <Text style={s.statLabel}>{t.label}</Text>
+          </View>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
+
 function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
   const CARD = '#0b0c0f';
   const CARD_ALT = '#050506';
@@ -515,11 +716,29 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     title: { fontFamily: 'Inter_900Black', fontSize: 32, color: ACCENT_HOVER, letterSpacing: -0.8 },
     scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 5, paddingBottom: 48 },
-    centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
-    loadingText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: DIM },
+    centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 22 },
+    loadingText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: DIM, letterSpacing: 3, textTransform: 'uppercase' },
 
     plainTitle: { fontFamily: 'Inter_900Black', fontSize: 26, color: ACCENT_HOVER, letterSpacing: -0.6, marginBottom: 4, marginTop: 4 },
     plainSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 13, color: DIM, marginBottom: 22 },
+
+    // Same construction as Flashcards' main-page "Generate" hero + search +
+    // collection-count row (generateHero/searchRow/collectionHeader).
+    heroBtn: {
+      width: '100%', minHeight: 54, borderRadius: 18, marginTop: 4, marginBottom: 18,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+      backgroundColor: ACCENT, overflow: 'hidden', boxShadow: cbTileShadow(0.12),
+    } as ViewStyle,
+    heroBtnText: { fontFamily: 'Inter_900Black', fontSize: 12, color: INK, letterSpacing: 4, textTransform: 'uppercase' },
+    searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
+    searchBar: {
+      flex: 1, height: 44, flexDirection: 'row', alignItems: 'center', gap: 10,
+      backgroundColor: rgbaFromHex(CARD_ALT, 0.96), borderRadius: 14, borderWidth: 1, borderColor: BORDER,
+      paddingHorizontal: 14,
+    } as ViewStyle,
+    searchInput: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 13, color: ACCENT_HOVER },
+    collectionHeader: { minHeight: 24, marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    collectionCount: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: DIM, letterSpacing: 0.3 },
 
     optionCard: { backgroundColor: rgbaFromHex(CARD_ALT, 0.85), borderRadius: 14, borderWidth: 1, borderColor: BORDER, padding: 14, boxShadow: cbTileShadow(0.03) } as ViewStyle,
     optionCardActive: { backgroundColor: rgbaFromHex(ACCENT, 0.14), borderColor: rgbaFromHex(ACCENT, 0.36) },
@@ -533,23 +752,24 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     scoreValue: { fontFamily: 'Inter_900Black', fontSize: 52, letterSpacing: -1.5, marginBottom: 4 },
 
     fieldLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: DIM, letterSpacing: 2, marginBottom: 10, marginTop: 4 },
-    input: { backgroundColor: rgbaFromHex(CARD_ALT, 0.85), borderRadius: 14, borderWidth: 1, borderColor: BORDER, paddingHorizontal: 14, paddingVertical: 14, fontFamily: 'Inter_400Regular', fontSize: 14, color: ACCENT_HOVER, marginBottom: 20, boxShadow: cbTileShadow(0.04) } as ViewStyle,
+    // Same construction as the login screen's inputs: a "pressed into the
+    // surface" neumorphic inset instead of a flat bordered box.
+    input: {
+      backgroundColor: CB_CARD_TOP, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 14,
+      fontFamily: 'Inter_400Regular', fontSize: 14, color: ACCENT_HOVER, marginBottom: 20,
+      boxShadow: cbPlainPressedShadow(),
+    } as ViewStyle,
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
     chip: { flex: 1, alignItems: 'center', paddingVertical: 12, backgroundColor: rgbaFromHex(CARD_ALT, 0.85), borderRadius: 12, borderWidth: 1, borderColor: BORDER, boxShadow: cbTileShadow(0.03) } as ViewStyle,
     chipActive: { backgroundColor: rgbaFromHex(ACCENT, 0.16), borderColor: rgbaFromHex(ACCENT, 0.32) },
     chipText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: DIM, textTransform: 'capitalize' },
     chipTextActive: { color: ACCENT_HOVER },
 
-    stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
-    stepperBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: rgbaFromHex(CARD_ALT, 0.85), borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.04) } as ViewStyle,
-    stepperTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: rgbaFromHex(ACCENT, 0.14), overflow: 'hidden' },
-    stepperFill: { height: '100%', backgroundColor: ACCENT, borderRadius: 3 },
-
     errorText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: theme.danger, marginBottom: 14 },
 
     launchBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: ACCENT, borderRadius: 18, paddingVertical: 16, boxShadow: cbModalShadow(0.1) } as ViewStyle,
     launchBtnDisabled: { opacity: 0.45 },
-    launchBtnText: { fontFamily: 'Inter_900Black', fontSize: 14, color: INK, textTransform: 'uppercase', letterSpacing: 0.5 },
+    launchBtnText: { fontFamily: 'Inter_700Bold', fontSize: 13, color: INK, textTransform: 'uppercase', letterSpacing: 2 },
 
     sessionWrap: { flex: 1, width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 5 },
     progressTrack: { height: 5, borderRadius: 3, backgroundColor: rgbaFromHex(ACCENT, 0.14), overflow: 'hidden', marginBottom: 8 },
@@ -583,5 +803,17 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     reviewQuestion: { flex: 1, fontFamily: 'Inter_700Bold', fontSize: 14, lineHeight: 20, color: theme.textPrimary },
     reviewAnswer: { fontFamily: 'Inter_400Regular', fontSize: 12, color: DIM, marginLeft: 34 },
     reviewExplanation: { fontFamily: 'Inter_400Regular', fontSize: 12, lineHeight: 18, color: DIM, marginLeft: 34, marginTop: 2, fontStyle: 'italic' },
+
+    historyCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: CARD, borderRadius: 18, borderWidth: 1, borderColor: BORDER, padding: 16, marginBottom: 10, overflow: 'hidden', boxShadow: cbTileShadow(0.05) } as ViewStyle,
+    historySubject: { fontFamily: 'Inter_700Bold', fontSize: 14.5, color: ACCENT_HOVER },
+    historyMeta: { fontFamily: 'Inter_400Regular', fontSize: 11.5, color: DIM, marginTop: 3, textTransform: 'capitalize' },
+    historyScore: { fontFamily: 'Inter_900Black', fontSize: 18, letterSpacing: -0.5 },
+
+    statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+    statTile: { width: '47%', minHeight: 100, borderRadius: 20, borderWidth: 1, borderColor: BORDER, padding: 16, overflow: 'hidden', justifyContent: 'center', boxShadow: cbTileShadow(0.05) } as ViewStyle,
+    statValue: { fontFamily: 'Inter_900Black', fontSize: 28, color: ACCENT_HOVER, letterSpacing: -1 },
+    statLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 10.5, color: DIM, letterSpacing: 1, textTransform: 'uppercase', marginTop: 6 },
+    emptyWrap: { alignItems: 'center', justifyContent: 'center', gap: 14, paddingVertical: 40 },
   });
 }
+

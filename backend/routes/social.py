@@ -464,6 +464,58 @@ async def complete_solo_quiz(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@router.get("/solo_quiz_history")
+async def solo_quiz_history(
+    username: str = Depends(verify_token),
+    db: Session = Depends(get_db),
+):
+    """Past completed solo quizzes + aggregate stats -- backs the mobile
+    "Past Quizzes"/"Analyze" hub tabs. Web's SoloQuiz.js has equivalent tabs
+    but never actually fetches this data (completedQuizzes/statistics state
+    is set once and never populated), so there's no existing endpoint to
+    match here; this is a new one."""
+    try:
+        current_user = get_user_by_username(db, username) or get_user_by_email(db, username)
+        if not current_user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        quizzes = db.query(models.SoloQuiz).filter(
+            models.SoloQuiz.user_id == current_user.id,
+            models.SoloQuiz.completed == True,  # noqa: E712
+        ).order_by(models.SoloQuiz.completed_at.desc()).all()
+
+        history = [{
+            "id": q.id,
+            "uid": q.uid,
+            "subject": q.subject,
+            "difficulty": q.difficulty,
+            "question_count": q.question_count,
+            "score": q.score,
+            "completed_at": q.completed_at.isoformat() if q.completed_at else None,
+        } for q in quizzes]
+
+        total_quizzes = len(quizzes)
+        total_questions = sum(q.question_count or 0 for q in quizzes)
+        scores = [q.score for q in quizzes if q.score is not None]
+        average_score = round(sum(scores) / len(scores), 1) if scores else 0
+        best_score = round(max(scores), 1) if scores else 0
+
+        return {
+            "history": history,
+            "statistics": {
+                "total_quizzes": total_quizzes,
+                "average_score": average_score,
+                "best_score": best_score,
+                "total_questions": total_questions,
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting solo quiz history: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
 @router.get("/debug/websocket-connections")
 async def debug_websocket_connections(_: str = Depends(check_admin)):
     return {
