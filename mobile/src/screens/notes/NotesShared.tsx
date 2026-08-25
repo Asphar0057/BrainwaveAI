@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,6 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  Animated,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -30,7 +29,8 @@ import AmbientBubbles from '../../components/AmbientBubbles';
 import GeoBackground from '../../components/GeoBackground';
 import HapticTouchable from '../../components/HapticTouchable';
 import TileGleam from '../../components/TileGleam';
-import { NeumorphicLayer, cbTileShadow, cbModalShadow, cbTileBorder } from '../../components/NeumorphicTexture';
+import { cbTileShadow, cbModalShadow, cbTileBorder } from '../../components/NeumorphicTexture';
+import SectionSidebar, { SidebarItem } from '../../components/SectionSidebar';
 import { AuthUser } from '../../services/auth';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import {
@@ -550,176 +550,27 @@ export function NotesTrashScreen({
   );
 }
 
-// Shared hamburger-menu sidebar for the notes library, styled to match the
-// flashcards page's sidebar exactly (same overlay/panel/hero/menu-card look).
-function NotesMenuSidebar({
-  visible,
-  sidebarWidth,
-  slideAnim,
-  onClose,
-  noteCount,
-  activeKey,
-  onLibrary,
-  onGenerate,
-  onMedia,
-  onCanvas,
-  onRecentlyViewed,
-  onTrash,
-  onSmartFolders,
-  onAdvancedSearch,
-  onChatImport,
-  onConvert,
-  onNewFolder,
-}: {
-  visible: boolean;
-  sidebarWidth: number;
-  slideAnim: Animated.Value;
-  onClose: () => void;
-  /** Omitted on screens that don't already track the notes list (e.g. the generator screen). */
-  noteCount?: number;
-  activeKey: 'library' | 'generate';
-  onLibrary: () => void;
-  onGenerate: () => void;
-  onMedia: () => void;
-  onCanvas: () => void;
-  onTrash: () => void;
-  onRecentlyViewed?: () => void;
-  onSmartFolders?: () => void;
-  onAdvancedSearch?: () => void;
-  onChatImport?: () => void;
-  onConvert?: () => void;
-  onNewFolder?: () => void;
-}) {
-  if (!visible) return null;
+const NOTES_SIDEBAR_ITEMS: SidebarItem[] = [
+  { key: 'library', label: 'Library' },
+  { key: 'generate', label: 'Generate' },
+  { key: 'media', label: 'Media Notes' },
+  { key: 'canvas', label: 'Canvas Studio' },
+  { key: 'recent', label: 'Recently Viewed' },
+  { key: 'trash', label: 'Trash' },
+  { key: 'smart', label: 'Smart Folders' },
+  { key: 'advanced', label: 'Advanced Search' },
+  { key: 'chat', label: 'From Chat' },
+  { key: 'convert', label: 'Convert' },
+  { key: 'folder', label: 'New Folder' },
+];
 
-  const workspaceItems: Array<{
-    key: string;
-    icon: React.ComponentProps<typeof Ionicons>['name'];
-    label: string;
-    onPress: () => void;
-  }> = [
-    { key: 'media', icon: 'videocam-outline', label: 'Media Notes', onPress: onMedia },
-    { key: 'canvas', icon: 'brush-outline', label: 'Canvas Studio', onPress: onCanvas },
-    ...(onRecentlyViewed ? [{ key: 'recent', icon: 'time-outline' as const, label: 'Recently Viewed', onPress: onRecentlyViewed }] : []),
-    { key: 'trash', icon: 'trash-outline', label: 'Trash', onPress: onTrash },
-  ];
-
-  const toolItems: Array<{
-    key: string;
-    icon: React.ComponentProps<typeof Ionicons>['name'];
-    label: string;
-    onPress: () => void;
-  }> = [
-    ...(onSmartFolders ? [{ key: 'smart', icon: 'sparkles-outline' as const, label: 'Smart Folders', onPress: onSmartFolders }] : []),
-    ...(onAdvancedSearch ? [{ key: 'advanced', icon: 'filter-outline' as const, label: 'Advanced Search', onPress: onAdvancedSearch }] : []),
-    ...(onChatImport ? [{ key: 'chat', icon: 'chatbox-ellipses-outline' as const, label: 'From Chat', onPress: onChatImport }] : []),
-    ...(onConvert ? [{ key: 'convert', icon: 'shuffle-outline' as const, label: 'Convert', onPress: onConvert }] : []),
-    ...(onNewFolder ? [{ key: 'folder', icon: 'folder-open-outline' as const, label: 'New Folder', onPress: onNewFolder }] : []),
-  ];
-
-  return (
-    <Modal transparent animationType="none" onRequestClose={onClose}>
-      <View style={s.sidebarOverlay}>
-        <HapticTouchable style={StyleSheet.absoluteFill} onPress={onClose} activeOpacity={1} haptic="none" />
-        <Animated.View style={[s.sidebarPanel, { width: sidebarWidth, transform: [{ translateX: slideAnim }] }]}>
-          <LinearGradient
-            colors={[darkenColor(CURRENT_THEME.bgTop, CURRENT_THEME.isLight ? 4 : 0), CURRENT_THEME.panelAlt, CURRENT_THEME.bgPrimary]}
-            style={StyleSheet.absoluteFill}
-          />
-          <SafeAreaView style={{ flex: 1, paddingBottom: 6 }} edges={['top', 'bottom']}>
-            <View style={s.sidebarHero}>
-              <NeumorphicLayer grainOpacity={0.22} />
-              {noteCount != null ? <Text style={s.sidebarGhost}>{noteCount}</Text> : null}
-              <Text style={s.sidebarHeroTitle}>notes</Text>
-              <Text style={s.sidebarHeroSub}>
-                {noteCount != null ? `${noteCount} ${noteCount === 1 ? 'note' : 'notes'}` : 'your workspace'}
-              </Text>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.sidebarScroll}>
-              <View style={s.sidebarMenu}>
-                {activeKey === 'library' ? (
-                  <View style={[s.menuCard, s.menuCardActive]}>
-                    <View style={s.menuRow}>
-                      <View style={[s.menuIconWrap, s.menuIconWrapActive]}>
-                        <Ionicons name="library" size={16} color={INK} />
-                      </View>
-                      <Text style={[s.menuLabel, s.menuLabelActive]}>Library</Text>
-                      <View style={s.menuActiveDot} />
-                    </View>
-                  </View>
-                ) : (
-                  <HapticTouchable style={s.menuCard} onPress={() => { onClose(); onLibrary(); }} haptic="selection" activeOpacity={0.85}>
-                    <View style={s.menuRow}>
-                      <View style={s.menuIconWrap}>
-                        <Ionicons name="library-outline" size={16} color={GOLD_L} />
-                      </View>
-                      <Text style={s.menuLabel}>Library</Text>
-                      <Ionicons name="chevron-forward" size={15} color={DIM2} />
-                    </View>
-                  </HapticTouchable>
-                )}
-
-                {activeKey === 'generate' ? (
-                  <View style={[s.menuCard, s.menuCardActive]}>
-                    <View style={s.menuRow}>
-                      <View style={[s.menuIconWrap, s.menuIconWrapActive]}>
-                        <Ionicons name="sparkles" size={16} color={INK} />
-                      </View>
-                      <Text style={[s.menuLabel, s.menuLabelActive]}>Generate</Text>
-                      <View style={s.menuActiveDot} />
-                    </View>
-                  </View>
-                ) : (
-                  <HapticTouchable style={s.menuCard} onPress={() => { onClose(); onGenerate(); }} haptic="selection" activeOpacity={0.85}>
-                    <View style={s.menuRow}>
-                      <View style={s.menuIconWrap}>
-                        <Ionicons name="sparkles-outline" size={16} color={GOLD_L} />
-                      </View>
-                      <Text style={s.menuLabel}>Generate</Text>
-                      <Ionicons name="chevron-forward" size={15} color={DIM2} />
-                    </View>
-                  </HapticTouchable>
-                )}
-
-                {workspaceItems.map((item) => (
-                  <HapticTouchable key={item.key} style={s.menuCard} onPress={() => { onClose(); item.onPress(); }} haptic="selection" activeOpacity={0.85}>
-                    <View style={s.menuRow}>
-                      <View style={s.menuIconWrap}>
-                        <Ionicons name={item.icon} size={16} color={GOLD_L} />
-                      </View>
-                      <Text style={s.menuLabel}>{item.label}</Text>
-                      <Ionicons name="chevron-forward" size={15} color={DIM2} />
-                    </View>
-                  </HapticTouchable>
-                ))}
-              </View>
-
-              {toolItems.length > 0 ? (
-                <>
-                  <Text style={[s.sectionLabel, s.sidebarSectionLabel]}>tools</Text>
-                  <View style={s.sidebarMenu}>
-                    {toolItems.map((item) => (
-                      <HapticTouchable key={item.key} style={s.menuCard} onPress={() => { onClose(); item.onPress(); }} haptic="selection" activeOpacity={0.85}>
-                        <View style={s.menuRow}>
-                          <View style={s.menuIconWrap}>
-                            <Ionicons name={item.icon} size={16} color={GOLD_L} />
-                          </View>
-                          <Text style={s.menuLabel}>{item.label}</Text>
-                          <Ionicons name="chevron-forward" size={15} color={DIM2} />
-                        </View>
-                      </HapticTouchable>
-                    ))}
-                  </View>
-                </>
-              ) : null}
-            </ScrollView>
-          </SafeAreaView>
-        </Animated.View>
-      </View>
-    </Modal>
-  );
-}
+const NOTES_GENERATOR_SIDEBAR_ITEMS: SidebarItem[] = [
+  { key: 'library', label: 'Library' },
+  { key: 'generate', label: 'Generate' },
+  { key: 'media', label: 'Media Notes' },
+  { key: 'canvas', label: 'Canvas Studio' },
+  { key: 'trash', label: 'Trash' },
+];
 
 export function NotesHome({
   user,
@@ -771,17 +622,6 @@ export function NotesHome({
   const [converting, setConverting] = useState(false);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const sidebarWidth = Math.min(layout.width * (layout.isLandscape ? 0.42 : 0.8), 340);
-  const slideAnim = useRef(new Animated.Value(-sidebarWidth)).current;
-
-  const openSidebar = () => {
-    setSidebarOpen(true);
-    Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 100, friction: 14 }).start();
-  };
-
-  const closeSidebar = () => {
-    Animated.timing(slideAnim, { toValue: -sidebarWidth, duration: 200, useNativeDriver: true }).start(() => setSidebarOpen(false));
-  };
 
   const loadLibrary = async () => {
     setLoading(true);
@@ -1095,7 +935,7 @@ export function NotesHome({
             </View>
           </View>
           <View style={s.compactHeaderActions}>
-            <HapticTouchable onPress={openSidebar} haptic="selection" accessibilityLabel="Open menu">
+            <HapticTouchable onPress={() => setSidebarOpen(true)} haptic="selection" accessibilityLabel="Open menu">
               <Ionicons name="menu-outline" size={22} color={GOLD_L} />
             </HapticTouchable>
           </View>
@@ -1110,7 +950,7 @@ export function NotesHome({
           <View style={{ flex: 1 }}>
             <Text style={s.mobileTitle}>notes</Text>
           </View>
-          <HapticTouchable onPress={openSidebar} haptic="selection" accessibilityLabel="Open menu">
+          <HapticTouchable onPress={() => setSidebarOpen(true)} haptic="selection" accessibilityLabel="Open menu">
             <Ionicons name="menu-outline" size={24} color={GOLD_L} />
           </HapticTouchable>
         </View>
@@ -1126,10 +966,11 @@ export function NotesHome({
       {loading ? (
         <ActivityIndicator color={ACCENT} style={{ marginTop: 40 }} />
       ) : (
-        // Same grid approach as the flashcards page (ScrollView + flexWrap + percentage
-        // width + square aspect ratio) -- FlatList's numColumns stretched a lone card in
-        // an incomplete last row to fill the whole width, which is why notes cards were
-        // ballooning to full-page size while flashcards cards stayed small.
+        // Same grid approach as the flashcards page (ScrollView + flexWrap +
+        // percentage width, intrinsic card height) -- FlatList's numColumns
+        // stretched a lone card in an incomplete last row to fill the whole
+        // width, which is why notes cards were ballooning to full-page size
+        // while flashcards cards stayed small.
         <View style={s.workspace}>
           <View style={s.searchRow}>
             <View style={s.searchBar}>
@@ -1160,6 +1001,13 @@ export function NotesHome({
                 <Ionicons name="close" size={18} color={GOLD_L} />
               </HapticTouchable>
             ) : null}
+          </View>
+
+          <View style={s.collectionHeader}>
+            <Text style={s.collectionCount}>
+              {filteredNotes.length} note{filteredNotes.length === 1 ? '' : 's'}
+              {filter !== 'all' ? ` · ${activeFilterLabel}` : ''}
+            </Text>
           </View>
 
           {filteredNotes.length === 0 ? (
@@ -1530,27 +1378,26 @@ export function NotesHome({
         </ScrollView>
       </ModalShell>
 
-      <NotesMenuSidebar
+      <SectionSidebar
         visible={sidebarOpen}
-        sidebarWidth={sidebarWidth}
-        slideAnim={slideAnim}
-        onClose={closeSidebar}
-        noteCount={notes.length}
+        onClose={() => setSidebarOpen(false)}
+        pageTitle="notes"
+        items={NOTES_SIDEBAR_ITEMS}
         activeKey="library"
-        onLibrary={() => {}}
-        onGenerate={onOpenGenerator}
-        onMedia={onOpenMedia}
-        onCanvas={onOpenCanvas}
-        onRecentlyViewed={() => setShowRecentlyViewed(true)}
-        onTrash={onOpenTrash}
-        onSmartFolders={() => setShowSmartFolders(true)}
-        onAdvancedSearch={() => setShowAdvancedSearch(true)}
-        onChatImport={() => setShowChatImport(true)}
-        onConvert={() => {
-          setSelectedConvertNoteIds(filteredNotes.slice(0, 5).map((note) => note.id));
-          setShowConvert(true);
+        onSelect={(key) => {
+          if (key === 'generate') onOpenGenerator();
+          else if (key === 'media') onOpenMedia();
+          else if (key === 'canvas') onOpenCanvas();
+          else if (key === 'recent') setShowRecentlyViewed(true);
+          else if (key === 'trash') onOpenTrash();
+          else if (key === 'smart') setShowSmartFolders(true);
+          else if (key === 'advanced') setShowAdvancedSearch(true);
+          else if (key === 'chat') setShowChatImport(true);
+          else if (key === 'convert') {
+            setSelectedConvertNoteIds(filteredNotes.slice(0, 5).map((note) => note.id));
+            setShowConvert(true);
+          } else if (key === 'folder') setShowFolderModal(true);
         }}
-        onNewFolder={() => setShowFolderModal(true)}
       />
     </SafeAreaView>
   );
@@ -1577,17 +1424,6 @@ export function NotesGenerator({
   const [templateDraft, setTemplateDraft] = useState({ name: '', description: '', content: '' });
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const sidebarWidth = Math.min(layout.width * (layout.isLandscape ? 0.42 : 0.8), 340);
-  const slideAnim = useRef(new Animated.Value(-sidebarWidth)).current;
-
-  const openSidebar = () => {
-    setSidebarOpen(true);
-    Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 100, friction: 14 }).start();
-  };
-
-  const closeSidebar = () => {
-    Animated.timing(slideAnim, { toValue: -sidebarWidth, duration: 200, useNativeDriver: true }).start(() => setSidebarOpen(false));
-  };
 
   useEffect(() => {
     getFolders(user.username).then((data) => setFolders(data?.folders ?? [])).catch(() => setFolders([]));
@@ -1679,7 +1515,7 @@ export function NotesGenerator({
           <Ionicons name="chevron-back" size={20} color={GOLD_L} />
         </HapticTouchable>
         <Text style={[s.compactTitle, { flex: 1 }]}>generate</Text>
-        <HapticTouchable onPress={openSidebar} haptic="selection" accessibilityLabel="Open menu">
+        <HapticTouchable onPress={() => setSidebarOpen(true)} haptic="selection" accessibilityLabel="Open menu">
           <Ionicons name="menu-outline" size={22} color={GOLD_L} />
         </HapticTouchable>
       </View>
@@ -1790,17 +1626,18 @@ export function NotesGenerator({
         </View>
       )}
 
-      <NotesMenuSidebar
+      <SectionSidebar
         visible={sidebarOpen}
-        sidebarWidth={sidebarWidth}
-        slideAnim={slideAnim}
-        onClose={closeSidebar}
+        onClose={() => setSidebarOpen(false)}
+        pageTitle="notes"
+        items={NOTES_GENERATOR_SIDEBAR_ITEMS}
         activeKey="generate"
-        onLibrary={onOpenLibrary}
-        onGenerate={() => {}}
-        onMedia={onOpenMedia}
-        onCanvas={onOpenCanvas}
-        onTrash={onOpenTrash}
+        onSelect={(key) => {
+          if (key === 'library') onOpenLibrary();
+          else if (key === 'media') onOpenMedia();
+          else if (key === 'canvas') onOpenCanvas();
+          else if (key === 'trash') onOpenTrash();
+        }}
       />
     </SafeAreaView>
   );
@@ -1911,7 +1748,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
       paddingHorizontal: layout.isTablet ? layout.screenPadding : 10,
     },
     generateHero: {
-      width: '100%', minHeight: 54, borderRadius: 18, marginBottom: 4,
+      width: '100%', minHeight: 54, borderRadius: 18, marginBottom: 18,
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
       backgroundColor: BASE_ACTION_BG, overflow: 'hidden',
       boxShadow: cbTileShadow(0.12), ...cbTileBorder(0.26),
@@ -1928,9 +1765,11 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
       width: '100%',
       maxWidth: layout.contentMaxWidth,
       alignSelf: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: 10,
       paddingBottom: 16,
     },
+    collectionHeader: { minHeight: 34, marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    collectionCount: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: DIM2, letterSpacing: 0.3 },
     collectionScroll: { flex: 1 },
     collectionGrid: { flexDirection: 'row', flexWrap: 'wrap', alignContent: 'flex-start', paddingBottom: 18 },
     compactActionTile: {
@@ -2007,41 +1846,6 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
       marginTop: 4,
       marginBottom: -2,
     },
-    // Hamburger-menu sidebar -- copied from the flashcards page's sidebar so
-    // the two stay visually identical.
-    sidebarOverlay: { flex: 1, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.58)' },
-    sidebarPanel: {
-      height: '100%', borderRightWidth: 1, borderRightColor: rgbaFromHex(GOLD_D, 0.31),
-      overflow: 'hidden', boxShadow: cbModalShadow(0.2),
-    },
-    sidebarHero: {
-      marginHorizontal: 14, marginTop: 12, marginBottom: 14,
-      borderRadius: 22, padding: 16, overflow: 'hidden',
-      boxShadow: cbModalShadow(0.14),
-    },
-    sidebarGhost: {
-      position: 'absolute', right: 10, top: -8,
-      fontFamily: 'Inter_900Black', fontSize: 60, lineHeight: 64,
-      color: rgbaFromHex(GOLD_L, 0.07), letterSpacing: -3,
-    },
-    sidebarHeroTitle: { fontFamily: 'Inter_900Black', fontSize: 22, color: GOLD_L, letterSpacing: -0.5 },
-    sidebarHeroSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM2, marginTop: 3 },
-    sidebarScroll: { paddingBottom: 16 },
-    sidebarSectionLabel: { marginHorizontal: 20, marginTop: 10, marginBottom: 2 },
-
-    sidebarMenu: { paddingHorizontal: 10, gap: 4 },
-    menuCard: { borderRadius: 16, overflow: 'hidden' },
-    menuCardActive: { backgroundColor: rgbaFromHex(ACCENT, 0.14) },
-    menuRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 12 },
-    menuIconWrap: {
-      width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center',
-      backgroundColor: rgbaFromHex(GOLD_D, 0.18), borderWidth: 1, borderColor: rgbaFromHex(GOLD_L, 0.2),
-    },
-    menuIconWrapActive: { backgroundColor: GOLD_L, borderColor: GOLD_L },
-    menuLabel: { flex: 1, fontFamily: 'Inter_600SemiBold', fontSize: 14, color: GOLD_L },
-    menuLabelActive: { color: GOLD_L, fontFamily: 'Inter_700Bold' },
-    menuActiveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: GOLD_L },
-
     searchInput: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 13, color: GOLD_L },
     filterChip: {
       flexDirection: 'row',
@@ -2070,8 +1874,12 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     // Cover + meta-panel card, square like the flashcards page's collection cards --
     // width comes from the inline percentage below (same formula as flashcards),
     // aspectRatio:1 makes height follow width.
+    // Width comes from the inline percentage below; height is intrinsic to
+    // content (no aspectRatio) -- a forced square squeezed the cover, preview
+    // text, folder tag, and both action buttons into a fixed height regardless
+    // of content, which is what read as "cramped." Same fix as the flashcards
+    // page's collectionCard.
     noteCard: {
-      aspectRatio: 1,
       borderRadius: 17,
       backgroundColor: rgbaFromHex(SURFACE, 0.95),
       overflow: 'hidden',
@@ -2079,9 +1887,9 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
       ...cbTileBorder(0.14),
     },
     noteCover: {
-      flex: 0.82,
+      minHeight: 104,
       paddingHorizontal: 14,
-      paddingVertical: 12,
+      paddingVertical: 16,
       alignItems: 'center',
       justifyContent: 'center',
     },
