@@ -14,9 +14,7 @@ import { CB_ACCENT, CB_CARD_TOP, cbPlainCardShadow } from '../components/Neumorp
 import SocialTileMaterial from '../components/SocialTileMaterial';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FriendsScreen       from './social/FriendsScreen';
-import GamesScreen         from './social/GamesScreen';
 import QuizPlaylistScreen  from './social/QuizPlaylistScreen';
-import SoloQuizScreen      from './social/SoloQuizScreen';
 import PlaylistsScreen     from './social/PlaylistsScreen';
 import LearningPathsScreen from './social/LearningPathsScreen';
 import SharedWithMeScreen  from './SharedWithMeScreen';
@@ -25,7 +23,7 @@ import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, lightenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
-type Section = 'friends' | 'games' | 'quiz' | 'solo' | 'playlists' | 'paths' | 'shared';
+type Section = 'friends' | 'quiz' | 'playlists' | 'paths' | 'shared';
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
 type HubData = {
@@ -215,9 +213,7 @@ export default function SocialScreen({ user, onOpenLeaderboard }: Props) {
   if (!fontsLoaded) return null;
 
   if (screen === 'friends')  return <FriendsScreen       user={user} onBack={() => setScreen(null)} />;
-  if (screen === 'games')    return <GamesScreen         user={user} onBack={() => setScreen(null)} />;
   if (screen === 'quiz')     return <QuizPlaylistScreen  user={user} onBack={() => setScreen(null)} />;
-  if (screen === 'solo')     return <SoloQuizScreen      user={user} onBack={() => setScreen(null)} />;
   if (screen === 'playlists')return <PlaylistsScreen     user={user} onBack={() => setScreen(null)} />;
   if (screen === 'paths')    return <LearningPathsScreen user={user} onBack={() => setScreen(null)} />;
   if (screen === 'shared')   return <SharedWithMeScreen  user={user} onBack={() => setScreen(null)} />;
@@ -300,25 +296,11 @@ export default function SocialScreen({ user, onOpenLeaderboard }: Props) {
                 title="your circle" subtitle={`${data.friendCount} ${data.friendCount === 1 ? 'friend' : 'friends'}`}
                 onPress={() => setScreen('friends')} style={s.bentoWide}
               />
-              <View style={s.bentoRow}>
-                <BentoTile
-                  icon="flash" iconSize={26}
-                  title="battles" subtitle={data.activeBattles > 0 ? `${data.activeBattles} live now` : 'challenge a friend'}
-                  onPress={() => setScreen('games')} style={s.bentoTall}
-                />
-                <View style={s.bentoCol}>
-                  <BentoTile
-                    icon="library-outline"
-                    title="quiz hub" subtitle="solo or 1v1"
-                    onPress={() => setScreen('quiz')} style={s.bentoHalf}
-                  />
-                  <BentoTile
-                    icon="sparkles-outline"
-                    title="solo quiz" subtitle="your pace"
-                    onPress={() => setScreen('solo')} style={s.bentoHalf}
-                  />
-                </View>
-              </View>
+              <BentoTile
+                icon="library-outline" iconSize={24}
+                title="quiz hub" subtitle="solo or 1v1"
+                onPress={() => setScreen('quiz')} style={s.bentoWide}
+              />
               <View style={s.bentoRow}>
                 <BentoTile
                   icon="bookmark-outline"
@@ -415,12 +397,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
        of stretching the icon/label block to fill the whole card. */
     bentoGrid: { gap: 14 },
     bentoRow: { flexDirection: 'row', gap: 14 },
-    bentoCol: { flex: 1, gap: 14 },
     bentoTile: { flex: 1, padding: 16, justifyContent: 'flex-end', gap: 10 } as ViewStyle,
     bentoWide: { minHeight: 96 },
     bentoWideShort: { minHeight: 84 },
-    bentoTall: { flex: 1, minHeight: 214 },
-    bentoHalf: { minHeight: 100 },
     bentoSquare: { flex: 1, minHeight: 132 },
     bentoIconWrap: {
       width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
