@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator,
@@ -17,9 +17,11 @@ import { useAppTheme } from '../../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../../utils/theme';
 import { useResponsiveLayout } from '../../hooks/useResponsiveLayout';
 
-type Props = { user: AuthUser; onBack: () => void };
+type Props = { user: AuthUser; onBack: () => void; onOpenMenu?: () => void };
 type Stage = 'generator' | 'loading' | 'session' | 'review';
 type Difficulty = 'adaptive' | 'easy' | 'medium' | 'hard';
+type QuizMode = 'standard' | 'sequential' | 'instant';
+type TimingMode = 'timed' | 'stopwatch' | 'none';
 
 type AnsweredResult = {
   question_text: string;
@@ -36,7 +38,7 @@ function isAnswerCorrect(userIndex: number | undefined, correctAnswer: number | 
   return String(userIndex) === String(correctAnswer);
 }
 
-export default function SoloQuizScreen({ user, onBack }: Props) {
+export default function SoloQuizScreen({ user, onBack, onOpenMenu }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
   const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
@@ -54,6 +56,8 @@ export default function SoloQuizScreen({ user, onBack }: Props) {
   const [subject, setSubject] = useState('');
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [questionCount, setQuestionCount] = useState(10);
+  const [quizMode, setQuizMode] = useState<QuizMode>('standard');
+  const [timingMode, setTimingMode] = useState<TimingMode>('timed');
 
   // Session state
   const [quizId, setQuizId] = useState<string | number | null>(null);
@@ -141,27 +145,28 @@ export default function SoloQuizScreen({ user, onBack }: Props) {
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.58, 1]} style={StyleSheet.absoluteFillObject} />
       <GeoBackground />
 
-      <View style={s.topBar}>
+      <View style={s.header}>
         <HapticTouchable
           onPress={stage === 'session' ? retryQuiz : onBack}
-          style={s.backBtn}
-          haptic="light"
+          style={{ marginRight: 12 }}
+          haptic="selection"
         >
-          <Ionicons name={stage === 'session' ? 'close' : 'chevron-back'} size={20} color={ACCENT} />
+          <Ionicons name={stage === 'session' ? 'close' : 'chevron-back'} size={22} color={ACCENT_HOVER} />
         </HapticTouchable>
-        <Text style={s.topBarTitle}>solo quiz</Text>
-        <View style={s.backBtn} />
+        <View style={{ flex: 1 }}>
+          <Text style={s.title}>solo quiz</Text>
+        </View>
+        {onOpenMenu ? (
+          <HapticTouchable onPress={onOpenMenu} haptic="selection" accessibilityLabel="Open menu">
+            <Ionicons name="menu-outline" size={24} color={ACCENT_HOVER} />
+          </HapticTouchable>
+        ) : null}
       </View>
 
       {stage === 'generator' && (
         <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <View style={s.hero}>
-            <NeumorphicLayer grainOpacity={0.26} />
-            <Text style={s.heroGhost}>AI</Text>
-            <Text style={s.eyebrow}>study mode</Text>
-            <Text style={s.heroTitle}>create a quiz</Text>
-            <Text style={s.heroCopy}>practice at your own pace with adaptive questions</Text>
-          </View>
+          <Text style={s.plainTitle}>create a quiz</Text>
+          <Text style={s.plainSubtitle}>practice at your own pace with adaptive questions</Text>
 
           <Text style={s.fieldLabel}>SUBJECT / TOPIC</Text>
           <TextInput
@@ -207,6 +212,44 @@ export default function SoloQuizScreen({ user, onBack }: Props) {
             </HapticTouchable>
           </View>
 
+          <Text style={s.fieldLabel}>ANSWER FLOW</Text>
+          <View style={{ gap: 8, marginBottom: 20 }}>
+            {([
+              { key: 'standard' as const, name: 'Standard', desc: 'Navigate freely between questions, at your own pace.' },
+              { key: 'sequential' as const, name: 'Sequential', desc: 'Answer each question to proceed. Results shown at the end.' },
+              { key: 'instant' as const, name: 'Instant Feedback', desc: 'See if your answer is correct immediately after selecting.' },
+            ]).map(m => (
+              <HapticTouchable
+                key={m.key}
+                style={[s.optionCard, quizMode === m.key && s.optionCardActive]}
+                onPress={() => setQuizMode(m.key)}
+                haptic="selection"
+              >
+                <Text style={[s.optionCardTitle, quizMode === m.key && s.optionCardTitleActive]}>{m.name}</Text>
+                <Text style={s.optionCardDesc}>{m.desc}</Text>
+              </HapticTouchable>
+            ))}
+          </View>
+
+          <Text style={s.fieldLabel}>TIMING</Text>
+          <View style={{ gap: 8, marginBottom: 8 }}>
+            {([
+              { key: 'timed' as const, name: 'Timed', desc: 'Countdown timer, 1 minute per question.' },
+              { key: 'stopwatch' as const, name: 'Stopwatch', desc: 'Track how fast you complete the quiz.' },
+              { key: 'none' as const, name: 'No Timer', desc: 'Take your time, no pressure.' },
+            ]).map(t => (
+              <HapticTouchable
+                key={t.key}
+                style={[s.optionCard, timingMode === t.key && s.optionCardActive]}
+                onPress={() => setTimingMode(t.key)}
+                haptic="selection"
+              >
+                <Text style={[s.optionCardTitle, timingMode === t.key && s.optionCardTitleActive]}>{t.name}</Text>
+                <Text style={s.optionCardDesc}>{t.desc}</Text>
+              </HapticTouchable>
+            ))}
+          </View>
+
           {!!error && <Text style={s.errorText}>{error}</Text>}
 
           <HapticTouchable
@@ -215,8 +258,8 @@ export default function SoloQuizScreen({ user, onBack }: Props) {
             disabled={!subject.trim()}
             haptic="medium"
           >
-            <Ionicons name="sparkles" size={16} color={INK} />
             <Text style={s.launchBtnText}>start quiz</Text>
+            <Ionicons name="chevron-forward" size={16} color={INK} />
           </HapticTouchable>
         </ScrollView>
       )}
@@ -243,6 +286,8 @@ export default function SoloQuizScreen({ user, onBack }: Props) {
             else setCurrentIndex(i => Math.min(questions.length - 1, i + 1));
           }}
           isLast={currentIndex === questions.length - 1}
+          quizMode={quizMode}
+          timingMode={timingMode}
         />
       )}
 
@@ -260,8 +305,14 @@ export default function SoloQuizScreen({ user, onBack }: Props) {
   );
 }
 
+function formatClock(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const sec = totalSeconds % 60;
+  return `${m}:${String(sec).padStart(2, '0')}`;
+}
+
 function QuizSession({
-  s, theme, question, index, total, selected, onSelect, onPrev, onNext, isLast,
+  s, theme, question, index, total, selected, onSelect, onPrev, onNext, isLast, quizMode, timingMode,
 }: {
   s: ReturnType<typeof createStyles>;
   theme: ReturnType<typeof useAppTheme>['selectedTheme'];
@@ -273,15 +324,60 @@ function QuizSession({
   onPrev: () => void;
   onNext: () => void;
   isLast: boolean;
+  quizMode: QuizMode;
+  timingMode: TimingMode;
 }) {
   const ACCENT = theme.accent;
   const INK = theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary;
+  const answered = selected !== undefined;
+  const correctIndex = Number(question.correct_answer);
+  const showInstantFeedback = quizMode === 'instant' && answered;
+  const optionsLocked = quizMode === 'instant' && answered;
+  const mustAnswerToProceed = quizMode !== 'standard' && !answered;
+  const prevDisabled = index === 0 || quizMode !== 'standard';
+
+  // Countdown resets every question (matches web's "1 min/question"); the
+  // stopwatch instead runs continuously across the whole session, so it
+  // deliberately does not depend on `index`.
+  const [timeLeft, setTimeLeft] = useState(60);
+  const [elapsed, setElapsed] = useState(0);
+  const onNextRef = useRef(onNext);
+  onNextRef.current = onNext;
+
+  useEffect(() => {
+    if (timingMode !== 'timed') return;
+    setTimeLeft(60);
+    const id = setInterval(() => {
+      setTimeLeft((t) => {
+        if (t <= 1) {
+          onNextRef.current();
+          return 60;
+        }
+        return t - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [index, timingMode]);
+
+  useEffect(() => {
+    if (timingMode !== 'stopwatch') return;
+    const id = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(id);
+  }, [timingMode]);
+
   return (
     <View style={s.sessionWrap}>
       <View style={s.progressTrack}>
         <View style={[s.progressFill, { width: `${((index + 1) / total) * 100}%` as any }]} />
       </View>
-      <Text style={s.progressLabel}>question {index + 1} of {total}</Text>
+      <View style={s.sessionMetaRow}>
+        <Text style={s.progressLabel}>question {index + 1} of {total}</Text>
+        {timingMode !== 'none' && (
+          <Text style={[s.timerText, timingMode === 'timed' && timeLeft <= 10 && { color: theme.danger }]}>
+            {timingMode === 'timed' ? formatClock(timeLeft) : formatClock(elapsed)}
+          </Text>
+        )}
+      </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
         <View style={s.questionCard}>
@@ -293,17 +389,27 @@ function QuizSession({
           {question.options.map((opt, i) => {
             const letter = String.fromCharCode(65 + i);
             const active = selected === i;
+            const isCorrectOption = i === correctIndex;
+            const feedbackStyle = showInstantFeedback
+              ? (isCorrectOption ? s.optionBtnCorrect : active ? s.optionBtnIncorrect : null)
+              : null;
             return (
               <HapticTouchable
                 key={i}
-                style={[s.optionBtn, active && s.optionBtnActive]}
-                onPress={() => onSelect(i)}
+                style={[s.optionBtn, active && !showInstantFeedback && s.optionBtnActive, feedbackStyle]}
+                onPress={() => { if (!optionsLocked) onSelect(i); }}
                 haptic="selection"
               >
-                <View style={[s.optionLetter, active && s.optionLetterActive]}>
-                  <Text style={[s.optionLetterText, active && { color: INK }]}>{letter}</Text>
+                <View style={[s.optionLetter, active && !showInstantFeedback && s.optionLetterActive]}>
+                  <Text style={[s.optionLetterText, active && !showInstantFeedback && { color: INK }]}>{letter}</Text>
                 </View>
-                <MathText style={[s.optionText, active && s.optionTextActive]}>{opt}</MathText>
+                <MathText style={[s.optionText, active && !showInstantFeedback && s.optionTextActive]}>{opt}</MathText>
+                {showInstantFeedback && isCorrectOption && (
+                  <Ionicons name="checkmark-circle" size={18} color={theme.success} />
+                )}
+                {showInstantFeedback && active && !isCorrectOption && (
+                  <Ionicons name="close-circle" size={18} color={theme.danger} />
+                )}
               </HapticTouchable>
             );
           })}
@@ -312,14 +418,19 @@ function QuizSession({
 
       <View style={s.sessionNav}>
         <HapticTouchable
-          style={[s.navBtn, index === 0 && s.navBtnDisabled]}
+          style={[s.navBtn, prevDisabled && s.navBtnDisabled]}
           onPress={onPrev}
-          disabled={index === 0}
+          disabled={prevDisabled}
           haptic="light"
         >
-          <Ionicons name="arrow-back" size={16} color={index === 0 ? theme.textSecondary : ACCENT} />
+          <Ionicons name="arrow-back" size={16} color={prevDisabled ? theme.textSecondary : ACCENT} />
         </HapticTouchable>
-        <HapticTouchable style={s.navBtnPrimary} onPress={onNext} haptic="medium">
+        <HapticTouchable
+          style={[s.navBtnPrimary, mustAnswerToProceed && s.navBtnDisabled]}
+          onPress={onNext}
+          disabled={mustAnswerToProceed}
+          haptic="medium"
+        >
           <Text style={s.navBtnPrimaryText}>{isLast ? 'finish quiz' : 'next question'}</Text>
           <Ionicons name={isLast ? 'checkmark-circle' : 'arrow-forward'} size={16} color={INK} />
         </HapticTouchable>
@@ -389,27 +500,35 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
 
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: 'transparent' },
-    topBar: {
+    // Same construction as FlashcardsScreen's header: back chevron, a large
+    // left-aligned title taking the flexible middle, hamburger on the right.
+    header: {
       width: '100%',
       maxWidth: layout.contentMaxWidth,
       alignSelf: 'center',
       flexDirection: 'row',
-      alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 5,
+      alignItems: 'center',
+      paddingHorizontal: 10,
       paddingTop: 18,
-      paddingBottom: 14,
+      paddingBottom: 12,
     },
-    backBtn: { width: 40, height: 40, borderRadius: 16, backgroundColor: rgbaFromHex(CARD, 0.72), borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.06) } as ViewStyle,
-    topBarTitle: { fontFamily: 'Inter_700Bold', fontSize: 13, color: DIM, letterSpacing: 1.6, textTransform: 'uppercase' },
+    title: { fontFamily: 'Inter_900Black', fontSize: 32, color: ACCENT_HOVER, letterSpacing: -0.8 },
     scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 5, paddingBottom: 48 },
     centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
     loadingText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: DIM },
 
+    plainTitle: { fontFamily: 'Inter_900Black', fontSize: 26, color: ACCENT_HOVER, letterSpacing: -0.6, marginBottom: 4, marginTop: 4 },
+    plainSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 13, color: DIM, marginBottom: 22 },
+
+    optionCard: { backgroundColor: rgbaFromHex(CARD_ALT, 0.85), borderRadius: 14, borderWidth: 1, borderColor: BORDER, padding: 14, boxShadow: cbTileShadow(0.03) } as ViewStyle,
+    optionCardActive: { backgroundColor: rgbaFromHex(ACCENT, 0.14), borderColor: rgbaFromHex(ACCENT, 0.36) },
+    optionCardTitle: { fontFamily: 'Inter_700Bold', fontSize: 13.5, color: theme.textPrimary },
+    optionCardTitleActive: { color: ACCENT_HOVER },
+    optionCardDesc: { fontFamily: 'Inter_400Regular', fontSize: 11.5, color: DIM, marginTop: 3, lineHeight: 16 },
+
     hero: { borderRadius: 30, padding: 20, overflow: 'hidden', boxShadow: cbModalShadow(0.14), marginBottom: 22 } as ViewStyle,
-    heroGhost: { position: 'absolute', right: 18, top: 0, fontFamily: 'Inter_900Black', fontSize: 76, lineHeight: 82, color: rgbaFromHex(theme.textPrimary, theme.isLight ? 0.035 : 0.055), letterSpacing: -4 },
     eyebrow: { fontFamily: 'Inter_700Bold', color: DIM, fontSize: 10, letterSpacing: 1.8, textTransform: 'uppercase' },
-    heroTitle: { fontFamily: 'Inter_900Black', color: ACCENT_HOVER, fontSize: 30, letterSpacing: -0.6, marginTop: 8 },
     heroCopy: { fontFamily: 'Inter_400Regular', color: DIM, fontSize: 13, marginTop: 4 },
     scoreValue: { fontFamily: 'Inter_900Black', fontSize: 52, letterSpacing: -1.5, marginBottom: 4 },
 
@@ -435,13 +554,17 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     sessionWrap: { flex: 1, width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 5 },
     progressTrack: { height: 5, borderRadius: 3, backgroundColor: rgbaFromHex(ACCENT, 0.14), overflow: 'hidden', marginBottom: 8 },
     progressFill: { height: '100%', backgroundColor: ACCENT, borderRadius: 3 },
-    progressLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: DIM, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 16 },
+    sessionMetaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+    progressLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: DIM, letterSpacing: 1, textTransform: 'uppercase' },
+    timerText: { fontFamily: 'Inter_900Black', fontSize: 13, color: ACCENT_HOVER, letterSpacing: 0.5 },
 
     questionCard: { backgroundColor: CARD, borderRadius: 22, borderWidth: 1, borderColor: BORDER, padding: 20, marginBottom: 18, overflow: 'hidden', boxShadow: cbTileShadow(0.07) } as ViewStyle,
     questionText: { fontFamily: 'Inter_900Black', fontSize: 19, lineHeight: 26, color: ACCENT_HOVER },
 
     optionBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: rgbaFromHex(CARD_ALT, 0.85), borderRadius: 16, borderWidth: 1, borderColor: BORDER, padding: 14, boxShadow: cbTileShadow(0.04) } as ViewStyle,
     optionBtnActive: { backgroundColor: rgbaFromHex(ACCENT, 0.14), borderColor: rgbaFromHex(ACCENT, 0.4) },
+    optionBtnCorrect: { backgroundColor: rgbaFromHex(theme.success, 0.16), borderColor: rgbaFromHex(theme.success, 0.45) },
+    optionBtnIncorrect: { backgroundColor: rgbaFromHex(theme.danger, 0.14), borderColor: rgbaFromHex(theme.danger, 0.45) },
     optionLetter: { width: 30, height: 30, borderRadius: 10, backgroundColor: rgbaFromHex(ACCENT, 0.14), alignItems: 'center', justifyContent: 'center' },
     optionLetterActive: { backgroundColor: ACCENT },
     optionLetterText: { fontFamily: 'Inter_900Black', fontSize: 13, color: ACCENT_HOVER },
