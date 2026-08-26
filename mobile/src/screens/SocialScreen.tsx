@@ -59,7 +59,7 @@ function dpicture(e: any): string | undefined { return e?.picture_url || e?.pict
 // on a phone screen. Both the modern `boxShadow` array and the legacy
 // shadow*/elevation properties (the only thing Android's classic renderer
 // honors) are set, so the depth doesn't depend on one single mechanism.
-function neuOuterShadow(radius: number): ViewStyle {
+function neuOuterShadow(radius: number, glowTint?: string): ViewStyle {
   return {
     borderRadius: radius,
     backgroundColor: CB_CARD_TOP,
@@ -68,7 +68,18 @@ function neuOuterShadow(radius: number): ViewStyle {
     shadowOpacity: 0.5,
     shadowRadius: 14,
     elevation: 10,
-    boxShadow: cbPlainCardShadow(),
+    // Hero accent card gets the full two-tone neumorphic cast — a dark
+    // shadow down-right plus a soft tinted counter-highlight up-left —
+    // instead of the single flat drop every other cb-tile uses, so it
+    // actually reads as raised material rather than a flat gold rectangle.
+    boxShadow: glowTint
+      ? [
+          { offsetX: 12, offsetY: 16, blurRadius: 34, color: 'rgba(0, 0, 0, 0.4)' },
+          { offsetX: -8, offsetY: -10, blurRadius: 26, color: rgbaFromHex(glowTint, 0.32) },
+          { offsetX: 0, offsetY: 1, blurRadius: 0, spreadDistance: 0, color: 'rgba(255, 255, 255, 0.18)', inset: true },
+          { offsetX: 0, offsetY: 0, blurRadius: 0, spreadDistance: 1, color: rgbaFromHex(glowTint, 0.45), inset: true },
+        ]
+      : cbPlainCardShadow(),
   } as ViewStyle;
 }
 
@@ -83,14 +94,27 @@ function NeuCard({
 }) {
   const { selectedTheme } = useAppTheme();
   return (
-    <View style={[neuOuterShadow(radius), accent && { backgroundColor: selectedTheme.accent }, outerStyle]}>
+    <View style={[neuOuterShadow(radius, accent ? selectedTheme.accent : undefined), accent && { backgroundColor: selectedTheme.accent }, outerStyle]}>
       <TileGleam onPress={onPress} haptic={haptic} borderRadius={radius} activeOpacity={0.9} style={contentStyle}>
         {accent ? (
-          <LinearGradient
-            colors={[selectedTheme.accentHover, selectedTheme.accent]}
-            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFillObject}
-          />
+          <>
+            <LinearGradient
+              colors={[
+                selectedTheme.accentHover,
+                selectedTheme.accent,
+                darkenColor(selectedTheme.accent, selectedTheme.isLight ? 10 : 22),
+              ]}
+              locations={[0, 0.55, 1]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFillObject}
+            />
+            {/* Glassy sheen catching light from the upper-left — the second half of "neumorphism", not just a flat two-stop fill. */}
+            <LinearGradient
+              colors={[rgbaFromHex('#ffffff', selectedTheme.isLight ? 0.38 : 0.2), 'rgba(255,255,255,0)']}
+              start={{ x: 0.05, y: 0.02 }} end={{ x: 0.6, y: 0.65 }}
+              style={StyleSheet.absoluteFillObject}
+            />
+          </>
         ) : (
           <SocialTileMaterial />
         )}
@@ -246,7 +270,11 @@ export default function SocialScreen({ user, onOpenLeaderboard }: Props) {
                 <Text style={[s.levelBigLabel, { color: rgbaFromHex(onAccent, 0.7) }]}>level</Text>
               </View>
               <View style={[s.levelBarTrack, { backgroundColor: rgbaFromHex(onAccent, 0.18) }]}>
-                <View style={[s.levelBarFill, { width: `${levelProgress * 100}%`, backgroundColor: onAccent }]} />
+                <View style={[s.levelBarFill, {
+                  width: `${levelProgress * 100}%`,
+                  backgroundColor: onAccent,
+                  boxShadow: [{ offsetX: 0, offsetY: 0, blurRadius: 8, color: rgbaFromHex(onAccent, 0.6) }],
+                }]} />
               </View>
               <View style={s.levelBarCaption}>
                 <Text style={[s.levelBarCaptionText, { color: rgbaFromHex(onAccent, 0.75) }]}>{data.experience.toLocaleString()} xp</Text>
