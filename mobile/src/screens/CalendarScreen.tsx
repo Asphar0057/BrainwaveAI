@@ -10,6 +10,7 @@ import { getToken } from '../services/tokenStorage';
 import HapticTouchable from '../components/HapticTouchable';
 import GeoBackground from '../components/GeoBackground';
 import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../components/NeumorphicTexture';
+import SectionSidebar, { SidebarItem } from '../components/SectionSidebar';
 import { triggerHaptic } from '../utils/haptics';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { mixHex, rgbaFromHex, darkenColor } from '../utils/theme';
@@ -18,9 +19,15 @@ const DAYS = ['S','M','T','W','T','F','S'];
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
 type HeatDay = { date: string; count: number; level: number };
-type Props = { user: AuthUser; onBack: () => void };
+type Props = { user: AuthUser; onBack: () => void; onNavigate?: (screen: 'activityTimeline') => void };
 
-export default function CalendarScreen({ user, onBack }: Props) {
+const CALENDAR_SIDEBAR_ITEMS: SidebarItem[] = [
+  { key: 'timeline', label: 'Timeline' },
+  { key: 'calendar', label: 'Calendar' },
+  { key: 'reminder', label: 'New Reminder' },
+];
+
+export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
   const { selectedTheme } = useAppTheme();
   const GOLD_XL = selectedTheme.textPrimary;
   const GOLD_L  = selectedTheme.accentHover;
@@ -47,6 +54,7 @@ export default function CalendarScreen({ user, onBack }: Props) {
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [creating, setCreating] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -155,21 +163,23 @@ export default function CalendarScreen({ user, onBack }: Props) {
   const selectedDay = heatByDate[selected ?? ''];
 
   return (
-    <SafeAreaView style={s.safe} edges={[]}>
+    <SafeAreaView style={s.safe} edges={['top']}>
       <LinearGradient colors={BG} style={StyleSheet.absoluteFill} />
       <GeoBackground />
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={s.header}>
-          <HapticTouchable onPress={onBack} haptic="light" style={s.headerBack}>
+          <HapticTouchable onPress={onBack} haptic="selection">
             <Ionicons name="chevron-back" size={22} color={GOLD_L} />
           </HapticTouchable>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={s.title}>calendar</Text>
             <Text style={s.subtitle}>{totalCount} total activities</Text>
           </View>
-          <Ionicons name="calendar-outline" size={22} color={GOLD_D} />
+          <HapticTouchable onPress={() => setSidebarOpen(true)} haptic="selection" accessibilityLabel="Open menu">
+            <Ionicons name="menu-outline" size={24} color={GOLD_L} />
+          </HapticTouchable>
         </View>
 
         {/* Month nav */}
@@ -313,6 +323,18 @@ export default function CalendarScreen({ user, onBack }: Props) {
           </View>
         </View>
       </Modal>
+
+      <SectionSidebar
+        visible={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        pageTitle="calendar"
+        items={CALENDAR_SIDEBAR_ITEMS}
+        activeKey="calendar"
+        onSelect={(key) => {
+          if (key === 'timeline') onNavigate?.('activityTimeline');
+          else if (key === 'reminder') { setSelected((current) => current ?? today); setShowCreate(true); }
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -328,9 +350,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
   const INK     = theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary;
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: theme.bgTop },
-    scroll: { paddingHorizontal: 4, paddingBottom: 120, gap: 14, paddingTop: 0 },
+    scroll: { paddingHorizontal: 10, paddingBottom: 120, gap: 14, paddingTop: 0 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 18, paddingBottom: 12 },
-    headerBack: { width: 42, height: 42, borderRadius: 16, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, alignItems: 'center', justifyContent: 'center', marginRight: 12, boxShadow: cbTileShadow(0.055) },
     title: { fontFamily: 'Inter_900Black', fontSize: 32, color: GOLD_L, letterSpacing: -0.8 },
     subtitle: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM, letterSpacing: 2.2, marginTop: 4, textTransform: 'uppercase' },
     monthNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },

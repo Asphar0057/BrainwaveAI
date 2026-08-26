@@ -1,6 +1,4 @@
 import { useState, useEffect, useMemo } from 'react';
-import CalendarScreen from './CalendarScreen';
-import ActivityTimelineScreen from './ActivityTimelineScreen';
 import { View, Text, StyleSheet, ScrollView, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
@@ -16,7 +14,7 @@ import { useAppTheme } from '../contexts/ThemeContext';
 import { rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
-type ExploreTarget = 'flashcards' | 'notes' | 'aimedia' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'xpAnalytics' | 'weaknessPractice' | 'topicsHub' | 'learningPaths';
+type ExploreTarget = 'flashcards' | 'notes' | 'aimedia' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'xpAnalytics' | 'weaknessPractice' | 'topicsHub' | 'learningPaths' | 'calendar' | 'activityTimeline';
 type Props = { user: AuthUser; onNavigate?: (screen: ExploreTarget) => void; onNavigateToAI?: () => void };
 
 function BentoMini({
@@ -94,16 +92,12 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
   const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
   const [fontsLoaded] = useFonts({ Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold });
   const [fcStats, setFcStats] = useState<any>(null);
-  const [subScreen, setSubScreen] = useState<'calendar' | 'activity' | null>(null);
 
   useEffect(() => {
     getFlashcardStatistics(user.username).then(setFcStats).catch(() => {});
   }, [user.username]);
 
   if (!fontsLoaded) return null;
-
-  if (subScreen === 'calendar') return <CalendarScreen user={user} onBack={() => setSubScreen(null)} />;
-  if (subScreen === 'activity') return <ActivityTimelineScreen user={user} onBack={() => setSubScreen(null)} />;
 
   const fcTotal = fcStats?.total_cards ?? 0;
   const fcSets = fcStats?.total_sets ?? 0;
@@ -194,8 +188,8 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
           <BentoMini index="12" title="topics" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('topicsHub')} />
         </View>
         <View style={s.bentoRow}>
-          <BentoMini index="13" title="calendar" styles={s} theme={selectedTheme} onPress={() => setSubScreen('calendar')} />
-          <BentoMini index="14" title="timeline" styles={s} theme={selectedTheme} onPress={() => setSubScreen('activity')} />
+          <BentoMini index="13" title="calendar" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('calendar')} />
+          <BentoMini index="14" title="timeline" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('activityTimeline')} />
         </View>
       </ScrollView>
     </SafeAreaView>

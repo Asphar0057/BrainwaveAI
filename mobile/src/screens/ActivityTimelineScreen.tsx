@@ -9,13 +9,23 @@ import { getFriendActivityFeed } from '../services/api';
 import HapticTouchable from '../components/HapticTouchable';
 import GeoBackground from '../components/GeoBackground';
 import { cbTileShadow } from '../components/NeumorphicTexture';
+import SectionSidebar, { SidebarItem } from '../components/SectionSidebar';
 import { useAppTheme } from '../contexts/ThemeContext';
 
 type AppTheme = ReturnType<typeof useAppTheme>['selectedTheme'];
 
 const FILTERS = ['all', 'chat', 'note', 'flashcard', 'quiz'] as const;
 type Filter = typeof FILTERS[number];
-type Props = { user: AuthUser; onBack: () => void };
+type Props = { user: AuthUser; onBack: () => void; onNavigate?: (screen: 'calendar') => void };
+
+const TIMELINE_SIDEBAR_ITEMS: SidebarItem[] = [
+  { key: 'timeline', label: 'Timeline' },
+  { key: 'calendar', label: 'Calendar' },
+  { key: 'note', label: 'Notes' },
+  { key: 'flashcard', label: 'Flashcards' },
+  { key: 'quiz', label: 'Quizzes' },
+  { key: 'chat', label: 'AI Chats' },
+];
 
 function activityType(item: any): string {
   return String(item?.activity_type || item?.type || item?.event_type || '').toLowerCase();
@@ -54,7 +64,7 @@ function formatTime(dateStr: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export default function ActivityTimelineScreen({ user, onBack }: Props) {
+export default function ActivityTimelineScreen({ user, onBack, onNavigate }: Props) {
   const { selectedTheme } = useAppTheme();
   const GOLD_L = selectedTheme.accentHover;
   const GOLD_D = selectedTheme.textSecondary;
@@ -65,6 +75,7 @@ export default function ActivityTimelineScreen({ user, onBack }: Props) {
   const [activities, setActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>('all');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -83,20 +94,22 @@ export default function ActivityTimelineScreen({ user, onBack }: Props) {
     : activities.filter(item => activityType(item).includes(filter));
 
   return (
-    <SafeAreaView style={s.safe} edges={[]}>
+    <SafeAreaView style={s.safe} edges={['top']}>
       <LinearGradient colors={BG} style={StyleSheet.absoluteFill} />
       <GeoBackground />
 
       {/* Header */}
       <View style={s.header}>
-        <HapticTouchable onPress={onBack} haptic="light" style={s.headerBack}>
+        <HapticTouchable onPress={onBack} haptic="selection">
           <Ionicons name="chevron-back" size={22} color={GOLD_L} />
         </HapticTouchable>
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, marginLeft: 12 }}>
           <Text style={s.title}>activity</Text>
           <Text style={s.subtitle}>{activities.length} events logged</Text>
         </View>
-        <Ionicons name="time-outline" size={22} color={GOLD_D} />
+        <HapticTouchable onPress={() => setSidebarOpen(true)} haptic="selection" accessibilityLabel="Open menu">
+          <Ionicons name="menu-outline" size={24} color={GOLD_L} />
+        </HapticTouchable>
       </View>
 
       {/* Filter chips */}
@@ -158,6 +171,18 @@ export default function ActivityTimelineScreen({ user, onBack }: Props) {
           }}
         />
       )}
+
+      <SectionSidebar
+        visible={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        pageTitle="timeline"
+        items={TIMELINE_SIDEBAR_ITEMS}
+        activeKey="timeline"
+        onSelect={(key) => {
+          if (key === 'calendar') onNavigate?.('calendar');
+          else if (key === 'note' || key === 'flashcard' || key === 'quiz' || key === 'chat') setFilter(key);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -171,16 +196,15 @@ function createStyles(theme: AppTheme) {
   const BORDER  = theme.border;
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: theme.bgTop },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 4, paddingTop: 18, paddingBottom: 12 },
-    headerBack: { width: 42, height: 42, borderRadius: 16, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, alignItems: 'center', justifyContent: 'center', marginRight: 12, boxShadow: cbTileShadow(0.055) },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 10, paddingTop: 18, paddingBottom: 12 },
     title: { fontFamily: 'Inter_900Black', fontSize: 32, color: GOLD_L, letterSpacing: -0.8 },
     subtitle: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM, letterSpacing: 2.2, marginTop: 4, textTransform: 'uppercase' },
-    filterRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 4, marginBottom: 16 },
+    filterRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 10, marginBottom: 16 },
     chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, boxShadow: cbTileShadow(0.035) },
     chipActive: { backgroundColor: GOLD_D + '33', borderColor: GOLD_D },
     chipText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: DIM, textTransform: 'uppercase', letterSpacing: 1 },
     chipTextActive: { color: GOLD_L },
-    list: { paddingHorizontal: 4, paddingBottom: 120 },
+    list: { paddingHorizontal: 10, paddingBottom: 120 },
     row: { flexDirection: 'row', gap: 12 },
     lineCol: { alignItems: 'center', width: 30 },
     dot: { width: 30, height: 30, borderRadius: 15, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },

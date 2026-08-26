@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../services/auth';
@@ -9,11 +9,21 @@ import { generatePracticeQuestions, getWeaknessAnalysis, getWeaknessRecommendati
 import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
 import { cbTileShadow, cbTileBorder } from '../components/NeumorphicTexture';
+import SectionSidebar, { SidebarItem } from '../components/SectionSidebar';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
-type Props = { user: AuthUser; onBack: () => void; onNavigate?: (screen: 'rlInsights') => void };
+type Props = { user: AuthUser; onBack: () => void; onNavigate?: (screen: 'rlInsights' | 'topicsHub' | 'activityTimeline') => void };
+
+const WEAKNESS_SIDEBAR_ITEMS: SidebarItem[] = [
+  { key: 'practice-now', label: 'Practice now' },
+  { key: 'weak-areas', label: 'Priority diagnosis' },
+  { key: 'topics-hub', label: 'Topic mastery' },
+  { key: 'how-i-learn', label: 'How I learn' },
+  { key: 'activity', label: 'Activity' },
+  { key: 'refresh', label: 'Refresh' },
+];
 
 const RESOURCE_LABELS: Record<string, string> = {
   ask_tutor: 'Ask the tutor',
@@ -59,8 +69,7 @@ function topicSeverity(topic: WeakTopic): Severity {
 export default function WeaknessPracticeScreen({ user, onBack, onNavigate }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
-  const insets = useSafeAreaInsets();
-  const s = useMemo(() => createStyles(selectedTheme, layout, insets.top), [selectedTheme, layout, insets.top]);
+  const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
   const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -68,6 +77,7 @@ export default function WeaknessPracticeScreen({ user, onBack, onNavigate }: Pro
   const [filter, setFilter] = useState<Filter>('all');
   const [generatingTopic, setGeneratingTopic] = useState<string | null>(null);
   const [recommendations, setRecommendations] = useState<WeaknessRecommendation[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!user.id) {
@@ -137,7 +147,7 @@ export default function WeaknessPracticeScreen({ user, onBack, onNavigate }: Pro
   if (!fontsLoaded) return null;
 
   return (
-    <View style={s.root}>
+    <SafeAreaView style={s.root} edges={['top']}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
       <GeoBackground />
       <ScrollView
@@ -146,20 +156,15 @@ export default function WeaknessPracticeScreen({ user, onBack, onNavigate }: Pro
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={selectedTheme.accent} />}
       >
         <View style={s.header}>
-          <HapticTouchable style={s.iconBtn} onPress={onBack} haptic="light" accessibilityLabel="Back">
-            <Ionicons name="chevron-back" size={20} color={selectedTheme.accentHover} />
+          <HapticTouchable onPress={onBack} haptic="selection" accessibilityLabel="Back">
+            <Ionicons name="chevron-back" size={22} color={selectedTheme.accentHover} />
           </HapticTouchable>
           <View style={s.headerCopy}>
             <Text style={s.kicker}>PERFORMANCE MAP</Text>
             <Text style={s.title}>weakness</Text>
           </View>
-          {onNavigate ? (
-            <HapticTouchable style={s.iconBtn} onPress={() => onNavigate('rlInsights')} haptic="light" accessibilityLabel="How you learn best">
-              <Ionicons name="hardware-chip-outline" size={18} color={selectedTheme.accentHover} />
-            </HapticTouchable>
-          ) : null}
-          <HapticTouchable style={s.iconBtn} onPress={() => { setRefreshing(true); load(); }} haptic="light" accessibilityLabel="Refresh weakness analysis">
-            <Ionicons name="refresh" size={17} color={selectedTheme.accentHover} />
+          <HapticTouchable onPress={() => setSidebarOpen(true)} haptic="selection" accessibilityLabel="Open menu">
+            <Ionicons name="menu-outline" size={24} color={selectedTheme.accentHover} />
           </HapticTouchable>
         </View>
 
@@ -270,7 +275,22 @@ export default function WeaknessPracticeScreen({ user, onBack, onNavigate }: Pro
           </>
         )}
       </ScrollView>
-    </View>
+
+      <SectionSidebar
+        visible={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        pageTitle="weakness"
+        items={WEAKNESS_SIDEBAR_ITEMS}
+        activeKey="weak-areas"
+        onSelect={(key) => {
+          if (key === 'practice-now' && priorityTopic) generateSet(priorityTopic.topic);
+          else if (key === 'topics-hub') onNavigate?.('topicsHub');
+          else if (key === 'how-i-learn') onNavigate?.('rlInsights');
+          else if (key === 'activity') onNavigate?.('activityTimeline');
+          else if (key === 'refresh') { setRefreshing(true); load(); }
+        }}
+      />
+    </SafeAreaView>
   );
 }
 
@@ -315,15 +335,14 @@ function EmptyState({ icon, title, copy, styles }: { icon: React.ComponentProps<
   );
 }
 
-function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>, topInset: number) {
+function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
   const surface = theme.panel;
   const border = rgbaFromHex(theme.accentHover, theme.isLight ? 0.18 : 0.2);
   const accentInk = theme.isLight ? darkenColor(theme.accent, 38) : theme.bgPrimary;
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bgPrimary },
-    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 4, paddingTop: Math.max(topInset + 10, 50), paddingBottom: 110, gap: 12 },
-    header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12 },
-    iconBtn: { width: 42, height: 42, borderRadius: 15, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), alignItems: 'center', justifyContent: 'center' },
+    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 10, paddingBottom: 110, gap: 12 },
+    header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 18, paddingBottom: 12 },
     headerCopy: { flex: 1 },
     kicker: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 10, letterSpacing: 1.7 },
     title: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 32, lineHeight: 36, letterSpacing: -0.8 },

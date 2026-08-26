@@ -14,7 +14,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -53,6 +53,7 @@ import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
 import { NeumorphicLayer, cbTileShadow, cbModalShadow, cbTileBorder } from '../components/NeumorphicTexture';
+import SectionSidebar, { SidebarItem } from '../components/SectionSidebar';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
@@ -61,6 +62,12 @@ import MathText from '../components/MathText';
 type HubTab = 'vault' | 'ask' | 'concepts' | 'reviews' | 'commands';
 type AppTarget = 'flashcards' | 'notes' | 'aimedia' | 'settings' | 'questionBank' | 'knowledgeMaps' | 'slideExplorer' | 'canvasHub' | 'xpAnalytics' | 'weaknessPractice' | 'learningPaths';
 type Props = { user: AuthUser; onBack: () => void; onNavigate?: (screen: AppTarget) => void };
+
+const HUB_SIDEBAR_ITEMS: SidebarItem[] = [
+  { key: 'deck', label: 'My Deck' },
+  { key: 'library', label: 'My Library' },
+  { key: 'upload', label: 'Upload' },
+];
 
 type AskResult = {
   answer: string;
@@ -94,11 +101,11 @@ function docTopic(doc: ContextDocument) {
 export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
-  const insets = useSafeAreaInsets();
-  const s = useMemo(() => createStyles(selectedTheme, layout, insets.top), [selectedTheme, layout, insets.top]);
+  const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
   const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black });
 
   const [tab, setTab] = useState<HubTab>('vault');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [docs, setDocs] = useState<ContextDocument[]>([]);
@@ -437,7 +444,7 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
   if (!fontsLoaded) return null;
 
   return (
-    <View style={s.root}>
+    <SafeAreaView style={s.root} edges={['top']}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
       <GeoBackground />
       <AmbientBubbles theme={selectedTheme} variant="paths" opacity={0.7} />
@@ -448,19 +455,22 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={selectedTheme.accent} />}
       >
         <View style={s.topBar}>
-          <HapticTouchable style={s.iconBtn} onPress={onBack} haptic="light">
-            <Ionicons name="chevron-back" size={18} color={selectedTheme.accent} />
+          <HapticTouchable onPress={onBack} haptic="selection">
+            <Ionicons name="chevron-back" size={22} color={selectedTheme.accentHover} />
           </HapticTouchable>
+          <Text style={[s.title, { flex: 1 }]}>hub</Text>
           <HapticTouchable style={[s.hsToggle, hsMode && s.hsToggleActive]} onPress={toggleHs} haptic="selection">
             <Ionicons name={hsMode ? 'sparkles' : 'book-outline'} size={14} color={hsMode ? selectedTheme.bgPrimary : selectedTheme.textPrimary} />
             <Text style={[s.hsToggleText, hsMode && s.hsToggleTextActive]}>{hsMode ? 'HS mode' : 'context'}</Text>
+          </HapticTouchable>
+          <HapticTouchable onPress={() => setSidebarOpen(true)} haptic="selection" accessibilityLabel="Open menu">
+            <Ionicons name="menu-outline" size={24} color={selectedTheme.accentHover} />
           </HapticTouchable>
         </View>
 
         <View style={s.hero}>
           <NeumorphicLayer grainOpacity={0.26} />
           <Text style={s.heroGhost}>01</Text>
-          <Text style={s.heroTitle}>knowledge hub</Text>
           <Text style={s.heroCopy}>{readyDocs.length} ready sources · {concepts.length} concepts · {reviews.length} reviews</Text>
           <View style={s.heroMetrics}>
             <Metric label="selected" value={String(selectedIds.size)} styles={s} />
@@ -551,7 +561,21 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    </View>
+
+      <SectionSidebar
+        visible={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        pageTitle="hub"
+        items={HUB_SIDEBAR_ITEMS}
+        activeKey={tab === 'vault' ? 'library' : ''}
+        onSelect={(key) => {
+          if (key === 'deck' || key === 'library') setTab('vault');
+          else if (key === 'upload') { setTab('vault'); pickDocuments(); }
+        }}
+        footerLabel="Dashboard"
+        onFooterPress={onBack}
+      />
+    </SafeAreaView>
   );
 
   function renderVault() {
@@ -821,24 +845,21 @@ function Empty({ icon, title, text, styles }: { icon: React.ComponentProps<typeo
   );
 }
 
-function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>, topInset: number) {
+function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
   const surface = theme.panel;
   const border = rgbaFromHex(theme.accentHover, theme.isLight ? 0.16 : 0.18);
   const accentInk = theme.isLight ? darkenColor(theme.accent, 38) : theme.bgPrimary;
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bgPrimary },
-    // 75% less than the original 18px — matches the home page, applies to
-    // every card on this page (hero and everything below it).
-    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: Math.round(18 * 0.25), paddingTop: Math.max(topInset + 12, 52), paddingBottom: 118, gap: 14 },
-    topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    iconBtn: { width: 40, height: 40, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.06) },
+    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 10, paddingBottom: 118, gap: 14 },
+    topBar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 18, paddingBottom: 12 },
+    title: { fontFamily: 'Inter_900Black', fontSize: 32, color: theme.accentHover, letterSpacing: -0.8 },
     hsToggle: { height: 40, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 7, boxShadow: cbTileShadow(0.055) },
     hsToggleActive: { backgroundColor: theme.accentHover, borderColor: theme.accentHover },
     hsToggleText: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 11, textTransform: 'lowercase' },
     hsToggleTextActive: { color: theme.bgPrimary },
     hero: { borderRadius: 30, padding: 20, overflow: 'hidden', boxShadow: cbModalShadow(0.14) } as ViewStyle,
     heroGhost: { position: 'absolute', right: 15, top: 0, fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 92 : 76, lineHeight: layout.isTablet ? 98 : 82, color: rgbaFromHex(theme.textPrimary, theme.isLight ? 0.035 : 0.055), letterSpacing: -4 },
-    heroTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 36, letterSpacing: 0, marginTop: 8 },
     heroCopy: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 13, marginTop: 4 },
     heroMetrics: { flexDirection: 'row', gap: 9, marginTop: 16 },
     metric: { flex: 1, borderRadius: 16, padding: 10, backgroundColor: rgbaFromHex(theme.panelAlt, 0.74), overflow: 'hidden', boxShadow: cbTileShadow(0.05), ...cbTileBorder(0.13) },

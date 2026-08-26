@@ -12,7 +12,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -32,6 +32,7 @@ import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
 import MarkdownText from '../components/MarkdownText';
 import { NeumorphicLayer, cbTileShadow, cbModalShadow, cbTileBorder } from '../components/NeumorphicTexture';
+import SectionSidebar, { SidebarItem } from '../components/SectionSidebar';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
@@ -55,8 +56,7 @@ function asLines(value: unknown): string[] {
 export default function SlideExplorerScreen({ user, onBack, onOpenQuestionBank }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
-  const insets = useSafeAreaInsets();
-  const s = useMemo(() => createStyles(selectedTheme, layout, insets.top), [selectedTheme, layout, insets.top]);
+  const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
   const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black });
   const [slides, setSlides] = useState<UploadedSlide[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,6 +68,7 @@ export default function SlideExplorerScreen({ user, onBack, onOpenQuestionBank }
   const [showInsights, setShowInsights] = useState(false);
   const [slideImage, setSlideImage] = useState<ImageSourcePropType | null>(null);
   const [imageFailed, setImageFailed] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -187,6 +188,12 @@ export default function SlideExplorerScreen({ user, onBack, onOpenQuestionBank }
 
   if (!fontsLoaded) return null;
 
+  const slideSidebarItems: SidebarItem[] = [
+    { key: 'library', label: 'My Slides', badge: slides.length },
+    { key: 'upload', label: 'Upload Slides' },
+    ...slides.slice(0, 5).map((deck) => ({ key: `deck-${deck.id}`, label: shortName(deck.filename), badge: deck.page_count })),
+  ];
+
   const summary = analysis?.presentation_summary;
   const summaryStats = typeof summary === 'object' && summary ? [
     { icon: 'bulb-outline' as const, value: summary.total_concepts ?? 0, label: 'concepts' },
@@ -200,7 +207,7 @@ export default function SlideExplorerScreen({ user, onBack, onOpenQuestionBank }
     + (current?.study_tips?.length || 0);
 
   return (
-    <View style={s.root}>
+    <SafeAreaView style={s.root} edges={['top']}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
       <GeoBackground />
       <AmbientBubbles theme={selectedTheme} variant="paths" opacity={0.72} />
@@ -209,36 +216,44 @@ export default function SlideExplorerScreen({ user, onBack, onOpenQuestionBank }
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={selectedTheme.accent} />}
       >
-        <View style={s.topBar}>
-          <HapticTouchable style={s.iconBtn} onPress={selectedDeck ? () => { setSelectedDeck(null); setAnalysis(null); } : onBack} haptic="light">
-            <Ionicons name="chevron-back" size={18} color={selectedTheme.accent} />
-          </HapticTouchable>
-          {selectedDeck ? (
-            <>
-              <View style={s.readerTopInfo}>
-                <Text style={s.readerTopTitle} numberOfLines={1}>{shortName(selectedDeck.filename)}</Text>
-                <Text style={s.readerTopMeta}>{analysis ? `${slideIndex + 1} of ${analysis.total_slides}` : 'preparing study guide'}</Text>
-              </View>
-              <HapticTouchable style={s.iconBtn} onPress={() => analyzeDeck(selectedDeck, true)} disabled={busy === `analyze-${selectedDeck.id}`} haptic="selection">
-                {busy === `analyze-${selectedDeck.id}` ? <ActivityIndicator color={selectedTheme.accent} size="small" /> : <Ionicons name="refresh-outline" size={17} color={selectedTheme.accent} />}
-              </HapticTouchable>
-            </>
-          ) : (
-            <HapticTouchable style={s.uploadBtn} onPress={pickDecks} disabled={busy === 'upload'} haptic="medium">
-              {busy === 'upload' ? <ActivityIndicator color={selectedTheme.bgPrimary} size="small" /> : <Ionicons name="cloud-upload-outline" size={16} color={selectedTheme.bgPrimary} />}
-              <Text style={s.uploadText}>upload</Text>
+        {!selectedDeck ? (
+          <View style={s.header}>
+            <HapticTouchable onPress={onBack} haptic="selection">
+              <Ionicons name="chevron-back" size={22} color={selectedTheme.accentHover} />
             </HapticTouchable>
-          )}
-        </View>
+            <Text style={[s.title, { flex: 1 }]}>slides</Text>
+            <HapticTouchable onPress={() => setSidebarOpen(true)} haptic="selection" accessibilityLabel="Open menu">
+              <Ionicons name="menu-outline" size={24} color={selectedTheme.accentHover} />
+            </HapticTouchable>
+          </View>
+        ) : (
+          <View style={s.topBar}>
+            <HapticTouchable style={s.iconBtn} onPress={() => { setSelectedDeck(null); setAnalysis(null); }} haptic="light">
+              <Ionicons name="chevron-back" size={18} color={selectedTheme.accent} />
+            </HapticTouchable>
+            <View style={s.readerTopInfo}>
+              <Text style={s.readerTopTitle} numberOfLines={1}>{shortName(selectedDeck.filename)}</Text>
+              <Text style={s.readerTopMeta}>{analysis ? `${slideIndex + 1} of ${analysis.total_slides}` : 'preparing study guide'}</Text>
+            </View>
+            <HapticTouchable style={s.iconBtn} onPress={() => analyzeDeck(selectedDeck, true)} disabled={busy === `analyze-${selectedDeck.id}`} haptic="selection">
+              {busy === `analyze-${selectedDeck.id}` ? <ActivityIndicator color={selectedTheme.accent} size="small" /> : <Ionicons name="refresh-outline" size={17} color={selectedTheme.accent} />}
+            </HapticTouchable>
+          </View>
+        )}
 
         {!selectedDeck ? (
-          <View style={s.hero}>
-            <NeumorphicLayer grainOpacity={0.26} />
-            <Text style={s.heroGhost}>01</Text>
-            <Text style={s.eyebrow}>YOUR DECK LIBRARY</Text>
-            <Text style={s.heroTitle}>slide explorer</Text>
-            <Text style={s.heroCopy}>{slides.length} decks · {totals} slides ready for analysis</Text>
-          </View>
+          <>
+            <View style={s.hero}>
+              <NeumorphicLayer grainOpacity={0.26} />
+              <Text style={s.heroGhost}>01</Text>
+              <Text style={s.eyebrow}>YOUR DECK LIBRARY</Text>
+              <Text style={s.heroCopy}>{slides.length} decks · {totals} slides ready for analysis</Text>
+            </View>
+            <HapticTouchable style={s.uploadHero} onPress={pickDecks} disabled={busy === 'upload'} haptic="medium">
+              {busy === 'upload' ? <ActivityIndicator color={selectedTheme.bgPrimary} size="small" /> : <Ionicons name="cloud-upload-outline" size={16} color={selectedTheme.bgPrimary} />}
+              <Text style={s.uploadText}>upload slides</Text>
+            </HapticTouchable>
+          </>
         ) : null}
 
         {selectedDeck ? (
@@ -365,7 +380,22 @@ export default function SlideExplorerScreen({ user, onBack, onOpenQuestionBank }
           </View>
         ) : null}
       </ScrollView>
-    </View>
+
+      <SectionSidebar
+        visible={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        pageTitle="slides"
+        items={slideSidebarItems}
+        activeKey="library"
+        onSelect={(key) => {
+          if (key === 'upload') pickDecks();
+          else if (key.startsWith('deck-')) {
+            const deck = slides.find((item) => `deck-${item.id}` === key);
+            if (deck) analyzeDeck(deck);
+          }
+        }}
+      />
+    </SafeAreaView>
   );
 }
 
@@ -386,16 +416,18 @@ function MiniAction({ label, onPress, busy, styles }: { label: string; onPress: 
   );
 }
 
-function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>, topInset: number) {
+function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
   const surface = theme.panel;
   const border = rgbaFromHex(theme.accentHover, theme.isLight ? 0.16 : 0.18);
   const accentInk = theme.isLight ? darkenColor(theme.accent, 38) : theme.bgPrimary;
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bgPrimary },
-    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 5, paddingTop: Math.max(topInset + 12, 52), paddingBottom: 118, gap: 14 },
-    topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 10, paddingBottom: 118, gap: 14 },
+    header: { flexDirection: 'row', alignItems: 'center', paddingTop: 18, paddingBottom: 12 },
+    title: { fontFamily: 'Inter_900Black', fontSize: 32, color: theme.accentHover, letterSpacing: -0.8 },
+    topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 18, paddingBottom: 12 },
     iconBtn: { width: 40, height: 40, borderRadius: 12, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.06) },
-    uploadBtn: { height: 40, borderRadius: 12, backgroundColor: theme.accentHover, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 7, boxShadow: cbTileShadow(0.055) },
+    uploadHero: { width: '100%', minHeight: 50, borderRadius: 16, backgroundColor: theme.accentHover, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: cbTileShadow(0.055) },
     uploadText: { fontFamily: 'Inter_900Black', color: accentInk, fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 },
     readerTopInfo: { flex: 1, paddingHorizontal: 12 },
     readerTopTitle: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 14, textAlign: 'center' },
@@ -403,7 +435,6 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     hero: { borderRadius: 22, padding: 20, overflow: 'hidden', boxShadow: cbModalShadow(0.14) } as ViewStyle,
     heroGhost: { position: 'absolute', right: 15, top: 0, fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 92 : 76, lineHeight: layout.isTablet ? 98 : 82, color: rgbaFromHex(theme.textPrimary, theme.isLight ? 0.035 : 0.055), letterSpacing: -4 },
     eyebrow: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 10, letterSpacing: 1.8, textTransform: 'uppercase' },
-    heroTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 36, letterSpacing: 0, marginTop: 8 },
     heroCopy: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 13, marginTop: 4 },
     analysisPanel: { gap: 18 },
     analysisLoading: { minHeight: 260, alignItems: 'center', justifyContent: 'center', gap: 10 },
