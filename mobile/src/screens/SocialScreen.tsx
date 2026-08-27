@@ -12,7 +12,6 @@ import HapticTouchable from '../components/HapticTouchable';
 import TileGleam from '../components/TileGleam';
 import { CB_ACCENT, CB_CARD_TOP, cbPlainCardShadow } from '../components/NeumorphicTexture';
 import SocialTileMaterial from '../components/SocialTileMaterial';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FriendsScreen       from './social/FriendsScreen';
 import QuizPlaylistScreen  from './social/QuizPlaylistScreen';
 import PlaylistsScreen     from './social/PlaylistsScreen';
@@ -184,7 +183,6 @@ export default function SocialScreen({ user, onOpenLeaderboard }: Props) {
   const layout = useResponsiveLayout();
   const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
   const [fontsLoaded] = useFonts({ Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold });
-  const insets = useSafeAreaInsets();
   const [screen, setScreen] = useState<Section | null>(null);
   const [data, setData] = useState<HubData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -251,7 +249,7 @@ export default function SocialScreen({ user, onOpenLeaderboard }: Props) {
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
       <CircleBackground />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 100 }]}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[s.scroll, { paddingBottom: 24 }]}>
 
         {/* ══ HEADER ══ */}
         <View style={s.topBar}>
