@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../services/auth';
-import { API_URL, getReminders, createReminder, updateReminder, deleteReminder, Reminder } from '../services/api';
+import { API_URL, getReminders, createReminder, updateReminder, deleteReminder, Reminder, getNotes, getFlashcardHistory, getChatSessions } from '../services/api';
 import { getToken } from '../services/tokenStorage';
 import HapticTouchable from '../components/HapticTouchable';
 import GeoBackground from '../components/GeoBackground';
@@ -13,13 +13,29 @@ import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../components/Neum
 import SectionSidebar, { SidebarItem } from '../components/SectionSidebar';
 import { triggerHaptic } from '../utils/haptics';
 import { useAppTheme } from '../contexts/ThemeContext';
+import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 import { mixHex, rgbaFromHex, darkenColor } from '../utils/theme';
 
 const DAYS = ['S','M','T','W','T','F','S'];
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
 type HeatDay = { date: string; count: number; level: number };
+type ActivityType = 'note' | 'flashcard' | 'quiz' | 'chat';
+type ActivityItem = { id: string; type: ActivityType; title: string; date: string };
 type Props = { user: AuthUser; onBack: () => void; onNavigate?: (screen: 'activityTimeline') => void };
+
+const TYPE_COLORS: Record<ActivityType, string> = {
+  note: '#34d399',
+  flashcard: '#fbbf24',
+  quiz: '#f472b6',
+  chat: '#D7B38C',
+};
+const TYPE_LABELS: Record<ActivityType, string> = {
+  note: 'Notes',
+  flashcard: 'Flashcards',
+  quiz: 'Quizzes',
+  chat: 'AI Chats',
+};
 
 const CALENDAR_SIDEBAR_ITEMS: SidebarItem[] = [
   { key: 'timeline', label: 'Timeline' },
@@ -29,6 +45,7 @@ const CALENDAR_SIDEBAR_ITEMS: SidebarItem[] = [
 
 export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
   const { selectedTheme } = useAppTheme();
+  const layout = useResponsiveLayout();
   const GOLD_XL = selectedTheme.textPrimary;
   const GOLD_L  = selectedTheme.accentHover;
   const GOLD_M  = selectedTheme.accent;
@@ -43,7 +60,7 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
     selectedTheme.accent,
     selectedTheme.accentHover,
   ], [selectedTheme]);
-  const s = useMemo(() => createStyles(selectedTheme), [selectedTheme]);
+  const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
   const [fontsLoaded] = useFonts({ Inter_900Black, Inter_400Regular, Inter_600SemiBold });
   const [heatmap, setHeatmap] = useState<HeatDay[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,7 +68,9 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState(0);
   const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [showCreate, setShowCreate] = useState(false);
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [creating, setCreating] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -70,6 +89,68 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
   }, [user.username]);
 
   useEffect(() => { load(); }, [load]);
+
+  const loadActivities = useCallback(async () => {
+    const items: ActivityItem[] = [];
+
+    try {
+      const notes = await getNotes(user.username);
+      (Array.isArray(notes) ? notes : []).forEach((note: any) => {
+        if (note?.is_deleted) return;
+        const ts = note.updated_at || note.created_at;
+        if (!ts) return;
+        items.push({ id: `note-${note.id}`, type: 'note', title: note.title || 'Untitled Note', date: String(ts).slice(0, 10) });
+      });
+    } catch {}
+
+    try {
+      const payload = await getFlashcardHistory(user.username, 200);
+      const sets = Array.isArray(payload?.flashcard_history) ? payload.flashcard_history : [];
+      sets.forEach((setInfo: any) => {
+        const ts = setInfo.updated_at || setInfo.created_at;
+        if (!ts) return;
+        items.push({ id: `flashcard-${setInfo.id}`, type: 'flashcard', title: setInfo.title || 'Flashcard Set', date: String(ts).slice(0, 10) });
+      });
+    } catch {}
+
+    try {
+      const payload = await getChatSessions(user.username);
+      const sessions = Array.isArray(payload?.sessions) ? payload.sessions : [];
+      sessions.forEach((session: any) => {
+        const ts = session.updated_at || session.created_at;
+        if (!ts) return;
+        items.push({ id: `chat-${session.id}`, type: 'chat', title: session.title || 'AI Chat Session', date: String(ts).slice(0, 10) });
+      });
+    } catch {}
+
+    try {
+      const token = await getToken();
+      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch(`${API_URL}/get_quiz_history?user_id=${encodeURIComponent(user.username)}`, { headers });
+      if (res.ok) {
+        const payload = await res.json();
+        const quizzes = Array.isArray(payload) ? payload : (payload?.sessions ?? []);
+        quizzes.forEach((quiz: any) => {
+          const ts = quiz.completed_at || quiz.created_at;
+          if (!ts) return;
+          items.push({ id: `quiz-${quiz.id}`, type: 'quiz', title: quiz.title || 'Quiz Session', date: String(ts).slice(0, 10) });
+        });
+      }
+    } catch {}
+
+    setActivities(items);
+  }, [user.username]);
+
+  useEffect(() => { loadActivities(); }, [loadActivities]);
+
+  const activitiesByDate = useMemo(() => {
+    const map: Record<string, ActivityItem[]> = {};
+    activities.forEach((item) => {
+      if (!map[item.date]) map[item.date] = [];
+      map[item.date].push(item);
+    });
+    return map;
+  }, [activities]);
 
   const loadReminders = useCallback(async () => {
     const year = current.getFullYear();
@@ -155,12 +236,18 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
   const heatByDate: Record<string, HeatDay> = {};
   heatmap.forEach(d => { heatByDate[d.date] = d; });
 
-  const prevMonth = () => { setCurrent(new Date(year, month - 1, 1)); setSelected(null); };
-  const nextMonth = () => { setCurrent(new Date(year, month + 1, 1)); setSelected(null); };
+  const goToMonth = (nextYear: number, nextMonth: number) => {
+    setCurrent(new Date(nextYear, nextMonth, 1));
+    setSelected(null);
+  };
+  const prevMonth = () => goToMonth(year, month - 1);
+  const nextMonth = () => goToMonth(year, month + 1);
 
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const selectedDay = heatByDate[selected ?? ''];
+  const selectedActivities = activitiesByDate[selected ?? ''] ?? [];
+  const selectedReminders = remindersByDate[selected ?? ''] ?? [];
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
@@ -184,12 +271,15 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
 
         {/* Month nav */}
         <View style={s.monthNav}>
-          <HapticTouchable onPress={prevMonth} haptic="light" style={s.navBtn}>
-            <Ionicons name="chevron-back" size={18} color={GOLD_D} />
+          <HapticTouchable onPress={prevMonth} haptic="light" style={s.navBtn} accessibilityLabel="Previous month">
+            <Ionicons name="chevron-back" size={20} color={GOLD_D} />
           </HapticTouchable>
-          <Text style={s.monthLabel}>{MONTHS[month]} {year}</Text>
-          <HapticTouchable onPress={nextMonth} haptic="light" style={s.navBtn}>
-            <Ionicons name="chevron-forward" size={18} color={GOLD_D} />
+          <HapticTouchable onPress={() => setShowMonthPicker(true)} haptic="selection" style={s.monthLabelBtn}>
+            <Text style={s.monthLabel}>{MONTHS[month]} {year}</Text>
+            <Ionicons name="chevron-down" size={14} color={GOLD_D} />
+          </HapticTouchable>
+          <HapticTouchable onPress={nextMonth} haptic="light" style={s.navBtn} accessibilityLabel="Next month">
+            <Ionicons name="chevron-forward" size={20} color={GOLD_D} />
           </HapticTouchable>
         </View>
 
@@ -214,6 +304,7 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
                 const heat = heatByDate[dateStr];
                 const isToday = dateStr === today;
                 const isSel = dateStr === selected;
+                const dayActivityTypes = Array.from(new Set((activitiesByDate[dateStr] ?? []).map((a) => a.type)));
                 return (
                   <HapticTouchable
                     key={dateStr}
@@ -223,7 +314,15 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
                     activeOpacity={0.75}
                   >
                     <Text style={[s.cellNum, isToday && s.cellNumToday, isSel && s.cellNumSel]}>{day}</Text>
-                    {heat && heat.count > 0 ? <View style={[s.dot, { backgroundColor: LEVEL_COLORS[Math.min(heat.level + 1, 5)] }]} /> : null}
+                    {dayActivityTypes.length > 0 ? (
+                      <View style={s.signalRow}>
+                        {dayActivityTypes.map((t) => (
+                          <View key={t} style={[s.signalDot, { backgroundColor: TYPE_COLORS[t] }]} />
+                        ))}
+                      </View>
+                    ) : (
+                      heat && heat.count > 0 ? <View style={[s.dot, { backgroundColor: LEVEL_COLORS[Math.min(heat.level + 1, 5)] }]} /> : null
+                    )}
                     {remindersByDate[dateStr]?.length ? <View style={s.reminderDot} /> : null}
                   </HapticTouchable>
                 );
@@ -257,9 +356,10 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
               <Text style={s.dayDetailEmpty}>No activity on this day</Text>
             )}
 
-            {(remindersByDate[selected] ?? []).length > 0 ? (
+            {selectedReminders.length > 0 ? (
               <View style={{ gap: 8, marginTop: 4 }}>
-                {(remindersByDate[selected] ?? []).map((reminder) => (
+                <Text style={s.dayDetailSectionLabel}>Reminders</Text>
+                {selectedReminders.map((reminder) => (
                   <HapticTouchable
                     key={reminder.id}
                     style={s.reminderRow}
@@ -278,24 +378,21 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
                 <Text style={s.reminderHint}>long-press a reminder to delete it</Text>
               </View>
             ) : null}
+
+            {selectedActivities.length > 0 ? (
+              <View style={{ gap: 8, marginTop: 4 }}>
+                <Text style={s.dayDetailSectionLabel}>Activities</Text>
+                {selectedActivities.map((activity) => (
+                  <View key={activity.id} style={s.activityRow}>
+                    <View style={[s.activityDot, { backgroundColor: TYPE_COLORS[activity.type] }]} />
+                    <Text style={s.activityText} numberOfLines={1}>{activity.title}</Text>
+                    <Text style={s.activityType}>{TYPE_LABELS[activity.type]}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
           </View>
         )}
-
-        {/* Streak info */}
-        <View style={s.infoRow}>
-          <View style={s.infoCard}>
-            <Text style={s.infoVal}>{totalCount}</Text>
-            <Text style={s.infoLbl}>total events</Text>
-          </View>
-          <View style={s.infoCard}>
-            <Text style={s.infoVal}>{heatmap.filter(d => d.count > 0).length}</Text>
-            <Text style={s.infoLbl}>active days</Text>
-          </View>
-          <View style={s.infoCard}>
-            <Text style={s.infoVal}>{heatmap.filter(d => d.level >= 3).length}</Text>
-            <Text style={s.infoLbl}>strong days</Text>
-          </View>
-        </View>
       </ScrollView>
 
       <Modal transparent visible={showCreate} animationType="fade" onRequestClose={() => setShowCreate(false)}>
@@ -324,6 +421,35 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
         </View>
       </Modal>
 
+      <Modal transparent visible={showMonthPicker} animationType="fade" onRequestClose={() => setShowMonthPicker(false)}>
+        <View style={s.modalOverlay}>
+          <HapticTouchable style={StyleSheet.absoluteFill} onPress={() => setShowMonthPicker(false)} activeOpacity={1} haptic="none" />
+          <View style={s.modalCard}>
+            <View style={s.yearStepper}>
+              <HapticTouchable onPress={() => goToMonth(year - 1, month)} haptic="light" style={s.yearStepBtn} accessibilityLabel="Previous year">
+                <Ionicons name="chevron-back" size={18} color={GOLD_D} />
+              </HapticTouchable>
+              <Text style={s.modalTitle}>{year}</Text>
+              <HapticTouchable onPress={() => goToMonth(year + 1, month)} haptic="light" style={s.yearStepBtn} accessibilityLabel="Next year">
+                <Ionicons name="chevron-forward" size={18} color={GOLD_D} />
+              </HapticTouchable>
+            </View>
+            <View style={s.monthGrid}>
+              {MONTHS.map((m, idx) => (
+                <HapticTouchable
+                  key={m}
+                  style={[s.monthGridItem, idx === month && s.monthGridItemActive]}
+                  onPress={() => { goToMonth(year, idx); setShowMonthPicker(false); }}
+                  haptic="selection"
+                >
+                  <Text style={[s.monthGridText, idx === month && s.monthGridTextActive]}>{m.slice(0, 3)}</Text>
+                </HapticTouchable>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <SectionSidebar
         visible={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -339,7 +465,7 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
   );
 }
 
-function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
+function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
   const GOLD_XL = theme.textPrimary;
   const GOLD_L  = theme.accentHover;
   const GOLD_M  = theme.accent;
@@ -350,25 +476,28 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
   const INK     = theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary;
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: theme.bgTop },
-    scroll: { paddingHorizontal: 10, paddingBottom: 120, gap: 14, paddingTop: 0 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 18, paddingBottom: 12 },
+    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 10, paddingBottom: 120, gap: 14, paddingTop: 0 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 10, paddingTop: 18, paddingBottom: 12 },
     title: { fontFamily: 'Inter_900Black', fontSize: 32, color: GOLD_L, letterSpacing: -0.8 },
     subtitle: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM, letterSpacing: 2.2, marginTop: 4, textTransform: 'uppercase' },
     monthNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
-    navBtn: { width: 38, height: 38, borderRadius: 16, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.055) },
+    navBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
+    monthLabelBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     monthLabel: { fontFamily: 'Inter_900Black', fontSize: 16, color: GOLD_L, letterSpacing: -0.3 },
     calendarPanel: { borderRadius: 30, padding: 14, overflow: 'hidden', boxShadow: cbModalShadow(0.14) } as ViewStyle,
     panelGhost: { position: 'absolute', right: 15, top: -2, fontFamily: 'Inter_900Black', fontSize: 76, lineHeight: 82, color: rgbaFromHex(GOLD_XL, 0.055), letterSpacing: -4 },
     dayHeaders: { flexDirection: 'row' },
     dayHeader: { flex: 1, textAlign: 'center', fontFamily: 'Inter_600SemiBold', fontSize: 10, color: DIM, letterSpacing: 1.2, paddingVertical: 8 },
     grid: { flexDirection: 'row', flexWrap: 'wrap' },
-    cell: { width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 8, padding: 2 },
+    cell: { width: '14.2857%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 8, padding: 2 },
     cellToday: { borderWidth: 1, borderColor: GOLD_D },
     cellSelected: { borderWidth: 1.5, borderColor: GOLD_L },
     cellNum: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: GOLD_D },
     cellNumToday: { color: GOLD_L },
     cellNumSel: { color: GOLD_XL },
     dot: { width: 4, height: 4, borderRadius: 2, marginTop: 2 },
+    signalRow: { flexDirection: 'row', gap: 2, marginTop: 2 },
+    signalDot: { width: 4, height: 4, borderRadius: 2 },
     reminderDot: { position: 'absolute', top: 4, right: 6, width: 4, height: 4, borderRadius: 2, backgroundColor: '#7fb8e0' },
     legend: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4 },
     legendLabel: { fontFamily: 'Inter_400Regular', fontSize: 9, color: DIM },
@@ -376,6 +505,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
     dayDetail: { backgroundColor: SURFACE, borderRadius: 24, borderWidth: 1, borderColor: BORDER, padding: 16, gap: 8, boxShadow: cbTileShadow(0.08) } as ViewStyle,
     dayDetailHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     dayDetailTitle: { fontFamily: 'Inter_900Black', fontSize: 15, color: GOLD_L },
+    dayDetailSectionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 9.5, color: DIM, textTransform: 'uppercase', letterSpacing: 1.1 },
     addReminderBtn: { width: 28, height: 28, borderRadius: 10, borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center' },
     dayDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     dayDetailText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: GOLD_M },
@@ -384,10 +514,10 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
     reminderText: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 13, color: GOLD_XL },
     reminderTextDone: { color: DIM, textDecorationLine: 'line-through' },
     reminderHint: { fontFamily: 'Inter_400Regular', fontSize: 9.5, color: DIM, marginTop: 2 },
-    infoRow: { flexDirection: 'row', gap: 10 },
-    infoCard: { flex: 1, backgroundColor: SURFACE, borderRadius: 20, borderWidth: 1, borderColor: BORDER, paddingVertical: 14, alignItems: 'center', boxShadow: cbTileShadow(0.055) } as ViewStyle,
-    infoVal: { fontFamily: 'Inter_900Black', fontSize: 20, color: GOLD_L },
-    infoLbl: { fontFamily: 'Inter_400Regular', fontSize: 9, color: DIM, textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 3 },
+    activityRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    activityDot: { width: 7, height: 7, borderRadius: 3.5 },
+    activityText: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 13, color: GOLD_XL },
+    activityType: { fontFamily: 'Inter_400Regular', fontSize: 9.5, color: DIM, textTransform: 'uppercase', letterSpacing: 0.6 },
 
     modalOverlay: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 24 },
     modalCard: { width: '100%', maxWidth: 380, borderRadius: 20, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE, padding: 20, gap: 12, boxShadow: cbModalShadow(0.2) } as ViewStyle,
@@ -399,5 +529,12 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
     modalCancelText: { fontFamily: 'Inter_600SemiBold', fontSize: 12.5, color: DIM },
     modalSave: { paddingHorizontal: 18, paddingVertical: 11, borderRadius: 12, backgroundColor: GOLD_M, minWidth: 64, alignItems: 'center' },
     modalSaveText: { fontFamily: 'Inter_700Bold', fontSize: 12.5, color: INK },
+    yearStepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 24 },
+    yearStepBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+    monthGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
+    monthGridItem: { width: '30%', paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: BORDER, alignItems: 'center' },
+    monthGridItemActive: { backgroundColor: GOLD_M, borderColor: GOLD_M },
+    monthGridText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: GOLD_D },
+    monthGridTextActive: { color: INK },
   });
 }
