@@ -14,7 +14,7 @@ import { useAppTheme } from '../contexts/ThemeContext';
 import { rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 
-type ExploreTarget = 'flashcards' | 'notes' | 'aimedia' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'xpAnalytics' | 'weaknessPractice' | 'topicsHub' | 'learningPaths' | 'calendar' | 'activityTimeline';
+type ExploreTarget = 'flashcards' | 'notes' | 'aimedia' | 'questionBank' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'xpAnalytics' | 'weaknessPractice' | 'learningPaths' | 'calendar' | 'activityTimeline';
 type Props = { user: AuthUser; onNavigate?: (screen: ExploreTarget) => void; onNavigateToAI?: () => void };
 
 function BentoMini({
@@ -172,24 +172,20 @@ export default function MoreScreen({ user, onNavigate, onNavigateToAI }: Props) 
           <BentoMini index="06" title="paths" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('learningPaths')} />
         </View>
 
-        {/* Row 5: knowledge hub + maps */}
+        {/* Row 5: knowledge hub + slides */}
         <View style={s.bentoRow}>
           <BentoMini index="07" title="hub" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('knowledgeHub')} />
-          <BentoMini index="08" title="maps" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('knowledgeMaps')} />
+          <BentoMini index="08" title="slides" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('slideExplorer')} />
         </View>
 
-        {/* Row 6: primary creation tools stay above the fold */}
+        {/* Row 6: analytics + weakness practice */}
         <View style={s.bentoRow}>
-          <BentoMini index="09" title="slides" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('slideExplorer')} />
-          <BentoMini index="10" title="analytics" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('xpAnalytics')} />
+          <BentoMini index="09" title="analytics" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('xpAnalytics')} />
+          <BentoMini index="10" title="weakness" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('weaknessPractice')} />
         </View>
         <View style={s.bentoRow}>
-          <BentoMini index="11" title="weakness" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('weaknessPractice')} />
-          <BentoMini index="12" title="topics" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('topicsHub')} />
-        </View>
-        <View style={s.bentoRow}>
-          <BentoMini index="13" title="calendar" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('calendar')} />
-          <BentoMini index="14" title="timeline" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('activityTimeline')} />
+          <BentoMini index="11" title="calendar" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('calendar')} />
+          <BentoMini index="12" title="timeline" styles={s} theme={selectedTheme} onPress={() => onNavigate?.('activityTimeline')} />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -209,7 +205,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     maxWidth: layout.contentMaxWidth,
     alignSelf: 'center',
     paddingHorizontal: 2,
-    paddingBottom: 120,
+    paddingBottom: 24,
     gap: 12,
   },
 
