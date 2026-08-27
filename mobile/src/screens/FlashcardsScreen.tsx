@@ -39,6 +39,7 @@ import MathText from '../components/MathText';
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
 import SectionSidebar, { SidebarItem } from '../components/SectionSidebar';
+import PulseCubes from '../components/PulseCubes';
 import SpacedRepetitionScreen from './SpacedRepetitionScreen';
 import { AuthUser } from '../services/auth';
 import { useAppTheme } from '../contexts/ThemeContext';
@@ -690,44 +691,6 @@ function StudyView({
   );
 }
 
-// Three small squares pulsing in a staggered wave, in place of the platform
-// spinner, for both loading states on this screen (the sets list and opening
-// an individual set).
-function PulseCubes({ color, size = 11 }: { color: string; size?: number }) {
-  const cubes = useRef([0, 1, 2].map(() => new Animated.Value(0.35))).current;
-
-  useEffect(() => {
-    const loops = cubes.map((cube, i) => Animated.loop(
-      Animated.sequence([
-        Animated.delay(i * 140),
-        Animated.timing(cube, { toValue: 1, duration: 360, useNativeDriver: true }),
-        Animated.timing(cube, { toValue: 0.35, duration: 360, useNativeDriver: true }),
-        Animated.delay((cubes.length - 1 - i) * 140),
-      ]),
-    ));
-    loops.forEach((loop) => loop.start());
-    return () => loops.forEach((loop) => loop.stop());
-  }, [cubes]);
-
-  return (
-    <View style={s.pulseCubesRow}>
-      {cubes.map((cube, i) => (
-        <Animated.View
-          key={i}
-          style={{
-            width: size,
-            height: size,
-            borderRadius: size * 0.28,
-            backgroundColor: color,
-            opacity: cube,
-            transform: [{ scale: cube }],
-          }}
-        />
-      ))}
-    </View>
-  );
-}
-
 function OptionPill({
   label,
   active,
@@ -1224,6 +1187,9 @@ function FlashcardsSets({
     .replace(/\s+/g, ' ')
     .trim();
   const columns = layout.width >= 700 ? 3 : 2;
+  const cardGap = 12;
+  const gridInnerWidth = Math.min(layout.width, layout.contentMaxWidth) - 20;
+  const cardWidth = (gridInnerWidth - cardGap * (columns - 1)) / columns;
   const coverColors = ['#df6b6b', '#69beb8', '#68aac7', '#e99b76', '#8dbfab', '#dcc86d'];
   const query = search.trim().toLowerCase();
   const filteredSets = sets
@@ -1316,7 +1282,7 @@ function FlashcardsSets({
           ) : viewMode === 'grid' ? (
             <ScrollView
               style={s.collectionScroll}
-              contentContainerStyle={[s.collectionGrid, { gap: columns === 3 ? 10 : 8 }]}
+              contentContainerStyle={[s.collectionGrid, { gap: cardGap }]}
               showsVerticalScrollIndicator={false}
               bounces
               refreshControl={(
@@ -1331,7 +1297,7 @@ function FlashcardsSets({
               {filteredSets.map((item, index) => (
                 <View
                   key={item.id}
-                  style={[s.collectionCard, { width: columns === 3 ? '31.8%' : '48.8%' }]}
+                  style={[s.collectionCard, { width: cardWidth }]}
                 >
                   <View style={[s.collectionCover, { backgroundColor: coverColors[index % coverColors.length] }]}>
                     <HapticTouchable
@@ -1653,7 +1619,6 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     justifyContent: 'center',
     alignItems: 'center',
   },
-  pulseCubesRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
 
   createContent: {
     width: '100%',
