@@ -423,7 +423,16 @@ export default function TabNavigator({ user, onLogout, onUserUpdate, onRetakeQui
           </Stack.Screen>
           <Stack.Screen name="LearningPaths">
             {({ navigation }) => (
-              <ScreenErrorBoundary label="Learning Paths"><LearningPathsScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
+              <ScreenErrorBoundary label="Learning Paths">
+                <LearningPathsScreen
+                  user={user}
+                  onBack={() => navigation.goBack()}
+                  onNavigate={(screen) => {
+                    if (screen === 'notes') navigation.navigate('Notes');
+                    if (screen === 'flashcards') navigation.navigate('Flashcards');
+                  }}
+                />
+              </ScreenErrorBoundary>
             )}
           </Stack.Screen>
           <Stack.Screen name="Leaderboard">
