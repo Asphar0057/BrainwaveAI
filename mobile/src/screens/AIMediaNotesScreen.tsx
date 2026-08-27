@@ -1273,7 +1273,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     flexDirection: 'row',
     alignItems: 'center',
     paddingTop: 18,
-    paddingBottom: 6,
+    paddingBottom: 12,
     gap: 8,
   },
   backBtn:     { width: 36, alignItems: 'flex-start', justifyContent: 'center' },
