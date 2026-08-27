@@ -64,9 +64,12 @@ type AppTarget = 'flashcards' | 'notes' | 'aimedia' | 'settings' | 'questionBank
 type Props = { user: AuthUser; onBack: () => void; onNavigate?: (screen: AppTarget) => void };
 
 const HUB_SIDEBAR_ITEMS: SidebarItem[] = [
-  { key: 'deck', label: 'My Deck' },
-  { key: 'library', label: 'My Library' },
-  { key: 'upload', label: 'Upload' },
+  { key: 'vault', label: 'Vault' },
+  { key: 'ask', label: 'Ask' },
+  { key: 'concepts', label: 'Concepts' },
+  { key: 'reviews', label: 'Reviews' },
+  { key: 'commands', label: 'Commands' },
+  { key: 'upload', label: 'Upload Source' },
 ];
 
 type AskResult = {
@@ -458,11 +461,10 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
           <HapticTouchable onPress={onBack} haptic="selection">
             <Ionicons name="chevron-back" size={22} color={selectedTheme.accentHover} />
           </HapticTouchable>
-          <Text style={[s.title, { flex: 1 }]}>hub</Text>
-          <HapticTouchable style={[s.hsToggle, hsMode && s.hsToggleActive]} onPress={toggleHs} haptic="selection">
-            <Ionicons name={hsMode ? 'sparkles' : 'book-outline'} size={14} color={hsMode ? selectedTheme.bgPrimary : selectedTheme.textPrimary} />
-            <Text style={[s.hsToggleText, hsMode && s.hsToggleTextActive]}>{hsMode ? 'HS mode' : 'context'}</Text>
-          </HapticTouchable>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={s.title}>hub</Text>
+            <Text style={s.subtitle}>{readyDocs.length} sources · {concepts.length} concepts</Text>
+          </View>
           <HapticTouchable onPress={() => setSidebarOpen(true)} haptic="selection" accessibilityLabel="Open menu">
             <Ionicons name="menu-outline" size={24} color={selectedTheme.accentHover} />
           </HapticTouchable>
@@ -471,7 +473,13 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
         <View style={s.hero}>
           <NeumorphicLayer grainOpacity={0.26} />
           <Text style={s.heroGhost}>01</Text>
-          <Text style={s.heroCopy}>{readyDocs.length} ready sources · {concepts.length} concepts · {reviews.length} reviews</Text>
+          <View style={s.heroTopRow}>
+            <Text style={[s.heroCopy, { flex: 1 }]}>{readyDocs.length} ready sources · {concepts.length} concepts · {reviews.length} reviews</Text>
+            <HapticTouchable style={[s.hsToggle, hsMode && s.hsToggleActive]} onPress={toggleHs} haptic="selection">
+              <Ionicons name={hsMode ? 'sparkles' : 'book-outline'} size={13} color={hsMode ? selectedTheme.bgPrimary : selectedTheme.textPrimary} />
+              <Text style={[s.hsToggleText, hsMode && s.hsToggleTextActive]}>{hsMode ? 'HS' : 'context'}</Text>
+            </HapticTouchable>
+          </View>
           <View style={s.heroMetrics}>
             <Metric label="selected" value={String(selectedIds.size)} styles={s} />
             <Metric label="links" value={String(conceptConnections)} styles={s} />
@@ -567,9 +575,9 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
         onClose={() => setSidebarOpen(false)}
         pageTitle="hub"
         items={HUB_SIDEBAR_ITEMS}
-        activeKey={tab === 'vault' ? 'library' : ''}
+        activeKey={tab}
         onSelect={(key) => {
-          if (key === 'deck' || key === 'library') setTab('vault');
+          if (key === 'vault' || key === 'ask' || key === 'concepts' || key === 'reviews' || key === 'commands') setTab(key);
           else if (key === 'upload') { setTab('vault'); pickDocuments(); }
         }}
         footerLabel="Dashboard"
@@ -852,15 +860,17 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bgPrimary },
     scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 10, paddingBottom: 118, gap: 14 },
-    topBar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 18, paddingBottom: 12 },
+    topBar: { flexDirection: 'row', alignItems: 'center', paddingTop: 18, paddingBottom: 12 },
     title: { fontFamily: 'Inter_900Black', fontSize: 32, color: theme.accentHover, letterSpacing: -0.8 },
-    hsToggle: { height: 40, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 7, boxShadow: cbTileShadow(0.055) },
+    subtitle: { fontFamily: 'Inter_400Regular', fontSize: 10, color: theme.textSecondary, letterSpacing: 2.2, marginTop: 4, textTransform: 'uppercase' },
+    hsToggle: { height: 34, borderRadius: 14, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center', gap: 6, boxShadow: cbTileShadow(0.055) },
     hsToggleActive: { backgroundColor: theme.accentHover, borderColor: theme.accentHover },
-    hsToggleText: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 11, textTransform: 'lowercase' },
+    hsToggleText: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 10, textTransform: 'lowercase' },
     hsToggleTextActive: { color: theme.bgPrimary },
     hero: { borderRadius: 30, padding: 20, overflow: 'hidden', boxShadow: cbModalShadow(0.14) } as ViewStyle,
     heroGhost: { position: 'absolute', right: 15, top: 0, fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 92 : 76, lineHeight: layout.isTablet ? 98 : 82, color: rgbaFromHex(theme.textPrimary, theme.isLight ? 0.035 : 0.055), letterSpacing: -4 },
-    heroCopy: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 13, marginTop: 4 },
+    heroTopRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    heroCopy: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 13 },
     heroMetrics: { flexDirection: 'row', gap: 9, marginTop: 16 },
     metric: { flex: 1, borderRadius: 16, padding: 10, backgroundColor: rgbaFromHex(theme.panelAlt, 0.74), overflow: 'hidden', boxShadow: cbTileShadow(0.05), ...cbTileBorder(0.13) },
     metricValue: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 20, letterSpacing: 0 },
