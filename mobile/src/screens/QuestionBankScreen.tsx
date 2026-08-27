@@ -14,7 +14,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../services/auth';
@@ -31,10 +31,19 @@ import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
 import MathText from '../components/MathText';
-import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../components/NeumorphicTexture';
+import PulseCubes from '../components/PulseCubes';
+import { cbTileShadow, cbTileBorder } from '../components/NeumorphicTexture';
+import SectionSidebar, { SidebarItem } from '../components/SectionSidebar';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
+
+const COVER_COLORS = ['#df6b6b', '#69beb8', '#68aac7', '#e99b76', '#8dbfab', '#dcc86d'];
+
+const QUESTION_BANK_SIDEBAR_ITEMS: SidebarItem[] = [
+  { key: 'sets', label: 'All Sets' },
+  { key: 'generate', label: 'Generate Set' },
+];
 
 type Props = { user: AuthUser; onBack: () => void };
 type ResultDetail = { question_id: number; user_answer: string; correct_answer: string; is_correct: boolean; explanation?: string };
@@ -51,13 +60,14 @@ function normalizeOptions(question: PracticeQuestion) {
 export default function QuestionBankScreen({ user, onBack }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
-  const insets = useSafeAreaInsets();
-  const s = useMemo(() => createStyles(selectedTheme, layout, insets.top), [selectedTheme, layout, insets.top]);
+  const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
+  const ink = selectedTheme.isLight ? darkenColor(selectedTheme.accent, 38) : selectedTheme.bgPrimary;
   const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black });
   const [sets, setSets] = useState<QuestionSetSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedSet, setSelectedSet] = useState<(QuestionSetSummary & { questions: PracticeQuestion[] }) | null>(null);
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -174,13 +184,13 @@ export default function QuestionBankScreen({ user, onBack }: Props) {
     const detail = result?.details?.find((item) => item.question_id === q?.id);
 
     return (
-      <View style={s.root}>
+      <SafeAreaView style={s.root} edges={['top']}>
         <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
         <GeoBackground />
         <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
           <View style={s.topBar}>
-            <HapticTouchable style={s.iconBtn} onPress={() => setSelectedSet(null)} haptic="light">
-              <Ionicons name="chevron-back" size={18} color={selectedTheme.accent} />
+            <HapticTouchable onPress={() => setSelectedSet(null)} haptic="selection">
+              <Ionicons name="chevron-back" size={22} color={selectedTheme.accentHover} />
             </HapticTouchable>
             <Text style={s.topMeta}>{current + 1}/{questions.length}</Text>
           </View>
@@ -262,35 +272,36 @@ export default function QuestionBankScreen({ user, onBack }: Props) {
             )}
           </View>
         </ScrollView>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={s.root}>
+    <SafeAreaView style={s.root} edges={['top']}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
       <GeoBackground />
       <AmbientBubbles theme={selectedTheme} variant="flashcards" opacity={0.72} />
+      <View style={s.header}>
+        <HapticTouchable onPress={onBack} haptic="selection">
+          <Ionicons name="chevron-back" size={22} color={selectedTheme.accentHover} />
+        </HapticTouchable>
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          <Text style={s.bankTitle}>question bank</Text>
+          <Text style={s.subtitle}>{sets.length} sets · {sets.reduce((sum, set) => sum + questionCount(set), 0)} questions</Text>
+        </View>
+        <HapticTouchable onPress={() => setSidebarOpen(true)} haptic="selection" accessibilityLabel="Open menu">
+          <Ionicons name="menu-outline" size={24} color={selectedTheme.accentHover} />
+        </HapticTouchable>
+      </View>
       <ScrollView
         contentContainerStyle={s.scroll}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={selectedTheme.accent} />}
       >
-        <View style={s.topBar}>
-          <HapticTouchable style={s.iconBtn} onPress={onBack} haptic="light">
-            <Ionicons name="chevron-back" size={18} color={selectedTheme.accent} />
-          </HapticTouchable>
-          <HapticTouchable style={s.iconBtn} onPress={() => setShowGenerate(true)} haptic="medium">
-            <Ionicons name="add" size={20} color={selectedTheme.accent} />
-          </HapticTouchable>
-        </View>
-
-        <View style={s.hero}>
-          <NeumorphicLayer grainOpacity={0.26} />
-          <Text style={s.heroGhost}>01</Text>
-          <Text style={s.heroTitle}>question bank</Text>
-          <Text style={s.heroCopy}>{sets.length} sets · {sets.reduce((sum, set) => sum + questionCount(set), 0)} questions</Text>
-        </View>
+        <HapticTouchable style={s.generateAction} onPress={() => setShowGenerate(true)} haptic="medium" activeOpacity={0.88}>
+          <Ionicons name="add" size={16} color={ink} />
+          <Text style={s.generateActionText}>Generate</Text>
+        </HapticTouchable>
 
         <View style={s.searchBox}>
           <Ionicons name="search-outline" size={15} color={selectedTheme.textSecondary} />
@@ -298,31 +309,25 @@ export default function QuestionBankScreen({ user, onBack }: Props) {
         </View>
 
         {loading ? (
-          <ActivityIndicator color={selectedTheme.accent} size="large" style={{ marginTop: 44 }} />
+          <View style={s.loading}><PulseCubes color={selectedTheme.accent} size={13} /></View>
         ) : filtered.length === 0 ? (
           <View style={s.empty}>
             <Ionicons name="help-circle-outline" size={40} color={selectedTheme.accent} />
             <Text style={s.emptyTitle}>no question sets</Text>
-            <Text style={s.emptyText}>generate a set from any topic to start practicing</Text>
           </View>
         ) : (
-          <View style={s.list}>
-            {filtered.map((set) => (
-              <HapticTouchable key={set.id} style={s.setCard} onPress={() => openSet(set.id)} activeOpacity={0.82} haptic="selection">
-                <View style={s.setTop}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.setTitle} numberOfLines={2}>{set.title}</Text>
-                    <Text style={s.setMeta}>{questionCount(set)} questions · best {Math.round(set.best_score || 0)}%</Text>
-                  </View>
-                  {openingId === set.id ? <ActivityIndicator color={selectedTheme.accent} /> : <Ionicons name="chevron-forward" size={17} color={selectedTheme.accent} />}
-                </View>
-                <View style={s.setFooter}>
-                  <Text style={s.pill}>{set.status || 'ready'}</Text>
-                  <HapticTouchable style={s.deleteBtn} onPress={() => removeSet(set)} haptic="warning">
-                    <Ionicons name="trash-outline" size={14} color={selectedTheme.textSecondary} />
-                  </HapticTouchable>
-                </View>
-              </HapticTouchable>
+          <View style={s.grid}>
+            {filtered.map((set, index) => (
+              <SetCard
+                key={set.id}
+                set={set}
+                color={COVER_COLORS[index % COVER_COLORS.length]}
+                busy={openingId === set.id}
+                onOpen={() => openSet(set.id)}
+                onDelete={() => removeSet(set)}
+                styles={s}
+                ink={ink}
+              />
             ))}
           </View>
         )}
@@ -354,41 +359,94 @@ export default function QuestionBankScreen({ user, onBack }: Props) {
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
-    </View>
+
+      <SectionSidebar
+        visible={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        pageTitle="question bank"
+        items={QUESTION_BANK_SIDEBAR_ITEMS}
+        activeKey="sets"
+        onSelect={(key) => {
+          if (key === 'generate') setShowGenerate(true);
+        }}
+        footerLabel="Dashboard"
+        onFooterPress={onBack}
+      />
+    </SafeAreaView>
   );
 }
 
-function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>, topInset: number) {
+function SetCard({ set, color, busy, onOpen, onDelete, styles, ink }: {
+  set: QuestionSetSummary;
+  color: string;
+  busy: boolean;
+  onOpen: () => void;
+  onDelete: () => void;
+  styles: ReturnType<typeof createStyles>;
+  ink: string;
+}) {
+  const best = Math.round(set.best_score || 0);
+  return (
+    <HapticTouchable style={styles.setCard} onPress={onOpen} haptic="selection" activeOpacity={0.88}>
+      <View style={[styles.setCardBanner, { backgroundColor: color }]}>
+        <HapticTouchable style={styles.setDeleteBtn} onPress={(event) => { event.stopPropagation(); onDelete(); }} haptic="warning">
+          <Ionicons name="trash-outline" size={13} color="#171411" />
+        </HapticTouchable>
+        <Text style={styles.setCardTitle} numberOfLines={3}>{set.title}</Text>
+        <Text style={styles.setCardMeta}>{questionCount(set)} QUESTIONS</Text>
+      </View>
+      <View style={styles.setCardBody}>
+        <View style={styles.cardProgressTop}><Text style={styles.cardProgressLabel}>BEST SCORE</Text><Text style={styles.cardPercent}>{best}%</Text></View>
+        <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.max(2, best)}%`, backgroundColor: color }]} /></View>
+        <View style={[styles.openBtn, { backgroundColor: color }]}>
+          {busy ? <ActivityIndicator color={ink} size="small" /> : (
+            <>
+              <Text style={[styles.openBtnText, { color: ink }]}>PRACTICE</Text>
+              <Ionicons name="chevron-forward" size={15} color={ink} />
+            </>
+          )}
+        </View>
+      </View>
+    </HapticTouchable>
+  );
+}
+
+function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
   const surface = theme.panel;
   const border = rgbaFromHex(theme.accentHover, theme.isLight ? 0.16 : 0.18);
   const accentInk = theme.isLight ? darkenColor(theme.accent, 38) : theme.bgPrimary;
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bgPrimary },
-    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 5, paddingTop: Math.max(topInset + 12, 52), paddingBottom: 118, gap: 14 },
+    header: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingTop: 18, paddingBottom: 12 },
+    bankTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 32, letterSpacing: -0.8 },
+    subtitle: { fontFamily: 'Inter_400Regular', fontSize: 10, color: theme.textSecondary, letterSpacing: 2.2, marginTop: 4, textTransform: 'uppercase' },
+    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 10, paddingTop: 14, paddingBottom: 118, gap: 14 },
     topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     topMeta: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase' },
-    iconBtn: { width: 40, height: 40, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.06) },
-    hero: { borderRadius: 30, padding: 20, overflow: 'hidden', boxShadow: cbModalShadow(0.14) } as ViewStyle,
-    heroGhost: { position: 'absolute', right: 15, top: 0, fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 92 : 76, lineHeight: layout.isTablet ? 98 : 82, color: rgbaFromHex(theme.textPrimary, theme.isLight ? 0.035 : 0.055), letterSpacing: -4 },
-    heroTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 38, letterSpacing: 0, marginTop: 8 },
-    heroCopy: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 13, marginTop: 4 },
     title: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 28, letterSpacing: 0 },
     practiceHeader: { gap: 12 },
     progressTrack: { height: 5, borderRadius: 3, overflow: 'hidden', backgroundColor: rgbaFromHex(theme.accent, 0.14) },
     progressFill: { height: '100%', backgroundColor: theme.accentHover },
-    searchBox: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 18, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), paddingHorizontal: 14, boxShadow: cbTileShadow(0.055) } as ViewStyle,
+    generateAction: { width: '100%', minHeight: 54, borderRadius: 18, backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+    generateActionText: { fontFamily: 'Inter_900Black', color: accentInk, fontSize: 12, letterSpacing: 4, textTransform: 'uppercase' },
+    searchBox: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), paddingHorizontal: 14, boxShadow: cbTileShadow(0.055) } as ViewStyle,
     searchInput: { flex: 1, color: theme.textPrimary, fontFamily: 'Inter_600SemiBold', fontSize: 14, paddingVertical: 10 },
+    loading: { alignItems: 'center', justifyContent: 'center', paddingVertical: 100 },
     empty: { alignItems: 'center', paddingVertical: 48, gap: 9 },
     emptyTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 22 },
-    emptyText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 13, textAlign: 'center' },
-    list: { gap: 12 },
-    setCard: { borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 16, gap: 14, boxShadow: cbTileShadow(0.07) } as ViewStyle,
-    setTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    setTitle: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 17, letterSpacing: 0 },
-    setMeta: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, marginTop: 5 },
-    setFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 },
+    setCard: { width: '48%', borderRadius: 17, overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) } as ViewStyle,
+    setCardBanner: { minHeight: layout.height >= 820 ? 101 : 88, padding: 10, justifyContent: 'center', alignItems: 'center' },
+    setCardTitle: { fontFamily: 'Inter_900Black', color: '#171411', fontSize: 13, lineHeight: 16, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.4 },
+    setCardMeta: { fontFamily: 'Inter_700Bold', color: rgbaFromHex('#171411', 0.66), fontSize: 9, letterSpacing: 1, textAlign: 'center', marginTop: 6 },
+    setDeleteBtn: { position: 'absolute', top: 8, right: 8, width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+    setCardBody: { padding: 12, gap: 9 },
+    cardProgressTop: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+    cardProgressLabel: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 9, letterSpacing: 1 },
+    cardPercent: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 10 },
+    openBtn: { height: 40, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+    openBtnText: { fontFamily: 'Inter_900Black', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.8 },
     pill: { alignSelf: 'flex-start', borderWidth: 1, borderColor: theme.border, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, color: theme.textSecondary, fontFamily: 'Inter_700Bold', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 },
-    deleteBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
     questionCard: { borderWidth: 1, borderColor: border, borderRadius: 24, backgroundColor: rgbaFromHex(surface, 0.72), padding: 18, gap: 16, boxShadow: cbTileShadow(0.08) } as ViewStyle,
     questionMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     questionText: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 19, lineHeight: 27 },
