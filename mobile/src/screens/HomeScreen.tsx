@@ -552,7 +552,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
 
   return StyleSheet.create({
   safe: { flex: 1, backgroundColor: 'transparent', overflow: 'hidden' },
-  scroll: { paddingBottom: layout.isLandscape ? 92 : 110 },
+  scroll: { paddingBottom: 24 },
   topBar: {
     width: '100%',
     maxWidth: layout.contentMaxWidth,
