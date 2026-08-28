@@ -5,7 +5,6 @@ import {
   KeyboardAvoidingView, Platform, Switch,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../../services/auth';
@@ -67,6 +66,7 @@ export default function PlaylistsScreen({ user, onBack }: Props) {
   const [catFilter, setCatFilter]   = useState('');
   const [diffFilter, setDiffFilter] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [creating, setCreating]     = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Create form
@@ -165,7 +165,7 @@ export default function PlaylistsScreen({ user, onBack }: Props) {
   if (!fontsLoaded) return null;
 
   return (
-    <SafeAreaView style={s.root} edges={['top']}>
+    <View style={s.root}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.58, 1]} style={StyleSheet.absoluteFillObject} />
       <GeoBackground />
 
@@ -193,24 +193,19 @@ export default function PlaylistsScreen({ user, onBack }: Props) {
           <Text style={s.createActionText}>Create Playlist</Text>
         </HapticTouchable>
 
-        {/* Search */}
-        <View style={s.searchBox}>
+        {/* Search & filter -- a single entry point into the dedicated
+            search/filter page instead of a permanent row of category and
+            difficulty tag chips cluttering the list. */}
+        <HapticTouchable style={s.searchTrigger} onPress={() => setShowFilters(true)} haptic="selection">
           <Ionicons name="search-outline" size={15} color={DIM} />
-          <TextInput
-            style={s.searchInput}
-            value={search}
-            onChangeText={setSearch}
-            placeholder="search playlists..."
-            placeholderTextColor={DIM}
-            autoCapitalize="none"
-            returnKeyType="search"
-          />
-          {!!search && (
-            <HapticTouchable onPress={() => setSearch('')} haptic="light">
-              <Ionicons name="close-circle" size={15} color={DIM} />
-            </HapticTouchable>
-          )}
-        </View>
+          <Text style={s.searchTriggerText} numberOfLines={1}>
+            {search || catFilter || diffFilter
+              ? [search, catFilter, diffFilter].filter(Boolean).join(' · ')
+              : 'search & filter playlists...'}
+          </Text>
+          {!!(search || catFilter || diffFilter) && <View style={s.searchTriggerBadge} />}
+          <Ionicons name="options-outline" size={17} color={selectedTheme.accentHover} />
+        </HapticTouchable>
 
         {/* Tabs */}
         <View style={s.tabRow}>
@@ -221,24 +216,6 @@ export default function PlaylistsScreen({ user, onBack }: Props) {
             </HapticTouchable>
           ))}
         </View>
-
-        {/* Category filter chips */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips} style={s.chipsScroll}>
-          {['', ...CATEGORIES].map(c => (
-            <HapticTouchable key={c || 'all'} style={[s.chip, catFilter === c && s.chipActive]} onPress={() => setCatFilter(c)} haptic="selection">
-              <Text style={[s.chipText, catFilter === c && s.chipTextActive]}>{c || 'all'}</Text>
-            </HapticTouchable>
-          ))}
-        </ScrollView>
-
-        {/* Difficulty chips */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips} style={s.chipsScroll}>
-          {['', ...DIFFICULTIES].map(d => (
-            <HapticTouchable key={d || 'any'} style={[s.chip, diffFilter === d && s.chipActive]} onPress={() => setDiffFilter(d)} haptic="selection">
-              <Text style={[s.chipText, diffFilter === d && s.chipTextActive]}>{d || 'any level'}</Text>
-            </HapticTouchable>
-          ))}
-        </ScrollView>
 
         {loading ? (
           <View style={s.loading}><PulseCubes color={selectedTheme.accent} size={13} /></View>
@@ -345,6 +322,68 @@ export default function PlaylistsScreen({ user, onBack }: Props) {
         </KeyboardAvoidingView>
       </Modal>
 
+      <Modal visible={showFilters} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowFilters(false)}>
+        <View style={m.root}>
+          <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFillObject} />
+          <GeoBackground />
+          <View style={m.header}>
+            <Text style={m.title}>search & filter</Text>
+            <HapticTouchable onPress={() => setShowFilters(false)} haptic="light">
+              <Ionicons name="close" size={22} color={selectedTheme.accent} />
+            </HapticTouchable>
+          </View>
+          <ScrollView contentContainerStyle={m.body} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <Text style={m.label}>search</Text>
+            <View style={s.searchBox}>
+              <Ionicons name="search-outline" size={15} color={DIM} />
+              <TextInput
+                style={s.searchInput}
+                value={search}
+                onChangeText={setSearch}
+                placeholder="title, description, creator..."
+                placeholderTextColor={DIM}
+                autoCapitalize="none"
+                returnKeyType="search"
+                autoFocus
+              />
+              {!!search && (
+                <HapticTouchable onPress={() => setSearch('')} haptic="light">
+                  <Ionicons name="close-circle" size={15} color={DIM} />
+                </HapticTouchable>
+              )}
+            </View>
+
+            <Text style={m.label}>category</Text>
+            <View style={m.chipsWrap}>
+              {['', ...CATEGORIES].map(c => (
+                <HapticTouchable key={c || 'all'} style={[m.chip, catFilter === c && m.chipActive]} onPress={() => setCatFilter(c)} haptic="selection">
+                  <Text style={[m.chipText, catFilter === c && m.chipTextActive]}>{c || 'all subjects'}</Text>
+                </HapticTouchable>
+              ))}
+            </View>
+
+            <Text style={m.label}>difficulty</Text>
+            <View style={m.diffRow}>
+              {['', ...DIFFICULTIES].map(d => (
+                <HapticTouchable key={d || 'any'} style={[m.diffBtn, diffFilter === d && m.diffBtnActive]} onPress={() => setDiffFilter(d)} haptic="selection">
+                  <Text style={[m.diffText, diffFilter === d && { color: DIFF_COLOR[d] ?? selectedTheme.accentHover }]}>{d || 'any level'}</Text>
+                </HapticTouchable>
+              ))}
+            </View>
+
+            {!!(search || catFilter || diffFilter) && (
+              <HapticTouchable style={m.clearBtn} onPress={() => { setSearch(''); setCatFilter(''); setDiffFilter(''); }} haptic="light">
+                <Text style={m.clearText}>clear all filters</Text>
+              </HapticTouchable>
+            )}
+
+            <HapticTouchable style={m.submit} onPress={() => setShowFilters(false)} haptic="medium">
+              <Text style={m.submitText}>show results</Text>
+            </HapticTouchable>
+          </ScrollView>
+        </View>
+      </Modal>
+
       <SectionSidebar
         visible={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -358,7 +397,7 @@ export default function PlaylistsScreen({ user, onBack }: Props) {
         footerLabel="Dashboard"
         onFooterPress={onBack}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -426,17 +465,14 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     createActionText: { fontFamily: 'Inter_900Black', color: accentInk, fontSize: 12, letterSpacing: 4, textTransform: 'uppercase' },
     searchBox: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), paddingHorizontal: 14, boxShadow: cbTileShadow(0.055) },
     searchInput: { flex: 1, fontFamily: 'Inter_600SemiBold', fontSize: 14, color: theme.textPrimary },
+    searchTrigger: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), paddingHorizontal: 14, boxShadow: cbTileShadow(0.055) },
+    searchTriggerText: { flex: 1, fontFamily: 'Inter_600SemiBold', fontSize: 14, color: theme.textSecondary },
+    searchTriggerBadge: { width: 6, height: 6, borderRadius: 3, backgroundColor: theme.accent },
     tabRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: border },
     tabItem: { flex: 1, alignItems: 'center', paddingBottom: 10, position: 'relative' },
     tabText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: theme.textSecondary, textTransform: 'uppercase', letterSpacing: 0.8 },
     tabTextActive: { color: theme.accentHover },
     tabLine: { position: 'absolute', bottom: -1, left: '10%', right: '10%', height: 2, backgroundColor: theme.accent, borderRadius: 1 },
-    chipsScroll: { flexGrow: 0, flexShrink: 0 },
-    chips: { gap: 8, flexDirection: 'row' },
-    chip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72) },
-    chipActive: { backgroundColor: rgbaFromHex(theme.accent, 0.16), borderColor: rgbaFromHex(theme.accent, 0.34) },
-    chipText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: theme.textSecondary },
-    chipTextActive: { color: theme.accentHover },
     loading: { alignItems: 'center', justifyContent: 'center', paddingVertical: 100 },
     empty: { alignItems: 'center', paddingVertical: 48, gap: 9 },
     emptyTitle: { fontFamily: 'Inter_900Black', fontSize: 18, color: theme.accentHover },
@@ -482,6 +518,7 @@ function createModalStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'
     label: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: DIM, letterSpacing: 1, marginTop: 10 },
     input: { backgroundColor: SURFACE_ALT, borderRadius: 12, borderWidth: 1, borderColor: BORDER, paddingHorizontal: 14, paddingVertical: 12, fontFamily: 'Inter_400Regular', fontSize: 14, color: ACCENT_HOVER, marginTop: 4 },
     chips: { gap: 8, paddingVertical: 6, flexDirection: 'row' },
+    chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 6 },
     chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE_ALT },
     chipActive: { backgroundColor: rgbaFromHex(ACCENT, 0.16), borderColor: rgbaFromHex(ACCENT, 0.34) },
     chipText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: DIM },
@@ -491,7 +528,9 @@ function createModalStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'
     diffBtnActive: { borderColor: rgbaFromHex(ACCENT, 0.34), backgroundColor: rgbaFromHex(ACCENT, 0.14) },
     diffText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: DIM },
     toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 },
-    submit: { marginTop: 24, height: 52, borderRadius: 14, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center' },
+    clearBtn: { alignItems: 'center', marginTop: 18 },
+    clearText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: theme.danger, letterSpacing: 0.6, textTransform: 'uppercase' },
+    submit: { marginTop: 16, height: 52, borderRadius: 14, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center' },
     submitText: { fontFamily: 'Inter_900Black', fontSize: 15, color: theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary },
   });
 }

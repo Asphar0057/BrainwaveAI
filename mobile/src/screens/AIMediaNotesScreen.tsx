@@ -3,18 +3,19 @@ import {
   View, Text, StyleSheet, TextInput,
   ScrollView, Animated, KeyboardAvoidingView, Platform, Alert, ActivityIndicator
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { useFocusEffect } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as DocumentPicker from 'expo-document-picker';
 import { AudioModule, RecordingPresets, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import HapticTouchable from '../components/HapticTouchable';
 import TileGleam from '../components/TileGleam';
 import NeumorphicTexture, { cbTileShadow, cbModalShadow, cbTileBorder } from '../components/NeumorphicTexture';
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
+import SectionSidebar, { SidebarItem } from '../components/SectionSidebar';
 import { AuthUser } from '../services/auth';
 import { useAppTheme } from '../contexts/ThemeContext';
 import {
@@ -28,6 +29,8 @@ import {
   processMediaYouTube,
   processMediaFile,
   getMediaHistory,
+  getNote,
+  deleteNote,
   saveMediaNotes,
   startPodcastMCQ,
   startPodcastSession,
@@ -455,18 +458,31 @@ function formatRecordingDuration(ms: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
+const MEDIA_SIDEBAR_ITEMS: SidebarItem[] = [
+  { key: 'youtube', label: 'YouTube' },
+  { key: 'record', label: 'Record Audio' },
+  { key: 'upload', label: 'Upload Audio' },
+];
+
 function AIMediaHub({
   user,
   onBack,
   onStartProcessing,
   onStartProcessingFile,
-}: Props & { onStartProcessing: (url: string) => void; onStartProcessingFile: (file: MediaFile) => void }) {
+  onOpenHistoryItem,
+}: Props & {
+  onStartProcessing: (url: string) => void;
+  onStartProcessingFile: (file: MediaFile) => void;
+  onOpenHistoryItem: (result: MediaResult) => void;
+}) {
   const [mode,    setMode]    = useState<Mode>('youtube');
   const [url,     setUrl]     = useState('');
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [error,   setError]   = useState('');
   const [recordedFile, setRecordedFile] = useState<MediaFile | null>(null);
   const [pickedFile,   setPickedFile]   = useState<MediaFile | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [openingId, setOpeningId] = useState<number | null>(null);
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder, 200);
@@ -504,12 +520,50 @@ function AIMediaHub({
       .catch(() => {});
   }, [user.username]);
 
+  const openHistoryItem = async (item: HistoryItem) => {
+    if (openingId) return;
+    setOpeningId(item.id);
+    try {
+      const note = await getNote(item.id);
+      onOpenHistoryItem({
+        filename: note.title || 'Untitled Note',
+        transcript: note.transcript || '',
+        duration: 0,
+        language_name: '',
+        notes: { content: note.content || '' },
+        analysis: note.analysis || {},
+      });
+    } catch (error) {
+      Alert.alert('Could not open', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setOpeningId(null);
+    }
+  };
+
+  const deleteHistoryItem = (item: HistoryItem) => {
+    Alert.alert('Delete this note?', item.title, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          setHistory((current) => current.filter((i) => i.id !== item.id));
+          try {
+            await deleteNote(item.id);
+          } catch {
+            loadHistory();
+          }
+        },
+      },
+    ]);
+  };
+
   useFocusEffect(useCallback(() => {
     loadHistory();
   }, [loadHistory]));
 
   return (
-    <SafeAreaView style={s.safe} edges={['top']}>
+    <View style={s.safe}>
       <GeoBackground />
       <AmbientBubbles theme={CURRENT_THEME} variant="media" opacity={0.86} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -521,12 +575,15 @@ function AIMediaHub({
           <View style={s.header}>
             {onBack && (
               <HapticTouchable onPress={onBack} style={s.backBtn} haptic="selection">
-                <Text style={s.backBtnText}>‹</Text>
+                <Ionicons name="chevron-back" size={22} color={GOLD_L} />
               </HapticTouchable>
             )}
             <View style={{ flex: 1 }}>
               <Text style={s.pageTitle}>media notes</Text>
             </View>
+            <HapticTouchable onPress={() => setSidebarOpen(true)} style={s.backBtn} haptic="selection" accessibilityLabel="Open menu">
+              <Ionicons name="menu-outline" size={24} color={GOLD_L} />
+            </HapticTouchable>
           </View>
 
           <View style={s.modeSwitcher}>
@@ -723,7 +780,15 @@ function AIMediaHub({
             </View>
           ) : (
             history.slice(0, 8).map(item => (
-              <TileGleam key={item.id} style={s.histRow} borderRadius={16} haptic="light">
+              <TileGleam
+                key={item.id}
+                style={s.histRow}
+                borderRadius={16}
+                haptic="light"
+                onPress={() => openHistoryItem(item)}
+                onLongPress={() => deleteHistoryItem(item)}
+                disabled={openingId === item.id}
+              >
                 <NeumorphicTexture grainVariant="fine" grainOpacity={0.08} />
                 <View style={s.histIconBox}>
                   <Text style={s.histIconText}>N</Text>
@@ -736,13 +801,27 @@ function AIMediaHub({
                     </Text>
                   )}
                 </View>
-                <Text style={s.histDate}>{fmtDate(item.created_at)}</Text>
+                {openingId === item.id
+                  ? <ActivityIndicator color={GOLD_L} size="small" />
+                  : <Text style={s.histDate}>{fmtDate(item.created_at)}</Text>}
               </TileGleam>
             ))
           )}
+          <Text style={s.hintFooter}>long-press a note to delete it</Text>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+
+      <SectionSidebar
+        visible={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        pageTitle="media notes"
+        items={MEDIA_SIDEBAR_ITEMS}
+        activeKey={mode}
+        onSelect={(key) => { setMode(key as Mode); setError(''); }}
+        footerLabel="Dashboard"
+        onFooterPress={onBack}
+      />
+    </View>
   );
 }
 
@@ -793,7 +872,7 @@ function AIMediaProcessing({
   }, [onComplete, onError, url, file, user.username]);
 
   return (
-    <SafeAreaView style={s.safe} edges={['top']}>
+    <View style={s.safe}>
       <GeoBackground />
       <AmbientBubbles theme={CURRENT_THEME} variant="media" opacity={0.86} />
       <View style={s.subHeader}>
@@ -804,7 +883,7 @@ function AIMediaProcessing({
         <View style={s.backBtn} />
       </View>
       <ProcessingView status={STATUSES[statusIdx]} />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -1121,12 +1200,12 @@ function AIMediaResults({
   }, [displayTitle, result, saved, saving, user.username]);
 
   return (
-    <SafeAreaView style={s.safe} edges={['top']}>
+    <View style={s.safe}>
       <GeoBackground />
       <AmbientBubbles theme={CURRENT_THEME} variant="media" opacity={0.86} />
       <View style={s.subHeader}>
         <HapticTouchable onPress={onBack} style={s.backBtn} haptic="selection">
-          <Text style={s.backBtnText}>‹</Text>
+          <Ionicons name="chevron-back" size={20} color={GOLD_XL} />
         </HapticTouchable>
         <Text style={s.subTitle}>{tab === 'podcast' ? 'podcast' : 'notes'}</Text>
         <HapticTouchable
@@ -1184,7 +1263,7 @@ function AIMediaResults({
           }
         </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -1216,6 +1295,7 @@ export default function AIMediaNotesScreen({ user, onBack }: Props) {
             onBack={onBack}
             onStartProcessing={(url) => navigation.navigate('AIMediaProcessing', { url })}
             onStartProcessingFile={(file) => navigation.navigate('AIMediaProcessing', { file })}
+            onOpenHistoryItem={(result) => navigation.navigate('AIMediaResults', { result })}
           />
         )}
       </AIMediaStack.Screen>
@@ -1278,7 +1358,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   },
   backBtn:     { width: 36, alignItems: 'flex-start', justifyContent: 'center' },
   backBtnText: { fontFamily: 'Inter_700Bold', fontSize: 18, color: GOLD_XL, lineHeight: 22 },
-  pageTitle:   { fontFamily: 'Inter_900Black',   fontSize: 30, color: GOLD_L, letterSpacing: -0.6 },
+  pageTitle:   { fontFamily: 'Inter_900Black',   fontSize: 32, color: GOLD_L, letterSpacing: -0.8 },
 
   // Sub-screen header
   subHeader: {
@@ -1488,6 +1568,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   histTitle:    { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: GOLD_XL, lineHeight: 17, zIndex: 1 },
   histPreview:  { fontFamily: 'Inter_400Regular',  fontSize: 11, color: GOLD_L,  marginTop: 2,   zIndex: 1 },
   histDate:     { fontFamily: 'Inter_400Regular',  fontSize: 10, color: GOLD_D,  zIndex: 1 },
+  hintFooter:   { fontFamily: 'Inter_400Regular', fontSize: 10, color: GOLD_D, textAlign: 'center', marginTop: 6 },
 
   // Divider
   divider: { height: 1, backgroundColor: CARD_BORDER, marginHorizontal: 0 },

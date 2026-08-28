@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -107,7 +106,7 @@ function QuizHome({
   if (!fontsLoaded) return null;
 
   return (
-    <SafeAreaView style={hs.safe} edges={['top']}>
+    <View style={hs.safe}>
       <GeoBackground />
       <AmbientBubbles theme={selectedTheme} variant="quiz" opacity={0.84} />
 
@@ -136,7 +135,7 @@ function QuizHome({
         activeKey="home"
         onSelect={(key) => { if (key === 'solo') onOpenSolo(); else if (key === 'battles') onOpenBattles(); }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
