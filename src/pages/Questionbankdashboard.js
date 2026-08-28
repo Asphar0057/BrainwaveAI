@@ -157,6 +157,8 @@ const QuestionBankDashboard = () => {
   const [uploadedSlides, setUploadedSlides] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [contextGenerationStatus, setContextGenerationStatus] = useState('');
+  const contextGenerationRef = useRef('');
   const [exportingPdf, setExportingPdf] = useState(null);
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportSetId, setExportSetId] = useState(null);
@@ -358,9 +360,13 @@ const QuestionBankDashboard = () => {
     const autoGenerateFromContext = Boolean(location.state?.autoGenerateFromContext);
     if (!autoGenerateFromContext || !userId || !token) return;
     if (!Array.isArray(contextDocIds) || contextDocIds.length === 0) return;
+    const generationKey = contextDocIds.map(String).join(',');
+    if (contextGenerationRef.current === generationKey) return;
+    contextGenerationRef.current = generationKey;
 
     const run = async () => {
       try {
+        setContextGenerationStatus('Generating a grounded quiz from your selected sources…');
         setLoading(true);
         const response = await queuedAIJsonFetch('/generate_practice_questions', {
           method: 'POST',
@@ -395,8 +401,9 @@ const QuestionBankDashboard = () => {
         setUserAnswers({});
         setShowResults(false);
         setSessionStartTime(Date.now());
+        setContextGenerationStatus('');
       } catch (error) {
-        alert(error.message || 'Failed to generate quiz from selected context');
+        setContextGenerationStatus(error.message || 'Failed to generate quiz from selected context.');
       } finally {
         setLoading(false);
         navigate('/question-bank', { replace: true, state: {} });
@@ -3401,7 +3408,15 @@ const QuestionBankDashboard = () => {
             })}
           </div>
           <div className="qbd-main">
-            <div className="qbd-content">{renderViewContent()}</div>
+            <div className="qbd-content">
+              {contextGenerationStatus && (
+                <div className="qbd-loading" role="status" aria-live="polite">
+                  {contextGenerationStatus.startsWith('Generating') && <Loader className="qbd-spin" size={28} />}
+                  <p>{contextGenerationStatus}</p>
+                </div>
+              )}
+              {!contextGenerationStatus.startsWith('Generating') && renderViewContent()}
+            </div>
           </div>
         </main>
       </SocialHubChrome>

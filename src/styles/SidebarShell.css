@@ -521,6 +521,7 @@
   }
 
   .sb-collapsed-strip {
+    display: none;
     flex-direction: column;
     flex-wrap: nowrap;
     height: 100%;

@@ -232,7 +232,7 @@ const ContextFileAnalysis = () => {
     if (featureId === 'chat') {
       recordAction('chat');
       navigate('/ai-chat', {
-        state: { initialMessage: `Use this context file: ${sourceName}. Help me study what matters most.` },
+        state: { contextDocIds: [String(targetId)], initialMessage: `Use this context file: ${sourceName}. Help me study what matters most.` },
       });
       return;
     }

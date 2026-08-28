@@ -9,8 +9,8 @@ export function SidebarShell({ collapsed, onToggleCollapse, brandKicker, brandLo
           type="button"
           className="sb-mobile-sidebar-btn"
           onClick={onToggleCollapse}
-          aria-label={collapsed ? 'Open sidebar' : 'Close sidebar'}
-          title={collapsed ? 'Open sidebar' : 'Close sidebar'}
+          aria-label={collapsed ? 'Open sidebar' : 'Collapse sidebar'}
+          title={collapsed ? 'Open sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </button>

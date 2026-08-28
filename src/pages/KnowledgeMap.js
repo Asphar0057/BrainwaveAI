@@ -278,6 +278,7 @@ const KnowledgeMap = () => {
   const [exportedNodeCount, setExportedNodeCount] = useState(0);
   const [exportedNoteId, setExportedNoteId] = useState(null);
   const contextRoadmapTriggeredRef = useRef(false);
+  const [contextMapStatus, setContextMapStatus] = useState('');
   const topicMapTriggeredRef = useRef(false);
 
   
@@ -471,6 +472,7 @@ const createRoadmapFromChat = async () => {
 
     const run = async () => {
       try {
+        setContextMapStatus('Building a grounded knowledge map from your selected sources…');
         setLoading(true);
         const response = await queuedAIJsonFetch('/create_roadmap_from_context_docs', {
           method: 'POST',
@@ -492,12 +494,12 @@ const createRoadmapFromChat = async () => {
           clearRoadmapState(data.roadmap_id);
           navigate(`/knowledge-map/${data.roadmap_id}`, { replace: true, state: {} });
         } else {
+          setContextMapStatus('The knowledge map could not be created. Please try again.');
           navigate('/knowledge-map', { replace: true, state: {} });
-          alert('Could not create knowledge map from selected files.');
         }
       } catch (error) {
+        setContextMapStatus('The knowledge map could not be created. Please try again.');
         navigate('/knowledge-map', { replace: true, state: {} });
-        alert('Failed to build knowledge map from selected files. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -2123,7 +2125,12 @@ ${answeringComprehensionCheck ? `- The student is answering this previous compre
             </div>
 
             <div className="kr-main">
-              {loading && roadmaps.length === 0 ? (
+              {contextMapStatus ? (
+                <div className="kr-loading" role="status" aria-live="polite">
+                  {contextMapStatus.startsWith('Building') && <Loader size={32} className="kr-spinner" />}
+                  <p>{contextMapStatus}</p>
+                </div>
+              ) : loading && roadmaps.length === 0 ? (
                 <div className="kr-loading">
                   <Loader size={32} className="kr-spinner" />
                   <p>Loading knowledge maps...</p>

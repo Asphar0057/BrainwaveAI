@@ -7,7 +7,7 @@ import './ContextPanel.css';
 const DEFAULT_SELECTED_KEY = 'ctx_selected_doc_ids';
 
 const loadSelected = (selectionKey = DEFAULT_SELECTED_KEY) => {
-  try { return new Set(JSON.parse(localStorage.getItem(selectionKey) || '[]')); }
+  try { return new Set(JSON.parse(localStorage.getItem(selectionKey) || '[]').map(String)); }
   catch { return new Set(); }
 };
 
@@ -48,13 +48,12 @@ const ContextPanel = ({
   }, []);
 
   useEffect(() => {
-    if (isOpen) {
-      setSelectedIds(loadSelected(selectionKey));
-      loadDocs();
-    }
-  }, [isOpen, loadDocs, selectionKey]);
+    setSelectedIds(loadSelected(selectionKey));
+    loadDocs();
+  }, [loadDocs, selectionKey]);
 
   const toggleDoc = (id, filename) => {
+    id = String(id);
     setSelectedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -114,8 +113,9 @@ const ContextPanel = ({
     <>
       {isOpen && <div className="context-panel-overlay" onClick={onClose} />}
 
-      <div className={`context-panel ${isOpen ? 'open' : ''}`}>
+      <div className={`context-panel ${isOpen ? 'open' : ''}`} aria-hidden={!isOpen}>
 
+        {isOpen && <>
         {}
         <div className="cp-header">
           <div className="cp-header-left">
@@ -276,6 +276,7 @@ const ContextPanel = ({
           </div>
 
         </div>
+        </>}
 
         {}
         <div className="cp-footer">

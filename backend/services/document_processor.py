@@ -891,12 +891,25 @@ def process_upload(
                 pdf_page_count = extracted.get("page_count", 0) or 0
                 pdf_non_empty_pages = extracted.get("non_empty_pages", 0) or 0
                 extraction_warnings = extracted.get("warnings", []) or []
+        elif lower_name.endswith(".docx"):
+            try:
+                from docx import Document
+            except ImportError as exc:
+                raise RuntimeError("DOCX support is unavailable on the server") from exc
+            document = Document(io.BytesIO(file_bytes))
+            blocks = [paragraph.text.strip() for paragraph in document.paragraphs if paragraph.text.strip()]
+            for table in document.tables:
+                for row in table.rows:
+                    cells = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+                    if cells:
+                        blocks.append(" | ".join(cells))
+            text = "\n\n".join(blocks)
         elif lower_name.endswith((".txt", ".md")):
             text = extract_text_from_txt(file_bytes)
         else:
             error = (
                 f"Unsupported file type: '{filename}'. "
-                "Please upload a .pdf, .txt, or .md file."
+                "Please upload a .pdf, .docx, .txt, or .md file."
             )
     except Exception as e:
         error = f"Text extraction failed: {e}"

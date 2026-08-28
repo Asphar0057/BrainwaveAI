@@ -258,7 +258,7 @@ function ContextHubWorkspace() {
     recordAction(ids, target);
 
     if (target === 'chat') {
-      navigate('/ai-chat', { state: { initialMessage: `Use these context sources: ${names}. Help me study what matters most.` } });
+      navigate('/ai-chat', { state: { contextDocIds: ids, initialMessage: `Use these context sources: ${names}. Help me study what matters most.` } });
       return;
     }
     if (target === 'flashcards') {
@@ -682,7 +682,7 @@ function ContextHubWorkspace() {
                 </button>
                 <button type="button" className="cxh-doc-main" onClick={() => navigate(`/contexthub/file/${encodeURIComponent(id)}`)}>
                   <FileText size={18} />
-                  <span><strong>{docName(doc)}</strong><small>{pretty(doc.subject)}{doc.chunk_count ? ` · ${doc.chunk_count} chunks` : ''}{doc.file_size ? ` · ${formatBytes(doc.file_size)}` : ''}{progressMap[id]?.mastered_topics != null ? ` · ${progressMap[id].mastered_topics} mastered` : ''}</small></span>
+                  <span><strong>{docName(doc)}</strong><small>{pretty(doc.subject)}{doc.chunk_count ? ` · ${doc.chunk_count} chunks` : ''}{doc.file_size ? ` · ${formatBytes(doc.file_size)}` : ''}{progressMap[id]?.mastered_topics != null ? ` · ${Array.isArray(progressMap[id].mastered_topics) ? progressMap[id].mastered_topics.length : Number(progressMap[id].mastered_topics) || 0} mastered` : ''}</small></span>
                   <ChevronRight size={14} />
                 </button>
                 <select aria-label={`Move ${docName(doc)} to folder`} value={doc.folder_id == null ? '' : String(doc.folder_id)} onChange={(event) => moveDocument(id, event.target.value)} disabled={rowBusy === id}>

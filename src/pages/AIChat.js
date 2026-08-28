@@ -67,6 +67,13 @@ const loadContextSelection = (chatId) => {
     return [];
   }
 };
+const saveContextSelection = (chatIds, docIds) => {
+  const normalizedIds = [...new Set((docIds || []).map(String).map((value) => value.trim()).filter(Boolean))];
+  [...new Set((chatIds || []).filter(Boolean).map(String))].forEach((chatId) => {
+    localStorage.setItem(chatContextSelectionKey(chatId), JSON.stringify(normalizedIds));
+  });
+  return normalizedIds;
+};
 const TUTOR_MODE_KEY = 'ai_chat_tutor_mode_enabled';
 const TUTOR_REPLY_MODE_KEY = 'ai_chat_tutor_reply_mode';
 const TUTOR_REPLY_MODES = [
@@ -862,6 +869,7 @@ const AIChat = ({ sharedMode = false }) => {
   const fileInputRef = useRef(null);
   const isLoadingRef = useRef(false);
   const justSentMessageRef = useRef(false);
+  const initialHandoffRef = useRef('');
   const chatLoadRequestRef = useRef(0);
   const chatLoadAbortRef = useRef(null);
   const creatingChatRef = useRef(false);
@@ -1517,10 +1525,7 @@ const AIChat = ({ sharedMode = false }) => {
 
       const pendingContextIds = loadContextSelection(null);
       if (pendingContextIds.length > 0) {
-        localStorage.setItem(
-          chatContextSelectionKey(newUid || newId),
-          JSON.stringify(pendingContextIds)
-        );
+        saveContextSelection([newId, newUid], pendingContextIds);
         localStorage.removeItem(chatContextSelectionKey(null));
       }
 
@@ -2700,8 +2705,13 @@ const AIChat = ({ sharedMode = false }) => {
     const initialMsg = location.state?.initialMessage;
     const initialContext = location.state?.conversationContext || '';
     const initialModelMessage = location.state?.initialModelMessage || buildContextAwareMessage(initialContext, initialMsg);
+    const handedOffContextIds = Array.isArray(location.state?.contextDocIds)
+      ? location.state.contextDocIds.map(String).map((value) => value.trim()).filter(Boolean)
+      : [];
+    const handoffKey = `${location.key || 'handoff'}::${initialMsg || ''}::${handedOffContextIds.join(',')}`;
     
-    if (initialMsg && userName && !loading) {
+    if (initialMsg && userName && !loading && initialHandoffRef.current !== handoffKey) {
+      initialHandoffRef.current = handoffKey;
       setConversationContext(initialContext);
             
       // Set the input message so user can see what they asked
@@ -2713,12 +2723,20 @@ const AIChat = ({ sharedMode = false }) => {
         const newChatId = await createNewChat();
         
         if (!newChatId) {
-                    setLoading(false);
+          initialHandoffRef.current = '';
+          setLoading(false);
           return;
         }
 
         const { id: newNumericId, uid: newChatUid } = _newChatRef.current;
         const resolvedChatId = newNumericId || newChatId;
+        const selectedContextDocIds = handedOffContextIds.length > 0
+          ? handedOffContextIds
+          : loadContextSelection(null);
+        if (selectedContextDocIds.length > 0) {
+          saveContextSelection([resolvedChatId, newChatUid, newChatId], selectedContextDocIds);
+          localStorage.removeItem(chatContextSelectionKey(null));
+        }
         
                 
         // Set active chat and navigate
@@ -2727,6 +2745,7 @@ const AIChat = ({ sharedMode = false }) => {
           sessionStorage.setItem(`ai_chat_context:${resolvedChatId}`, initialContext);
           if (newChatUid) sessionStorage.setItem(`ai_chat_context:${newChatUid}`, initialContext);
         }
+        justSentMessageRef.current = true;
         navigate(`/ai-chat/${newChatUid || resolvedChatId}`, { replace: true });
         
         // Add user message to UI
@@ -2753,6 +2772,9 @@ const AIChat = ({ sharedMode = false }) => {
           formData.append('use_hs_context', hsMode.toString());
           formData.append('tutor_mode', tutorMode.toString());
           formData.append('tutor_reply_style', tutorReplyMode);
+          if (selectedContextDocIds.length > 0) {
+            formData.append('context_doc_ids', selectedContextDocIds.join(','));
+          }
           
           const data = USE_AI_JOB_QUEUE
             ? await queueChatCompletion({
@@ -2762,6 +2784,7 @@ const AIChat = ({ sharedMode = false }) => {
                 use_hs_context: hsMode,
                 tutor_mode: tutorMode,
                 tutor_reply_style: tutorReplyMode,
+                ...(selectedContextDocIds.length > 0 ? { context_doc_ids: selectedContextDocIds.join(',') } : {}),
               })
             : await (async () => {
                 const response = await fetch(`${API_URL}/ask_simple/`, {
@@ -2828,7 +2851,7 @@ const AIChat = ({ sharedMode = false }) => {
       
       return () => clearTimeout(timer);
     }
-  }, [location.state?.initialMessage, userName]);
+  }, [location.key, location.state?.initialMessage, location.state?.contextDocIds, userName]);
 
   useEffect(() => {
     const numericChatId = parseNumericChatRouteId(chatId);

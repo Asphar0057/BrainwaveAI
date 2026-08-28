@@ -212,14 +212,22 @@ def build_prompt(state: FlashcardGenState) -> dict:
 
     rag_context = state.get("rag_context", [])
     rag_sources = state.get("rag_sources") or []
+    strict_context_only = bool(state.get("context_doc_ids"))
     if rag_context:
         logger.info(f"[FLASHCARD PROMPT] *** INJECTING {len(rag_context)} RAG chunk(s) into prompt ***")
         context_block = format_rag_sources_block(rag_sources) if rag_sources else "\n---\n".join(rag_context[:5])
+        context_instruction = (
+            "The selected documents are the complete and exclusive knowledge boundary. "
+            "Use only claims explicitly present in these sources. "
+            "Do not add background knowledge, inferred mechanisms, related terminology, equations, examples, or applications. "
+            "If a requested detail is absent, omit it and test another wording or relationship that is present. "
+            if strict_context_only else
+            "Prioritise this material when relevant to the topic. Use it to make flashcards more curriculum-aligned and accurate. "
+        )
         parts.append(
             f"RELEVANT CURRICULUM CONTEXT (from student's documents and HS curriculum):\n"
             f"{context_block}\n\n"
-            "Prioritise this material when relevant to the topic. "
-            "Use it to make flashcards more curriculum-aligned and accurate. "
+            f"{context_instruction}"
             "When a card's answer draws on a specific source above, cite it inline in the answer "
             "text as [1], [2], etc., matching the source numbers.\n"
         )
@@ -240,7 +248,8 @@ def build_prompt(state: FlashcardGenState) -> dict:
         "- wrong_options must be similar in length, specificity, and formatting to the correct answer\n"
         "- Do not make the correct answer obviously longer, more detailed, or more mathematical than all wrong options\n"
         "- No duplicate or redundant cards\n"
-        "- No markdown fences or extra text — just the JSON array"
+        + ("- SOURCE-ONLY CHECK: before returning, verify every noun, claim, relationship, and equation in every question and answer appears in the selected source text. Remove or rewrite anything that does not.\n" if strict_context_only else "")
+        + "- No markdown fences or extra text — just the JSON array"
     )
 
     return {"built_prompt": "\n".join(parts)}

@@ -607,10 +607,10 @@ async def upload_document(
     folder = _get_context_folder_or_404(db, current_user.id, folder_id)
 
     lower_name = (file.filename or "").lower()
-    if not lower_name.endswith((".pdf", ".txt", ".md")):
+    if not lower_name.endswith((".pdf", ".docx", ".txt", ".md")):
         raise HTTPException(
             status_code=400,
-            detail="Only .pdf, .txt, and .md files are supported",
+            detail="Only .pdf, .docx, .txt, and .md files are supported",
         )
 
     file_bytes = await file.read()
@@ -619,6 +619,21 @@ async def upload_document(
 
     if len(file_bytes) == 0:
         raise HTTPException(status_code=400, detail="File is empty.")
+
+    duplicate = (
+        db.query(models.ContextDocument)
+        .filter(
+            models.ContextDocument.user_id == current_user.id,
+            func.lower(models.ContextDocument.filename) == (file.filename or "").strip().lower(),
+            models.ContextDocument.status.in_(("processing", "ready")),
+        )
+        .first()
+    )
+    if duplicate:
+        raise HTTPException(
+            status_code=409,
+            detail=f'"{file.filename}" is already in your library. Rename the file if this is a different version.',
+        )
 
     doc_id = str(uuid.uuid4())
     clean_subject = context_store.canonicalize_subject(subject) if subject else ""
@@ -784,13 +799,13 @@ def import_document_url(
     parsed = urlparse(url)
     filename = Path(parsed.path).name or filename_hint or "imported"
     lower_name = filename.lower()
-    if not lower_name.endswith((".pdf", ".txt", ".md")):
+    if not lower_name.endswith((".pdf", ".docx", ".txt", ".md")):
         if "pdf" in (content_type or "").lower():
             filename = f"{filename}.pdf"
         elif (content_type or "").lower().startswith("text/"):
             filename = f"{filename}.txt"
         else:
-            raise HTTPException(status_code=400, detail="URL must point to a .pdf, .txt, or .md file")
+            raise HTTPException(status_code=400, detail="URL must point to a .pdf, .docx, .txt, or .md file")
 
     doc_id = str(uuid.uuid4())
     doc_record = models.ContextDocument(

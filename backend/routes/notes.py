@@ -395,10 +395,12 @@ async def _generate_doc_level_notes(doc: models.ContextDocument, chunks: list[st
             "Instructions:\n"
             "- Use ONLY provided chunks; do not invent facts.\n"
             "- Convert noisy text into clear notes.\n"
-            "- Preserve definitions, formulas, examples, steps, and facts.\n"
+            "- Preserve definitions, formulas, examples, steps, and facts only when they are explicitly present.\n"
+            "- Do not add background knowledge, inferred mechanisms, equations, examples, applications, or terminology.\n"
             "- If question-answer style is present, convert it into concept explanations.\n"
             "- Remove OCR/PDF noise and duplicates.\n"
-            "- Keep this structure:\n"
+            "- Use only the sections supported by the chunks; omit unsupported or empty sections.\n"
+            "- Suggested structure:\n"
             f"  ### Batch {idx} Notes\n"
             "  - Key Concepts\n"
             "  - Important Details\n"
@@ -420,13 +422,13 @@ async def _generate_doc_level_notes(doc: models.ContextDocument, chunks: list[st
         f"Merge these batch notes into a single comprehensive, clear note for `{doc.filename or doc.doc_id}`.\n"
         "Preserve all important information. Remove only redundancy.\n"
         "Do not add facts that are not supported by the batch notes.\n"
-        "Required sections:\n"
+        "Use only sections supported by the source notes; omit unsupported sections. Possible sections:\n"
         "- Overview\n"
         "- Core Concepts\n"
         "- Detailed Explanations\n"
         "- Key Facts / Definitions / Formulas\n"
-        "- Examples or Applications\n"
-        "- Misconceptions & Clarifications\n"
+        "- Examples or Applications (only if explicitly supplied)\n"
+        "- Misconceptions & Clarifications (only if explicitly supplied)\n"
         "- Quick Revision Checklist\n"
         "Return markdown only."
     )
@@ -441,7 +443,7 @@ async def _generate_notes_from_context(docs: list[models.ContextDocument], doc_c
 
     depth_instruction = {
         "brief": "Keep it concise and revision-focused. Use compact bullets.",
-        "deep": "Go in depth with detailed explanations, examples, and conceptual links.",
+        "deep": "Cover every supported detail and relationship thoroughly without adding outside knowledge.",
     }.get(depth_key, "Balance clarity and depth for practical studying.")
 
     tone_instruction = {
@@ -467,8 +469,33 @@ async def _generate_notes_from_context(docs: list[models.ContextDocument], doc_c
         ).strip()
         return fallback
 
+    async def audit_grounding(candidate: str) -> str:
+        source_blocks = []
+        remaining = 22000
+        for doc in docs[:20]:
+            for index, chunk in enumerate(doc_chunks.get(doc.doc_id, []), start=1):
+                block = f"[{doc.filename or doc.doc_id} — chunk {index}]\n{chunk}\n"
+                if len(block) > remaining:
+                    break
+                source_blocks.append(block)
+                remaining -= len(block)
+            if remaining <= 0:
+                break
+        if not source_blocks or not candidate.strip():
+            return candidate
+        audit_prompt = (
+            "Audit and rewrite the study note against the source excerpts below.\n"
+            "Delete every claim, definition, mechanism, equation, example, application, or term that is not explicitly supported by the excerpts.\n"
+            "Do not treat generally true knowledge or reasonable inference as source support.\n"
+            "Never say content was derived from the source unless it is actually stated there.\n"
+            "Keep the requested tone and as much supported detail as possible. Omit empty headings. Return markdown only.\n\n"
+            f"SOURCE EXCERPTS:\n{''.join(source_blocks)}\n\nDRAFT NOTE:\n{candidate[:22000]}"
+        )
+        audited = (await call_ai_async(audit_prompt, max_tokens=5000, temperature=0.0)).strip()
+        return audited or candidate
+
     if len(per_doc_notes) == 1:
-        return per_doc_notes[0]
+        return await audit_grounding(per_doc_notes[0])
 
     final_merge_prompt = (
         "Merge the following document-level notes into one exhaustive study note.\n"
@@ -483,7 +510,7 @@ async def _generate_notes_from_context(docs: list[models.ContextDocument], doc_c
         "Return markdown only."
     )
     merged = await _merge_markdown_parts(per_doc_notes, final_merge_prompt, max_chars=22000)
-    return merged or "\n\n".join(per_doc_notes)
+    return await audit_grounding(merged or "\n\n".join(per_doc_notes))
 
 @router.get("/get_notes")
 def get_notes(

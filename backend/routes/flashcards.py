@@ -683,11 +683,12 @@ async def generate_flashcards_endpoint(
         prompt = (
             f"Generate {card_count} flashcards about: {topic or chat_content[:500]}\n"
             f"{'Use this source content from the selected context file chunks: ' + source_content[:12000] if source_content else ''}\n"
+            f"{'The selected context is the exclusive knowledge boundary. Do not add any fact, term, mechanism, equation, example, or application absent from it. ' if doc_ids_list else ''}"
             f"Difficulty: {difficulty}\n\n"
             f"Return ONLY a valid JSON array. Each object: "
             f'{{"question": "...", "answer": "...", "difficulty": "{difficulty}", '
             f'"wrong_options": ["wrong1", "wrong2", "wrong3"]}}\n'
-            f"No other text."
+            f"Before returning, remove or rewrite every unsupported claim. No other text."
         )
         try:
             ai_response = unified_ai.generate(prompt, max_tokens=3000, temperature=0.7)
