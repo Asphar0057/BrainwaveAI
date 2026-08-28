@@ -475,7 +475,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
       alignSelf: 'center',
       paddingHorizontal: PAD,
       paddingTop: 18,
-      paddingBottom: 120,
+      paddingBottom: 24,
     },
     topBar: {
       flexDirection: 'row',

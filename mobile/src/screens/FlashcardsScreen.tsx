@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
   Text,
   StyleSheet,
   Animated,
+  Easing,
   ActivityIndicator,
   Alert,
   TextInput,
@@ -12,26 +13,33 @@ import {
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
-  GestureResponderEvent,
   Keyboard,
   UIManager,
   Dimensions,
   NativeSyntheticEvent,
   TargetedEvent,
+  ViewStyle,
+  PanResponder,
+  GestureResponderEvent,
+  PanResponderGestureState,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import PagerView, { AppPagerHandle } from '../components/AppPager';
 import HapticTouchable from '../components/HapticTouchable';
 import TileGleam from '../components/TileGleam';
-import NeumorphicTexture, { cbTileShadow, cbModalShadow, cbTileBorder, cbTileCardGradient } from '../components/NeumorphicTexture';
+import NeumorphicTexture, {
+  cbTileShadow, cbTileBorder, cbTileCardGradient,
+  cbPlainCardShadow, CB_ACCENT,
+} from '../components/NeumorphicTexture';
 import MathText from '../components/MathText';
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
 import SectionSidebar, { SidebarItem } from '../components/SectionSidebar';
+import PulseCubes from '../components/PulseCubes';
 import SpacedRepetitionScreen from './SpacedRepetitionScreen';
 import { AuthUser } from '../services/auth';
 import { useAppTheme } from '../contexts/ThemeContext';
@@ -41,7 +49,6 @@ import {
   generateFlashcards,
   getFlashcardHistory,
   getFlashcardsInSet,
-  markFlashcardForReview,
   reviewFlashcard,
 } from '../services/api';
 import { triggerHaptic } from '../utils/haptics';
@@ -52,12 +59,14 @@ const DEFAULT_THEME = getDefaultTheme();
 const DEFAULT_LAYOUT = getResponsiveLayout(393, 852);
 let CURRENT_THEME = DEFAULT_THEME;
 let CURRENT_LAYOUT = DEFAULT_LAYOUT;
+// createStyles() computes these from the current layout; StudyView needs the
+// plain numbers (drag thresholds, exit distance) outside the StyleSheet object.
+let CURRENT_CARD_WIDTH = 280;
+let CURRENT_CARD_HEIGHT = 280;
 let BG = DEFAULT_THEME.bgPrimary;
 let SURFACE = DEFAULT_THEME.panel;
 let SURFACE_2 = DEFAULT_THEME.panelAlt;
 let SURFACE_RAISED = DEFAULT_THEME.isLight ? DEFAULT_THEME.panel : lightenColor(DEFAULT_THEME.panelAlt, 6);
-let QUESTION_SURFACE = DEFAULT_THEME.isLight ? DEFAULT_THEME.accent : DEFAULT_THEME.primary;
-let ANSWER_SURFACE = DEFAULT_THEME.isLight ? DEFAULT_THEME.panel : DEFAULT_THEME.accent;
 let ACCENT = DEFAULT_THEME.accent;
 let ACCENT2 = DEFAULT_THEME.accentHover;
 let GOLD_L = DEFAULT_THEME.accentHover;
@@ -67,12 +76,6 @@ let BORDER = DEFAULT_THEME.borderStrong;
 let DIM = DEFAULT_THEME.panelMuted;
 let DIM2 = DEFAULT_THEME.textSecondary;
 let INK = DEFAULT_THEME.isLight ? darkenColor(DEFAULT_THEME.accent, 45) : darkenColor(DEFAULT_THEME.primary, 2);
-let QUESTION_TEXT = DEFAULT_THEME.isLight ? darkenColor(DEFAULT_THEME.primary, 90) : DEFAULT_THEME.accentHover;
-let ANSWER_TEXT = DEFAULT_THEME.isLight ? DEFAULT_THEME.accent : darkenColor(DEFAULT_THEME.primary, 4);
-let QUESTION_CHIP_BG = DEFAULT_THEME.isLight ? rgbaFromHex(DEFAULT_THEME.primary, 0.16) : rgbaFromHex(DEFAULT_THEME.accent, 0.12);
-let QUESTION_CHIP_BORDER = DEFAULT_THEME.isLight ? rgbaFromHex(DEFAULT_THEME.primary, 0.24) : rgbaFromHex(DEFAULT_THEME.accent, 0.28);
-let ANSWER_CHIP_BG = DEFAULT_THEME.isLight ? rgbaFromHex(DEFAULT_THEME.accent, 0.08) : rgbaFromHex(DEFAULT_THEME.primary, 0.16);
-let ANSWER_CHIP_BORDER = DEFAULT_THEME.isLight ? rgbaFromHex(DEFAULT_THEME.accent, 0.2) : rgbaFromHex(DEFAULT_THEME.primary, 0.24);
 let BASE_ACTION_BG = DEFAULT_THEME.isLight ? rgbaFromHex(DEFAULT_THEME.panel, 0.98) : DEFAULT_THEME.accent;
 let BASE_ACTION_TEXT = DEFAULT_THEME.isLight ? DEFAULT_THEME.accent : darkenColor(DEFAULT_THEME.primary, 2);
 let BASE_ACTION_BORDER = DEFAULT_THEME.isLight ? DEFAULT_THEME.borderStrong : DEFAULT_THEME.accentHover;
@@ -129,8 +132,6 @@ function applyTheme(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
   SURFACE = theme.panel;
   SURFACE_2 = theme.panelAlt;
   SURFACE_RAISED = theme.isLight ? theme.panel : lightenColor(theme.panelAlt, 6);
-  QUESTION_SURFACE = theme.isLight ? theme.accent : theme.primary;
-  ANSWER_SURFACE = theme.isLight ? theme.panel : theme.accent;
   ACCENT = theme.accent;
   ACCENT2 = theme.accentHover;
   GOLD_L = theme.accentHover;
@@ -140,12 +141,6 @@ function applyTheme(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
   DIM = theme.panelMuted;
   DIM2 = theme.textSecondary;
   INK = theme.isLight ? darkenColor(theme.accent, 45) : darkenColor(theme.primary, 2);
-  QUESTION_TEXT = theme.isLight ? darkenColor(theme.primary, 90) : theme.accentHover;
-  ANSWER_TEXT = theme.isLight ? theme.accent : darkenColor(theme.primary, 4);
-  QUESTION_CHIP_BG = theme.isLight ? rgbaFromHex(theme.primary, 0.16) : rgbaFromHex(theme.accent, 0.12);
-  QUESTION_CHIP_BORDER = theme.isLight ? rgbaFromHex(theme.primary, 0.24) : rgbaFromHex(theme.accent, 0.28);
-  ANSWER_CHIP_BG = theme.isLight ? rgbaFromHex(theme.accent, 0.08) : rgbaFromHex(theme.primary, 0.16);
-  ANSWER_CHIP_BORDER = theme.isLight ? rgbaFromHex(theme.accent, 0.2) : rgbaFromHex(theme.primary, 0.24);
   BASE_ACTION_BG = theme.isLight ? rgbaFromHex(theme.panel, 0.98) : theme.accent;
   BASE_ACTION_TEXT = theme.isLight ? theme.accent : darkenColor(theme.primary, 2);
   BASE_ACTION_BORDER = theme.isLight ? theme.borderStrong : theme.accentHover;
@@ -211,109 +206,341 @@ function ResultsView({
   );
 }
 
+// One flashcard's visual face -- shared by the static "next card" peek
+// sitting underneath and the live draggable card on top.
+function renderCardFace(faceCard: Flashcard, isFlipped: boolean, useLandscapeLayout: boolean, isRandomSet: boolean) {
+  // Question leads with a lightened accent fading to a lightened primary
+  // (bright, pairs with the black question text); answer is the same pair
+  // reversed and darkened instead (primary leading, fading to a darkened
+  // accent) so the two faces read as distinctly different -- not just
+  // brightness-matched stops swapped around.
+  const questionAccent = lightenColor(CURRENT_THEME.accent, CURRENT_THEME.isLight ? 6 : 14);
+  const questionPrimary = lightenColor(CURRENT_THEME.primary, CURRENT_THEME.isLight ? 4 : 16);
+  const answerAccent = darkenColor(CURRENT_THEME.accent, CURRENT_THEME.isLight ? 18 : 38);
+  const gradientColors: [string, string] = isFlipped
+    ? [CURRENT_THEME.primary, answerAccent]
+    : [questionAccent, questionPrimary];
+
+  return (
+    <View style={[s.card, { backgroundColor: gradientColors[1] }]}>
+      {/* The skia-canvas grain variant is its own native surface (a real
+          Canvas/SurfaceView on Android) and does NOT respect a parent View's
+          overflow:hidden + borderRadius clip -- it was rendering as a square
+          black surface poking out past the card's rounded corners on one
+          side. Login/Home never showed this because their canvas is also
+          solid near-black on a near-black page, so the square bleed was
+          invisible there; this card's actual accent colors made it obvious.
+          A plain LinearGradient is a normal RN view and clips correctly, so
+          the gradient moved there; only the SVG-based (non-canvas) grain
+          stays on NeumorphicTexture. */}
+      <View style={s.cardClip} pointerEvents="none">
+        <LinearGradient
+          colors={gradientColors}
+          start={{ x: 0.1, y: 0.05 }}
+          end={{ x: 0.9, y: 1 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <NeumorphicTexture grainVariant="fine" grainOpacity={0.14} />
+      </View>
+
+      <ScrollView
+        style={s.cardBody}
+        contentContainerStyle={[s.cardBodyContent, useLandscapeLayout && s.cardBodyContentLandscape]}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        nestedScrollEnabled
+      >
+        {isRandomSet && faceCard.set_title ? (
+          <Text style={s.randomCardSource} numberOfLines={1}>
+            FROM {faceCard.set_title.toUpperCase()}
+          </Text>
+        ) : null}
+        {/* Cards with LaTeX render through MathJaxSvg, which mounts a hidden
+            WebView to do the actual rendering. A WebView is a real native
+            component that competes for touch dispatch -- once one mounts
+            inside the card, it can permanently swallow touches meant for the
+            card's own drag/tap handling, on that card specifically, which is
+            exactly why only the one card with math content in it went dead
+            while every plain-text card kept working fine. None of this
+            content needs to be individually touchable anyway -- the whole
+            card's tap/drag is handled by DraggableCard's own PanResponder +
+            touch handlers on its wrapping View -- so it's inert to touch. */}
+        <View pointerEvents="none">
+          <MathText style={[s.cardText, !isFlipped && s.cardTextQuestion]}>
+            {isFlipped ? faceCard.answer : faceCard.question}
+          </MathText>
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+type DraggableCardHandle = { dismiss: (direction: 1 | -1) => void };
+
+// One card's entire drag/flip/peel-away animation, self-contained. Mounted
+// fresh (via `key={idx}` at the call site) for every card that becomes the
+// top of the stack -- see the comment on StudyView's state block for why
+// that matters: every Animated.Value here starts at a real, known default
+// on every mount, so there is no shared, cross-card animation state left to
+// ever get out of sync.
+const DraggableCard = forwardRef<DraggableCardHandle, {
+  faceCard: Flashcard;
+  isFlipped: boolean;
+  useLandscapeLayout: boolean;
+  isRandomSet: boolean;
+  cardWidth: number;
+  onFlip: () => void;
+  onDismissed: () => void;
+}>(function DraggableCard({ faceCard, isFlipped, useLandscapeLayout, isRandomSet, cardWidth, onFlip, onDismissed }, ref) {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const peelX = useRef(new Animated.Value(0)).current;
+  const peelRotate = useRef(new Animated.Value(0)).current;
+  const peelOpacity = useRef(new Animated.Value(1)).current;
+  const isBusyRef = useRef(false);
+
+  const doFlip = () => {
+    if (isBusyRef.current) return;
+    isBusyRef.current = true;
+    Animated.timing(scaleAnim, { toValue: 0, duration: 130, useNativeDriver: true }).start(() => {
+      onFlip();
+      // onFlip() only *schedules* the parent re-render with the new
+      // question/answer text -- it doesn't happen synchronously. Starting
+      // the native-driven grow-back animation immediately in this callback
+      // let it run (and finish) before that re-render actually committed to
+      // the native view, so the card visibly grew back showing the OLD face
+      // and only swapped to the right one once React/the bridge got around
+      // to flushing it. Waiting two frames (double rAF is the standard "give
+      // the renderer a chance to actually paint" trick) before growing back
+      // gives that commit time to land first.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          Animated.timing(scaleAnim, { toValue: 1, duration: 130, useNativeDriver: true }).start(() => {
+            isBusyRef.current = false;
+          });
+        });
+      });
+    });
+  };
+
+  const snapBack = () => {
+    Animated.parallel([
+      Animated.spring(peelX, { toValue: 0, friction: 7, useNativeDriver: true }),
+      Animated.spring(peelRotate, { toValue: 0, friction: 7, useNativeDriver: true }),
+    ]).start();
+  };
+
+  // Slide + rotate + fade away, like flicking the top sheet off a stack,
+  // then tell the parent it's gone. There's no reset to do afterward: this
+  // whole component (and every Animated.Value in it) is about to be
+  // discarded once the parent swaps to the next card's key.
+  const dismiss = (direction: 1 | -1) => {
+    if (isBusyRef.current) return;
+    isBusyRef.current = true;
+    Animated.parallel([
+      Animated.timing(peelX, { toValue: direction * (cardWidth + 120), duration: 260, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(peelRotate, { toValue: direction, duration: 260, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(peelOpacity, { toValue: 0, duration: 220, useNativeDriver: true }),
+    ]).start(({ finished }) => {
+      if (finished) onDismissed();
+    });
+  };
+
+  useImperativeHandle(ref, () => ({ dismiss }));
+
+  const tapTrackRef = useRef({ startX: 0, startY: 0, moved: false });
+  const handleTouchStart = (event: GestureResponderEvent) => {
+    tapTrackRef.current = { startX: event.nativeEvent.pageX, startY: event.nativeEvent.pageY, moved: false };
+  };
+  const handleTouchMove = (event: GestureResponderEvent) => {
+    const dx = event.nativeEvent.pageX - tapTrackRef.current.startX;
+    const dy = event.nativeEvent.pageY - tapTrackRef.current.startY;
+    if (Math.abs(dx) > 8 || Math.abs(dy) > 8) tapTrackRef.current.moved = true;
+  };
+  const handleTouchEnd = () => {
+    if (!tapTrackRef.current.moved) {
+      triggerHaptic('light');
+      doFlip();
+    }
+  };
+
+  // PanResponder (React Native core, no separate native module) rather than
+  // react-native-gesture-handler's Gesture.Pan: gesture-handler's recognizer
+  // needs its JS-side object identity to stay permanently stable, and even
+  // memoized correctly with a ref indirection for fresh closures, it still
+  // went dead after exactly one successful swipe. PanResponder has no such
+  // native-recognizer lifecycle to get out of sync -- it's a plain JS object,
+  // fine to recreate every render, closing over this render's props directly.
+  //
+  // onStartShouldSetPanResponder returns false so a plain tap never claims
+  // the responder at all -- PanResponder only engages once real, clearly
+  // horizontal movement is seen (onMoveShouldSetPanResponder), which is also
+  // what lets the card's own ScrollView keep vertical scroll gestures. A tap
+  // that never engages PanResponder falls through to the plain
+  // onTouchStart/onTouchEnd pair above, which only ever decides "was this a
+  // tap" -- the drag/release logic lives entirely in the responder handlers,
+  // so nothing here can double-fire the same gesture two different ways.
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_evt: GestureResponderEvent, gesture: PanResponderGestureState) => {
+      if (isBusyRef.current) return false;
+      return Math.abs(gesture.dx) > 8 && Math.abs(gesture.dx) > Math.abs(gesture.dy);
+    },
+    onPanResponderMove: (_evt: GestureResponderEvent, gesture: PanResponderGestureState) => {
+      if (isBusyRef.current) return;
+      peelX.setValue(gesture.dx);
+      peelRotate.setValue(Math.max(-1, Math.min(1, gesture.dx / cardWidth)));
+    },
+    onPanResponderRelease: (_evt: GestureResponderEvent, gesture: PanResponderGestureState) => {
+      if (isBusyRef.current) return;
+      const threshold = cardWidth * 0.28;
+      if (Math.abs(gesture.dx) > threshold) {
+        triggerHaptic('light');
+        // Keep flying off in whichever direction the finger was already
+        // going, rather than snapping to a fixed side.
+        dismiss(gesture.dx > 0 ? 1 : -1);
+      } else {
+        snapBack();
+      }
+    },
+    onPanResponderTerminate: () => {
+      if (!isBusyRef.current) snapBack();
+    },
+    onPanResponderTerminationRequest: () => true,
+  });
+
+  return (
+    <Animated.View
+      style={{
+        ...s.cardAnimatedWrap,
+        opacity: peelOpacity,
+        transform: [
+          // Front card sits at 98% of the (full-size) card behind it -- a
+          // deliberate, fixed depth cue for the "stacked deck" look, not a
+          // bug to chase back to 100%. Multiple `scale` entries in one
+          // transform array multiply, so this combines with the flip's own
+          // tiny pop (0.985 -> 1) rather than overriding it.
+          { scale: 0.98 },
+          { scaleX: scaleAnim },
+          { scale: scaleAnim.interpolate({ inputRange: [0, 1], outputRange: [0.985, 1] }) },
+          { translateX: peelX },
+          { rotate: peelRotate.interpolate({ inputRange: [-1, 0, 1], outputRange: ['-16deg', '0deg', '16deg'] }) },
+        ],
+      }}
+    >
+      <View
+        {...panResponder.panHandlers}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {renderCardFace(faceCard, isFlipped, useLandscapeLayout, isRandomSet)}
+      </View>
+    </Animated.View>
+  );
+});
+
 function StudyView({
   set,
   cards,
   onBack,
   onComplete,
-  onToggleReview,
   onAnswer,
 }: {
   set: FlashcardSet;
   cards: Flashcard[];
   onBack: () => void;
   onComplete: (stats: { correct: number; incorrect: number }) => void;
-  onToggleReview: (cardId: number, marked: boolean) => Promise<void>;
   onAnswer: (cardId: number, correct: boolean) => Promise<void>;
 }) {
   const layout = useResponsiveLayout();
   const useLandscapeLayout = layout.isLandscape && layout.width >= 700;
+
+  // ── State ────────────────────────────────────────────────────────────────
+  // idx      -- which card is "on top" of the stack right now (0-based).
+  // flipped  -- whether the TOP card (idx) is showing its answer face. Only
+  //             ever applies to the top card; the peeked "next" card behind
+  //             it always renders its question face (see renderCardFace call
+  //             sites below) since you can't see its answer without it
+  //             becoming the top card first.
+  // stats    -- running correct/incorrect tally, shown in answerTally and
+  //             handed to onComplete once the set runs out.
+  //
+  // The actual drag/flip/peel animation state used to live HERE, as one
+  // shared set of Animated.Values reused across every card (reset by hand
+  // after each transition). That's the actual bug behind every "card 2 is
+  // dead" report: whatever reset those shared values after a transition --
+  // stopAnimation()+setValue(), a busy-flag, a watchdog timeout, none of
+  // it -- the SAME instance was still carrying state from the card before
+  // it. <DraggableCard key={idx}> below fixes this at the root: each card
+  // gets a brand-new component instance (React remounts it whenever the key
+  // changes), so its Animated.Values start fresh at their real defaults --
+  // there is no shared state left to reset wrong, ever.
   const [idx, setIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [stats, setStats] = useState({ correct: 0, incorrect: 0 });
-  const [reviewCardIds, setReviewCardIds] = useState(() => new Set(cards.filter((item) => item.marked_for_review).map((item) => item.id)));
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const pagerRef = useRef<AppPagerHandle>(null);
-  const cardTouchRef = useRef({ startX: 0, startY: 0, moved: false });
-  const card = cards[idx];
-  const progressPct = cards.length > 0 ? ((idx + 1) / cards.length) * 100 : 0;
-  const remaining = Math.max(cards.length - idx - 1, 0);
-  const currentMarkedForReview = card ? reviewCardIds.has(card.id) : false;
 
-  const toggleCurrentReview = async () => {
-    if (!card) return;
-    const nextMarked = !currentMarkedForReview;
-    setReviewCardIds((current) => {
-      const next = new Set(current);
-      if (nextMarked) next.add(card.id);
-      else next.delete(card.id);
-      return next;
-    });
-    try {
-      await onToggleReview(card.id, nextMarked);
-    } catch {
-      setReviewCardIds((current) => {
-        const next = new Set(current);
-        if (nextMarked) next.delete(card.id);
-        else next.add(card.id);
-        return next;
-      });
-      Alert.alert('Review update failed', 'Please try marking this card again.');
-    }
+  const card = cards[idx];
+  const nextCard = cards[idx + 1];
+
+  // Always current, so the completion callback of a just-finished dismiss
+  // animation (whose closure was captured whenever THAT animation started,
+  // possibly several renders ago) reports the real tally instead of
+  // whatever `stats` was at that moment.
+  const statsRef = useRef(stats);
+  statsRef.current = stats;
+
+  const cardRef = useRef<DraggableCardHandle>(null);
+  // DraggableCard's own isBusyRef stops a rapid double-tap from *animating*
+  // twice, but answer() itself has no such guard -- without this, the same
+  // double-tap would still call onAnswer/setStats a second time for the
+  // same card before the first dismiss unmounts it. Reset per card via idx.
+  const answeredRef = useRef(false);
+  useEffect(() => { answeredRef.current = false; }, [idx]);
+
+  // Instant -- no exit animation to play on the way back, since there's
+  // nothing stacked behind us in that direction to reveal (the stack only
+  // ever holds the *next* card). <DraggableCard key={idx}> mounting fresh
+  // for the (now current) previous card is itself enough of a visual beat.
+  const goBack = () => {
+    if (idx === 0) return;
+    setIdx((i) => i - 1);
+    setFlipped(false);
   };
 
-  const doFlip = () => {
-    if (!card) return;
-    Animated.timing(scaleAnim, { toValue: 0, duration: 130, useNativeDriver: true }).start(() => {
-      setFlipped((value) => !value);
-      Animated.timing(scaleAnim, { toValue: 1, duration: 130, useNativeDriver: true }).start();
-    });
+  // Called by DraggableCard once its own exit animation finishes -- advance
+  // to the next card, or finish the set if that was the last one. (Reads
+  // `idx` from the closure rather than a setIdx updater function on purpose:
+  // this only ever runs once, right when a specific card's own dismiss
+  // animation completes, so there's no rapid-refire risk to guard against --
+  // and onComplete is a real side effect, which a setState updater is not
+  // supposed to carry, since React can invoke updaters more than once.)
+  const handleCardDismissed = () => {
+    if (idx + 1 >= cards.length) {
+      onComplete(statsRef.current);
+      return;
+    }
+    setIdx(idx + 1);
+    setFlipped(false);
   };
 
   const answer = (correct: boolean) => {
+    if (answeredRef.current) return;
+    answeredRef.current = true;
     if (card?.id) {
       void onAnswer(card.id, correct).catch(() => {
         // Keep the study session responsive if review telemetry is unavailable.
       });
     }
     const key = correct ? 'correct' : 'incorrect';
-    const next = { ...stats, [key]: stats[key] + 1 };
-    setStats(next);
-    Animated.timing(scaleAnim, { toValue: 0, duration: 100, useNativeDriver: true }).start(() => {
-      setFlipped(false);
-      scaleAnim.setValue(0);
-      if (idx + 1 >= cards.length) {
-        Animated.timing(scaleAnim, { toValue: 1, duration: 150, useNativeDriver: true }).start(() => onComplete(next));
-      } else {
-        const nextIndex = idx + 1;
-        setIdx(nextIndex);
-        pagerRef.current?.setPage(nextIndex);
-        Animated.timing(scaleAnim, { toValue: 1, duration: 150, useNativeDriver: true }).start();
-      }
-    });
+    setStats((current) => ({ ...current, [key]: current[key] + 1 }));
+    // "know this" peels off to the right, "don't know" to the left.
+    cardRef.current?.dismiss(correct ? 1 : -1);
   };
 
-  const handleCardTouchStart = (event: GestureResponderEvent) => {
-    cardTouchRef.current = {
-      startX: event.nativeEvent.pageX,
-      startY: event.nativeEvent.pageY,
-      moved: false,
-    };
-  };
-
-  const handleCardTouchMove = (event: GestureResponderEvent) => {
-    const deltaX = Math.abs(event.nativeEvent.pageX - cardTouchRef.current.startX);
-    const deltaY = Math.abs(event.nativeEvent.pageY - cardTouchRef.current.startY);
-    if (deltaX > 8 || deltaY > 8) {
-      cardTouchRef.current.moved = true;
-    }
-  };
-
-  const handleCardTouchEnd = () => {
-    if (!cardTouchRef.current.moved) {
-      triggerHaptic('light');
-      doFlip();
-    }
+  // Right arrow -- same visual exit as a completed swipe/"know this" press,
+  // just with no answer recorded.
+  const goForward = () => {
+    cardRef.current?.dismiss(1);
   };
 
   if (!card) {
@@ -338,116 +565,74 @@ function StudyView({
 
   const cardViewport = (
     <View style={[s.cardWrap, useLandscapeLayout && s.cardWrapLandscape]}>
-      <View style={s.cardStageGlow} />
-      <PagerView
-        ref={pagerRef}
-        style={s.cardPager}
-        initialPage={0}
-        overScrollMode="never"
-        onPageSelected={(event) => {
-          const nextIndex = event.nativeEvent.position;
-          setIdx(nextIndex);
-          setFlipped(false);
-          scaleAnim.setValue(1);
-        }}
-      >
-        {cards.map((studyCard, pageIndex) => {
-          const isCurrent = pageIndex === idx;
-          const pageFlipped = isCurrent && flipped;
+      <View style={s.cardStage}>
+        {/* Next card sits behind, always visible -- its real background/shape/
+            color render normally so the stack always reads as populated;
+            only its TEXT is masked, via a blur layered on top of the
+            finished card, so nothing here is readable until it actually
+            becomes the front card. */}
+        {nextCard ? (
+          <View pointerEvents="none" style={[s.cardAnimatedWrap, s.cardStackBehind]}>
+            {renderCardFace(nextCard, false, useLandscapeLayout, set.id === -1)}
+            <BlurView
+              intensity={55}
+              tint={CURRENT_THEME.isLight ? 'light' : 'dark'}
+              style={s.cardGlassOverlay}
+            />
+          </View>
+        ) : null}
 
-          return (
-            <View key={String(studyCard.id ?? pageIndex)} style={s.cardPagerPage}>
-              <Animated.View
-                style={{
-                  ...s.cardAnimatedWrap,
-                  transform: [
-                    { scaleX: isCurrent ? scaleAnim : 1 },
-                    { scale: isCurrent ? scaleAnim.interpolate({ inputRange: [0, 1], outputRange: [0.985, 1] }) : 1 },
-                  ],
-                }}
-              >
-                <View
-                  style={[s.card, pageFlipped && s.cardFlipped]}
-                  onTouchStart={handleCardTouchStart}
-                  onTouchMove={handleCardTouchMove}
-                  onTouchEnd={handleCardTouchEnd}
-                >
-                  <NeumorphicTexture grainVariant="fine" grainOpacity={0.16} />
-                  <View style={s.cardTopRow}>
-                    <View style={[s.cardSidePill, pageFlipped && s.cardSidePillFlipped]}>
-                      <Text style={[s.cardSide, pageFlipped && s.cardSideFlipped]}>
-                        {pageFlipped ? 'ANSWER' : 'QUESTION'}
-                      </Text>
-                    </View>
-                    <View style={s.cardTopActions}>
-                      {isCurrent ? (
-                        <HapticTouchable
-                          style={[s.reviewToggle, currentMarkedForReview && s.reviewToggleActive]}
-                          onPress={toggleCurrentReview}
-                          onPressIn={() => { cardTouchRef.current.moved = true; }}
-                          haptic="selection"
-                          accessibilityLabel={currentMarkedForReview ? 'Remove from review' : 'Mark for review'}
-                        >
-                          <Ionicons name={currentMarkedForReview ? 'bookmark' : 'bookmark-outline'} size={14} color={currentMarkedForReview ? INK : QUESTION_TEXT} />
-                          <Text style={[s.reviewToggleText, currentMarkedForReview && s.reviewToggleTextActive]}>
-                            {currentMarkedForReview ? 'IN REVIEW' : 'REVIEW'}
-                          </Text>
-                        </HapticTouchable>
-                      ) : null}
-                      <View style={[s.diffPill, pageFlipped && s.diffPillFlipped]}>
-                        <Text style={[s.diffText, pageFlipped && s.diffTextFlipped]}>
-                          {studyCard.difficulty?.toUpperCase() ?? 'MEDIUM'}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
+        {/* key={card.id ?? idx}: a brand-new DraggableCard instance per card,
+            so its drag/flip animation state always starts fresh -- see the
+            comment on the state block above for why this replaced a single
+            shared set of Animated.Values reused across every card. */}
+        <DraggableCard
+          key={card.id ?? idx}
+          ref={cardRef}
+          faceCard={card}
+          isFlipped={flipped}
+          useLandscapeLayout={useLandscapeLayout}
+          isRandomSet={set.id === -1}
+          cardWidth={CURRENT_CARD_WIDTH}
+          onFlip={() => setFlipped((v) => !v)}
+          onDismissed={handleCardDismissed}
+        />
 
-                  <ScrollView
-                    style={s.cardBody}
-                    contentContainerStyle={[s.cardBodyContent, useLandscapeLayout && s.cardBodyContentLandscape]}
-                    showsVerticalScrollIndicator={false}
-                    bounces={false}
-                    nestedScrollEnabled
-                  >
-                    {set.id === -1 && studyCard.set_title ? (
-                      <Text style={[s.randomCardSource, pageFlipped && s.randomCardSourceFlipped]} numberOfLines={1}>
-                        FROM {studyCard.set_title.toUpperCase()}
-                      </Text>
-                    ) : null}
-                    <MathText style={[s.cardText, pageFlipped && s.cardTextFlipped]}>
-                      {pageFlipped ? studyCard.answer : studyCard.question}
-                    </MathText>
-                  </ScrollView>
-
-                  <View style={s.cardFooter}>
-                    <Text style={[s.cardHintText, pageFlipped && s.cardHintTextFlipped]}>
-                      tap anywhere on the card to {pageFlipped ? 'show question' : 'reveal answer'}
-                    </Text>
-                  </View>
-                </View>
-              </Animated.View>
-            </View>
-          );
-        })}
-      </PagerView>
+        {/* Bare icons, no chip/circle behind them -- just enough hitSlop to
+            keep them easy to tap. */}
+        <HapticTouchable
+          style={[s.cardNavArrow, s.cardNavArrowLeft, idx === 0 && s.cardNavArrowDisabled]}
+          onPress={goBack}
+          disabled={idx === 0}
+          haptic="selection"
+          hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+          accessibilityLabel="Previous card"
+        >
+          <Ionicons name="chevron-back" size={22} color={GOLD_L} />
+        </HapticTouchable>
+        <HapticTouchable
+          style={[s.cardNavArrow, s.cardNavArrowRight]}
+          onPress={goForward}
+          haptic="selection"
+          hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+          accessibilityLabel="Next card"
+        >
+          <Ionicons name="chevron-forward" size={22} color={GOLD_L} />
+        </HapticTouchable>
+      </View>
     </View>
   );
 
-  const sidebarStats = (
-    <View style={[s.studyMetaRow, useLandscapeLayout && s.studyMetaRowLandscape]}>
-      {!useLandscapeLayout ? (
-        <View style={s.studyMetaCard}>
-          <Text style={s.studyMetaLabel}>session flow</Text>
-          <Text style={s.studyMetaValue}>{Math.round(progressPct)}%</Text>
-        </View>
-      ) : null}
-      <View style={[s.studyMetaCard, useLandscapeLayout && s.studyMetaCardLandscape]}>
-        <Text style={[s.studyMetaLabel, useLandscapeLayout && s.studyMetaLabelLandscape]}>correct</Text>
-        <Text style={[s.studyMetaValue, useLandscapeLayout && s.studyMetaValueLandscape, { color: GREEN }]}>{stats.correct}</Text>
+  const answerTally = (
+    <View style={s.answerTally}>
+      <View style={s.answerTallyItem}>
+        <Text style={[s.answerTallyValue, { color: RED }]}>{stats.incorrect}</Text>
+        <Text style={s.answerTallyLabel}>i don't know this</Text>
       </View>
-      <View style={[s.studyMetaCard, useLandscapeLayout && s.studyMetaCardLandscape]}>
-        <Text style={[s.studyMetaLabel, useLandscapeLayout && s.studyMetaLabelLandscape]}>left</Text>
-        <Text style={[s.studyMetaValue, useLandscapeLayout && s.studyMetaValueLandscape]}>{remaining}</Text>
+      <View style={s.answerTallySep} />
+      <View style={s.answerTallyItem}>
+        <Text style={[s.answerTallyValue, { color: GREEN }]}>{stats.correct}</Text>
+        <Text style={s.answerTallyLabel}>i know this</Text>
       </View>
     </View>
   );
@@ -455,22 +640,12 @@ function StudyView({
   const answerActions = (
     <View style={[s.answerRow, useLandscapeLayout && s.answerRowLandscape]}>
       <HapticTouchable style={[s.wrongBtn, useLandscapeLayout && s.answerBtnLandscape]} onPress={() => answer(false)} haptic="warning">
-        {!useLandscapeLayout ? (
-          <View style={[s.answerIconWrap, useLandscapeLayout && s.answerIconWrapLandscape]}>
-            <Ionicons name="close" size={22} color={RED} />
-          </View>
-        ) : null}
-        <Text style={s.wrongLabel}>incorrect</Text>
-        {!useLandscapeLayout ? <Text style={s.answerSubLabel}>needs another pass</Text> : null}
+        <NeumorphicTexture grainVariant="dots" grainOpacity={0.22} />
+        <Text style={s.wrongLabel}>i don't know this</Text>
       </HapticTouchable>
       <HapticTouchable style={[s.rightBtn, useLandscapeLayout && s.answerBtnLandscape]} onPress={() => answer(true)} haptic="success">
-        {!useLandscapeLayout ? (
-          <View style={[s.answerIconWrap, useLandscapeLayout && s.answerIconWrapLandscape]}>
-            <Ionicons name="checkmark" size={22} color={GREEN} />
-          </View>
-        ) : null}
-        <Text style={s.rightLabel}>correct</Text>
-        {!useLandscapeLayout ? <Text style={s.answerSubLabel}>ready to move on</Text> : null}
+        <NeumorphicTexture grainVariant="dots" grainOpacity={0.22} />
+        <Text style={s.rightLabel}>i know this</Text>
       </HapticTouchable>
     </View>
   );
@@ -493,18 +668,23 @@ function StudyView({
             {cardViewport}
           </View>
           <View style={s.studySidebar}>
-            {sidebarStats}
+            {answerTally}
             {answerActions}
           </View>
         </View>
       ) : (
         <>
-          {sidebarStats}
           <View style={s.progressBar}>
             <View style={[s.progressFill, { width: `${((idx + 1) / cards.length) * 100}%` as const }]} />
           </View>
-          {cardViewport}
-          {answerActions}
+          {/* Card and answer buttons are one visual unit -- centered together in the
+              remaining space instead of the card floating centered on its own with the
+              buttons pinned separately at the screen edge. */}
+          <View style={s.studyCenterGroup}>
+            {cardViewport}
+            {answerTally}
+            {answerActions}
+          </View>
         </>
       )}
     </SafeAreaView>
@@ -1007,6 +1187,9 @@ function FlashcardsSets({
     .replace(/\s+/g, ' ')
     .trim();
   const columns = layout.width >= 700 ? 3 : 2;
+  const cardGap = 12;
+  const gridInnerWidth = Math.min(layout.width, layout.contentMaxWidth) - 20;
+  const cardWidth = (gridInnerWidth - cardGap * (columns - 1)) / columns;
   const coverColors = ['#df6b6b', '#69beb8', '#68aac7', '#e99b76', '#8dbfab', '#dcc86d'];
   const query = search.trim().toLowerCase();
   const filteredSets = sets
@@ -1032,7 +1215,9 @@ function FlashcardsSets({
       </View>
 
       {loading ? (
-        <ActivityIndicator color={ACCENT} style={{ marginTop: 40 }} />
+        <View style={{ marginTop: 60, alignItems: 'center' }}>
+          <PulseCubes color={ACCENT} size={12} />
+        </View>
       ) : (
         <View style={s.workspace}>
           <HapticTouchable style={s.generateHero} onPress={() => onOpenCreate('ai')} haptic="medium" activeOpacity={0.88}>
@@ -1097,7 +1282,7 @@ function FlashcardsSets({
           ) : viewMode === 'grid' ? (
             <ScrollView
               style={s.collectionScroll}
-              contentContainerStyle={[s.collectionGrid, { gap: columns === 3 ? 10 : 8 }]}
+              contentContainerStyle={[s.collectionGrid, { gap: cardGap }]}
               showsVerticalScrollIndicator={false}
               bounces
               refreshControl={(
@@ -1112,7 +1297,7 @@ function FlashcardsSets({
               {filteredSets.map((item, index) => (
                 <View
                   key={item.id}
-                  style={[s.collectionCard, { width: columns === 3 ? '31.8%' : '48.8%' }]}
+                  style={[s.collectionCard, { width: cardWidth }]}
                 >
                   <View style={[s.collectionCover, { backgroundColor: coverColors[index % coverColors.length] }]}>
                     <HapticTouchable
@@ -1203,8 +1388,8 @@ function FlashcardsSets({
 
       {loadingCards && (
         <View style={s.loadingOverlay}>
-          <ActivityIndicator color={ACCENT} size="large" />
-          <Text style={[s.emptyHint, { marginTop: 12 }]}>loading cards…</Text>
+          <PulseCubes color={ACCENT} size={14} />
+          <Text style={[s.emptyHint, { marginTop: 14 }]}>loading cards…</Text>
         </View>
       )}
 
@@ -1278,10 +1463,6 @@ export default function FlashcardsScreen({ user, onBack }: Props) {
             set={route.params.set}
             cards={route.params.cards}
             onBack={() => navigation.goBack()}
-            onToggleReview={async (cardId, marked) => {
-              await markFlashcardForReview(cardId, marked);
-              setRefreshTick((value) => value + 1);
-            }}
             onAnswer={(cardId, correct) => reviewFlashcard({
               userId: user.username,
               cardId,
@@ -1317,13 +1498,26 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   const softSuccess = rgbaFromHex(GREEN, 0.12);
   const softSuccessBorder = rgbaFromHex(GREEN, 0.26);
   const useLandscapeStudyLayout = layout.isLandscape && layout.width >= 700;
-  const studyBodyWidth = Math.min(layout.contentMaxWidth, layout.width - 40);
+  // Side gutter matches the standard paddingHorizontal used by every other
+  // page on this screen (header/workspace) instead of the old wider inset.
+  const studyBodyWidth = Math.min(layout.contentMaxWidth, layout.width - 20);
   const studySidebarWidth = useLandscapeStudyLayout ? Math.min(Math.max(studyBodyWidth * 0.25, 180), 240) : 0;
-  const studyCardWidth = useLandscapeStudyLayout ? studyBodyWidth - studySidebarWidth - 16 : studyBodyWidth - 40;
-  const cardWidth = Math.max(280, Math.min(studyCardWidth, useLandscapeStudyLayout ? layout.width * 0.75 : layout.width - 40));
+  const studyCardWidth = useLandscapeStudyLayout ? studyBodyWidth - studySidebarWidth - 16 : studyBodyWidth - 20;
+  const cardWidth = Math.max(280, Math.min(studyCardWidth, useLandscapeStudyLayout ? layout.width * 0.75 : layout.width - 20));
+  // Tied to cardWidth (not an independent fixed range) so the card reads as
+  // square-ish instead of a tall rectangle, while still clamping to whatever
+  // vertical room the header/progress bar/answer row leave available.
   const cardHeight = useLandscapeStudyLayout
     ? Math.max(240, Math.min(layout.height - 132, Math.round(cardWidth * 0.9)))
-    : Math.max(260, Math.min(layout.height - 300, 520));
+    : Math.max(280, Math.min(layout.height - 300, Math.round(cardWidth * 1.05)));
+  CURRENT_CARD_WIDTH = cardWidth;
+  CURRENT_CARD_HEIGHT = cardHeight;
+  // A plain negative marginTop on a centered flex:1 box only moves the box's
+  // edge -- the content inside still re-centers within the taller box, so it
+  // only actually visibly shifts by half the margin. A transform moves the
+  // rendered content itself by the full amount, which is what "move it up by
+  // 15%" needs.
+  const studyLiftOffset = Math.round(layout.height * 0.09);
   return StyleSheet.create({
   safe: { flex: 1, backgroundColor: BG },
   header: {
@@ -1544,60 +1738,20 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     paddingTop: 16,
     paddingBottom: 12,
   },
   studyTitle: { fontFamily: 'Inter_900Black', fontSize: 15, color: GOLD_L, flex: 1, textAlign: 'center', marginHorizontal: 12 },
   studyCounter: { fontFamily: 'Inter_600SemiBold', fontSize: 13 },
-  studyMetaRow: {
-    width: '100%',
-    maxWidth: Math.min(layout.contentMaxWidth, 820),
-    alignSelf: 'center',
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 20,
-    paddingTop: 4,
-    paddingBottom: 14,
-  },
-  studyMetaRowLandscape: {
-    maxWidth: studySidebarWidth,
-    flexDirection: 'column',
-    alignSelf: 'stretch',
-    paddingHorizontal: 0,
-    paddingTop: 0,
-    paddingBottom: 10,
-  },
-  studyMetaCard: {
-    flex: 1,
-    backgroundColor: rgbaFromHex(SURFACE_2, 0.92),
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: BORDER,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-  },
-  studyMetaCardLandscape: {
-    flex: 0,
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    alignItems: 'flex-start',
-    minHeight: 0,
-  },
-  studyMetaLabel: { fontFamily: 'Inter_700Bold', fontSize: 9, color: DIM2, letterSpacing: 1.4, textTransform: 'uppercase' },
-  studyMetaLabelLandscape: { fontSize: 9, letterSpacing: 1.2 },
-  studyMetaValue: { fontFamily: 'Inter_900Black', fontSize: 18, color: GOLD_L, marginTop: 6 },
-  studyMetaValueLandscape: { fontSize: 16, marginTop: 4 },
 
   progressBar: {
     width: '100%',
-    maxWidth: Math.min(layout.contentMaxWidth - 40, 780),
+    maxWidth: Math.min(layout.contentMaxWidth - 20, 780),
     alignSelf: 'center',
     height: 4,
     backgroundColor: rgbaFromHex(ACCENT, 0.12),
-    marginHorizontal: 20,
+    marginHorizontal: 10,
     borderRadius: 999,
     overflow: 'hidden',
   },
@@ -1610,10 +1764,11 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     alignSelf: 'center',
     flexDirection: 'row',
     gap: 16,
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     paddingTop: 12,
     paddingBottom: 20,
-  },
+    transform: [{ translateY: -studyLiftOffset }],
+  } as ViewStyle,
   studyCardColumn: {
     width: cardWidth,
     alignItems: 'center',
@@ -1621,90 +1776,117 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   },
   studySidebar: {
     width: studySidebarWidth,
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     gap: 10,
-    marginTop: -28,
   },
-  cardWrap: {
+  // The card and the answer buttons are centered together as one block, then
+  // lifted up by studyLiftOffset (see above) on top of that.
+  studyCenterGroup: {
     flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 18,
+    transform: [{ translateY: -studyLiftOffset }],
+  } as ViewStyle,
+  cardWrap: {
     width: '100%',
     maxWidth: Math.min(layout.contentMaxWidth, 820),
     alignSelf: 'center',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 12,
-    minHeight: 220,
   },
   cardWrapLandscape: {
-    flex: 0,
     width: cardWidth,
     maxWidth: cardWidth,
-    paddingHorizontal: 0,
-    paddingTop: 0,
-    paddingBottom: 0,
-    minHeight: cardHeight,
   },
-  cardPager: { width: cardWidth, height: useLandscapeStudyLayout ? cardHeight : '100%' },
-  cardPagerPage: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  cardAnimatedWrap: {
-    width: cardWidth,
-    height: useLandscapeStudyLayout ? cardHeight : '100%',
-  },
-  cardStageGlow: {
+  // Bare icon inside the card's padded area -- no chip, no circle, no fill
+  // behind it at all. Sits a bit below the very top edge (not flush with the
+  // corner) so it reads as part of the card's content, not glued to the rim.
+  cardNavArrow: {
     position: 'absolute',
-    width: Math.max(cardWidth - 48, 240),
-    height: useLandscapeStudyLayout ? Math.max(cardHeight - 42, 220) : '82%',
-    borderRadius: 20,
-    backgroundColor: rgbaFromHex(ACCENT, 0.08),
+    top: 38,
+    zIndex: 5,
   },
+  cardNavArrowLeft: { left: 16 },
+  cardNavArrowRight: { right: 16 },
+  cardNavArrowDisabled: { opacity: 0.25 },
+  cardStage: { width: cardWidth, height: cardHeight },
+  cardAnimatedWrap: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: cardWidth,
+    height: cardHeight,
+  },
+  // The next card's spot underneath the draggable top card -- same
+  // width/height, centered exactly behind it (no vertical offset -- that
+  // read as two separate stacked cards rather than one card sitting
+  // directly behind another). Depth comes only from the front card's own
+  // 0.98 scale, which lets a slim, even margin of this one show all around
+  // it. Always fully visible (see cardGlassOverlay for the actual blur).
+  cardStackBehind: {},
+  // Sits on top of the peeked next card's already-rendered face, blurring
+  // its text/content into illegibility while its actual background/shape
+  // still shows through underneath -- "there's a card there" stays visible,
+  // "what it says" doesn't, until it becomes the front card.
+  cardGlassOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+  // Both faces share the same accent/primary pair (see cardGradientColors above),
+  // just swapped in dominance, so the card stays cohesive while still reading as
+  // a different color between question and answer.
+  // Shadow + border live on this outer, unclipped box; the gradient/grain live on
+  // the separate absolutely-filled `cardClip` layer below. A single view can't
+  // both cast a soft boxShadow AND clip its own content with overflow:hidden --
+  // the shadow's blur gets cut off at the clip edge and renders as a hard-edged
+  // dark rectangle instead (the exact "black sharp square" this was producing).
+  // Both the modern boxShadow array and the legacy shadow*/elevation properties
+  // are set (same belt-and-suspenders this app's other neumorphic shadows use)
+  // so the rounded shadow doesn't depend on boxShadow alone rendering correctly.
   card: {
     width: cardWidth,
-    height: useLandscapeStudyLayout ? cardHeight : '100%',
-    backgroundColor: rgbaFromHex(QUESTION_SURFACE, 0.98),
-    borderRadius: 20,
+    height: cardHeight,
+    borderRadius: 24,
     padding: 26,
-    justifyContent: 'space-between',
-    overflow: 'hidden',
-    boxShadow: cbModalShadow(0.16),
-    ...cbTileBorder(0.22),
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 10, height: 10 },
+    shadowOpacity: 0.55,
+    shadowRadius: 24,
+    elevation: 10,
+    boxShadow: cbPlainCardShadow(),
+    ...cbTileBorder(0.28),
   },
-  cardFlipped: { backgroundColor: rgbaFromHex(ANSWER_SURFACE, 0.96), borderColor: ANSWER_CHIP_BORDER },
-  cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardTopActions: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  reviewToggle: { minHeight: 30, borderRadius: 999, paddingHorizontal: 10, borderWidth: 1, borderColor: QUESTION_CHIP_BORDER, backgroundColor: QUESTION_CHIP_BG, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
-  reviewToggleActive: { backgroundColor: ACCENT, borderColor: ACCENT2 },
-  reviewToggleText: { fontFamily: 'Inter_700Bold', fontSize: 9, color: QUESTION_TEXT, letterSpacing: 0.5 },
-  reviewToggleTextActive: { color: INK },
-  cardSidePill: { borderRadius: 999, paddingHorizontal: 11, paddingVertical: 6, backgroundColor: QUESTION_CHIP_BG, borderWidth: 1, borderColor: QUESTION_CHIP_BORDER },
-  cardSidePillFlipped: { backgroundColor: ANSWER_CHIP_BG, borderColor: ANSWER_CHIP_BORDER },
-  cardSide: { fontFamily: 'Inter_700Bold', fontSize: 9, color: QUESTION_TEXT, letterSpacing: 1.4 },
-  cardSideFlipped: { color: ANSWER_TEXT, opacity: 1 },
+  cardClip: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
   cardBody: { flex: 1, marginTop: 18, marginBottom: 18 },
-  cardBodyContent: { flexGrow: 1, justifyContent: 'center' },
+  cardBodyContent: { flexGrow: 1, justifyContent: 'center', alignItems: 'center' },
   cardBodyContentLandscape: {
     justifyContent: 'flex-start',
     paddingBottom: 18,
   },
-  cardText: { fontFamily: 'Inter_900Black', fontSize: 23, color: QUESTION_TEXT, lineHeight: 31 },
-  cardTextFlipped: { color: ANSWER_TEXT },
-  randomCardSource: { fontFamily: 'Inter_700Bold', fontSize: 9, color: QUESTION_TEXT, opacity: 0.6, letterSpacing: 1, marginBottom: 10 },
-  randomCardSourceFlipped: { color: ANSWER_TEXT },
-  cardFooter: { alignItems: 'center' },
-  cardHintText: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 10,
-    color: GOLD_D,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    textAlign: 'center',
+  cardText: { fontFamily: 'Inter_900Black', fontSize: 23, color: CB_ACCENT, lineHeight: 31, textAlign: 'center' },
+  // Question face leads with the bright accent stop, so dark ink reads far
+  // better there than the gold used on the darker answer face.
+  cardTextQuestion: { color: '#0a0a0b' },
+  randomCardSource: { fontFamily: 'Inter_700Bold', fontSize: 9, color: rgbaFromHex(CB_ACCENT, 0.55), letterSpacing: 1, marginBottom: 10, textAlign: 'center' },
+
+  answerTally: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 18,
   },
-  cardHintTextFlipped: { color: ANSWER_TEXT },
-  diffPill: { alignSelf: 'flex-start', backgroundColor: QUESTION_CHIP_BG, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: QUESTION_CHIP_BORDER },
-  diffPillFlipped: { backgroundColor: ANSWER_CHIP_BG, borderColor: ANSWER_CHIP_BORDER },
-  diffText: { fontFamily: 'Inter_700Bold', fontSize: 9, color: QUESTION_TEXT, letterSpacing: 1 },
-  diffTextFlipped: { color: ANSWER_TEXT },
+  answerTallyItem: { alignItems: 'center', gap: 2 },
+  answerTallySep: { width: 1, height: 22, backgroundColor: BORDER },
+  answerTallyValue: { fontFamily: 'Inter_900Black', fontSize: 18 },
+  answerTallyLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: DIM2, letterSpacing: 0.6, textTransform: 'uppercase' },
 
   answerRow: {
     width: '100%',
@@ -1712,9 +1894,7 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     alignSelf: 'center',
     flexDirection: 'row',
     gap: 12,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    paddingTop: 8,
+    paddingHorizontal: 10,
   },
   answerRowLandscape: {
     maxWidth: studySidebarWidth,
@@ -1722,8 +1902,6 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     flexDirection: 'column',
     gap: 8,
     paddingHorizontal: 0,
-    paddingBottom: 0,
-    paddingTop: 0,
   },
   wrongBtn: {
     flex: 1,
@@ -1733,12 +1911,12 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     borderColor: softDangerBorder,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 18,
-    gap: 6,
+    paddingVertical: 17,
+    overflow: 'hidden',
   },
   answerBtnLandscape: {
     flex: 0,
-    minHeight: 88,
+    minHeight: 64,
     paddingVertical: 10,
   },
   rightBtn: {
@@ -1749,27 +1927,11 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
     borderColor: softSuccessBorder,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 18,
-    gap: 6,
+    paddingVertical: 17,
+    overflow: 'hidden',
   },
-  answerIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: rgbaFromHex(SURFACE, 0.78),
-    borderWidth: 1,
-    borderColor: BORDER,
-  },
-  answerIconWrapLandscape: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-  },
-  wrongLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: RED, letterSpacing: 1 },
-  rightLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: GREEN, letterSpacing: 1 },
-  answerSubLabel: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM2 },
+  wrongLabel: { fontFamily: 'Inter_700Bold', fontSize: 13, color: RED, letterSpacing: 0.4 },
+  rightLabel: { fontFamily: 'Inter_700Bold', fontSize: 13, color: GREEN, letterSpacing: 0.4 },
 
   resultsWrap: {
     flex: 1,

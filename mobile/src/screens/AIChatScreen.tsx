@@ -867,7 +867,7 @@ export default function AIChatScreen({ user }: Props) {
               <Ionicons name="camera-outline" size={19} color={selectedTheme.textSecondary} />
             </HapticTouchable>
             <TextInput
-              style={s.input}
+              style={[s.input, !input && s.inputPlaceholder]}
               value={input}
               onChangeText={setInput}
               placeholder="ASK CERBYL"
@@ -1490,6 +1490,13 @@ function createStyles(
     lineHeight: 19,
     color: GOLD_L,
     maxHeight: 120,
+  },
+  // Placeholder-only styling -- matches the bottom tab bar's label treatment
+  // (small, bold, letter-spaced caps) instead of running at typed-message size.
+  inputPlaceholder: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 11,
+    letterSpacing: 2,
   },
   sendBtn: { width: 34, height: 34, borderRadius: 17, overflow: 'hidden' },
   sendDisabled: { opacity: 0.34 },

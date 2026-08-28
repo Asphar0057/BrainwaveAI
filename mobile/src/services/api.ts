@@ -1540,6 +1540,31 @@ export async function createNote(payload: {
   return res.json();
 }
 
+export async function getNote(noteId: number | string) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/get_note/${noteId}`, { headers });
+
+  if (!res.ok) {
+    await readApiError(res, 'Failed to load note');
+  }
+
+  return res.json(); // {id, title, content, transcript, analysis, flashcards, quiz_questions, key_moments}
+}
+
+export async function deleteNote(noteId: number | string) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/delete_note/${noteId}`, {
+    method: 'DELETE',
+    headers,
+  });
+
+  if (!res.ok) {
+    await readApiError(res, 'Failed to delete note');
+  }
+
+  return res.json();
+}
+
 export async function updateNote(payload: {
   noteId: number | string;
   title: string;

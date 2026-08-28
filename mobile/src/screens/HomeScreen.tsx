@@ -112,18 +112,30 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
     })
   ), [canSwipeBetweenPages, onSwipeLeftPage, onSwipeRightPage]);
 
+  // Claims responder on touch-start (same as any Touchable) so both a plain
+  // tap AND a horizontal drag are caught by this single responder -- a
+  // PanResponder living on a child of a wrapping TouchableOpacity can never
+  // steal responder-ship from that ancestor mid-gesture, which is why swipes
+  // silently did nothing while the wrapping Touchable's onPress still fired
+  // for taps. The ancestor ScrollView can still reclaim responder-ship for a
+  // predominantly-vertical drag via its own capture phase, same as it does
+  // for any Touchable nested inside it, so page scrolling is unaffected.
   const heroSwipeResponder = useMemo(() => (
     PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
+      onStartShouldSetPanResponder: () => true,
       onStartShouldSetPanResponderCapture: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) =>
-        Math.abs(gestureState.dx) > 18 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
-      onMoveShouldSetPanResponderCapture: (_, gestureState) =>
-        Math.abs(gestureState.dx) > 18 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+        Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+      onMoveShouldSetPanResponderCapture: () => false,
+      onPanResponderGrant: () => {
+        triggerHaptic('selection');
+      },
       onPanResponderRelease: (_, gestureState) => {
         const isSwipe = Math.abs(gestureState.dx) > 34 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
-        if (isSwipe) cycleHeroRef.current();
+        const isTap = Math.abs(gestureState.dx) < 10 && Math.abs(gestureState.dy) < 10;
+        if (isSwipe || isTap) cycleHeroRef.current();
       },
+      onPanResponderTerminationRequest: () => true,
       onShouldBlockNativeResponder: () => false,
     })
   ), []);
@@ -194,9 +206,7 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
 
   const streak = stats?.streak ?? 0;
   const GOLD_L = selectedTheme.accentHover;
-  const GOLD_MID = selectedTheme.accent;
   const GOLD_SOFT = selectedTheme.textPrimary;
-  const accentDark = darkenColor(selectedTheme.accent, selectedTheme.isLight ? 16 : 34);
   const todayDateKey = new Date().toDateString();
   const elapsedSinceFetch = Math.max(0, (liveTick - statsFetchedAt.current) / 60000);
 
@@ -224,28 +234,35 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
   const hour = new Date().getHours();
 
   const heroSlides = [
-    { key: 'streak', eyebrow: 'daily signal', title: 'streak', value: String(streak), unit: 'days active', subcopy: 'keep the chain alive', accent: GOLD_L },
-    { key: 'hours', eyebrow: 'focus depth', title: 'study time', value: studyDuration.value, unit: `${studyDuration.unit} this week`, subcopy: 'time invested in real work', accent: GOLD_L },
-    { key: 'chat', eyebrow: 'thinking loop', title: 'ai chats', value: String(totalChats), unit: 'total sessions', subcopy: 'questions, iterations, answers', accent: GOLD_MID },
-    { key: 'flashcards', eyebrow: 'memory system', title: 'flashcards', value: String(totalFlashcards), unit: 'cards created', subcopy: 'repeat and retain', accent: GOLD_MID },
-    { key: 'notes', eyebrow: 'knowledge base', title: 'notes', value: String(totalNotes), unit: 'notes saved', subcopy: 'captured ideas and lessons', accent: accentDark },
-    { key: 'progress', eyebrow: 'today', title: 'progress', value: `${todayProgress}%`, unit: 'momentum score', subcopy: 'how the day is moving', accent: GOLD_L },
+    { key: 'streak', value: String(streak), label: 'day streak' },
+    { key: 'hours', value: studyDuration.value, label: `${studyDuration.unit} studied this week` },
+    { key: 'chat', value: String(totalChats), label: 'ai chat sessions' },
+    { key: 'flashcards', value: String(totalFlashcards), label: 'flashcards created' },
+    { key: 'notes', value: String(totalNotes), label: 'notes saved' },
+    { key: 'progress', value: `${todayProgress}%`, label: "today's momentum" },
   ] as const;
 
   const hero = heroSlides[heroIndex];
   const heroValueMaxWidth = Math.max(220, Math.min(layout.width - 72, layout.contentMaxWidth - 44));
+  // Sized to actually fill the card's width rather than a fixed cap that only
+  // the longest possible value (e.g. "3h 20m") ever reached -- short values
+  // like a 2-digit streak used to render tiny and lost in the card.
   const heroFontSize = Math.min(
-    layout.isLandscape ? 208 : 178,
-    Math.floor((heroValueMaxWidth * (layout.isLandscape ? 0.6 : 0.92)) / Math.max(hero.value.length * 0.72, 1))
+    layout.isLandscape ? 260 : 230,
+    Math.floor((heroValueMaxWidth * (layout.isLandscape ? 0.66 : 0.98)) / Math.max(hero.value.length * 0.62, 1))
   );
-  // The title ("streak", "study time", ...) now sits as a big, faded,
-  // gradient-fill watermark directly behind the number instead of a small
-  // caption above it -- sized relative to the number so it scales with it,
-  // with an explicit box (MaskedView needs a real width/height to mask
-  // against) centered over the number's own fixed footprint.
-  const heroLabelFontSize = Math.round(heroFontSize * 0.34);
-  const heroLabelBoxHeight = Math.round(heroLabelFontSize * 1.25);
-  const heroLabelBoxWidth = Math.min(heroValueMaxWidth, Math.round(hero.title.length * heroLabelFontSize * 0.64 + 16));
+  // The label ("day streak", "flashcards created", ...) reads as a small
+  // caption below the number, gold-to-transparent gradient fill (same
+  // MaskedView technique as the Explore page's "notes" tile) instead of a
+  // flat color -- fully opaque and in normal flow, not a faded watermark
+  // sitting behind the number.
+  const heroLabelFontSize = layout.isLandscape ? 14 : 13;
+  const heroLabelLetterSpacing = layout.isLandscape ? 2.8 : 2.2;
+  const heroLabelBoxHeight = Math.round(heroLabelFontSize * 1.3);
+  const heroLabelBoxWidth = Math.min(
+    heroValueMaxWidth,
+    Math.round(hero.label.length * (heroLabelFontSize * 0.62 + heroLabelLetterSpacing) + 12)
+  );
   const heroNumBoxHeight = heroFontSize + 10;
 
   const rings = [
@@ -305,70 +322,58 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
         </View>
 
         <View style={styles.heroWrap}>
-          <HapticTouchable activeOpacity={1} onPress={cycleHero} haptic="selection">
-            <View style={styles.heroSection} {...heroSwipeResponder.panHandlers}>
-              <NeumorphicTexture
-                grainOpacity={0.48}
-                grainVariant="skia"
-                baseFrequency={0.7}
-                gradientColors={cbTileCardGradient.colors}
-                gradientStart={cbTileCardGradient.start}
-                gradientEnd={cbTileCardGradient.end}
-              />
+          <View style={styles.heroSection} {...heroSwipeResponder.panHandlers}>
+            <NeumorphicTexture
+              grainOpacity={0.48}
+              grainVariant="skia"
+              baseFrequency={0.7}
+              gradientColors={cbTileCardGradient.colors}
+              gradientStart={cbTileCardGradient.start}
+              gradientEnd={cbTileCardGradient.end}
+            />
 
-              {stats === null ? (
-                <View style={styles.heroLoading}>
-                  <Text style={styles.heroLoadingBrand}>cerbyl</Text>
-                  <ActivityIndicator color={selectedTheme.accent} size="small" />
-                  <Text style={styles.heroLoadingText}>syncing your learning signal</Text>
+            {stats === null ? (
+              <View style={styles.heroLoading}>
+                <Text style={styles.heroLoadingBrand}>cerbyl</Text>
+                <ActivityIndicator color={selectedTheme.accent} size="small" />
+                <Text style={styles.heroLoadingText}>syncing your learning signal</Text>
+              </View>
+            ) : (
+              <AnimatedView style={[styles.heroContent, { opacity: heroSwap, transform: [{ scale: heroSwap.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }) }] }]}>
+                <View style={styles.heroDots}>
+                  {heroSlides.map((_, index) => (
+                    <View key={index} style={[styles.heroDot, index === heroIndex && styles.heroDotActive]} />
+                  ))}
                 </View>
-              ) : (
-                <AnimatedView style={[styles.heroContent, { opacity: heroSwap, transform: [{ scale: heroSwap.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }) }] }]}>
-                  <View style={{ width: heroValueMaxWidth, height: heroNumBoxHeight }}>
-                    <View
-                      style={{
-                        position: 'absolute',
-                        left: (heroValueMaxWidth - heroLabelBoxWidth) / 2,
-                        top: (heroNumBoxHeight - heroLabelBoxHeight) / 2,
-                        opacity: 0.16,
-                      }}
-                    >
-                      <MaskedView
-                        style={{ width: heroLabelBoxWidth, height: heroLabelBoxHeight }}
-                        maskElement={
-                          <View style={{ width: heroLabelBoxWidth, height: heroLabelBoxHeight, alignItems: 'center', justifyContent: 'center' }}>
-                            <Text
-                              style={{
-                                fontFamily: 'Inter_900Black', fontSize: heroLabelFontSize,
-                                letterSpacing: 1.5, textTransform: 'uppercase', color: '#000000',
-                              }}
-                              numberOfLines={1}
-                            >
-                              {hero.title}
-                            </Text>
-                          </View>
-                        }
-                      >
-                        <LinearGradient
-                          colors={[GOLD_L, rgbaFromHex(GOLD_L, 0)]}
-                          start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                          style={StyleSheet.absoluteFillObject}
-                        />
-                      </MaskedView>
-                    </View>
-                    <Text style={[styles.bigNum, { fontSize: heroFontSize, lineHeight: heroNumBoxHeight, width: heroValueMaxWidth }]}>{hero.value}</Text>
-                  </View>
-                  <Text style={styles.heroUnit}>{hero.unit}</Text>
 
-                  <View style={styles.heroDots}>
-                    {heroSlides.map((_, index) => (
-                      <View key={index} style={[styles.heroDot, index === heroIndex && styles.heroDotActive]} />
-                    ))}
-                  </View>
-                </AnimatedView>
-              )}
-            </View>
-          </HapticTouchable>
+                <View style={{ width: heroValueMaxWidth, height: heroNumBoxHeight }}>
+                  <Text style={[styles.bigNum, { fontSize: heroFontSize, lineHeight: heroNumBoxHeight, width: heroValueMaxWidth }]}>{hero.value}</Text>
+                </View>
+                <MaskedView
+                  style={{ width: heroLabelBoxWidth, height: heroLabelBoxHeight, marginTop: layout.isLandscape ? 14 : 10 }}
+                  maskElement={
+                    <View style={{ width: heroLabelBoxWidth, height: heroLabelBoxHeight, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text
+                        style={{
+                          fontFamily: 'Inter_900Black', fontSize: heroLabelFontSize,
+                          letterSpacing: heroLabelLetterSpacing, textTransform: 'uppercase', color: '#000000',
+                        }}
+                        numberOfLines={1}
+                      >
+                        {hero.label}
+                      </Text>
+                    </View>
+                  }
+                >
+                  <LinearGradient
+                    colors={[GOLD_L, rgbaFromHex(GOLD_L, 0)]}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                    style={StyleSheet.absoluteFillObject}
+                  />
+                </MaskedView>
+              </AnimatedView>
+            )}
+          </View>
         </View>
 
         {recentActivity.length > 0 && (
@@ -552,7 +557,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
 
   return StyleSheet.create({
   safe: { flex: 1, backgroundColor: 'transparent', overflow: 'hidden' },
-  scroll: { paddingBottom: layout.isLandscape ? 92 : 110 },
+  scroll: { paddingBottom: 24 },
   topBar: {
     width: '100%',
     maxWidth: layout.contentMaxWidth,
@@ -635,18 +640,10 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     color: GOLD_L,
     textAlign: 'center',
   },
-  heroUnit: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 10,
-    color: GOLD_MID,
-    letterSpacing: 2.6,
-    marginTop: 2,
-    textTransform: 'uppercase',
-  },
   heroDots: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 14,
+    marginBottom: 14,
   },
   heroDot: {
     width: 7,

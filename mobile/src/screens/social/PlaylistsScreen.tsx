@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
-  ActivityIndicator, RefreshControl, Alert, Modal,
+  RefreshControl, Alert, Modal,
   KeyboardAvoidingView, Platform, Switch,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,14 +12,16 @@ import { API_URL } from '../../services/api';
 import { getToken } from '../../services/tokenStorage';
 import HapticTouchable from '../../components/HapticTouchable';
 import GeoBackground from '../../components/GeoBackground';
-import SocialTileMaterial from '../../components/SocialTileMaterial';
-import { cbTileShadow, cbModalShadow, cbTileBorder } from '../../components/NeumorphicTexture';
+import PulseCubes from '../../components/PulseCubes';
+import { cbTileShadow, cbTileBorder } from '../../components/NeumorphicTexture';
+import SectionSidebar, { SidebarItem } from '../../components/SectionSidebar';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../../utils/theme';
 import { useResponsiveLayout } from '../../hooks/useResponsiveLayout';
 
 const CATEGORIES = ['Mathematics','Physics','Chemistry','Biology','Computer Science','History','Literature','Languages','Business','Art','Music'];
 const DIFFICULTIES = ['beginner','intermediate','advanced'];
+const COVER_COLORS = ['#df6b6b', '#69beb8', '#68aac7', '#e99b76', '#8dbfab', '#dcc86d'];
 
 type Playlist = {
   id: number;
@@ -38,6 +40,13 @@ type Playlist = {
 type Tab = 'discover' | 'following' | 'mine';
 type Props = { user: AuthUser; onBack: () => void };
 
+const PLAYLISTS_SIDEBAR_ITEMS: SidebarItem[] = [
+  { key: 'discover', label: 'Discover' },
+  { key: 'following', label: 'Following' },
+  { key: 'mine', label: 'My Playlists' },
+  { key: 'create', label: 'Create Playlist' },
+];
+
 async function authHeaders() {
   const token = await getToken();
   return token ? ({ Authorization: `Bearer ${token}` } as Record<string, string>) : {};
@@ -47,7 +56,6 @@ export default function PlaylistsScreen({ user, onBack }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
   const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
-  const pc = useMemo(() => createPlaylistCardStyles(selectedTheme), [selectedTheme]);
   const m = useMemo(() => createModalStyles(selectedTheme), [selectedTheme]);
   const [fontsLoaded] = useFonts({ Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold });
   const [tab, setTab]               = useState<Tab>('discover');
@@ -58,22 +66,20 @@ export default function PlaylistsScreen({ user, onBack }: Props) {
   const [catFilter, setCatFilter]   = useState('');
   const [diffFilter, setDiffFilter] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [creating, setCreating]     = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   // Create form
   const [newTitle, setNewTitle]     = useState('');
   const [newDesc, setNewDesc]       = useState('');
   const [newCat, setNewCat]         = useState('');
   const [newDiff, setNewDiff]       = useState('intermediate');
   const [newPublic, setNewPublic]   = useState(true);
-  const GOLD_XL = selectedTheme.accent;
-  const GOLD_L = selectedTheme.accentHover;
-  const GOLD_M = selectedTheme.accent;
-  const GOLD_D = darkenColor(selectedTheme.accent, selectedTheme.isLight ? 12 : 26);
   const DIM = selectedTheme.textSecondary;
-  const INK = selectedTheme.isLight ? darkenColor(selectedTheme.accent, 34) : selectedTheme.bgPrimary;
+  const ink = selectedTheme.isLight ? darkenColor(selectedTheme.accent, 34) : selectedTheme.bgPrimary;
   const DIFF_COLOR: Record<string, string> = {
     beginner: selectedTheme.success,
-    intermediate: GOLD_M,
+    intermediate: selectedTheme.accent,
     advanced: selectedTheme.danger,
   };
   const switchTrackOff = rgbaFromHex(selectedTheme.accent, selectedTheme.isLight ? 0.18 : 0.24);
@@ -103,6 +109,15 @@ export default function PlaylistsScreen({ user, onBack }: Props) {
 
   useEffect(() => { setLoading(true); load(); }, [load]);
   const onRefresh = () => { setRefreshing(true); load(); };
+
+  // Same "most followed" sort the web library uses for its popularity view --
+  // applied client-side to the already-fetched (server-side is_public=true)
+  // discover page, exactly like PlaylistsPage.js's sortedPlaylists('popular').
+  const popular = useMemo(() => (
+    tab === 'discover'
+      ? [...playlists].sort((a, b) => (b.follower_count ?? 0) - (a.follower_count ?? 0)).slice(0, 10)
+      : []
+  ), [tab, playlists]);
 
   const doFollow = async (id: number, currently: boolean) => {
     try {
@@ -155,49 +170,42 @@ export default function PlaylistsScreen({ user, onBack }: Props) {
       <GeoBackground />
 
       {/* Header */}
-      <View>
-        <View style={s.topBar}>
-          <HapticTouchable onPress={onBack} style={s.backBtn} haptic="light">
-            <Ionicons name="chevron-back" size={18} color={GOLD_M} />
-          </HapticTouchable>
-          <HapticTouchable onPress={() => setShowCreate(true)} haptic="medium">
-            <LinearGradient colors={[selectedTheme.accentHover, selectedTheme.accent]} start={{ x: 0.05, y: 0 }} end={{ x: 0.95, y: 1 }} style={s.cta}>
-              <Text style={s.ctaText}>+ new</Text>
-            </LinearGradient>
-          </HapticTouchable>
+      <View style={s.header}>
+        <HapticTouchable onPress={onBack} haptic="selection">
+          <Ionicons name="chevron-back" size={22} color={selectedTheme.accentHover} />
+        </HapticTouchable>
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          <Text style={s.title}>playlists</Text>
+          <Text style={s.subtitle}>{playlists.length} {tab} playlists</Text>
         </View>
+        <HapticTouchable onPress={() => setSidebarOpen(true)} haptic="selection" accessibilityLabel="Open menu">
+          <Ionicons name="menu-outline" size={24} color={selectedTheme.accentHover} />
+        </HapticTouchable>
+      </View>
 
-        {/* Hero */}
-        <View style={s.hero}>
-          <SocialTileMaterial />
-          <Ionicons name="library" size={32} color={GOLD_XL} />
-          <View style={s.heroText}>
-            <Text style={s.heroTitle}>playlists</Text>
-          </View>
-        </View>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={s.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={selectedTheme.accent} />}
+      >
+        <HapticTouchable style={s.createAction} onPress={() => setShowCreate(true)} haptic="medium" activeOpacity={0.88}>
+          <Ionicons name="add" size={16} color={ink} />
+          <Text style={s.createActionText}>Create Playlist</Text>
+        </HapticTouchable>
 
-        {/* Search */}
-        <View style={s.searchWrap}>
-          <LinearGradient colors={[rgbaFromHex(selectedTheme.accent, 0.16), rgbaFromHex(selectedTheme.panelAlt, 0.98)]} style={s.searchBorder}>
-            <View style={s.searchInner}>
-              <Ionicons name="search-outline" size={14} color={GOLD_D} />
-              <TextInput
-                style={s.searchInput}
-                value={search}
-                onChangeText={setSearch}
-                placeholder="search playlists..."
-                placeholderTextColor={DIM}
-                autoCapitalize="none"
-                returnKeyType="search"
-              />
-              {!!search && (
-                <HapticTouchable onPress={() => setSearch('')} haptic="light">
-                  <Ionicons name="close-circle" size={15} color={DIM} />
-                </HapticTouchable>
-              )}
-            </View>
-          </LinearGradient>
-        </View>
+        {/* Search & filter -- a single entry point into the dedicated
+            search/filter page instead of a permanent row of category and
+            difficulty tag chips cluttering the list. */}
+        <HapticTouchable style={s.searchTrigger} onPress={() => setShowFilters(true)} haptic="selection">
+          <Ionicons name="search-outline" size={15} color={DIM} />
+          <Text style={s.searchTriggerText} numberOfLines={1}>
+            {search || catFilter || diffFilter
+              ? [search, catFilter, diffFilter].filter(Boolean).join(' · ')
+              : 'search & filter playlists...'}
+          </Text>
+          {!!(search || catFilter || diffFilter) && <View style={s.searchTriggerBadge} />}
+          <Ionicons name="options-outline" size={17} color={selectedTheme.accentHover} />
+        </HapticTouchable>
 
         {/* Tabs */}
         <View style={s.tabRow}>
@@ -208,104 +216,55 @@ export default function PlaylistsScreen({ user, onBack }: Props) {
             </HapticTouchable>
           ))}
         </View>
-      </View>
 
-      {/* Category filter chips */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips} style={{ maxHeight: 44 }}>
-        {['', ...CATEGORIES].map(c => (
-          <HapticTouchable key={c || 'all'} style={[s.chip, catFilter === c && s.chipActive]} onPress={() => setCatFilter(c)} haptic="selection">
-            <Text style={[s.chipText, catFilter === c && s.chipTextActive]}>{c || 'all'}</Text>
-          </HapticTouchable>
-        ))}
-      </ScrollView>
-
-      {/* Difficulty chips */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[s.chips, { paddingTop: 0, paddingBottom: 8 }]} style={{ maxHeight: 38 }}>
-        {['', ...DIFFICULTIES].map(d => (
-          <HapticTouchable key={d || 'any'} style={[s.chip, diffFilter === d && s.chipActive]} onPress={() => setDiffFilter(d)} haptic="selection">
-            <Text style={[s.chipText, diffFilter === d && s.chipTextActive]}>{d || 'any level'}</Text>
-          </HapticTouchable>
-        ))}
-      </ScrollView>
-
-      {/* List */}
-      {loading ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={GOLD_M} size="large" />
-        </View>
-      ) : (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={s.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={GOLD_M} />}
-        >
-          {playlists.length === 0 ? (
-            <View style={s.empty}>
-              <SocialTileMaterial />
-              <Ionicons name="library-outline" size={40} color={GOLD_D} />
-              <Text style={s.emptyTitle}>{tab === 'mine' ? 'no playlists yet' : tab === 'following' ? 'not following any' : 'no playlists found'}</Text>
-              <Text style={s.emptyHint}>{tab === 'mine' ? 'tap + new to create one' : 'try a different filter'}</Text>
-            </View>
-          ) : playlists.map((pl) => (
-            <View key={pl.id} style={pc.wrap}>
-              <SocialTileMaterial />
-              <View style={pc.accent} />
-              <View style={pc.body}>
-                <View style={pc.topRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={pc.title} numberOfLines={2}>{pl.title}</Text>
-                    {!!pl.description && <Text style={pc.desc} numberOfLines={1}>{pl.description}</Text>}
-                  </View>
-                  {tab !== 'mine' && (
-                    <HapticTouchable
-                      style={[pc.followBtn, pl.is_following && pc.followBtnActive]}
+        {loading ? (
+          <View style={s.loading}><PulseCubes color={selectedTheme.accent} size={13} /></View>
+        ) : playlists.length === 0 ? (
+          <View style={s.empty}>
+            <Ionicons name="library-outline" size={40} color={selectedTheme.accent} />
+            <Text style={s.emptyTitle}>
+              {tab === 'mine' ? 'no playlists yet' : tab === 'following' ? 'not following any' : 'no playlists found'}
+            </Text>
+          </View>
+        ) : (
+          <>
+            {/* Popular public playlists -- Spotify-shelf-style horizontal row,
+                only meaningful on Discover since that's the server-guaranteed
+                is_public=true set (see backend/routes/playlists.py). */}
+            {popular.length > 0 && (
+              <View style={s.shelf}>
+                <Text style={s.shelfTitle}>Popular Playlists</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.shelfRow}>
+                  {popular.map((pl, index) => (
+                    <PopularCard
+                      key={pl.id}
+                      playlist={pl}
+                      color={DIFF_COLOR[pl.difficulty ?? ''] ?? COVER_COLORS[index % COVER_COLORS.length]}
                       onPress={() => doFollow(pl.id, !!pl.is_following)}
-                      haptic="medium"
-                    >
-                      <Text style={[pc.followText, pl.is_following && pc.followTextActive]}>
-                        {pl.is_following ? 'following' : 'follow'}
-                      </Text>
-                      {!pl.is_following && <Ionicons name="chevron-forward" size={15} color="#D8B38D" />}
-                    </HapticTouchable>
-                  )}
-                </View>
-
-                <View style={pc.metaRow}>
-                  {!!pl.category && (
-                    <View style={pc.catPill}>
-                      <Text style={pc.catText}>{pl.category}</Text>
-                    </View>
-                  )}
-                  {!!pl.difficulty && (
-                    <View style={[pc.diffPill, { borderColor: (DIFF_COLOR[pl.difficulty] ?? GOLD_D) + '60' }]}>
-                      <Text style={[pc.diffText, { color: DIFF_COLOR[pl.difficulty] ?? GOLD_M }]}>{pl.difficulty}</Text>
-                    </View>
-                  )}
-                  <View style={pc.statChip}>
-                    <Ionicons name="people-outline" size={10} color={DIM} />
-                    <Text style={pc.statText}>{pl.follower_count ?? 0}</Text>
-                  </View>
-                  {(pl.item_count ?? 0) > 0 && (
-                    <View style={pc.statChip}>
-                      <Ionicons name="list-outline" size={10} color={DIM} />
-                      <Text style={pc.statText}>{pl.item_count} items</Text>
-                    </View>
-                  )}
-                </View>
-
-                {(pl.completion_percentage ?? 0) > 0 && (
-                  <View style={pc.progressRow}>
-                    <View style={pc.progressTrack}>
-                      <View style={[pc.progressFill, { width: `${pl.completion_percentage}%` as any }]} />
-                    </View>
-                    <Text style={pc.progressPct}>{Math.round(pl.completion_percentage ?? 0)}%</Text>
-                  </View>
-                )}
+                      styles={s}
+                    />
+                  ))}
+                </ScrollView>
               </View>
+            )}
+
+            <View style={s.grid}>
+              {playlists.map((pl, index) => (
+                <PlaylistCard
+                  key={pl.id}
+                  playlist={pl}
+                  color={DIFF_COLOR[pl.difficulty ?? ''] ?? COVER_COLORS[index % COVER_COLORS.length]}
+                  showFollow={tab !== 'mine'}
+                  onFollow={() => doFollow(pl.id, !!pl.is_following)}
+                  styles={s}
+                  ink={ink}
+                  dim={DIM}
+                />
+              ))}
             </View>
-          ))}
-        </ScrollView>
-      )}
+          </>
+        )}
+      </ScrollView>
 
       {/* Create modal */}
       <Modal visible={showCreate} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCreate(false)}>
@@ -316,7 +275,7 @@ export default function PlaylistsScreen({ user, onBack }: Props) {
             <View style={m.header}>
               <Text style={m.title}>new playlist</Text>
               <HapticTouchable onPress={() => setShowCreate(false)} haptic="light">
-                <Ionicons name="close" size={22} color={GOLD_M} />
+                <Ionicons name="close" size={22} color={selectedTheme.accent} />
               </HapticTouchable>
             </View>
             <ScrollView contentContainerStyle={m.body} showsVerticalScrollIndicator={false}>
@@ -339,7 +298,7 @@ export default function PlaylistsScreen({ user, onBack }: Props) {
               <View style={m.diffRow}>
                 {DIFFICULTIES.map(d => (
                   <HapticTouchable key={d} style={[m.diffBtn, newDiff === d && m.diffBtnActive]} onPress={() => setNewDiff(d)} haptic="selection">
-                    <Text style={[m.diffText, newDiff === d && { color: DIFF_COLOR[d] ?? GOLD_M }]}>{d}</Text>
+                    <Text style={[m.diffText, newDiff === d && { color: DIFF_COLOR[d] }]}>{d}</Text>
                   </HapticTouchable>
                 ))}
               </View>
@@ -356,85 +315,192 @@ export default function PlaylistsScreen({ user, onBack }: Props) {
               </View>
 
               <HapticTouchable style={m.submit} onPress={doCreate} haptic="medium" disabled={creating}>
-                <LinearGradient colors={[selectedTheme.accentHover, selectedTheme.accent]} start={{ x: 0.05, y: 0 }} end={{ x: 0.95, y: 1 }} style={m.submitGrad}>
-                  {creating ? <ActivityIndicator color={INK} size="small" /> : <Text style={m.submitText}>create playlist</Text>}
-                </LinearGradient>
+                {creating ? <PulseCubes color={ink} size={9} /> : <Text style={m.submitText}>create playlist</Text>}
               </HapticTouchable>
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <Modal visible={showFilters} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowFilters(false)}>
+        <View style={m.root}>
+          <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFillObject} />
+          <GeoBackground />
+          <View style={m.header}>
+            <Text style={m.title}>search & filter</Text>
+            <HapticTouchable onPress={() => setShowFilters(false)} haptic="light">
+              <Ionicons name="close" size={22} color={selectedTheme.accent} />
+            </HapticTouchable>
+          </View>
+          <ScrollView contentContainerStyle={m.body} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <Text style={m.label}>search</Text>
+            <View style={s.searchBox}>
+              <Ionicons name="search-outline" size={15} color={DIM} />
+              <TextInput
+                style={s.searchInput}
+                value={search}
+                onChangeText={setSearch}
+                placeholder="title, description, creator..."
+                placeholderTextColor={DIM}
+                autoCapitalize="none"
+                returnKeyType="search"
+                autoFocus
+              />
+              {!!search && (
+                <HapticTouchable onPress={() => setSearch('')} haptic="light">
+                  <Ionicons name="close-circle" size={15} color={DIM} />
+                </HapticTouchable>
+              )}
+            </View>
+
+            <Text style={m.label}>category</Text>
+            <View style={m.chipsWrap}>
+              {['', ...CATEGORIES].map(c => (
+                <HapticTouchable key={c || 'all'} style={[m.chip, catFilter === c && m.chipActive]} onPress={() => setCatFilter(c)} haptic="selection">
+                  <Text style={[m.chipText, catFilter === c && m.chipTextActive]}>{c || 'all subjects'}</Text>
+                </HapticTouchable>
+              ))}
+            </View>
+
+            <Text style={m.label}>difficulty</Text>
+            <View style={m.diffRow}>
+              {['', ...DIFFICULTIES].map(d => (
+                <HapticTouchable key={d || 'any'} style={[m.diffBtn, diffFilter === d && m.diffBtnActive]} onPress={() => setDiffFilter(d)} haptic="selection">
+                  <Text style={[m.diffText, diffFilter === d && { color: DIFF_COLOR[d] ?? selectedTheme.accentHover }]}>{d || 'any level'}</Text>
+                </HapticTouchable>
+              ))}
+            </View>
+
+            {!!(search || catFilter || diffFilter) && (
+              <HapticTouchable style={m.clearBtn} onPress={() => { setSearch(''); setCatFilter(''); setDiffFilter(''); }} haptic="light">
+                <Text style={m.clearText}>clear all filters</Text>
+              </HapticTouchable>
+            )}
+
+            <HapticTouchable style={m.submit} onPress={() => setShowFilters(false)} haptic="medium">
+              <Text style={m.submitText}>show results</Text>
+            </HapticTouchable>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      <SectionSidebar
+        visible={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        pageTitle="playlists"
+        items={PLAYLISTS_SIDEBAR_ITEMS}
+        activeKey={tab}
+        onSelect={(key) => {
+          if (key === 'discover' || key === 'following' || key === 'mine') setTab(key);
+          else if (key === 'create') setShowCreate(true);
+        }}
+        footerLabel="Dashboard"
+        onFooterPress={onBack}
+      />
+    </View>
+  );
+}
+
+function PopularCard({ playlist, color, onPress, styles }: {
+  playlist: Playlist; color: string; onPress: () => void; styles: ReturnType<typeof createStyles>;
+}) {
+  return (
+    <HapticTouchable style={styles.shelfCard} onPress={onPress} haptic="selection" activeOpacity={0.88}>
+      <View style={[styles.shelfCover, { backgroundColor: color }]}>
+        <Ionicons name={playlist.is_following ? 'checkmark-circle' : 'library'} size={22} color="#171411" />
+      </View>
+      <Text style={styles.shelfCardTitle} numberOfLines={2}>{playlist.title}</Text>
+      <View style={styles.shelfCardMetaRow}>
+        <Ionicons name="people-outline" size={10} color="#171411" style={{ opacity: 0.55 }} />
+        <Text style={styles.shelfCardMeta}>{playlist.follower_count ?? 0} followers</Text>
+      </View>
+    </HapticTouchable>
+  );
+}
+
+function PlaylistCard({ playlist, color, showFollow, onFollow, styles, ink, dim }: {
+  playlist: Playlist; color: string; showFollow: boolean; onFollow: () => void;
+  styles: ReturnType<typeof createStyles>; ink: string; dim: string;
+}) {
+  const progress = Math.round(playlist.completion_percentage ?? 0);
+  return (
+    <View style={styles.card}>
+      <View style={[styles.cardBanner, { backgroundColor: color }]}>
+        <Text style={styles.cardTitle} numberOfLines={3}>{playlist.title}</Text>
+        {!!playlist.category && <Text style={styles.cardCategory}>{playlist.category.toUpperCase()}</Text>}
+      </View>
+      <View style={styles.cardBody}>
+        {!!playlist.description && <Text style={styles.cardDesc} numberOfLines={2}>{playlist.description}</Text>}
+        <View style={styles.cardStatsRow}>
+          <View style={styles.statChip}><Ionicons name="people-outline" size={10} color={dim} /><Text style={styles.statText}>{playlist.follower_count ?? 0}</Text></View>
+          <View style={styles.statChip}><Ionicons name="list-outline" size={10} color={dim} /><Text style={styles.statText}>{playlist.item_count ?? 0}</Text></View>
+          {!!playlist.difficulty && <Text style={[styles.diffText, { color }]}>{playlist.difficulty}</Text>}
+        </View>
+        {progress > 0 && (
+          <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.max(2, progress)}%`, backgroundColor: color }]} /></View>
+        )}
+        {showFollow ? (
+          <HapticTouchable style={[styles.followBtn, playlist.is_following && { backgroundColor: color }]} onPress={onFollow} haptic="medium">
+            <Text style={[styles.followText, playlist.is_following && { color: ink }]}>{playlist.is_following ? 'following' : 'follow'}</Text>
+            {!playlist.is_following && <Ionicons name="chevron-forward" size={14} color={color} />}
+          </HapticTouchable>
+        ) : null}
+      </View>
     </View>
   );
 }
 
 function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
-  const ACCENT = theme.accent;
-  const ACCENT_HOVER = theme.accentHover;
-  const ACCENT_DARK = darkenColor(theme.accent, theme.isLight ? 12 : 26);
-  const DIM = theme.textSecondary;
-  const SURFACE = '#0b0c0f';
-  const SURFACE_ALT = '#050506';
-  const BORDER = 'rgba(216,179,141,0.22)';
-  const INK = theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary;
+  const surface = theme.panel;
+  const surfaceAlt = theme.panelAlt;
+  const border = rgbaFromHex(theme.accentHover, theme.isLight ? 0.16 : 0.18);
+  const accentInk = theme.isLight ? darkenColor(theme.accent, 38) : theme.bgPrimary;
   return StyleSheet.create({
-    root: { flex: 1 },
-    topBar: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 5, paddingTop: 12, paddingBottom: 10 },
-    backBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: rgbaFromHex(SURFACE, 0.92), borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center' },
-    cta: { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9 },
-    ctaText: { fontFamily: 'Inter_700Bold', fontSize: 13, color: INK },
-    hero: { width: '90%', minHeight: 104, maxWidth: layout.contentMaxWidth - 40, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', marginBottom: 14, padding: 18, gap: 14, borderRadius: 26, overflow: 'hidden', backgroundColor: '#0b0c0f', boxShadow: cbModalShadow(0.14), ...cbTileBorder(0.22) },
-    heroText: { gap: 2 },
-    heroTitle: { fontFamily: 'Inter_900Black', fontSize: 34, color: ACCENT_HOVER, letterSpacing: -1.2 },
-    searchWrap: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 5, marginBottom: 10 },
-    searchBorder: { borderRadius: 14, padding: 1 },
-    searchInner: { flexDirection: 'row', alignItems: 'center', backgroundColor: SURFACE_ALT, borderRadius: 13, paddingHorizontal: 12, paddingVertical: 10, gap: 10 },
-    searchInput: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 14, color: ACCENT_HOVER },
-    tabRow: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', flexDirection: 'row', marginHorizontal: 20, marginBottom: 6, borderBottomWidth: 1, borderBottomColor: BORDER },
+    root: { flex: 1, backgroundColor: theme.bgPrimary },
+    header: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingTop: 18, paddingBottom: 12 },
+    title: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 32, letterSpacing: -0.8 },
+    subtitle: { fontFamily: 'Inter_400Regular', fontSize: 10, color: theme.textSecondary, letterSpacing: 2.2, marginTop: 4, textTransform: 'uppercase' },
+    scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 10, paddingBottom: 118, gap: 14 },
+    createAction: { width: '100%', minHeight: 54, borderRadius: 18, backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+    createActionText: { fontFamily: 'Inter_900Black', color: accentInk, fontSize: 12, letterSpacing: 4, textTransform: 'uppercase' },
+    searchBox: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), paddingHorizontal: 14, boxShadow: cbTileShadow(0.055) },
+    searchInput: { flex: 1, fontFamily: 'Inter_600SemiBold', fontSize: 14, color: theme.textPrimary },
+    searchTrigger: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), paddingHorizontal: 14, boxShadow: cbTileShadow(0.055) },
+    searchTriggerText: { flex: 1, fontFamily: 'Inter_600SemiBold', fontSize: 14, color: theme.textSecondary },
+    searchTriggerBadge: { width: 6, height: 6, borderRadius: 3, backgroundColor: theme.accent },
+    tabRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: border },
     tabItem: { flex: 1, alignItems: 'center', paddingBottom: 10, position: 'relative' },
-    tabText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: DIM },
-    tabTextActive: { color: ACCENT_HOVER },
-    tabLine: { position: 'absolute', bottom: -1, left: '10%', right: '10%', height: 2, backgroundColor: ACCENT, borderRadius: 1 },
-    chips: { paddingHorizontal: 5, paddingVertical: 8, gap: 8, flexDirection: 'row' },
-    chip: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20, borderWidth: 1, borderColor: BORDER, backgroundColor: rgbaFromHex(SURFACE, 0.84) },
-    chipActive: { backgroundColor: rgbaFromHex(ACCENT, 0.16), borderColor: rgbaFromHex(ACCENT, 0.34) },
-    chipText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: DIM },
-    chipTextActive: { color: ACCENT_HOVER },
-    list: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 5, paddingTop: 4, paddingBottom: 60, gap: 10 },
-    empty: { minHeight: 230, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12, borderRadius: 26, overflow: 'hidden', backgroundColor: '#0b0c0f', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
-    emptyTitle: { fontFamily: 'Inter_900Black', fontSize: 18, color: ACCENT_DARK },
-    emptyHint: { fontFamily: 'Inter_400Regular', fontSize: 13, color: DIM },
-  });
-}
+    tabText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: theme.textSecondary, textTransform: 'uppercase', letterSpacing: 0.8 },
+    tabTextActive: { color: theme.accentHover },
+    tabLine: { position: 'absolute', bottom: -1, left: '10%', right: '10%', height: 2, backgroundColor: theme.accent, borderRadius: 1 },
+    loading: { alignItems: 'center', justifyContent: 'center', paddingVertical: 100 },
+    empty: { alignItems: 'center', paddingVertical: 48, gap: 9 },
+    emptyTitle: { fontFamily: 'Inter_900Black', fontSize: 18, color: theme.accentHover },
 
-function createPlaylistCardStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
-  const ACCENT = theme.accent;
-  const ACCENT_HOVER = theme.accentHover;
-  const ACCENT_DARK = darkenColor(theme.accent, theme.isLight ? 12 : 26);
-  const DIM = theme.textSecondary;
-  const SURFACE = '#0b0c0f';
-  return StyleSheet.create({
-    wrap: { flexDirection: 'row', backgroundColor: SURFACE, borderRadius: 18, overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
-    accent: { width: 3, backgroundColor: ACCENT_DARK },
-    body: { flex: 1, padding: 14, gap: 8 },
-    topRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-    title: { fontFamily: 'Inter_900Black', fontSize: 15, color: ACCENT_HOVER, lineHeight: 20 },
-    desc: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM, marginTop: 2 },
-    followBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.28), backgroundColor: rgbaFromHex(ACCENT, 0.12) },
-    followBtnActive: { backgroundColor: rgbaFromHex(ACCENT, 0.20), borderColor: rgbaFromHex(ACCENT, 0.42) },
-    followText: { fontFamily: 'Inter_700Bold', fontSize: 11, color: ACCENT_HOVER },
-    followTextActive: { color: ACCENT },
-    metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-    catPill: { backgroundColor: rgbaFromHex(ACCENT, 0.12), borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.22) },
-    catText: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: ACCENT },
-    diffPill: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, backgroundColor: 'transparent' },
-    diffText: { fontFamily: 'Inter_600SemiBold', fontSize: 10 },
+    shelf: { gap: 10 },
+    shelfTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 17, letterSpacing: 0 },
+    shelfRow: { gap: 10, paddingRight: 10 },
+    shelfCard: { width: 118 },
+    shelfCover: { width: 118, height: 118, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+    shelfCardTitle: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 12, marginTop: 8, lineHeight: 16 },
+    shelfCardMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
+    shelfCardMeta: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 10 },
+
+    grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 },
+    card: { width: '48%', borderRadius: 17, overflow: 'hidden', boxShadow: cbTileShadow(0.06), ...cbTileBorder(0.14) },
+    cardBanner: { minHeight: layout.height >= 820 ? 96 : 84, padding: 12, justifyContent: 'center' },
+    cardTitle: { fontFamily: 'Inter_900Black', color: '#171411', fontSize: 13, lineHeight: 16 },
+    cardCategory: { fontFamily: 'Inter_700Bold', color: rgbaFromHex('#171411', 0.66), fontSize: 9, letterSpacing: 1, marginTop: 6 },
+    cardBody: { padding: 12, gap: 9, backgroundColor: rgbaFromHex(surface, 0.72) },
+    cardDesc: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11, lineHeight: 15 },
+    cardStatsRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     statChip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    statText: { fontFamily: 'Inter_400Regular', fontSize: 10, color: DIM },
-    progressRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    progressTrack: { flex: 1, height: 3, backgroundColor: rgbaFromHex(ACCENT, 0.14), borderRadius: 2, overflow: 'hidden' },
-    progressFill: { height: '100%', backgroundColor: ACCENT, borderRadius: 2 },
-    progressPct: { fontFamily: 'Inter_700Bold', fontSize: 10, color: ACCENT, width: 28, textAlign: 'right' },
+    statText: { fontFamily: 'Inter_400Regular', fontSize: 10, color: theme.textSecondary },
+    diffText: { fontFamily: 'Inter_700Bold', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.6, marginLeft: 'auto' },
+    progressTrack: { height: 4, borderRadius: 2, overflow: 'hidden', backgroundColor: rgbaFromHex(theme.accent, 0.14) },
+    progressFill: { height: '100%', borderRadius: 2 },
+    followBtn: { height: 36, borderRadius: 11, borderWidth: 1, borderColor: border, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 5 },
+    followText: { fontFamily: 'Inter_700Bold', fontSize: 11, color: theme.accentHover, textTransform: 'uppercase', letterSpacing: 0.6 },
   });
 }
 
@@ -444,7 +510,6 @@ function createModalStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'
   const DIM = theme.textSecondary;
   const SURFACE_ALT = theme.panelAlt;
   const BORDER = theme.borderStrong;
-  const INK = theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary;
   return StyleSheet.create({
     root: { flex: 1, paddingTop: 20 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingBottom: 20 },
@@ -453,6 +518,7 @@ function createModalStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'
     label: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: DIM, letterSpacing: 1, marginTop: 10 },
     input: { backgroundColor: SURFACE_ALT, borderRadius: 12, borderWidth: 1, borderColor: BORDER, paddingHorizontal: 14, paddingVertical: 12, fontFamily: 'Inter_400Regular', fontSize: 14, color: ACCENT_HOVER, marginTop: 4 },
     chips: { gap: 8, paddingVertical: 6, flexDirection: 'row' },
+    chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 6 },
     chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE_ALT },
     chipActive: { backgroundColor: rgbaFromHex(ACCENT, 0.16), borderColor: rgbaFromHex(ACCENT, 0.34) },
     chipText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: DIM },
@@ -462,8 +528,9 @@ function createModalStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'
     diffBtnActive: { borderColor: rgbaFromHex(ACCENT, 0.34), backgroundColor: rgbaFromHex(ACCENT, 0.14) },
     diffText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: DIM },
     toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 },
-    submit: { marginTop: 24, borderRadius: 14, overflow: 'hidden' },
-    submitGrad: { paddingVertical: 16, alignItems: 'center' },
-    submitText: { fontFamily: 'Inter_900Black', fontSize: 15, color: INK },
+    clearBtn: { alignItems: 'center', marginTop: 18 },
+    clearText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: theme.danger, letterSpacing: 0.6, textTransform: 'uppercase' },
+    submit: { marginTop: 16, height: 52, borderRadius: 14, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center' },
+    submitText: { fontFamily: 'Inter_900Black', fontSize: 15, color: theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary },
   });
 }

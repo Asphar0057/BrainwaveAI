@@ -27,6 +27,8 @@ import TopicsHubScreen from '../screens/TopicsHubScreen';
 import KnowledgeHubScreen from '../screens/KnowledgeHubScreen';
 import SlideExplorerScreen from '../screens/SlideExplorerScreen';
 import CanvasHubScreen from '../screens/CanvasHubScreen';
+import CalendarScreen from '../screens/CalendarScreen';
+import ActivityTimelineScreen from '../screens/ActivityTimelineScreen';
 import LearningPathsScreen from '../screens/social/LearningPathsScreen';
 import LeaderboardScreen from '../screens/social/LeaderboardScreen';
 import RLInsightsScreen from '../screens/RLInsightsScreen';
@@ -61,6 +63,8 @@ type RootStackParamList = {
   RLInsights: undefined;
   Achievements: undefined;
   Notifications: undefined;
+  Calendar: undefined;
+  ActivityTimeline: undefined;
 };
 
 const TABS: { label: string; icon: IoniconsName; activeIcon: IoniconsName }[] = [
@@ -74,7 +78,7 @@ const TABS: { label: string; icon: IoniconsName; activeIcon: IoniconsName }[] = 
 type Props = { user: AuthUser; onLogout: () => void; onUserUpdate?: (patch: Partial<AuthUser>) => void; onRetakeQuiz?: () => void };
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-type AppTarget = 'flashcards' | 'notes' | 'aimedia' | 'settings' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'xpAnalytics' | 'weaknessPractice' | 'topicsHub' | 'learningPaths' | 'leaderboard' | 'rlInsights' | 'achievements' | 'notifications';
+type AppTarget = 'flashcards' | 'notes' | 'aimedia' | 'settings' | 'questionBank' | 'knowledgeMaps' | 'knowledgeHub' | 'slideExplorer' | 'canvasHub' | 'xpAnalytics' | 'weaknessPractice' | 'topicsHub' | 'learningPaths' | 'leaderboard' | 'rlInsights' | 'achievements' | 'notifications' | 'calendar' | 'activityTimeline';
 
 function MainTabs({ user, onLogout, onUserUpdate, onRetakeQuiz, onNavigate, requestedTab, tabRequestKey }: Props & {
   onNavigate: (screen: AppTarget) => void;
@@ -262,6 +266,8 @@ export default function TabNavigator({ user, onLogout, onUserUpdate, onRetakeQui
                   if (screen === 'rlInsights') navigation.navigate('RLInsights');
                   if (screen === 'achievements') navigation.navigate('Achievements');
                   if (screen === 'notifications') navigation.navigate('Notifications');
+                  if (screen === 'calendar') navigation.navigate('Calendar');
+                  if (screen === 'activityTimeline') navigation.navigate('ActivityTimeline');
                 }}
               />
             )}
@@ -374,7 +380,11 @@ export default function TabNavigator({ user, onLogout, onUserUpdate, onRetakeQui
                 <WeaknessPracticeScreen
                   user={user}
                   onBack={() => navigation.goBack()}
-                  onNavigate={(screen) => { if (screen === 'rlInsights') navigation.navigate('RLInsights'); }}
+                  onNavigate={(screen) => {
+                    if (screen === 'rlInsights') navigation.navigate('RLInsights');
+                    if (screen === 'topicsHub') navigation.navigate('TopicsHub');
+                    if (screen === 'activityTimeline') navigation.navigate('ActivityTimeline');
+                  }}
                 />
               </ScreenErrorBoundary>
             )}
@@ -389,9 +399,40 @@ export default function TabNavigator({ user, onLogout, onUserUpdate, onRetakeQui
               <ScreenErrorBoundary label="Topics Hub"><TopicsHubScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
             )}
           </Stack.Screen>
+          <Stack.Screen name="Calendar">
+            {({ navigation }) => (
+              <ScreenErrorBoundary label="Calendar">
+                <CalendarScreen
+                  user={user}
+                  onBack={() => navigation.goBack()}
+                  onNavigate={(screen) => { if (screen === 'activityTimeline') navigation.navigate('ActivityTimeline'); }}
+                />
+              </ScreenErrorBoundary>
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="ActivityTimeline">
+            {({ navigation }) => (
+              <ScreenErrorBoundary label="Activity Timeline">
+                <ActivityTimelineScreen
+                  user={user}
+                  onBack={() => navigation.goBack()}
+                  onNavigate={(screen) => { if (screen === 'calendar') navigation.navigate('Calendar'); }}
+                />
+              </ScreenErrorBoundary>
+            )}
+          </Stack.Screen>
           <Stack.Screen name="LearningPaths">
             {({ navigation }) => (
-              <ScreenErrorBoundary label="Learning Paths"><LearningPathsScreen user={user} onBack={() => navigation.goBack()} /></ScreenErrorBoundary>
+              <ScreenErrorBoundary label="Learning Paths">
+                <LearningPathsScreen
+                  user={user}
+                  onBack={() => navigation.goBack()}
+                  onNavigate={(screen) => {
+                    if (screen === 'notes') navigation.navigate('Notes');
+                    if (screen === 'flashcards') navigation.navigate('Flashcards');
+                  }}
+                />
+              </ScreenErrorBoundary>
             )}
           </Stack.Screen>
           <Stack.Screen name="Leaderboard">
