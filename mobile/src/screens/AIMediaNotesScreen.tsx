@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TextInput,
   ScrollView, Animated, KeyboardAvoidingView, Platform, Alert, ActivityIndicator
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { useFocusEffect } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -563,7 +564,7 @@ function AIMediaHub({
   }, [loadHistory]));
 
   return (
-    <View style={s.safe}>
+    <SafeAreaView style={s.safe} edges={['top']}>
       <GeoBackground />
       <AmbientBubbles theme={CURRENT_THEME} variant="media" opacity={0.86} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -821,7 +822,7 @@ function AIMediaHub({
         footerLabel="Dashboard"
         onFooterPress={onBack}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -872,7 +873,7 @@ function AIMediaProcessing({
   }, [onComplete, onError, url, file, user.username]);
 
   return (
-    <View style={s.safe}>
+    <SafeAreaView style={s.safe} edges={['top']}>
       <GeoBackground />
       <AmbientBubbles theme={CURRENT_THEME} variant="media" opacity={0.86} />
       <View style={s.subHeader}>
@@ -883,7 +884,7 @@ function AIMediaProcessing({
         <View style={s.backBtn} />
       </View>
       <ProcessingView status={STATUSES[statusIdx]} />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -1200,7 +1201,7 @@ function AIMediaResults({
   }, [displayTitle, result, saved, saving, user.username]);
 
   return (
-    <View style={s.safe}>
+    <SafeAreaView style={s.safe} edges={['top']}>
       <GeoBackground />
       <AmbientBubbles theme={CURRENT_THEME} variant="media" opacity={0.86} />
       <View style={s.subHeader}>
@@ -1263,7 +1264,7 @@ function AIMediaResults({
           }
         </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
