@@ -73,7 +73,6 @@ class ContextService {
     return (
       msg.includes('(404)') ||
       msg.includes('(405)') ||
-      msg.includes('(500)') ||
       msg.includes('Failed to fetch') ||
       msg.includes('NetworkError') ||
       msg.includes('Load failed')
@@ -84,10 +83,12 @@ class ContextService {
     return -Math.floor(Date.now() + Math.random() * 1000);
   }
 
-  _mergeRemoteFolders(remoteFolders = []) {
+  _mergeRemoteFolders(remoteFolders = [], { replace = false } = {}) {
     const local = this._readLocalFolders();
     const map = new Map();
-    local.forEach((f) => map.set(String(f.id), { ...f }));
+    // A complete server list replaces cached remote entries; partial mutation
+    // responses merge into them. Negative ids are unsynced offline folders.
+    local.filter((f) => !replace || !(Number(f.id) > 0)).forEach((f) => map.set(String(f.id), { ...f }));
     remoteFolders.forEach((f) => {
       const key = String(f.id);
       const existing = map.get(key) || {};
@@ -155,9 +156,10 @@ class ContextService {
   autoSelectDoc(docId, filename) {
     try {
       const raw = localStorage.getItem('ctx_selected_doc_ids');
-      const arr = JSON.parse(raw || '[]');
-      if (!arr.includes(String(docId))) arr.push(String(docId));
-      localStorage.setItem('ctx_selected_doc_ids', JSON.stringify(arr));
+      const parsed = JSON.parse(raw || '[]');
+      const arr = Array.isArray(parsed) ? parsed.map(String).filter(Boolean) : [];
+      if (!arr.includes(String(docId)) && arr.length < 8) arr.push(String(docId));
+      localStorage.setItem('ctx_selected_doc_ids', JSON.stringify(Array.from(new Set(arr)).slice(0, 8)));
     } catch {}
     this.setDocName(docId, filename);
   }
@@ -237,14 +239,31 @@ class ContextService {
       const err = await response.json().catch(() => ({}));
       throw new Error(err.detail || `Delete failed (${response.status})`);
     }
-    return response.json();
+    const result = await response.json();
+    const id = String(docId);
+    const folderMap = this._readLocalDocFolderMap();
+    delete folderMap[id];
+    this._writeLocalDocFolderMap(folderMap);
+    const names = this._readDocNames();
+    delete names[id];
+    this._writeDocNames(names);
+    try {
+      const selected = JSON.parse(localStorage.getItem('ctx_selected_doc_ids') || '[]');
+      if (Array.isArray(selected)) {
+        localStorage.setItem('ctx_selected_doc_ids', JSON.stringify(selected.filter((item) => String(item) !== id)));
+      }
+    } catch {}
+    return result;
   }
 
   _getSelectedDocIds() {
     try {
       const raw = localStorage.getItem('ctx_selected_doc_ids');
       const arr = JSON.parse(raw || '[]');
-      return Array.isArray(arr) && arr.length > 0 ? arr : null;
+      const normalized = Array.isArray(arr)
+        ? Array.from(new Set(arr.map(String).filter(Boolean))).slice(0, 8)
+        : [];
+      return normalized.length > 0 ? normalized : null;
     } catch { return null; }
   }
 
@@ -300,7 +319,7 @@ class ContextService {
       if (!response.ok) throw new Error(`Folder list failed (${response.status})`);
       const data = await response.json();
       const remoteFolders = this._normalizeFolderArray(data?.folders || []);
-      const folders = this._mergeRemoteFolders(remoteFolders);
+      const folders = this._mergeRemoteFolders(remoteFolders, { replace: true });
       return { folders };
     } catch (e) {
       if (!this._shouldUseLocalFolderFallback(e)) throw e;
@@ -309,6 +328,7 @@ class ContextService {
   }
 
   async createFolder({ name, color = '#D7B38C', parentId = null }) {
+    const previousFolders = this._readLocalFolders();
     const localId = this._nextLocalFolderId();
     const now = new Date().toISOString();
     const localFolder = {
@@ -341,12 +361,16 @@ class ContextService {
       this._mergeRemoteFolders([created]);
       return created;
     } catch (e) {
-      if (!this._shouldUseLocalFolderFallback(e)) throw e;
+      if (!this._shouldUseLocalFolderFallback(e)) {
+        this._writeLocalFolders(previousFolders);
+        throw e;
+      }
       return localFolder;
     }
   }
 
   async updateFolder(folderId, updates = {}) {
+    const previousFolders = this._readLocalFolders();
     const localFolders = this._readLocalFolders().map((f) => (
       String(f.id) === String(folderId)
         ? {
@@ -386,13 +410,17 @@ class ContextService {
       this._mergeRemoteFolders([updated]);
       return updated;
     } catch (e) {
-      if (!this._shouldUseLocalFolderFallback(e)) throw e;
+      if (!this._shouldUseLocalFolderFallback(e)) {
+        this._writeLocalFolders(previousFolders);
+        throw e;
+      }
       return localFolders.find((f) => String(f.id) === String(folderId)) || { status: 'success' };
     }
   }
 
   async deleteFolder(folderId, { moveToFolderId = null } = {}) {
     const localFolders = this._readLocalFolders();
+    const previousDocMap = this._readLocalDocFolderMap();
     const remapped = localFolders
       .filter((f) => String(f.id) !== String(folderId))
       .map((f) => (String(f.parent_id || '') === String(folderId) ? { ...f, parent_id: moveToFolderId } : f));
@@ -432,13 +460,18 @@ class ContextService {
       const deleted = await response.json();
       return deleted;
     } catch (e) {
-      if (!this._shouldUseLocalFolderFallback(e)) throw e;
+      if (!this._shouldUseLocalFolderFallback(e)) {
+        this._writeLocalFolders(localFolders);
+        this._writeLocalDocFolderMap(previousDocMap);
+        throw e;
+      }
       return { status: 'success', deleted_folder_id: folderId, moved_to_folder_id: moveToFolderId };
     }
   }
 
   async moveDocumentToFolder(docId, folderId = null) {
     const map = this._readLocalDocFolderMap();
+    const previousMap = { ...map };
     if (folderId === null || folderId === undefined || folderId === '') {
       delete map[String(docId)];
     } else {
@@ -462,7 +495,10 @@ class ContextService {
       }
       return response.json();
     } catch (e) {
-      if (!this._shouldUseLocalFolderFallback(e)) throw e;
+      if (!this._shouldUseLocalFolderFallback(e)) {
+        this._writeLocalDocFolderMap(previousMap);
+        throw e;
+      }
       return { status: 'success', doc_id: docId, folder_id: folderId };
     }
   }

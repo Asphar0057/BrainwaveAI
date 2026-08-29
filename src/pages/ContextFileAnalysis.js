@@ -8,7 +8,6 @@ import {
 import contextService from '../services/contextService';
 import { API_URL } from '../config/api';
 import { queuedAIJsonFetch } from '../services/aiJobService';
-import AbstractFx from '../components/AbstractFx';
 import './ContextFileAnalysis.css';
 import '../components/SocialHubChrome.css';
 
@@ -72,7 +71,9 @@ const FEATURES = [
 const fmtDate = (iso) => {
   if (!iso) return '—';
   try {
-    return new Date(iso).toLocaleString('en-US', {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return '—';
+    return date.toLocaleString('en-US', {
       month: 'short', day: 'numeric', year: 'numeric',
       hour: 'numeric', minute: '2-digit',
     });
@@ -82,7 +83,9 @@ const fmtDate = (iso) => {
 const loadDeck = () => {
   try {
     const parsed = JSON.parse(localStorage.getItem(DECK_KEY) || '[]');
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed)
+      ? Array.from(new Set(parsed.map(String).filter(Boolean))).slice(0, DECK_SIZE)
+      : [];
   } catch { return []; }
 };
 
@@ -105,7 +108,7 @@ const subjectLabel = (s) => (s || 'General').replace(/_/g, ' ');
 
 const BgFx = () => (
   <>
-    <AbstractFx variant="circles" />
+    <div className="cfp-line-field" aria-hidden="true" />
     <div className="cfp-bg-fx" aria-hidden="true">
       <div className="cfp-bg-orb cfp-bg-orb-1" />
       <div className="cfp-bg-orb cfp-bg-orb-2" />
@@ -129,6 +132,7 @@ const ContextFileAnalysis = () => {
   const [deckIds, setDeckIds] = useState(loadDeck);
   const [actionStats, setActionStats] = useState(loadFileActionStats);
   const [notesLoading, setNotesLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState(null);
 
   const recordAction = useCallback((actionId) => {
     if (!actionId || !doc) return;
@@ -192,12 +196,13 @@ const ContextFileAnalysis = () => {
     const targetId = doc.doc_id || doc.id;
     if (deckIds.map((id) => String(id)).includes(String(targetId))) return;
     if (deckIds.length >= DECK_SIZE) {
-      alert(`Context Deck is full (${DECK_SIZE}/${DECK_SIZE}). Remove one file first.`);
+      setActionMessage({ type: 'error', text: `Your Context Deck is full (${DECK_SIZE}/${DECK_SIZE}). Remove one source before adding this file.` });
       return;
     }
     const next = [...deckIds, targetId];
     setDeckIds(next);
     saveDeck(next);
+    setActionMessage({ type: 'success', text: 'Added to your Context Deck.' });
   }, [deckIds, doc]);
 
   const removeFromDeck = useCallback(() => {
@@ -206,6 +211,7 @@ const ContextFileAnalysis = () => {
     const next = deckIds.filter((id) => String(id) !== targetId);
     setDeckIds(next);
     saveDeck(next);
+    setActionMessage({ type: 'success', text: 'Removed from your Context Deck.' });
   }, [deckIds, doc]);
 
   const usageCounts = useMemo(() => {
@@ -227,7 +233,7 @@ const ContextFileAnalysis = () => {
     if (!doc) return;
     const targetId = doc.doc_id || doc.id;
     const sourceName = doc.filename || doc.title || 'Untitled';
-    saveDeck([targetId]);
+    setActionMessage(null);
 
     if (featureId === 'chat') {
       recordAction('chat');
@@ -262,7 +268,10 @@ const ContextFileAnalysis = () => {
       return;
     }
     if (featureId === 'notes') {
-      if (!token || !userId) { alert('Please log in again.'); return; }
+      if (!token || !userId) {
+        setActionMessage({ type: 'error', text: 'Your session expired. Sign in again before creating notes.' });
+        return;
+      }
       setNotesLoading(true);
       try {
         const response = await queuedAIJsonFetch('/create_note_from_context_docs', {
@@ -282,10 +291,10 @@ const ContextFileAnalysis = () => {
           recordAction('notes');
           navigate(`/notes/editor/${data.id}`);
         } else {
-          alert('Notes were generated, but opening the editor failed.');
+          setActionMessage({ type: 'error', text: 'Notes were created, but the editor could not be opened. Return to Notes to find them.' });
         }
-      } catch {
-        alert('Failed to generate notes from this file.');
+      } catch (err) {
+        setActionMessage({ type: 'error', text: err?.message || 'Notes could not be generated from this file. Try again.' });
       } finally {
         setNotesLoading(false);
       }
@@ -321,7 +330,7 @@ const ContextFileAnalysis = () => {
         <BgFx />
         <div className="cfp-inner">
           <div className="cfp-topbar">
-            <button className="cfp-back-btn" onClick={() => navigate('/contexthub')}>
+            <button className="cfp-back-btn" type="button" onClick={() => navigate('/contexthub')}>
               <ChevronLeft size={16} /> Back
             </button>
           </div>
@@ -329,12 +338,14 @@ const ContextFileAnalysis = () => {
         <div className="cfp-state cfp-state-error">
           <AlertCircle size={26} />
           <p>{error || 'Could not open this file.'}</p>
+          <button className="cfp-retry-btn" type="button" onClick={loadDoc}>Try again</button>
         </div>
       </div>
     );
   }
 
   const totalUsed = FEATURES.reduce((a, f) => a + (usageCounts[f.id] || 0), 0);
+  const sourceReady = !doc.status || doc.status === 'ready';
 
   return (
     <div className="cfp-root">
@@ -347,7 +358,7 @@ const ContextFileAnalysis = () => {
       <BgFx />
       <div className="cfp-inner">
         <div className="cfp-topbar">
-          <button className="cfp-back-btn" onClick={() => navigate('/contexthub')}>
+          <button className="cfp-back-btn" type="button" onClick={() => navigate('/contexthub')}>
             <ChevronLeft size={16} /> Back
           </button>
         </div>
@@ -372,7 +383,9 @@ const ContextFileAnalysis = () => {
           <div className="cfp-deck-row">
             <button
               className={`cfp-deck-btn ${inDeck ? 'cfp-deck-btn--active' : ''}`}
+              type="button"
               onClick={() => (inDeck ? removeFromDeck() : addToDeck())}
+              disabled={!sourceReady}
             >
               {inDeck ? <CheckSquare size={15} /> : <Square size={15} />}
               {inDeck ? 'In Context Deck — Remove' : 'Add to Context Deck'}
@@ -381,6 +394,37 @@ const ContextFileAnalysis = () => {
               <p className="cfp-deck-hint">Prioritized in all AI features</p>
             )}
           </div>
+
+          {!sourceReady && (
+            <div className="cfp-notice" role="status">
+              {doc.status === 'failed'
+                ? 'This source could not be indexed. Delete it from your library and upload it again.'
+                : 'This source is still being indexed. Its study actions will unlock when processing finishes.'}
+            </div>
+          )}
+
+          {actionMessage && (
+            <div className={`cfp-notice cfp-notice--${actionMessage.type}`} role={actionMessage.type === 'error' ? 'alert' : 'status'}>
+              {actionMessage.text}
+            </div>
+          )}
+
+          {(doc.ai_summary || doc.key_concepts?.length || doc.topic_tags?.length) && (
+            <section className="cfp-insights" aria-labelledby="cfp-insights-title">
+              <div>
+                <p className="cfp-eyebrow">Source analysis</p>
+                <h2 id="cfp-insights-title">What this source covers</h2>
+                <p>{doc.ai_summary || 'Key ideas identified while this source was indexed.'}</p>
+              </div>
+              {(doc.key_concepts?.length || doc.topic_tags?.length) && (
+                <ul aria-label="Key concepts">
+                  {Array.from(new Set([...(doc.key_concepts || []), ...(doc.topic_tags || [])])).slice(0, 12).map((concept) => (
+                    <li key={concept}>{concept}</li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
 
           <section className="cfp-section">
             <h2 className="cfp-section-label">Use as Context</h2>
@@ -414,8 +458,9 @@ const ContextFileAnalysis = () => {
                     </div>
                     <button
                       className="cfp-feature-btn"
+                      type="button"
                       onClick={() => runAction(feature.id)}
-                      disabled={isLoading}
+                      disabled={!sourceReady || notesLoading}
                     >
                       {isLoading && <Loader2 size={13} className="cfp-spin" />}
                       {feature.btnLabel}

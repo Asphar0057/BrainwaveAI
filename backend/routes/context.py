@@ -5,7 +5,7 @@ import logging
 import uuid
 import json
 from pathlib import Path
-from urllib.parse import urlparse, unquote
+from urllib.parse import urljoin, urlparse, unquote
 import ipaddress
 import re
 import requests
@@ -210,15 +210,23 @@ def _filename_from_disposition(value: str) -> str:
     return ""
 
 def _download_url(url: str) -> tuple[bytes, str, str]:
+    current_url = url
     try:
-        resp = requests.get(url, stream=True, timeout=30, headers=_DEFAULT_HEADERS, allow_redirects=False)
-        if resp.is_redirect or resp.is_permanent_redirect:
-            location = resp.headers.get("Location", "")
-            if not location or not _is_safe_url(location):
+        for _ in range(6):
+            if not _is_safe_url(current_url):
                 raise HTTPException(status_code=400, detail="Redirect to unsafe URL blocked")
-            resp = requests.get(location, stream=True, timeout=30, headers=_DEFAULT_HEADERS, allow_redirects=False)
+            resp = requests.get(current_url, stream=True, timeout=30, headers=_DEFAULT_HEADERS, allow_redirects=False)
+            if not (resp.is_redirect or resp.is_permanent_redirect):
+                break
+            location = resp.headers.get("Location", "")
+            next_url = urljoin(current_url, location)
+            if not location or not _is_safe_url(next_url):
+                raise HTTPException(status_code=400, detail="Redirect to unsafe URL blocked")
+            current_url = next_url
+        else:
+            raise HTTPException(status_code=400, detail="URL redirected too many times")
         if resp.status_code in (401, 403, 406):
-            resp = requests.get(url, stream=True, timeout=30, headers={**_DEFAULT_HEADERS, "Referer": url}, allow_redirects=False)
+            resp = requests.get(current_url, stream=True, timeout=30, headers={**_DEFAULT_HEADERS, "Referer": current_url}, allow_redirects=False)
     except requests.exceptions.RequestException as e:
         logger.warning(f"URL fetch failed: {e}")
         raise HTTPException(status_code=400, detail="Failed to fetch the URL. The resource may be unavailable or blocked.")
@@ -771,7 +779,7 @@ async def upload_document(
             db.commit()
         except Exception:
             pass
-        raise HTTPException(status_code=500, detail=f"Document processing failed: {e}")
+        raise HTTPException(status_code=500, detail="Document processing failed. Please try again.")
 
 @router.post("/import_url")
 def import_document_url(
@@ -923,7 +931,7 @@ def import_document_url(
             db.commit()
         except Exception:
             pass
-        raise HTTPException(status_code=500, detail=f"URL import failed: {e}")
+        raise HTTPException(status_code=500, detail="URL import failed. Please try again.")
 
 @router.get("/documents")
 def list_documents(
@@ -972,8 +980,8 @@ def list_documents(
             "source_name":  d.source_name or "",
             "license":      d.license or "",
             "ai_summary":   d.ai_summary or "",
-            "key_concepts": json.loads(d.key_concepts) if d.key_concepts else [],
-            "topic_tags":   json.loads(d.topic_tags) if d.topic_tags else [],
+            "key_concepts": _parse_json_list(d.key_concepts),
+            "topic_tags":   _parse_json_list(d.topic_tags),
             "created_at":   d.created_at.isoformat() + "Z" if d.created_at else "",
         }
         for d in user_docs_db
@@ -1023,8 +1031,8 @@ def list_documents(
             "status":       d.status,
             "source_name":  d.source_name or "",
             "ai_summary":   d.ai_summary or "",
-            "topic_tags":   json.loads(d.topic_tags) if d.topic_tags else [],
-            "key_concepts": json.loads(d.key_concepts) if d.key_concepts else [],
+            "topic_tags":   _parse_json_list(d.topic_tags),
+            "key_concepts": _parse_json_list(d.key_concepts),
             "created_at":   d.created_at.isoformat() + "Z" if d.created_at else "",
         }
         for d in hs_docs_db
@@ -1233,7 +1241,15 @@ def delete_document(
             is_admin=is_admin,
         )
     except Exception as e:
-        logger.warning(f"ChromaDB delete failed for doc {doc_id}: {e}")
+        logger.error("Context vector cleanup failed for doc %s: %s", doc_id, e, exc_info=True)
+        raise HTTPException(status_code=502, detail="Document could not be fully deleted. Try again.")
+
+    if doc.storage_path:
+        try:
+            StorageService.get_storage().delete_file(_storage_key_from_uri(doc.storage_path))
+        except Exception as e:
+            logger.error("Context file cleanup failed for doc %s: %s", doc_id, e, exc_info=True)
+            raise HTTPException(status_code=502, detail="Document could not be fully deleted. Try again.")
 
     db.delete(doc)
     db.commit()
