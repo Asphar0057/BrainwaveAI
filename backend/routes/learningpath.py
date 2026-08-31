@@ -564,7 +564,7 @@ def _build_flashcards(node, topic: str, count: int, difficulty: str) -> list[dic
         cards.append(
             {
                 "question": prompt,
-                "answer": f"{prompt} Answer: Focus on how {node.title} supports {topic} and when to apply it.",
+                "answer": f"How {node.title} supports {topic}.",
                 "difficulty": difficulty,
             }
         )

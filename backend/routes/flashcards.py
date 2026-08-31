@@ -446,7 +446,7 @@ def _build_local_flashcards(topic: str, content: str, card_count: int, difficult
     source = _clean_flashcard_text(content, 4000)
     raw_sentences = re.split(r"(?<=[.!?])\s+", source) if source else []
     sentences = [
-        _clean_flashcard_text(s, 280)
+        _clean_flashcard_text(s, 150)
         for s in raw_sentences
         if len(s.strip()) >= 35
     ][: max(card_count, 3)]
@@ -476,22 +476,10 @@ def _build_local_flashcards(topic: str, content: str, card_count: int, difficult
             })
     else:
         templates = [
-            (
-                f"What is {subject}?",
-                f"{subject} is the study focus for this flashcard set. Review its core definition, purpose, and the situations where it applies."
-            ),
-            (
-                f"Why is {subject} important?",
-                f"{subject} matters because it connects key ideas and helps explain how the topic works in practice."
-            ),
-            (
-                f"What should you remember first about {subject}?",
-                f"Start with the main definition, then learn the supporting examples, common mistakes, and how the idea is used."
-            ),
-            (
-                f"How can you review {subject} effectively?",
-                f"Break {subject} into smaller concepts, test yourself with recall questions, and revisit the weakest points after a short delay."
-            ),
+            (f"What is {subject}?", subject),
+            (f"Why is {subject} important?", "It connects the topic's key ideas."),
+            (f"What should you learn first about {subject}?", "Its core definition."),
+            (f"How can you review {subject} effectively?", "Test yourself with recall questions."),
         ]
         for question, answer in templates[:card_count]:
             cards.append({
@@ -685,6 +673,9 @@ async def generate_flashcards_endpoint(
             f"{'Use this source content from the selected context file chunks: ' + source_content[:12000] if source_content else ''}\n"
             f"{'The selected context is the exclusive knowledge boundary. Do not add any fact, term, mechanism, equation, example, or application absent from it. ' if doc_ids_list else ''}"
             f"Difficulty: {difficulty}\n\n"
+            f"ANSWER LENGTH: Each answer must be as short as possible — usually one word or two, sometimes a "
+            f"short phrase, and only rarely a single short sentence. Never write a multi-sentence explanation "
+            f"as the answer.\n"
             f"Return ONLY a valid JSON array. Each object: "
             f'{{"question": "...", "answer": "...", "difficulty": "{difficulty}", '
             f'"wrong_options": ["wrong1", "wrong2", "wrong3"]}}\n'
@@ -707,20 +698,20 @@ async def generate_flashcards_endpoint(
         if not isinstance(card_data, dict):
             continue
         question = _clean_flashcard_text(card_data.get("question") or card_data.get("front") or card_data.get("term"))
-        answer = _clean_flashcard_text(card_data.get("answer") or card_data.get("back") or card_data.get("definition"), 700)
+        answer = _clean_flashcard_text(card_data.get("answer") or card_data.get("back") or card_data.get("definition"), 150)
         if not question and answer:
             question = f"What should you remember about {topic or 'this topic'}? ({idx})"
         if not answer and question:
-            answer = "Review the related source material and summarize the key idea in your own words."
+            answer = "Review the source material."
         if not question or not answer:
             continue
         wrong_options = card_data.get("wrong_options") or card_data.get("options") or []
         if not isinstance(wrong_options, list):
             wrong_options = []
         wrong_options = [
-            _clean_flashcard_text(option, 400)
+            _clean_flashcard_text(option, 150)
             for option in wrong_options
-            if _clean_flashcard_text(option, 400) and _clean_flashcard_text(option, 400) != answer
+            if _clean_flashcard_text(option, 150) and _clean_flashcard_text(option, 150) != answer
         ][:3]
         while len(wrong_options) < 3:
             wrong_options.append([

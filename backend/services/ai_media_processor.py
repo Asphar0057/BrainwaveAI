@@ -1332,6 +1332,10 @@ Key Concepts: {json.dumps(analysis.get('key_concepts', []))}
 
 Content: {transcript[:5000]}
 
+ANSWER LENGTH: Each answer must be as short as possible -- usually one word or two, sometimes a
+short phrase, and only rarely a single short sentence. Never write a multi-sentence explanation
+as the answer.
+
 Create flashcards as JSON array:
 [
   {{"question": "...", "answer": "...", "difficulty": "easy/medium/hard"}},
@@ -1359,12 +1363,15 @@ Return ONLY valid JSON array."""
                 result_text = result_text.split("```")[1].split("```")[0]
             
             flashcards = json.loads(result_text.strip())
-            
+            for card in flashcards:
+                if isinstance(card, dict) and isinstance(card.get("answer"), str) and len(card["answer"]) > 150:
+                    card["answer"] = card["answer"][:150] + "..."
+
             return {
                 "success": True,
                 "flashcards": flashcards[:count]
             }
-            
+
         except Exception as e:
             if self._is_groq_quota_error(e):
                 raise provider_limit_exhausted("groq") from e

@@ -117,19 +117,19 @@ DIFFICULTY_GUIDES = {
     "easy": (
         "EASY level — basic recall and definitions.\n"
         "- Questions: 'What is...', 'Define...', 'Name the...'\n"
-        "- Answers: short, factual, 1-2 sentences\n"
+        "- Answers: a single word, a short phrase, or a term — not a sentence\n"
         "- Focus on terminology, key facts, straightforward concepts"
     ),
     "medium": (
         "MEDIUM level — application and understanding.\n"
         "- Questions: 'Why does...', 'How would you...', 'Compare...'\n"
-        "- Answers: explanatory, 2-3 sentences with reasoning\n"
+        "- Answers: a short phrase, or at most one short sentence — never more than one sentence\n"
         "- Focus on understanding relationships, applying concepts"
     ),
     "hard": (
         "HARD level — analysis, synthesis, and edge cases.\n"
         "- Questions: 'What happens if...', 'Analyze why...', 'Design a...'\n"
-        "- Answers: detailed, 3-4 sentences, may include nuances\n"
+        "- Answers: one short, precise sentence — still never more than one sentence\n"
         "- Focus on tricky distinctions, multi-step reasoning, expert knowledge"
     ),
 }
@@ -243,7 +243,9 @@ def build_prompt(state: FlashcardGenState) -> dict:
         '"wrong_options": ["wrong1", "wrong2", "wrong3"]}\n\n'
         "RULES:\n"
         "- Questions must be clear and specific\n"
-        "- Answers: concise (2-4 sentences max)\n"
+        "- Answers must be as short as possible: usually one word or two, sometimes a short phrase, "
+        "and only rarely a single short sentence when the concept truly cannot be named in a word or phrase. "
+        "NEVER write a multi-sentence explanation as the answer — that belongs in the question, not the answer.\n"
         "- wrong_options: 3 plausible but incorrect answers for MCQ mode\n"
         "- wrong_options must be similar in length, specificity, and formatting to the correct answer\n"
         "- Do not make the correct answer obviously longer, more detailed, or more mathematical than all wrong options\n"
@@ -279,12 +281,12 @@ def generate_cards(state: FlashcardGenState) -> dict:
         for card in data[:card_count]:
             if isinstance(card, dict) and "question" in card and "answer" in card:
                 answer = card["answer"]
-                if len(answer) > 400:
-                    answer = answer[:400] + "..."
+                if len(answer) > 150:
+                    answer = answer[:150] + "..."
                 answer = resolve_citations(answer, rag_sources)
                 wrong_options = card.get("wrong_options", [])
                 wrong_options = [
-                    opt[:400] + "..." if len(opt) > 400 else opt
+                    opt[:150] + "..." if len(opt) > 150 else opt
                     for opt in wrong_options[:3]
                 ]
                 valid.append({
