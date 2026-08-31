@@ -1933,6 +1933,25 @@ export async function processMediaFile(
   return res.json();
 }
 
+// Standalone speech-to-text (Groq Whisper) -- used for a quick dictation
+// clip inside the note editor, as opposed to processMediaFile's full
+// transcribe-then-AI-generate-a-note pipeline.
+export async function transcribeAudio(userId: string, file: { uri: string; name: string; mimeType: string }) {
+  const headers = await authHeaders();
+  const body = new FormData();
+  body.append('user_id', userId);
+  body.append('audio_file', { uri: file.uri, name: file.name, type: file.mimeType } as unknown as Blob);
+  const res = await fetch(`${API_URL}/transcribe_audio/`, {
+    method: 'POST',
+    headers,
+    body,
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to transcribe audio');
+  }
+  return res.json() as Promise<{ status: string; transcript: string; length: number; model_used: string }>;
+}
+
 export async function getMediaHistory(userId: string) {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}/media/history?user_id=${encodeURIComponent(userId)}`, { headers });

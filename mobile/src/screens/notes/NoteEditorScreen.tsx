@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AudioModule, RecordingPresets, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import AmbientBubbles from '../../components/AmbientBubbles';
 import GeoBackground from '../../components/GeoBackground';
@@ -23,6 +24,7 @@ import {
   moveNoteToFolder,
   moveNoteToTrash,
   toggleFavorite,
+  transcribeAudio,
   updateNote,
 } from '../../services/api';
 import {
@@ -159,6 +161,10 @@ export default function NoteEditorScreen({
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState('');
+
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(recorder, 200);
+  const [dictating, setDictating] = useState(false);
 
   const [templateTab, setTemplateTab] = useState<TemplateTab>('built-in');
   const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([]);
@@ -469,6 +475,51 @@ export default function NoteEditorScreen({
     setShowAiModal(false);
   };
 
+  // Quick dictation: record a short clip, transcribe it (Whisper via
+  // /transcribe_audio/), then run the transcript through the same notes AI
+  // agent "generate" action as the AI-assist modal -- mirrors the web app's
+  // voice-to-text, which also elaborates the spoken prompt rather than
+  // inserting the raw transcript verbatim. Appends the result to the note.
+  const handleDictate = async () => {
+    if (dictating) return;
+    if (recorderState.isRecording) {
+      setDictating(true);
+      try {
+        await recorder.stop();
+        const uri = recorder.uri;
+        if (!uri) throw new Error('No audio was recorded');
+        const { transcript } = await transcribeAudio(user.username, {
+          uri,
+          name: `dictation-${Date.now()}.m4a`,
+          mimeType: 'audio/m4a',
+        });
+        if (!transcript?.trim()) throw new Error('Could not hear anything in that recording');
+        const result = await invokeNotesAgent({
+          userId: user.username,
+          action: 'generate',
+          topic: transcript.trim(),
+          content: transcript.trim(),
+          context: `${title}\n\n${bodyText}`.slice(0, 2000),
+        });
+        const addition = String(result?.content || transcript).trim();
+        setBodyText((current) => (current.trim() ? `${current.trimEnd()}\n\n${addition}` : addition));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to process dictation';
+        Alert.alert('Dictation failed', message);
+      } finally {
+        setDictating(false);
+      }
+      return;
+    }
+    const permission = await AudioModule.requestRecordingPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Microphone permission needed', 'Allow microphone access to dictate into this note.');
+      return;
+    }
+    await recorder.prepareToRecordAsync();
+    recorder.record();
+  };
+
   const exportNote = async () => {
     try {
       await Share.share({
@@ -534,6 +585,7 @@ export default function NoteEditorScreen({
               placeholderTextColor={selectedTheme.textSecondary}
               style={[styles.titleInput, { fontFamily: resolveNoteFont(customFont, 'title') }]}
             />
+            <View style={styles.titleRule} />
             <TextInput
               value={bodyText}
               onChangeText={setBodyText}
@@ -586,6 +638,12 @@ export default function NoteEditorScreen({
           <View style={styles.bottomDock}>
             <ActionPill icon="folder-outline" label="Folder" onPress={() => setShowFolderModal(true)} subtle />
             <ActionPill icon="brush-outline" label="Sketch" onPress={createSketch} subtle />
+            <ActionPill
+              icon={dictating ? 'hourglass-outline' : recorderState.isRecording ? 'stop-circle-outline' : 'mic-outline'}
+              label={dictating ? 'Working…' : recorderState.isRecording ? 'Stop' : 'Dictate'}
+              onPress={handleDictate}
+              subtle={!recorderState.isRecording}
+            />
             <ActionPill icon="sparkles-outline" label="AI" onPress={() => setShowAiModal(true)} subtle />
             <ActionPill icon="ellipsis-horizontal" label="More" onPress={() => setShowMoreModal(true)} subtle />
           </View>
@@ -967,12 +1025,17 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
       paddingVertical: 0,
       marginBottom: 12,
     },
+    titleRule: {
+      height: 1,
+      backgroundColor: rgbaFromHex(theme.accentHover, theme.isLight ? 0.14 : 0.16),
+      marginBottom: 16,
+    },
     bodyInput: {
       minHeight: 440,
       fontSize: 17,
       lineHeight: 28,
       color: theme.accentHover,
-      paddingTop: 8,
+      paddingTop: 0,
       paddingBottom: 0,
     },
     sketchSection: {
