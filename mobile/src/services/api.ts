@@ -1367,6 +1367,44 @@ export async function reviewFlashcard(payload: {
   return res.json();
 }
 
+// Directly edits the persisted "previously known/unknown" label on a card --
+// unlike reviewFlashcard, this doesn't count as a new review (no bandit/
+// telemetry side effects), just a correction to the stored label. Pass
+// known: null to clear it back to no status.
+export async function setFlashcardStatus(payload: { userId: string; cardId: number; known: boolean | null }) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/flashcards/status`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_id: payload.userId,
+      card_id: String(payload.cardId),
+      known: payload.known,
+    }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to update flashcard status');
+  }
+  return res.json();
+}
+
+// Backfills AI-written wrong-answer options for any card in the set that
+// doesn't already have 3 -- quiz mode needs these to build "confusable"
+// multiple-choice options for that specific question, never other cards'
+// unrelated answers. Returns every card in the set with wrong_options filled.
+export async function ensureFlashcardDistractors(payload: { userId: string; setId: number }) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/flashcards/ensure_distractors`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: payload.userId, set_id: payload.setId }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to prepare quiz questions');
+  }
+  return res.json() as Promise<{ set_id: number; flashcards: { id: number; question: string; answer: string; difficulty: string; wrong_options: string[] }[] }>;
+}
+
 // ── Spaced Repetition (SM-2/FSRS) ────────────────────────────────────────
 export type SRIntervalPreview = { again: string; hard: string; good: string; easy: string };
 export type SRDueCard = {

@@ -46,10 +46,12 @@ import { useAppTheme } from '../contexts/ThemeContext';
 import {
   createFlashcard,
   createFlashcardSet,
+  ensureFlashcardDistractors,
   generateFlashcards,
   getFlashcardHistory,
   getFlashcardsInSet,
-  reviewFlashcard,
+  setFlashcardStatus,
+  srReviewFlashcard,
 } from '../services/api';
 import { triggerHaptic } from '../utils/haptics';
 import { darkenColor, getDefaultTheme, lightenColor, rgbaFromHex } from '../utils/theme';
@@ -102,6 +104,8 @@ type Flashcard = {
   answer: string;
   difficulty: string;
   marked_for_review?: boolean;
+  last_known?: boolean | null;
+  wrong_options?: string[];
 };
 
 type ManualDraftCard = {
@@ -117,7 +121,9 @@ type FlashcardsStackParamList = {
   FlashcardsSets: undefined;
   FlashcardsCreate: { mode?: CreateMode } | undefined;
   FlashcardsStudy: { set: FlashcardSet; cards: Flashcard[] };
+  FlashcardsQuiz: { set: FlashcardSet; cards: Flashcard[] };
   FlashcardsResults: { set: FlashcardSet; cards: Flashcard[]; stats: { correct: number; incorrect: number } };
+  FlashcardsQuizResults: { set: FlashcardSet; cards: Flashcard[]; stats: { correct: number; incorrect: number }; records: QuizRecord[] };
   FlashcardsSpacedRepetition: undefined;
 };
 
@@ -442,12 +448,14 @@ const DraggableCard = forwardRef<DraggableCardHandle, {
 function StudyView({
   set,
   cards,
+  userId,
   onBack,
   onComplete,
   onAnswer,
 }: {
   set: FlashcardSet;
   cards: Flashcard[];
+  userId: string;
   onBack: () => void;
   onComplete: (stats: { correct: number; incorrect: number }) => void;
   onAnswer: (cardId: number, correct: boolean) => Promise<void>;
@@ -481,6 +489,23 @@ function StudyView({
 
   const card = cards[idx];
   const nextCard = cards[idx + 1];
+
+  // `cards` is an immutable prop loaded once at session start, so its
+  // last_known always reflects the status from BEFORE this session -- exactly
+  // what "previously known/unknown" means. Edits from the badge's swap/clear
+  // controls land here instead, keyed by card id, so they show immediately
+  // without mutating that prop.
+  const [statusOverrides, setStatusOverrides] = useState<Record<number, boolean | null>>({});
+  const priorStatus: boolean | null | undefined =
+    card && card.id in statusOverrides ? statusOverrides[card.id] : card?.last_known;
+
+  const setPriorStatus = (known: boolean | null) => {
+    if (!card?.id) return;
+    setStatusOverrides((current) => ({ ...current, [card.id]: known }));
+    void setFlashcardStatus({ userId, cardId: card.id, known }).catch(() => {
+      // Best-effort -- the local override already reflects the change.
+    });
+  };
 
   // Always current, so the completion callback of a just-finished dismiss
   // animation (whose closure was captured whenever THAT animation started,
@@ -619,6 +644,37 @@ function StudyView({
         >
           <Ionicons name="chevron-forward" size={22} color={GOLD_L} />
         </HapticTouchable>
+
+        {/* What this card was marked as the LAST time it was studied (not
+            this session -- `card` is an immutable prop, so this only ever
+            reflects a prior session, or a direct edit via the swap/clear
+            buttons here). Hidden once cleared or if the card has never been
+            answered before. */}
+        {priorStatus !== null && priorStatus !== undefined ? (
+          <View style={s.priorStatusRow} pointerEvents="box-none">
+            <View style={[s.priorStatusPill, { backgroundColor: rgbaFromHex(priorStatus ? GREEN : RED, 0.16) }]}>
+              <Text style={[s.priorStatusText, { color: priorStatus ? GREEN : RED }]}>
+                previously {priorStatus ? 'known' : 'unknown'}
+              </Text>
+            </View>
+            <HapticTouchable
+              onPress={() => setPriorStatus(!priorStatus)}
+              haptic="selection"
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel="Change previous status"
+            >
+              <Ionicons name="swap-horizontal-outline" size={16} color={DIM2} />
+            </HapticTouchable>
+            <HapticTouchable
+              onPress={() => setPriorStatus(null)}
+              haptic="selection"
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel="Remove previous status"
+            >
+              <Ionicons name="close-circle" size={16} color={DIM2} />
+            </HapticTouchable>
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -687,6 +743,241 @@ function StudyView({
           </View>
         </>
       )}
+    </SafeAreaView>
+  );
+}
+
+type McqOption = { id: string; text: string; isCorrect: boolean };
+type QuizRecord = { question: string; yourAnswer: string; correctAnswer: string; isCorrect: boolean };
+
+// Wrong options are always this specific question's own AI-written
+// distractors (backend/routes/flashcards.py::ensure_flashcard_distractors
+// guarantees every card has 3 before quiz mode opens) -- never another
+// card's answer, which wouldn't actually confuse someone who knows this one.
+// The filler only covers the rare case where generation still came up short.
+const MCQ_FILLERS = ['None of the above', 'Not enough information given', 'The opposite of this is true'];
+
+function buildMcqOptions(cards: Flashcard[], index: number): McqOption[] {
+  const correctText = cards[index].answer;
+  const wrongTexts = (cards[index].wrong_options ?? []).filter((t) => t && t !== correctText).slice(0, 3);
+  for (let i = 0; wrongTexts.length < 3; i += 1) {
+    const filler = MCQ_FILLERS[i % MCQ_FILLERS.length];
+    if (filler !== correctText && !wrongTexts.includes(filler)) wrongTexts.push(filler);
+  }
+  const options: McqOption[] = [
+    { id: 'correct', text: correctText, isCorrect: true },
+    ...wrongTexts.map((text, i) => ({ id: `wrong-${i}`, text, isCorrect: false })),
+  ];
+  return options.sort(() => Math.random() - 0.5);
+}
+
+// A 4-choice MCQ variant of StudyView -- same set/onAnswer/onComplete
+// contract, so it plugs into the same results screen, but each card is
+// answered by picking one of 4 options instead of swiping know/don't-know.
+function QuizView({
+  set,
+  cards,
+  onBack,
+  onComplete,
+  onAnswer,
+}: {
+  set: FlashcardSet;
+  cards: Flashcard[];
+  onBack: () => void;
+  onComplete: (stats: { correct: number; incorrect: number }, records: QuizRecord[]) => void;
+  onAnswer: (cardId: number, correct: boolean) => Promise<void>;
+}) {
+  const [idx, setIdx] = useState(0);
+  const [options, setOptions] = useState<McqOption[]>(() => buildMcqOptions(cards, 0));
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [stats, setStats] = useState({ correct: 0, incorrect: 0 });
+  const recordsRef = useRef<QuizRecord[]>([]);
+
+  const card = cards[idx];
+
+  const selectOption = (option: McqOption) => {
+    if (selectedId) return;
+    setSelectedId(option.id);
+    triggerHaptic(option.isCorrect ? 'success' : 'warning');
+    setStats((current) => ({
+      ...current,
+      correct: current.correct + (option.isCorrect ? 1 : 0),
+      incorrect: current.incorrect + (option.isCorrect ? 0 : 1),
+    }));
+    recordsRef.current.push({
+      question: card.question,
+      yourAnswer: option.text,
+      correctAnswer: card.answer,
+      isCorrect: option.isCorrect,
+    });
+    if (card?.id) {
+      void onAnswer(card.id, option.isCorrect).catch(() => {});
+    }
+  };
+
+  const next = () => {
+    if (idx + 1 >= cards.length) {
+      onComplete(stats, recordsRef.current);
+      return;
+    }
+    const nextIdx = idx + 1;
+    setIdx(nextIdx);
+    setOptions(buildMcqOptions(cards, nextIdx));
+    setSelectedId(null);
+  };
+
+  if (!card) {
+    return (
+      <SafeAreaView style={s.safe} edges={['top']}>
+        <GeoBackground />
+        <View style={s.studyHeader}>
+          <HapticTouchable onPress={onBack} haptic="selection">
+            <Ionicons name="chevron-back" size={22} color={GOLD_L} />
+          </HapticTouchable>
+          <Text style={s.studyTitle}>quiz</Text>
+          <View style={{ width: 22 }} />
+        </View>
+        <View style={s.empty}>
+          <Text style={s.emptyTitle}>no cards in this set</Text>
+          <Text style={s.emptyHint}>create a few cards and try again</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={s.safe} edges={['top']}>
+      <GeoBackground />
+      <AmbientBubbles theme={CURRENT_THEME} variant="flashcards" opacity={0.84} />
+      <View style={s.studyHeader}>
+        <HapticTouchable onPress={onBack} haptic="selection">
+          <Ionicons name="chevron-back" size={22} color={GOLD_L} />
+        </HapticTouchable>
+        <Text style={s.studyTitle} numberOfLines={1}>{set.title.toLowerCase()}</Text>
+        <Text style={[s.studyCounter, { color: GOLD_D }]}>{idx + 1}/{cards.length}</Text>
+      </View>
+      <View style={s.progressBar}>
+        <View style={[s.progressFill, { width: `${((idx + 1) / cards.length) * 100}%` as const }]} />
+      </View>
+
+      <ScrollView contentContainerStyle={s.quizScroll} showsVerticalScrollIndicator={false}>
+        <View style={s.quizQuestionCard}>
+          <MathText style={s.quizQuestionText}>{card.question}</MathText>
+        </View>
+
+        <View style={{ gap: 10 }}>
+          {options.map((option) => {
+            const answered = selectedId !== null;
+            const isPicked = selectedId === option.id;
+            const showAsCorrect = answered && option.isCorrect;
+            const showAsWrongPick = answered && isPicked && !option.isCorrect;
+            return (
+              <HapticTouchable
+                key={option.id}
+                style={[
+                  s.quizOption,
+                  showAsCorrect && s.quizOptionCorrect,
+                  showAsWrongPick && s.quizOptionWrong,
+                ]}
+                onPress={() => selectOption(option)}
+                disabled={answered}
+                haptic="none"
+              >
+                <MathText style={s.quizOptionText}>{option.text}</MathText>
+                {showAsCorrect ? <Ionicons name="checkmark-circle" size={18} color={GREEN} /> : null}
+                {showAsWrongPick ? <Ionicons name="close-circle" size={18} color={RED} /> : null}
+              </HapticTouchable>
+            );
+          })}
+        </View>
+      </ScrollView>
+
+      {selectedId ? (
+        <View style={s.quizFooter}>
+          <HapticTouchable style={s.actionBtn} onPress={next} haptic="medium">
+            <Text style={s.actionBtnText}>{idx + 1 >= cards.length ? 'see results' : 'next question'}</Text>
+          </HapticTouchable>
+        </View>
+      ) : null}
+    </SafeAreaView>
+  );
+}
+
+function QuizResultsView({
+  stats,
+  records,
+  onBack,
+  onRestart,
+}: {
+  stats: { correct: number; incorrect: number };
+  records: QuizRecord[];
+  onBack: () => void;
+  onRestart: () => void;
+}) {
+  const total = stats.correct + stats.incorrect;
+  const pct = total > 0 ? Math.round((stats.correct / total) * 100) : 0;
+
+  return (
+    <SafeAreaView style={s.safe} edges={['top']}>
+      <GeoBackground />
+      <View style={s.studyHeader}>
+        <HapticTouchable onPress={onBack} haptic="selection">
+          <Ionicons name="chevron-back" size={22} color={GOLD_L} />
+        </HapticTouchable>
+        <Text style={s.studyTitle}>quiz report</Text>
+        <View style={{ width: 22 }} />
+      </View>
+
+      <ScrollView contentContainerStyle={s.quizReportScroll} showsVerticalScrollIndicator={false}>
+        <View style={s.resultsWrap}>
+          <Text style={[s.bigPct, { color: pct >= 70 ? GREEN : RED }]}>{pct}%</Text>
+          <Text style={s.resultsLabel}>accuracy</Text>
+          <View style={s.resultsRow}>
+            <View style={s.resultStat}>
+              <Text style={[s.resultNum, { color: GREEN }]}>{stats.correct}</Text>
+              <Text style={s.resultLbl}>correct</Text>
+            </View>
+            <View style={[s.resultStat, { borderLeftWidth: 1, borderLeftColor: BORDER }]}>
+              <Text style={[s.resultNum, { color: RED }]}>{stats.incorrect}</Text>
+              <Text style={s.resultLbl}>incorrect</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={{ gap: 10 }}>
+          {records.map((record, i) => (
+            <View key={i} style={[s.quizReportRow, { borderColor: record.isCorrect ? rgbaFromHex(GREEN, 0.35) : rgbaFromHex(RED, 0.35) }]}>
+              <View style={s.quizReportRowHead}>
+                <Ionicons
+                  name={record.isCorrect ? 'checkmark-circle' : 'close-circle'}
+                  size={16}
+                  color={record.isCorrect ? GREEN : RED}
+                />
+                <MathText style={s.quizReportQuestion}>{record.question}</MathText>
+              </View>
+              <View style={s.quizReportAnswerRow}>
+                <Text style={s.quizReportAnswerLabel}>your answer</Text>
+                <MathText style={[s.quizReportAnswerText, { color: record.isCorrect ? GREEN : RED }]}>{record.yourAnswer}</MathText>
+              </View>
+              {!record.isCorrect ? (
+                <View style={s.quizReportAnswerRow}>
+                  <Text style={s.quizReportAnswerLabel}>correct answer</Text>
+                  <MathText style={[s.quizReportAnswerText, { color: GREEN }]}>{record.correctAnswer}</MathText>
+                </View>
+              ) : null}
+            </View>
+          ))}
+        </View>
+
+        <View style={s.quizReportActions}>
+          <HapticTouchable style={s.actionBtn} onPress={onRestart} haptic="medium">
+            <Text style={s.actionBtnText}>retake quiz</Text>
+          </HapticTouchable>
+          <HapticTouchable style={[s.actionBtn, s.actionBtnOutline]} onPress={onBack} haptic="selection">
+            <Text style={[s.actionBtnText, { color: ACCENT }]}>back to sets</Text>
+          </HapticTouchable>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -1099,7 +1390,7 @@ function FlashcardsCreate({
 }
 
 const FLASHCARDS_SIDEBAR_ITEMS: SidebarItem[] = [
-  { key: 'browse', label: 'Browse' },
+  { key: 'browse', label: 'Spaced Repetition' },
   { key: 'generate', label: 'Generate' },
   { key: 'sets', label: 'My Sets' },
 ];
@@ -1110,11 +1401,13 @@ function FlashcardsSets({
   refreshTick,
   onOpenCreate,
   onOpenStudy,
+  onOpenQuiz,
   onOpenSpacedRepetition,
 }: Props & {
   refreshTick: number;
   onOpenCreate: (mode?: CreateMode) => void;
   onOpenStudy: (set: FlashcardSet, cards: Flashcard[]) => void;
+  onOpenQuiz: (set: FlashcardSet, cards: Flashcard[]) => void;
   onOpenSpacedRepetition: () => void;
 }) {
   const [sets, setSets] = useState<FlashcardSet[]>([]);
@@ -1162,20 +1455,36 @@ function FlashcardsSets({
     }
   };
 
-  const startStudy = async (set: FlashcardSet, shuffle = false) => {
+  // Cards come back from the server already ordered by spaced-repetition
+  // priority (backend/routes/flashcards.py::_study_priority_key) -- cards you
+  // got wrong last time are due again sooner, so they surface first here.
+  // Client-side shuffling used to undo that ordering for Practice; dropped
+  // so wrong answers actually come up front next time, as intended.
+  const startStudy = async (set: FlashcardSet) => {
+    setLoadingCards(true);
+    try {
+      const data = await getFlashcardsInSet(set.id);
+      const cards = (data?.flashcards ?? []) as Flashcard[];
+      onOpenStudy(set, cards);
+    } catch {
+      Alert.alert('Unable to open set', 'The flashcards could not be loaded.');
+    } finally {
+      setLoadingCards(false);
+    }
+  };
+
+  const startQuiz = async (set: FlashcardSet) => {
     setLoadingCards(true);
     try {
       const data = await getFlashcardsInSet(set.id);
       let cards = (data?.flashcards ?? []) as Flashcard[];
-      if (shuffle) {
-        cards = [...cards]
-          .map((item) => ({ item, order: Math.random() }))
-          .sort((a, b) => a.order - b.order)
-          .map(({ item }) => item);
+      if (cards.some((c) => (c.wrong_options?.length ?? 0) < 3)) {
+        const withDistractors = await ensureFlashcardDistractors({ userId: user.username, setId: set.id });
+        cards = withDistractors.flashcards as Flashcard[];
       }
-      onOpenStudy(set, cards);
+      onOpenQuiz(set, cards);
     } catch {
-      Alert.alert('Unable to open set', 'The flashcards could not be loaded.');
+      Alert.alert('Unable to open set', 'The quiz could not be prepared.');
     } finally {
       setLoadingCards(false);
     }
@@ -1322,7 +1631,7 @@ function FlashcardsSets({
                     <View style={s.cardActionRow}>
                       <HapticTouchable
                         style={[s.cardActionBtn, { flex: 1 }]}
-                        onPress={() => startStudy(item, true)}
+                        onPress={() => startStudy(item)}
                         haptic="selection"
                         accessibilityLabel={`Practice ${cleanTitle(item.title)}`}
                       >
@@ -1330,11 +1639,11 @@ function FlashcardsSets({
                       </HapticTouchable>
                       <HapticTouchable
                         style={[s.cardActionBtn, s.cardActionBtnPrimary, { flex: 1 }]}
-                        onPress={() => startStudy(item)}
+                        onPress={() => startQuiz(item)}
                         haptic="medium"
-                        accessibilityLabel={`Study ${cleanTitle(item.title)}`}
+                        accessibilityLabel={`Quiz ${cleanTitle(item.title)}`}
                       >
-                        <Ionicons name="book-outline" size={15} color={BASE_ACTION_TEXT} />
+                        <Ionicons name="help-circle-outline" size={15} color={BASE_ACTION_TEXT} />
                       </HapticTouchable>
                     </View>
                   </View>
@@ -1365,7 +1674,7 @@ function FlashcardsSets({
                   </View>
                   <HapticTouchable
                     style={[s.cardActionBtn, { width: 34 }]}
-                    onPress={() => startStudy(item, true)}
+                    onPress={() => startStudy(item)}
                     haptic="selection"
                     accessibilityLabel={`Practice ${cleanTitle(item.title)}`}
                   >
@@ -1373,11 +1682,11 @@ function FlashcardsSets({
                   </HapticTouchable>
                   <HapticTouchable
                     style={[s.cardActionBtn, s.cardActionBtnPrimary, { width: 34 }]}
-                    onPress={() => startStudy(item)}
+                    onPress={() => startQuiz(item)}
                     haptic="medium"
-                    accessibilityLabel={`Study ${cleanTitle(item.title)}`}
+                    accessibilityLabel={`Quiz ${cleanTitle(item.title)}`}
                   >
-                    <Ionicons name="book-outline" size={15} color={BASE_ACTION_TEXT} />
+                    <Ionicons name="help-circle-outline" size={15} color={BASE_ACTION_TEXT} />
                   </HapticTouchable>
                 </View>
               ))}
@@ -1434,6 +1743,7 @@ export default function FlashcardsScreen({ user, onBack }: Props) {
             refreshTick={refreshTick}
             onOpenCreate={(mode) => navigation.navigate('FlashcardsCreate', { mode })}
             onOpenStudy={(set, cards) => navigation.navigate('FlashcardsStudy', { set, cards })}
+            onOpenQuiz={(set, cards) => navigation.navigate('FlashcardsQuiz', { set, cards })}
             onOpenSpacedRepetition={() => navigation.navigate('FlashcardsSpacedRepetition')}
           />
         )}
@@ -1462,17 +1772,31 @@ export default function FlashcardsScreen({ user, onBack }: Props) {
           <StudyView
             set={route.params.set}
             cards={route.params.cards}
+            userId={user.username}
             onBack={() => navigation.goBack()}
-            onAnswer={(cardId, correct) => reviewFlashcard({
-              userId: user.username,
-              cardId,
-              wasCorrect: correct,
-            })}
+            onAnswer={(cardId, correct) => srReviewFlashcard(user.username, cardId, correct ? 'good' : 'again').then(() => {})}
             onComplete={(stats) => navigation.reset({
               index: 1,
               routes: [
                 { name: 'FlashcardsSets' },
                 { name: 'FlashcardsResults', params: { set: route.params.set, cards: route.params.cards, stats } },
+              ],
+            })}
+          />
+        )}
+      </FlashcardsStack.Screen>
+      <FlashcardsStack.Screen name="FlashcardsQuiz">
+        {({ route, navigation }) => (
+          <QuizView
+            set={route.params.set}
+            cards={route.params.cards}
+            onBack={() => navigation.goBack()}
+            onAnswer={(cardId, correct) => srReviewFlashcard(user.username, cardId, correct ? 'good' : 'again').then(() => {})}
+            onComplete={(stats, records) => navigation.reset({
+              index: 1,
+              routes: [
+                { name: 'FlashcardsSets' },
+                { name: 'FlashcardsQuizResults', params: { set: route.params.set, cards: route.params.cards, stats, records } },
               ],
             })}
           />
@@ -1484,6 +1808,16 @@ export default function FlashcardsScreen({ user, onBack }: Props) {
             stats={route.params.stats}
             onBack={() => navigation.goBack()}
             onRestart={() => navigation.replace('FlashcardsStudy', { set: route.params.set, cards: route.params.cards })}
+          />
+        )}
+      </FlashcardsStack.Screen>
+      <FlashcardsStack.Screen name="FlashcardsQuizResults">
+        {({ route, navigation }) => (
+          <QuizResultsView
+            stats={route.params.stats}
+            records={route.params.records}
+            onBack={() => navigation.goBack()}
+            onRestart={() => navigation.replace('FlashcardsQuiz', { set: route.params.set, cards: route.params.cards })}
           />
         )}
       </FlashcardsStack.Screen>
@@ -1757,6 +2091,65 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   },
   progressFill: { height: '100%', backgroundColor: ACCENT, borderRadius: 999 },
 
+  quizScroll: {
+    width: '100%',
+    maxWidth: Math.min(layout.contentMaxWidth, 820),
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 24,
+    gap: 18,
+  },
+  quizQuestionCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: SURFACE_RAISED,
+    padding: 20,
+    minHeight: 120,
+    justifyContent: 'center',
+  },
+  quizQuestionText: { fontFamily: 'Inter_700Bold', fontSize: 18, lineHeight: 25, color: GOLD_D },
+  quizOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: SURFACE,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  quizOptionCorrect: { borderColor: GREEN, backgroundColor: rgbaFromHex(GREEN, 0.12) },
+  quizOptionWrong: { borderColor: RED, backgroundColor: rgbaFromHex(RED, 0.12) },
+  quizOptionText: { flex: 1, fontFamily: 'Inter_600SemiBold', fontSize: 14, lineHeight: 20, color: GOLD_D },
+  quizFooter: { paddingHorizontal: 20, paddingBottom: 24, paddingTop: 4 },
+
+  quizReportScroll: {
+    width: '100%',
+    maxWidth: Math.min(layout.contentMaxWidth, 820),
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 30,
+    gap: 18,
+  },
+  quizReportRow: {
+    borderRadius: 16,
+    borderWidth: 1,
+    backgroundColor: SURFACE,
+    padding: 14,
+    gap: 8,
+  },
+  quizReportRowHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  quizReportQuestion: { flex: 1, fontFamily: 'Inter_700Bold', fontSize: 13.5, lineHeight: 19, color: GOLD_D },
+  quizReportAnswerRow: { paddingLeft: 24 },
+  quizReportAnswerLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 9, letterSpacing: 0.8, color: DIM2, textTransform: 'uppercase' },
+  quizReportAnswerText: { fontFamily: 'Inter_600SemiBold', fontSize: 12.5, lineHeight: 17, marginTop: 2 },
+  quizReportActions: { gap: 10 },
+
   studyLandscapeBody: {
     flex: 1,
     width: '100%',
@@ -1811,6 +2204,23 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
   cardNavArrowLeft: { left: 16 },
   cardNavArrowRight: { right: 16 },
   cardNavArrowDisabled: { opacity: 0.25 },
+  priorStatusRow: {
+    position: 'absolute',
+    top: 38,
+    left: 52,
+    right: 52,
+    zIndex: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  priorStatusPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  priorStatusText: { fontFamily: 'Inter_700Bold', fontSize: 9, letterSpacing: 0.6 },
   cardStage: { width: cardWidth, height: cardHeight },
   cardAnimatedWrap: {
     position: 'absolute',

@@ -113,6 +113,7 @@ def get_flashcards_in_set(set_id: str = Query(...), db: Session = Depends(get_db
         db.commit()
 
     cards = db.query(models.Flashcard).filter(models.Flashcard.set_id == fs.id).all()
+    cards = sorted(cards, key=_study_priority_key)
 
     return {
         "set_id": fs.id,
@@ -131,6 +132,8 @@ def get_flashcards_in_set(set_id: str = Query(...), db: Session = Depends(get_db
                 "correct_count": c.correct_count or 0,
                 "marked_for_review": bool(getattr(c, "marked_for_review", False)),
                 "is_edited": bool(getattr(c, "is_edited", False)),
+                "last_known": getattr(c, "last_known", None),
+                "wrong_options": _parse_wrong_options(c.wrong_options),
             }
             for c in cards
         ],
@@ -433,6 +436,32 @@ def _collect_context_doc_chunks_for_prompt(user_id: int, doc_ids: list[str], max
         blocks.append(block)
         used += len(block)
     return "\n\n".join(blocks).strip()
+
+def _study_priority_key(card: "models.Flashcard"):
+    """Sorts a set's cards so Practice/Quiz surface the cards you got wrong
+    before you're due to see them again next -- the FSRS "again" grade
+    schedules those with a near-term next_review_date and higher lapses, so
+    ranking overdue-first (tie-broken by most lapses, then most overdue)
+    naturally puts recently-missed cards at the front of the next session.
+    New/never-reviewed cards come next, then not-yet-due cards last."""
+    now = datetime.now(timezone.utc)
+    next_review = card.next_review_date
+    if next_review is not None and next_review.tzinfo is None:
+        next_review = next_review.replace(tzinfo=timezone.utc)
+    if next_review is not None and next_review <= now:
+        return (0, -(card.lapses or 0), next_review)
+    if next_review is None:
+        return (1, 0, now)
+    return (2, 0, next_review)
+
+def _parse_wrong_options(value: object) -> list[str]:
+    if not value:
+        return []
+    try:
+        parsed = json.loads(value)
+    except (TypeError, ValueError):
+        return []
+    return [str(item) for item in parsed] if isinstance(parsed, list) else []
 
 def _clean_flashcard_text(value: object, limit: int = 420) -> str:
     text = re.sub(r"\s+", " ", str(value or "")).strip()
@@ -793,6 +822,7 @@ async def generate_flashcards_endpoint(
             answer=card_data.get("answer", ""),
             difficulty=card_data.get("difficulty", difficulty),
             category=bandit_topic,
+            wrong_options=json.dumps(card_data.get("wrong_options") or []),
         )
         db.add(card)
         new_card_rows.append((card, card_data))
@@ -915,6 +945,7 @@ async def update_flashcard_review(request: FlashcardReviewRequest, db: Session =
     if request.was_correct:
         card.correct_count = (card.correct_count or 0) + 1
     card.last_reviewed = datetime.now(timezone.utc)
+    card.last_known = request.was_correct
     db.commit()
 
     flashcard_set = db.query(models.FlashcardSet).filter(
@@ -972,6 +1003,105 @@ async def update_flashcard_review(request: FlashcardReviewRequest, db: Session =
         "card_id": card.id,
         "times_reviewed": card.times_reviewed,
         "correct_count": card.correct_count,
+    }
+
+class FlashcardStatusRequest(BaseModel):
+    user_id: str
+    card_id: str
+    known: Optional[bool] = None
+
+@router.post("/flashcards/status")
+async def set_flashcard_known_status(request: FlashcardStatusRequest, db: Session = Depends(get_db)):
+    """Directly edit the persisted "previously known/unknown" label on a card
+    (the little swap/clear controls next to it in the study view) -- unlike
+    /flashcards/review, this never touches times_reviewed/correct_count or
+    fires the bandit/chroma side effects a real review answer does, since
+    it's a correction to the stored label, not a new review event."""
+    owner = get_user_by_username(db, request.user_id) or get_user_by_email(db, request.user_id)
+    if not owner:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    card = db.query(models.Flashcard).join(
+        models.FlashcardSet, models.Flashcard.set_id == models.FlashcardSet.id
+    ).filter(
+        models.Flashcard.id == int(request.card_id),
+        models.FlashcardSet.user_id == owner.id,
+    ).first()
+    if not card:
+        raise HTTPException(status_code=404, detail="Flashcard not found")
+
+    card.last_known = request.known
+    db.commit()
+
+    return {"status": "success", "card_id": card.id, "last_known": card.last_known}
+
+class EnsureDistractorsRequest(BaseModel):
+    user_id: str
+    set_id: int
+
+@router.post("/flashcards/ensure_distractors")
+async def ensure_flashcard_distractors(request: EnsureDistractorsRequest, db: Session = Depends(get_db)):
+    """Quiz mode needs 3 wrong-but-plausible options per question. Older sets
+    (generated before wrong_options was persisted) and manually-created cards
+    have none stored -- this backfills them with one batched AI call scoped to
+    just the cards that need it, rather than ever substituting other cards'
+    answers as distractors (those aren't written to confuse someone who
+    actually knows this specific question)."""
+    owner = get_user_by_username(db, request.user_id) or get_user_by_email(db, request.user_id)
+    if not owner:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    fs = db.query(models.FlashcardSet).filter(
+        models.FlashcardSet.id == request.set_id,
+        models.FlashcardSet.user_id == owner.id,
+    ).first()
+    if not fs:
+        raise HTTPException(status_code=404, detail="Flashcard set not found")
+
+    cards = db.query(models.Flashcard).filter(models.Flashcard.set_id == fs.id).all()
+    needs_distractors = [c for c in cards if len(_parse_wrong_options(c.wrong_options)) < 3]
+
+    if needs_distractors:
+        numbered = "\n".join(
+            f"{i}. Q: {c.question}\n   A: {c.answer}" for i, c in enumerate(needs_distractors, start=1)
+        )
+        prompt = (
+            "For each numbered question/answer pair below, write 3 wrong-but-plausible answer options "
+            "that could believably confuse someone who is unsure of the real answer. Each wrong option "
+            "must be similar in length, specificity, topic, and formatting to the real answer -- not "
+            "obviously wrong, not from an unrelated topic, and not simply the negation of the answer.\n\n"
+            f"{numbered}\n\n"
+            'Return ONLY a valid JSON array, one object per numbered item in the same order: '
+            '[{"wrong_options": ["...", "...", "..."]}, ...]\n'
+            "No other text."
+        )
+        try:
+            ai_response = unified_ai.generate(prompt, max_tokens=2000, temperature=0.6)
+            parsed = parse_json_array_response(ai_response)
+        except Exception as e:
+            logger.warning(f"[FLASHCARD DISTRACTORS] generation failed: {e}")
+            parsed = []
+
+        for card, entry in zip(needs_distractors, parsed):
+            options = entry.get("wrong_options") if isinstance(entry, dict) else None
+            if isinstance(options, list) and options:
+                cleaned = [_clean_flashcard_text(opt, 150) for opt in options[:3] if _clean_flashcard_text(opt, 150)]
+                if cleaned:
+                    card.wrong_options = json.dumps(cleaned)
+        db.commit()
+
+    return {
+        "set_id": fs.id,
+        "flashcards": [
+            {
+                "id": c.id,
+                "question": c.question,
+                "answer": c.answer,
+                "difficulty": c.difficulty or "medium",
+                "wrong_options": _parse_wrong_options(c.wrong_options),
+            }
+            for c in cards
+        ],
     }
 
 class SRReviewRequest(BaseModel):
@@ -1105,6 +1235,7 @@ async def sr_review(request: SRReviewRequest, db: Session = Depends(get_db)):
     if grade_str in ("good", "easy"):
         card.correct_count = (card.correct_count or 0) + 1
     card.last_reviewed = datetime.now(timezone.utc)
+    card.last_known = grade_str in ("good", "easy")
 
     if result["new_state"] == "review" and grade_str in ("good", "easy"):
         card.marked_for_review = False

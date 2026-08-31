@@ -39,6 +39,8 @@ class Flashcard(Base):
     times_reviewed = Column(Integer, default=0)
     correct_count = Column(Integer, default=0)
     last_reviewed = Column(DateTime, nullable=True)
+    last_known = Column(Boolean, nullable=True)
+    wrong_options = Column(Text, nullable=True)
     marked_for_review = Column(Boolean, default=False)
     is_edited = Column(Boolean, default=False)
     edited_at = Column(DateTime, nullable=True)
