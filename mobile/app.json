@@ -35,7 +35,10 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#0a0a0f"
       },
-      "permissions": [],
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -57,8 +60,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "YOUR_EAS_PROJECT_ID"
+        "projectId": "7d85698d-c875-4a1e-b90e-75be81fce029"
       }
-    }
+    },
+    "owner": "asphar0057"
   }
 }
