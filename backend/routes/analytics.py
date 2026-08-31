@@ -156,6 +156,12 @@ def get_enhanced_user_stats(user_id: str = Query(...), tz: str = Query(None), db
         total_quizzes = gamification_stats.get("total_quizzes_completed", 0)
         total_study_minutes = gamification_stats.get("total_study_minutes", 0)
         weekly_study_minutes = gamification_stats.get("weekly_study_minutes", 0)
+        weekly_actions = (
+            gamification_stats.get("weekly_ai_chats", 0)
+            + gamification_stats.get("weekly_notes_created", 0)
+            + gamification_stats.get("weekly_flashcards_created", 0)
+            + gamification_stats.get("weekly_quizzes_completed", 0)
+        )
 
         today_local = _local_today(tz)
         today_metric = db.query(models.DailyLearningMetrics).filter(
@@ -188,6 +194,7 @@ def get_enhanced_user_stats(user_id: str = Query(...), tz: str = Query(None), db
             "minutes": total_study_minutes,
             "weeklyHours": round(weekly_study_minutes / 60, 1),
             "weeklyMinutes": weekly_study_minutes,
+            "weeklyActions": weekly_actions,
             "todayMinutes": today_minutes,
             "accuracy": user_stats.accuracy_percentage if user_stats else 0,
             "totalQuestions": total_questions,

@@ -40,6 +40,7 @@ type Stats = {
   todayMinutes?: number;
   weeklyInteractions?: number;
   weeklyMastered?: number;
+  weeklyActions?: number;
 };
 
 // Under an hour: whole minutes ("42 min"). An hour or more: decimal hours in tenths
@@ -220,6 +221,7 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
   const todayStudyDuration = formatStudyDuration(todayMinutes);
   const weeklyInteractions = stats?.weeklyInteractions ?? stats?.totalChatSessions ?? 0;
   const weeklyMastered = stats?.weeklyMastered ?? stats?.totalFlashcards ?? 0;
+  const weeklyActions = stats?.weeklyActions ?? 0;
   const weeklyXp = xpHistory?.total_xp ?? 0;
   const xpDeltaPercent = xpHistory?.delta_percent ?? 0;
   const totalChats = stats?.totalChatSessions ?? 0;
@@ -268,7 +270,7 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
   const rings = [
     { label: studyDuration.unit === 'hrs' ? 'HRS\nFOCUS' : 'MIN\nFOCUS', value: studyDuration.value, progress: Math.min(weeklyHours / 10, 1) },
     { label: 'XP\nEARNED', value: String(weeklyXp), progress: Math.min(weeklyXp / 500, 1) },
-    { label: 'CARDS\nMASTERED', value: String(weeklyMastered), progress: Math.min(weeklyMastered / 30, 1) },
+    { label: 'ACTIONS\nCOMPLETED', value: String(weeklyActions), progress: Math.min(weeklyActions / 40, 1) },
   ];
 
   const greeting = hour < 12 ? 'good morning' : hour < 18 ? 'good afternoon' : 'good evening';
@@ -487,7 +489,7 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
               <View style={styles.ringsWrap}>
                 {rings.map((ring) => (
                   <View key={ring.label} style={styles.ringMuted}>
-                    <RingProgress value={ring.value} label={ring.label} progress={ring.progress} size={88} strokeWidth={6} />
+                    <RingProgress value={ring.value} label={ring.label} progress={ring.progress} size={80} strokeWidth={6} />
                   </View>
                 ))}
               </View>
@@ -761,9 +763,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
 
   ringsWrap: {
     flexDirection: 'row',
-    justifyContent: layout.width >= 760 ? 'space-between' : 'space-around',
+    justifyContent: layout.width >= 760 ? 'space-between' : 'space-evenly',
     flexWrap: layout.width < 360 ? 'wrap' : 'nowrap',
-    gap: layout.width < 360 ? 12 : 0,
+    gap: layout.width < 360 ? 12 : 20,
     paddingTop: 18,
   },
   ringMuted: {

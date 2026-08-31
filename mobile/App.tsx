@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -12,6 +12,7 @@ import { restoreSession, AuthUser } from './src/services/auth';
 import { checkProfileQuiz } from './src/services/api';
 import { useSessionTracking } from './src/hooks/useSessionTracking';
 import { ThemeProvider, useAppTheme } from './src/contexts/ThemeContext';
+import { PulseCubesLoader } from './src/components/PulseCubes';
 
 function AppContent() {
   const [splash, setSplash]   = useState(true);
@@ -56,8 +57,8 @@ function AppContent() {
       {!user ? (
         <LoginScreen onLogin={u => setUser(u)} />
       ) : needsOnboarding === null ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: selectedTheme.bgPrimary }}>
-          <ActivityIndicator color={selectedTheme.accentHover} />
+        <View style={{ flex: 1, backgroundColor: selectedTheme.bgPrimary }}>
+          <PulseCubesLoader color={selectedTheme.accentHover} />
         </View>
       ) : needsOnboarding ? (
         <OnboardingQuizScreen user={user} onDone={() => setNeedsOnboarding(false)} />
