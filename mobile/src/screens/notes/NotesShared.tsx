@@ -195,8 +195,15 @@ export type NotesGeneratorProps = {
   onOpenEditor: (note: Note, folders: Folder[]) => void;
   onOpenLibrary: () => void;
   onOpenMedia: () => void;
+  onOpenTemplates: () => void;
   onOpenCanvas: () => void;
   onOpenTrash: () => void;
+};
+export type NotesTemplatesProps = {
+  user: AuthUser;
+  onBack: () => void;
+  onCreated: () => void;
+  onOpenEditor: (note: Note, folders: Folder[]) => void;
 };
 export type NoteEditorProps = {
   user: AuthUser;
@@ -1403,42 +1410,19 @@ export function NotesHome({
   );
 }
 
-// Single entry point for creating a note -- a blank page or any built-in /
-// custom template -- mirroring the flashcards page's dedicated create screen.
-export function NotesGenerator({
-  user,
-  onBack,
-  onCreated,
-  onOpenEditor,
-  onOpenLibrary,
-  onOpenMedia,
-  onOpenCanvas,
-  onOpenTrash,
-}: NotesGeneratorProps) {
-  const layout = useResponsiveLayout();
+// Shared "make a new note and jump into its editor" logic -- used by the
+// Generate hub's blank-note card and the Templates screen's apply action.
+function useNoteCreation(
+  user: AuthUser,
+  onCreated: () => void,
+  onOpenEditor: (note: Note, folders: Folder[]) => void,
+) {
   const [creating, setCreating] = useState(false);
   const [folders, setFolders] = useState<Folder[]>([]);
-  const [templateTab, setTemplateTab] = useState<TemplateTab>('built-in');
-  const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([]);
-  const [showTemplateForm, setShowTemplateForm] = useState(false);
-  const [templateDraft, setTemplateDraft] = useState({ name: '', description: '', content: '' });
-
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     getFolders(user.username).then((data) => setFolders(data?.folders ?? [])).catch(() => setFolders([]));
   }, [user.username]);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const raw = await AsyncStorage.getItem(CUSTOM_TEMPLATE_KEY);
-        setCustomTemplates(raw ? JSON.parse(raw) : []);
-      } catch {
-        setCustomTemplates([]);
-      }
-    })();
-  }, []);
 
   const createNewNote = async (seed?: Partial<Pick<Note, 'title' | 'content' | 'folder_id' | 'custom_font'>>) => {
     if (creating) return;
@@ -1462,49 +1446,34 @@ export function NotesGenerator({
     }
   };
 
-  const saveCustomTemplates = async (templates: CustomTemplate[]) => {
-    setCustomTemplates(templates);
-    await AsyncStorage.setItem(CUSTOM_TEMPLATE_KEY, JSON.stringify(templates));
-  };
+  return { creating, folders, createNewNote };
+}
 
-  const handleSaveTemplate = async () => {
-    if (!templateDraft.name.trim() || !templateDraft.content.trim()) {
-      Alert.alert('Template required', 'Add a name and content for the custom template.');
-      return;
-    }
-    const nextTemplate: CustomTemplate = {
-      id: `custom-${Date.now()}`,
-      name: templateDraft.name.trim(),
-      description: templateDraft.description.trim(),
-      content: templateDraft.content,
-      category: 'custom',
-      createdAt: new Date().toISOString(),
-    };
-    const next = [...customTemplates, nextTemplate];
-    await saveCustomTemplates(next);
-    setTemplateDraft({ name: '', description: '', content: '' });
-    setShowTemplateForm(false);
-    setTemplateTab('custom');
-  };
+// Entry point for creating a note: three separate bento cards -- record/
+// upload audio (hands off to Media Notes' transcribe-and-generate pipeline),
+// templates (its own screen, see NotesTemplates below), and a blank page --
+// rather than one page mixing a "blank note" button with an inline
+// templates list.
+export function NotesGenerator({
+  user,
+  onBack,
+  onCreated,
+  onOpenEditor,
+  onOpenLibrary,
+  onOpenMedia,
+  onOpenTemplates,
+  onOpenCanvas,
+  onOpenTrash,
+}: NotesGeneratorProps) {
+  const { creating, createNewNote } = useNoteCreation(user, onCreated, onOpenEditor);
+  const [customTemplateCount, setCustomTemplateCount] = useState(0);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const handleDeleteCustomTemplate = (templateId: string) => {
-    Alert.alert('Delete template?', 'This custom template will be removed.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          const next = customTemplates.filter((template) => template.id !== templateId);
-          await saveCustomTemplates(next);
-        },
-      },
-    ]);
-  };
-
-  const handleApplyTemplate = async (template: NoteTemplate) => {
-    const filled = applyTemplateVariables(template, user.username);
-    await createNewNote({ title: template.name, content: filled });
-  };
+  useEffect(() => {
+    AsyncStorage.getItem(CUSTOM_TEMPLATE_KEY)
+      .then((raw) => setCustomTemplateCount(raw ? (JSON.parse(raw) as CustomTemplate[]).length : 0))
+      .catch(() => setCustomTemplateCount(0));
+  }, []);
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
@@ -1514,109 +1483,46 @@ export function NotesGenerator({
         <HapticTouchable onPress={onBack} style={{ marginRight: 12 }} haptic="selection">
           <Ionicons name="chevron-back" size={20} color={GOLD_L} />
         </HapticTouchable>
-        <Text style={[s.compactTitle, { flex: 1 }]}>generate</Text>
+        <Text style={[s.compactTitle, { flex: 1 }]}>create</Text>
         <HapticTouchable onPress={() => setSidebarOpen(true)} haptic="selection" accessibilityLabel="Open menu">
           <Ionicons name="menu-outline" size={22} color={GOLD_L} />
         </HapticTouchable>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.listContent}>
-        <HapticTouchable style={s.generateHero} onPress={() => createNewNote()} haptic="medium" activeOpacity={0.88} disabled={creating}>
-          <Ionicons name="add" size={16} color={BASE_ACTION_TEXT} />
-          <Text style={s.generateHeroText}>{creating ? 'Creating…' : 'Blank Note'}</Text>
+        <HapticTouchable style={[s.createBentoCard, s.createBentoCardWide]} onPress={onOpenMedia} haptic="medium" activeOpacity={0.9}>
+          <View style={s.createBentoIconWrap}>
+            <Ionicons name="mic-outline" size={22} color={ACCENT} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.createBentoTitle}>record / upload audio</Text>
+            <Text style={s.createBentoDesc}>speak or upload a recording — it's transcribed and written into a note for you</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={GOLD_L} />
         </HapticTouchable>
 
-        <Text style={s.sectionLabel}>templates</Text>
-        <View style={s.templateTabs}>
-          <HapticTouchable style={[s.tabBtn, templateTab === 'built-in' && s.tabBtnActive]} onPress={() => setTemplateTab('built-in')} haptic="selection">
-            <Text style={[s.tabBtnText, templateTab === 'built-in' && s.tabBtnTextActive]}>built-in</Text>
+        <View style={s.createBentoRow}>
+          <HapticTouchable style={[s.createBentoCard, s.createBentoCardHalf]} onPress={onOpenTemplates} haptic="selection" activeOpacity={0.9}>
+            <View style={s.createBentoIconWrap}>
+              <Ionicons name="grid-outline" size={20} color={ACCENT} />
+            </View>
+            <Text style={s.createBentoTitle}>templates</Text>
+            <Text style={s.createBentoDesc}>{BUILT_IN_NOTE_TEMPLATES.length + customTemplateCount} ready-made structures</Text>
           </HapticTouchable>
-          <HapticTouchable style={[s.tabBtn, templateTab === 'custom' && s.tabBtnActive]} onPress={() => setTemplateTab('custom')} haptic="selection">
-            <Text style={[s.tabBtnText, templateTab === 'custom' && s.tabBtnTextActive]}>custom</Text>
+          <HapticTouchable
+            style={[s.createBentoCard, s.createBentoCardHalf]}
+            onPress={() => createNewNote()}
+            haptic="medium"
+            activeOpacity={0.9}
+            disabled={creating}
+          >
+            <View style={s.createBentoIconWrap}>
+              <Ionicons name="add-outline" size={20} color={ACCENT} />
+            </View>
+            <Text style={s.createBentoTitle}>{creating ? 'creating…' : 'blank note'}</Text>
+            <Text style={s.createBentoDesc}>start from a clean page</Text>
           </HapticTouchable>
         </View>
-
-        {templateTab === 'custom' ? (
-          <>
-            {!showTemplateForm ? (
-              <HapticTouchable style={s.dashedCard} onPress={() => setShowTemplateForm(true)} haptic="selection">
-                <Ionicons name="add-circle-outline" size={22} color={ACCENT} />
-                <Text style={s.dashedCardTitle}>create custom template</Text>
-                <Text style={s.dashedCardText}>save reusable note structures on this device</Text>
-              </HapticTouchable>
-            ) : (
-              <View style={s.formCard}>
-                <TextInput
-                  value={templateDraft.name}
-                  onChangeText={(value) => setTemplateDraft((draft) => ({ ...draft, name: value }))}
-                  placeholder="template name"
-                  placeholderTextColor={DIM2}
-                  style={s.modalInput}
-                />
-                <TextInput
-                  value={templateDraft.description}
-                  onChangeText={(value) => setTemplateDraft((draft) => ({ ...draft, description: value }))}
-                  placeholder="description"
-                  placeholderTextColor={DIM2}
-                  style={s.modalInput}
-                />
-                <TextInput
-                  value={templateDraft.content}
-                  onChangeText={(value) => setTemplateDraft((draft) => ({ ...draft, content: value }))}
-                  placeholder="template content with {{date}}, {{time}}, {{user}}, {{title}}"
-                  placeholderTextColor={DIM2}
-                  style={[s.modalInput, s.modalTextarea]}
-                  multiline
-                  textAlignVertical="top"
-                />
-                <View style={s.rowActions}>
-                  <HapticTouchable
-                    style={[s.secondaryBtn, { flex: 1 }]}
-                    onPress={() => {
-                      setShowTemplateForm(false);
-                      setTemplateDraft({ name: '', description: '', content: '' });
-                    }}
-                    haptic="selection"
-                  >
-                    <Text style={s.secondaryBtnText}>cancel</Text>
-                  </HapticTouchable>
-                  <HapticTouchable style={[s.primaryBtn, { flex: 1 }]} onPress={handleSaveTemplate} haptic="medium">
-                    <Text style={s.primaryBtnText}>save</Text>
-                  </HapticTouchable>
-                </View>
-              </View>
-            )}
-
-            {customTemplates.map((template) => (
-              <View key={template.id} style={s.templateCard}>
-                <Pressable style={{ flex: 1 }} onPress={() => handleApplyTemplate(template)}>
-                  <Text style={s.templateName}>{template.name}</Text>
-                  <Text style={s.templateDesc}>{template.description || 'Custom template'}</Text>
-                </Pressable>
-                <View style={s.templateActions}>
-                  <HapticTouchable style={s.templateUseBtn} onPress={() => handleApplyTemplate(template)} haptic="selection">
-                    <Text style={s.templateUseBtnText}>use</Text>
-                  </HapticTouchable>
-                  <HapticTouchable style={s.templateDeleteBtn} onPress={() => handleDeleteCustomTemplate(template.id)} haptic="warning">
-                    <Ionicons name="trash-outline" size={16} color={RED} />
-                  </HapticTouchable>
-                </View>
-              </View>
-            ))}
-          </>
-        ) : (
-          BUILT_IN_NOTE_TEMPLATES.map((template) => (
-            <HapticTouchable key={template.id} style={s.templateCard} onPress={() => handleApplyTemplate(template)} haptic="light">
-              <View style={s.templateIconWrap}>
-                <Ionicons name="document-text-outline" size={18} color={ACCENT} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.templateName}>{template.name}</Text>
-                <Text style={s.templateDesc}>{template.description}</Text>
-              </View>
-            </HapticTouchable>
-          ))
-        )}
       </ScrollView>
 
       {creating && (
@@ -1639,6 +1545,190 @@ export function NotesGenerator({
           else if (key === 'trash') onOpenTrash();
         }}
       />
+    </SafeAreaView>
+  );
+}
+
+// All template options -- built-in and custom -- as their own bento-card
+// grid, reached only after choosing "templates" from the Generate hub.
+export function NotesTemplates({
+  user,
+  onBack,
+  onCreated,
+  onOpenEditor,
+}: NotesTemplatesProps) {
+  const { creating, createNewNote } = useNoteCreation(user, onCreated, onOpenEditor);
+  const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([]);
+  const [showTemplateForm, setShowTemplateForm] = useState(false);
+  const [templateDraft, setTemplateDraft] = useState({ name: '', description: '', content: '' });
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(CUSTOM_TEMPLATE_KEY);
+        setCustomTemplates(raw ? JSON.parse(raw) : []);
+      } catch {
+        setCustomTemplates([]);
+      }
+    })();
+  }, []);
+
+  const saveCustomTemplates = async (templates: CustomTemplate[]) => {
+    setCustomTemplates(templates);
+    await AsyncStorage.setItem(CUSTOM_TEMPLATE_KEY, JSON.stringify(templates));
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!templateDraft.name.trim() || !templateDraft.content.trim()) {
+      Alert.alert('Template required', 'Add a name and content for the custom template.');
+      return;
+    }
+    const nextTemplate: CustomTemplate = {
+      id: `custom-${Date.now()}`,
+      name: templateDraft.name.trim(),
+      description: templateDraft.description.trim(),
+      content: templateDraft.content,
+      category: 'custom',
+      createdAt: new Date().toISOString(),
+    };
+    await saveCustomTemplates([...customTemplates, nextTemplate]);
+    setTemplateDraft({ name: '', description: '', content: '' });
+    setShowTemplateForm(false);
+  };
+
+  const handleDeleteCustomTemplate = (templateId: string) => {
+    Alert.alert('Delete template?', 'This custom template will be removed.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          await saveCustomTemplates(customTemplates.filter((template) => template.id !== templateId));
+        },
+      },
+    ]);
+  };
+
+  const handleApplyTemplate = async (template: NoteTemplate) => {
+    const filled = applyTemplateVariables(template, user.username);
+    await createNewNote({ title: template.name, content: filled });
+  };
+
+  return (
+    <SafeAreaView style={s.safe} edges={['top']}>
+      <GeoBackground />
+      <AmbientBubbles theme={CURRENT_THEME} variant="notes" opacity={0.82} />
+      <View style={s.header}>
+        <HapticTouchable onPress={onBack} style={{ marginRight: 12 }} haptic="selection">
+          <Ionicons name="chevron-back" size={20} color={GOLD_L} />
+        </HapticTouchable>
+        <Text style={[s.compactTitle, { flex: 1 }]}>templates</Text>
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.listContent}>
+        <View style={s.templateBentoGrid}>
+          {BUILT_IN_NOTE_TEMPLATES.map((template) => (
+            <HapticTouchable
+              key={template.id}
+              style={[s.templateCard, s.templateBentoCard]}
+              onPress={() => handleApplyTemplate(template)}
+              haptic="light"
+            >
+              <View style={s.templateIconWrap}>
+                <Ionicons name="document-text-outline" size={18} color={ACCENT} />
+              </View>
+              <Text style={s.templateName} numberOfLines={1}>{template.name}</Text>
+              <Text style={s.templateDesc} numberOfLines={3}>{template.description}</Text>
+            </HapticTouchable>
+          ))}
+
+          {customTemplates.map((template) => (
+            <View key={template.id} style={[s.templateCard, s.templateBentoCard]}>
+              <HapticTouchable
+                style={s.templateDeleteBtnCorner}
+                onPress={() => handleDeleteCustomTemplate(template.id)}
+                haptic="warning"
+                accessibilityLabel={`Delete ${template.name}`}
+              >
+                <Ionicons name="trash-outline" size={14} color={RED} />
+              </HapticTouchable>
+              <Pressable style={{ flex: 1 }} onPress={() => handleApplyTemplate(template)}>
+                <View style={s.templateIconWrap}>
+                  <Ionicons name="bookmark-outline" size={18} color={ACCENT} />
+                </View>
+                <Text style={s.templateName} numberOfLines={1}>{template.name}</Text>
+                <Text style={s.templateDesc} numberOfLines={3}>{template.description || 'Custom template'}</Text>
+              </Pressable>
+            </View>
+          ))}
+
+          <HapticTouchable
+            style={[s.dashedCard, s.templateBentoCard, s.templateBentoCardCenter]}
+            onPress={() => setShowTemplateForm(true)}
+            haptic="selection"
+          >
+            <Ionicons name="add-circle-outline" size={22} color={ACCENT} />
+            <Text style={s.dashedCardTitle}>create custom</Text>
+            <Text style={s.dashedCardText}>save a reusable structure</Text>
+          </HapticTouchable>
+        </View>
+      </ScrollView>
+
+      <ModalShell
+        visible={showTemplateForm}
+        title="custom template"
+        subtitle="use {{date}}, {{time}}, {{user}}, {{title}} as placeholders"
+        onClose={() => {
+          setShowTemplateForm(false);
+          setTemplateDraft({ name: '', description: '', content: '' });
+        }}
+      >
+        <TextInput
+          value={templateDraft.name}
+          onChangeText={(value) => setTemplateDraft((draft) => ({ ...draft, name: value }))}
+          placeholder="template name"
+          placeholderTextColor={DIM2}
+          style={s.modalInput}
+        />
+        <TextInput
+          value={templateDraft.description}
+          onChangeText={(value) => setTemplateDraft((draft) => ({ ...draft, description: value }))}
+          placeholder="description"
+          placeholderTextColor={DIM2}
+          style={s.modalInput}
+        />
+        <TextInput
+          value={templateDraft.content}
+          onChangeText={(value) => setTemplateDraft((draft) => ({ ...draft, content: value }))}
+          placeholder="template content"
+          placeholderTextColor={DIM2}
+          style={[s.modalInput, s.modalTextarea]}
+          multiline
+          textAlignVertical="top"
+        />
+        <View style={s.rowActions}>
+          <HapticTouchable
+            style={[s.secondaryBtn, { flex: 1 }]}
+            onPress={() => {
+              setShowTemplateForm(false);
+              setTemplateDraft({ name: '', description: '', content: '' });
+            }}
+            haptic="selection"
+          >
+            <Text style={s.secondaryBtnText}>cancel</Text>
+          </HapticTouchable>
+          <HapticTouchable style={[s.primaryBtn, { flex: 1 }]} onPress={handleSaveTemplate} haptic="medium">
+            <Text style={s.primaryBtnText}>save</Text>
+          </HapticTouchable>
+        </View>
+      </ModalShell>
+
+      {creating && (
+        <View style={s.loadingOverlay}>
+          <ActivityIndicator color={ACCENT} size="large" />
+          <Text style={[s.emptyHint, { marginTop: 12 }]}>creating note…</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -2140,6 +2230,64 @@ function createStyles(layout: ReturnType<typeof useResponsiveLayout>) {
       borderWidth: 1,
       borderColor: softDangerBorder,
     },
+    templateDeleteBtnCorner: {
+      position: 'absolute',
+      top: 10,
+      right: 10,
+      zIndex: 2,
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: softDanger,
+      borderWidth: 1,
+      borderColor: softDangerBorder,
+    },
+
+    // The Generate hub's three top-level cards -- record/upload audio (full
+    // width), then templates + blank note side by side.
+    createBentoCard: {
+      borderRadius: 22,
+      backgroundColor: rgbaFromHex(SURFACE_2, 0.92),
+      padding: 16,
+      overflow: 'hidden',
+      boxShadow: cbTileShadow(0.06),
+      ...cbTileBorder(0.14),
+    },
+    createBentoCardWide: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      marginBottom: 14,
+    },
+    createBentoRow: { flexDirection: 'row', gap: 14 },
+    createBentoCardHalf: { flex: 1, minHeight: 118, justifyContent: 'space-between' },
+    createBentoIconWrap: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: softAccent,
+      borderWidth: 1,
+      borderColor: softAccentBorder,
+    },
+    createBentoTitle: { fontFamily: 'Inter_700Bold', fontSize: 14, color: GOLD_L, marginTop: 10 },
+    createBentoDesc: { fontFamily: 'Inter_400Regular', fontSize: 11.5, color: DIM2, lineHeight: 16, marginTop: 4 },
+
+    // Templates screen's grid -- every built-in/custom template and the
+    // "create custom" card as same-sized bento tiles, two per row.
+    templateBentoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+    templateBentoCard: {
+      width: '47%',
+      minHeight: 128,
+      flexDirection: 'column',
+      alignItems: 'flex-start',
+      justifyContent: 'flex-start',
+      gap: 6,
+    },
+    templateBentoCardCenter: { alignItems: 'center', justifyContent: 'center' },
 
     emptyModalState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 24, gap: 8 },
     selectRow: {

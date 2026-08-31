@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AIMediaNotesScreen from './AIMediaNotesScreen';
 import NotesLibraryScreen from './notes/NotesLibraryScreen';
 import NotesGeneratorScreen from './notes/NotesGeneratorScreen';
+import NotesTemplatesScreen from './notes/NotesTemplatesScreen';
 import NoteEditorScreen from './notes/NoteEditorScreen';
 import NotesTrashScreen from './notes/NotesTrashScreen';
 import NotesCanvasScreen from './notes/NotesCanvasScreen';
@@ -19,6 +20,7 @@ import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 type NotesStackParamList = {
   NotesLibrary: undefined;
   NotesGenerator: undefined;
+  NotesTemplates: undefined;
   NoteEditor: { note: Note; folders: Folder[] };
   NotesCanvas: undefined;
   NotesTrash: undefined;
@@ -89,12 +91,23 @@ export default function NotesScreen({ user, onBack }: NotesRootProps) {
             onCreated={() => setRefreshTick((value) => value + 1)}
             onOpenLibrary={() => navigation.goBack()}
             onOpenMedia={() => navigation.navigate('MediaNotes')}
+            onOpenTemplates={() => navigation.navigate('NotesTemplates')}
             onOpenTrash={() => navigation.navigate('NotesTrash')}
             onOpenCanvas={() => {
               setCanvasReturn(null);
               setCanvasSession({ source: 'library' });
               navigation.navigate('NotesCanvas');
             }}
+            onOpenEditor={(note, folders) => navigation.navigate('NoteEditor', { note, folders })}
+          />
+        )}
+      </NotesStack.Screen>
+      <NotesStack.Screen name="NotesTemplates">
+        {({ navigation }) => (
+          <NotesTemplatesScreen
+            user={user}
+            onBack={() => navigation.goBack()}
+            onCreated={() => setRefreshTick((value) => value + 1)}
             onOpenEditor={(note, folders) => navigation.navigate('NoteEditor', { note, folders })}
           />
         )}
