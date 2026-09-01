@@ -932,6 +932,19 @@ def _resolve_chat_session_id(db: Session, chat_id: Optional[str], user_id: int) 
     ).first()
     return session.id if session else None
 
+def _lightweight_sources(rag_sources: object) -> list[dict]:
+    return [
+        {
+            "filename":     s.get("filename", ""),
+            "book_title":   s.get("book_title", ""),
+            "page":         s.get("page", ""),
+            "subject":      s.get("subject", ""),
+            "source_label": s.get("source_label", ""),
+            "snippet":      (s.get("text") or "")[:220],
+        }
+        for s in (rag_sources or []) if isinstance(s, dict)
+    ]
+
 def _context_only_fallback_answer(user_id: str, question: str, context_doc_ids: list[str], use_hs_context: bool = True) -> str:
     selected_ids = [str(d).strip() for d in (context_doc_ids or []) if str(d).strip()]
     if not selected_ids or not use_hs_context:
@@ -1326,6 +1339,7 @@ async def ask_ai(
             "tutor_reply_style": tutor_reply_style,
             "tutor_options": tutor_options,
             "tutor_state": tutor_state,
+            "sources": _lightweight_sources(result.get("rag_sources")),
         }
 
     except HTTPException:
@@ -1451,6 +1465,7 @@ async def ask_simple(
             response_text = _context_only_fallback_answer(str(user.id), effective_tutor_input, selected_doc_ids, use_hs_context)
             tutor_options = []
             tutor_state = _normalize_tutor_state({}, tutor_reply_style, tutor_choice) if tutor_mode else None
+            result = None
 
         if chat_id_int:
             msg = models.ChatMessage(
@@ -1524,6 +1539,7 @@ async def ask_simple(
             "tutor_reply_style": tutor_reply_style,
             "tutor_options": tutor_options,
             "tutor_state": tutor_state,
+            "sources": _lightweight_sources(result.get("rag_sources") if result else None),
         }
 
     except HTTPException:
@@ -1925,6 +1941,7 @@ async def ask_with_files(
             "tutor_reply_style": tutor_reply_style,
             "tutor_options":   tutor_options,
             "tutor_state":     tutor_state,
+            "sources": _lightweight_sources(result.get("rag_sources") if "result" in locals() and result else None),
         }
 
     except HTTPException:
