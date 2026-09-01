@@ -1630,6 +1630,13 @@ def get_hints_for_question(
 
 @router.get("/get_quiz_history")
 def get_quiz_history(user_id: str = Query(...), db: Session = Depends(get_db)):
+    """Feeds the calendar/activity-feed "quiz" entries on both web and
+    mobile. This used to only ever run its `models.QuestionSet` branch --
+    `models.QuizSession` (checked first, via `hasattr`) hasn't existed on
+    `models` for a while, so real completed solo quizzes (models.SoloQuiz)
+    were never queried at all here, only question-bank practice sets. Now
+    unions both: real solo quizzes plus question-bank sets, so a quiz taken
+    today actually shows up instead of only stale practice-set history."""
     try:
         user = get_user_by_username(db, user_id) or get_user_by_email(db, user_id)
         if not user:
@@ -1637,44 +1644,40 @@ def get_quiz_history(user_id: str = Query(...), db: Session = Depends(get_db)):
 
         result = []
 
-        if hasattr(models, "QuizSession"):
-            quiz_sessions = (
-                db.query(models.QuizSession)
-                .filter(models.QuizSession.user_id == user.id)
-                .order_by(models.QuizSession.created_at.desc())
-                .limit(500)
-                .all()
+        solo_quizzes = (
+            db.query(models.SoloQuiz)
+            .filter(models.SoloQuiz.user_id == user.id, models.SoloQuiz.completed == True)  # noqa: E712
+            .order_by(models.SoloQuiz.completed_at.desc())
+            .limit(300)
+            .all()
+        )
+        for quiz in solo_quizzes:
+            completed_at = quiz.completed_at or quiz.created_at
+            result.append(
+                {
+                    "id": f"solo-{quiz.id}",
+                    "title": f"{quiz.subject} quiz" if quiz.subject else "Solo Quiz",
+                    "score": quiz.score or 0,
+                    "total_questions": quiz.question_count or 0,
+                    "correct_answers": round((quiz.score or 0) / 100 * (quiz.question_count or 0)),
+                    "completed_at": completed_at.isoformat() + "Z" if completed_at else None,
+                    "created_at": quiz.created_at.isoformat() + "Z",
+                }
             )
 
-            for session in quiz_sessions:
-                result.append(
-                    {
-                        "id": session.id,
-                        "title": getattr(session, "title", "Quiz Session"),
-                        "score": getattr(session, "score", 0),
-                        "total_questions": getattr(session, "total_questions", 0),
-                        "correct_answers": getattr(session, "correct_answers", 0),
-                        "completed_at": (
-                            session.completed_at.isoformat() + "Z"
-                            if hasattr(session, "completed_at") and session.completed_at
-                            else session.created_at.isoformat() + "Z"
-                        ),
-                        "created_at": session.created_at.isoformat() + "Z",
-                    }
-                )
-
-        elif hasattr(models, "QuestionSet"):
+        if hasattr(models, "QuestionSet"):
             question_sets = (
                 db.query(models.QuestionSet)
                 .filter(models.QuestionSet.user_id == user.id)
                 .order_by(models.QuestionSet.created_at.desc())
+                .limit(300)
                 .all()
             )
 
             for qs in question_sets:
                 result.append(
                     {
-                        "id": qs.id,
+                        "id": f"qb-{qs.id}",
                         "title": qs.title or "Quiz Session",
                         "score": 0,
                         "total_questions": getattr(qs, "question_count", 0),
@@ -1683,6 +1686,8 @@ def get_quiz_history(user_id: str = Query(...), db: Session = Depends(get_db)):
                         "created_at": qs.created_at.isoformat() + "Z",
                     }
                 )
+
+        result.sort(key=lambda item: item.get("completed_at") or item.get("created_at") or "", reverse=True)
 
         logger.info(f"Retrieved {len(result)} quiz sessions for user {user.email}")
         return result
