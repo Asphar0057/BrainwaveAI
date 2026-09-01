@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../services/auth';
-import { API_URL, getReminders, createReminder, updateReminder, deleteReminder, Reminder, getNotes, getFlashcardHistory, getChatSessions } from '../services/api';
+import { API_URL, getReminders, createReminder, updateReminder, deleteReminder, Reminder, getNotes, getFlashcardHistory, getChatSessions, deviceTimeZone } from '../services/api';
 import { getToken } from '../services/tokenStorage';
 import HapticTouchable from '../components/HapticTouchable';
 import GeoBackground from '../components/GeoBackground';
@@ -14,7 +14,7 @@ import SectionSidebar, { SidebarItem } from '../components/SectionSidebar';
 import { triggerHaptic } from '../utils/haptics';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
-import { mixHex, rgbaFromHex, darkenColor } from '../utils/theme';
+import { mixHex, rgbaFromHex, darkenColor, lightenColor } from '../utils/theme';
 
 const DAYS = ['S','M','T','W','T','F','S'];
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -79,7 +79,7 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
     try {
       const token = await getToken();
       const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-      const res = await fetch(`${API_URL}/get_activity_heatmap?user_id=${encodeURIComponent(user.username)}`, { headers });
+      const res = await fetch(`${API_URL}/get_activity_heatmap?user_id=${encodeURIComponent(user.username)}&tz=${encodeURIComponent(deviceTimeZone())}`, { headers });
       if (res.ok) {
         const data = await res.json();
         setHeatmap(data.heatmap_data ?? []);
@@ -285,7 +285,7 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
 
         <View style={s.calendarPanel}>
           <NeumorphicLayer grainOpacity={0.24} />
-          <Text style={s.panelGhost}>01</Text>
+          <Text style={s.panelGhost}>{String(month + 1).padStart(2, '0')}</Text>
 
           {/* Day headers */}
           <View style={s.dayHeaders}>
@@ -308,11 +308,19 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
                 return (
                   <HapticTouchable
                     key={dateStr}
-                    style={[s.cell, { backgroundColor: heat ? LEVEL_COLORS[heat.level] : 'transparent' }, isToday && s.cellToday, isSel && s.cellSelected]}
+                    style={[s.cell, { backgroundColor: !isToday && heat ? LEVEL_COLORS[heat.level] : 'transparent' }, isSel && s.cellSelected]}
                     onPress={() => setSelected(isSel ? null : dateStr)}
                     haptic="selection"
                     activeOpacity={0.75}
                   >
+                    {isToday && (
+                      <LinearGradient
+                        colors={[lightenColor(selectedTheme.accent, 18), lightenColor(selectedTheme.accentHover, 10)]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={StyleSheet.absoluteFillObject}
+                      />
+                    )}
                     <Text style={[s.cellNum, isToday && s.cellNumToday, isSel && s.cellNumSel]}>{day}</Text>
                     {dayActivityTypes.length > 0 ? (
                       <View style={s.signalRow}>
@@ -489,11 +497,10 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     dayHeaders: { flexDirection: 'row' },
     dayHeader: { flex: 1, textAlign: 'center', fontFamily: 'Inter_600SemiBold', fontSize: 10, color: DIM, letterSpacing: 1.2, paddingVertical: 8 },
     grid: { flexDirection: 'row', flexWrap: 'wrap' },
-    cell: { width: '14.2857%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 8, padding: 2 },
-    cellToday: { borderWidth: 1, borderColor: GOLD_D },
+    cell: { width: '14.2857%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 8, padding: 2, overflow: 'hidden' },
     cellSelected: { borderWidth: 1.5, borderColor: GOLD_L },
     cellNum: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: GOLD_D },
-    cellNumToday: { color: GOLD_L },
+    cellNumToday: { color: INK, fontFamily: 'Inter_900Black' },
     cellNumSel: { color: GOLD_XL },
     dot: { width: 4, height: 4, borderRadius: 2, marginTop: 2 },
     signalRow: { flexDirection: 'row', gap: 2, marginTop: 2 },
