@@ -9,7 +9,7 @@ import { API_URL, getReminders, createReminder, updateReminder, deleteReminder, 
 import { getToken } from '../services/tokenStorage';
 import HapticTouchable from '../components/HapticTouchable';
 import GeoBackground from '../components/GeoBackground';
-import { NeumorphicLayer, cbTileShadow, cbModalShadow } from '../components/NeumorphicTexture';
+import { cbTileShadow, cbModalShadow } from '../components/NeumorphicTexture';
 import SectionSidebar, { SidebarItem } from '../components/SectionSidebar';
 import { triggerHaptic } from '../utils/haptics';
 import { useAppTheme } from '../contexts/ThemeContext';
@@ -301,7 +301,12 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
         </View>
 
         <View style={s.calendarPanel}>
-          <NeumorphicLayer grainOpacity={0.24} />
+          <LinearGradient
+            colors={[selectedTheme.panel, darkenColor(selectedTheme.panel, 10)]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={StyleSheet.absoluteFillObject}
+          />
           <Text style={s.panelGhost}>{String(month + 1).padStart(2, '0')}</Text>
 
           {/* Day headers */}
@@ -356,11 +361,21 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
                     activeOpacity={0.75}
                   >
                     {isToday && (
+                      // Plain top-to-bottom, not diagonal -- a diagonal
+                      // start/end (0,0)->(1,1) actually makes the whole top
+                      // edge trend toward the lighter stop and the whole
+                      // bottom edge toward the darker one (a diagonal
+                      // gradient's corners off the direct axis land near the
+                      // midpoint), which read as "top has way more (pale)
+                      // tint than bottom" once the two stops were far apart.
+                      // Keeping both stops close together now too, so it's
+                      // recognizably a gradient without one end looking
+                      // washed out next to the other.
                       <LinearGradient
-                        colors={[lightenColor(selectedTheme.accent, 42), selectedTheme.accentHover]}
+                        colors={[lightenColor(selectedTheme.accent, 14), selectedTheme.accentHover]}
                         start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={StyleSheet.absoluteFillObject}
+                        end={{ x: 0, y: 1 }}
+                        style={[StyleSheet.absoluteFillObject, { borderRadius: 8 }]}
                       />
                     )}
                     <Text style={[s.cellNum, { color: numColor, fontFamily: numBold ? 'Inter_900Black' : 'Inter_600SemiBold' }]}>{day}</Text>
