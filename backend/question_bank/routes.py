@@ -3030,8 +3030,14 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             if not user:
                 raise HTTPException(status_code=404, detail="User not found")
 
+            # Scoped to question-bank mistakes only -- this endpoint backs the
+            # Question Bank dashboard's "Review Wrong Answers" card, which
+            # predates solo-quiz/flashcard mistakes also living in this table
+            # (see `source`); those surface instead via the unified
+            # /api/weaknesses/recent_mistakes endpoint.
             query = db.query(models.WrongAnswerLog).filter(
-                models.WrongAnswerLog.user_id == user.id
+                models.WrongAnswerLog.user_id == user.id,
+                models.WrongAnswerLog.source == "question_bank",
             )
 
             if topic:
@@ -3145,6 +3151,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             if include_review:
                 wrong_logs = db.query(models.WrongAnswerLog).filter(
                     models.WrongAnswerLog.user_id == user.id,
+                    models.WrongAnswerLog.source == "question_bank",
                     models.WrongAnswerLog.topic.in_(focus_topics),
                     models.WrongAnswerLog.reviewed == False
                 ).order_by(
@@ -3318,6 +3325,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
 
             unreviewed_count = db.query(models.WrongAnswerLog).filter(
                 models.WrongAnswerLog.user_id == user.id,
+                models.WrongAnswerLog.source == "question_bank",
                 models.WrongAnswerLog.reviewed == False
             ).count()
 

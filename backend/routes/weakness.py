@@ -11,12 +11,14 @@ import models
 from database import get_db
 from deps import (
     call_ai,
+    call_ai_async,
     enforce_request_user_scope,
     get_current_user,
     get_user_by_email,
     get_user_by_username,
     verify_token,
 )
+from services.math_processor import process_math_in_response
 
 logger = logging.getLogger(__name__)
 router = APIRouter(
@@ -740,4 +742,167 @@ async def get_daily_recommendations(
         })
     except Exception as e:
         logger.error(f"Error getting daily recommendations: {e}")
+        return JSONResponse(status_code=500, content={"status": "error", "error": str(e)})
+
+
+# ── Unified "recent mistakes" feed + explain-on-click ─────────────────────
+# Powers the Weaknesses page's "Recent Mistakes" region -- merges quiz/
+# question-bank/flashcard mistakes (all now in WrongAnswerLog, see
+# services/adaptive_quiz.py + backend/models/questions.py's `source` column)
+# with AI-chat struggle signals (ChatConceptSignal, itemizable as-is) into
+# one recency-sorted list, and a click-to-explain endpoint copying the Notes
+# "Explain Only" pattern (routes/notes.py::notes_agent) exactly: build a
+# prompt, call_ai_async + process_math_in_response, cache the result.
+
+CHAT_STRUGGLE_THRESHOLD = -0.3
+
+
+@router.get("/weaknesses/recent_mistakes")
+async def get_recent_mistakes(
+    user_id: str = Query(...),
+    limit: int = Query(20, ge=1, le=100),
+    source: str = Query("all"),
+    db: Session = Depends(get_db),
+    token: str = Depends(verify_token),
+):
+    try:
+        uid = _resolve_user_id(db, user_id)
+        if uid is None:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        items: list[dict] = []
+
+        if source in ("all", "question_bank", "solo_quiz", "flashcard"):
+            wa_query = db.query(models.WrongAnswerLog).filter(models.WrongAnswerLog.user_id == uid)
+            if source != "all":
+                wa_query = wa_query.filter(models.WrongAnswerLog.source == source)
+            wrong_answers = wa_query.order_by(models.WrongAnswerLog.answered_at.desc()).limit(limit).all()
+            for wa in wrong_answers:
+                items.append({
+                    "id": wa.id,
+                    "source": wa.source or "question_bank",
+                    "topic": wa.topic,
+                    "question_text": wa.question_text,
+                    "user_answer": wa.user_answer,
+                    "correct_answer": wa.correct_answer,
+                    "occurred_at": wa.answered_at.isoformat() if wa.answered_at else None,
+                    "has_explanation": bool(wa.ai_explanation),
+                    "reviewed": bool(wa.reviewed),
+                })
+
+        if source in ("all", "chat"):
+            chat_rows = (
+                db.query(models.ChatConceptSignal)
+                .filter(
+                    models.ChatConceptSignal.user_id == uid,
+                    models.ChatConceptSignal.knowledge_signal < CHAT_STRUGGLE_THRESHOLD,
+                )
+                .order_by(models.ChatConceptSignal.created_at.desc())
+                .limit(limit)
+                .all()
+            )
+            for row in chat_rows:
+                items.append({
+                    "id": row.id,
+                    "source": "chat",
+                    "topic": row.concept,
+                    "question_text": row.message_snippet,
+                    "user_answer": None,
+                    "correct_answer": None,
+                    "occurred_at": row.created_at.isoformat() if row.created_at else None,
+                    "has_explanation": False,
+                    "reviewed": False,
+                })
+
+        items.sort(key=lambda i: i["occurred_at"] or "", reverse=True)
+
+        return JSONResponse(content={
+            "status": "success",
+            "mistakes": items[:limit],
+            "total": len(items[:limit]),
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting recent mistakes: {e}")
+        return JSONResponse(status_code=500, content={"status": "error", "error": str(e)})
+
+
+@router.post("/weaknesses/explain_mistake")
+async def explain_mistake(
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+    token: str = Depends(verify_token),
+):
+    try:
+        user_id = payload.get("user_id")
+        mistake_id = payload.get("mistake_id")
+        source = payload.get("source", "question_bank")
+
+        uid = _resolve_user_id(db, user_id)
+        if uid is None:
+            raise HTTPException(status_code=404, detail="User not found")
+        if not mistake_id:
+            raise HTTPException(status_code=422, detail="mistake_id is required")
+
+        if source == "chat":
+            row = db.query(models.ChatConceptSignal).filter(
+                models.ChatConceptSignal.id == mistake_id,
+                models.ChatConceptSignal.user_id == uid,
+            ).first()
+            if not row:
+                raise HTTPException(status_code=404, detail="Mistake not found")
+            topic = row.concept
+            question_text = row.message_snippet
+            correct_answer = None
+            user_answer = None
+            cached_explanation = None
+        else:
+            row = db.query(models.WrongAnswerLog).filter(
+                models.WrongAnswerLog.id == mistake_id,
+                models.WrongAnswerLog.user_id == uid,
+            ).first()
+            if not row:
+                raise HTTPException(status_code=404, detail="Mistake not found")
+            topic = row.topic
+            question_text = row.question_text
+            correct_answer = row.correct_answer
+            user_answer = row.user_answer
+            cached_explanation = row.ai_explanation
+
+        if cached_explanation:
+            return JSONResponse(content={"success": True, "content": cached_explanation, "cached": True})
+
+        if user_answer and correct_answer:
+            prompt = (
+                f"A student answered a question incorrectly. Topic: {topic or 'general'}.\n"
+                f"Question: {question_text}\n"
+                f"Student's answer: {user_answer}\n"
+                f"Correct answer: {correct_answer}\n\n"
+                "In 2-4 short sentences, clearly and supportively explain why the correct answer "
+                "is right and where the student's reasoning likely went wrong. Be specific to this "
+                "question, not generic. Use LaTeX (\\( ... \\) inline, \\[ ... \\] display) for any math."
+            )
+        else:
+            prompt = (
+                f"A student showed a knowledge gap on the topic '{topic or 'general'}' during a "
+                f"conversation. What they said: \"{question_text}\"\n\n"
+                "In 2-4 short sentences, clearly and supportively explain the likely misconception "
+                "and the correct way to think about this topic. Use LaTeX (\\( ... \\) inline, "
+                "\\[ ... \\] display) for any math."
+            )
+
+        content = await call_ai_async(prompt, max_tokens=800, temperature=0.6)
+        content = process_math_in_response(content.strip())
+
+        if source != "chat":
+            row.ai_explanation = content
+            row.ai_explanation_generated_at = datetime.now(timezone.utc)
+            db.commit()
+
+        return JSONResponse(content={"success": True, "content": content, "cached": False})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error explaining mistake: {e}")
         return JSONResponse(status_code=500, content={"status": "error", "error": str(e)})
