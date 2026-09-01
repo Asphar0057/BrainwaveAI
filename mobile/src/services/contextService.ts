@@ -3,7 +3,8 @@ import { API_URL } from './api';
 import { getToken } from './tokenStorage';
 
 const HS_MODE_KEY = 'hs_mode_enabled';
-const SELECTED_DOC_IDS_KEY = 'ctx_selected_doc_ids';
+
+export const DECK_LIMIT = 8;
 
 export type ContextDocument = {
   doc_id: string;
@@ -17,6 +18,8 @@ export type ContextDocument = {
   ai_summary?: string;
   key_concepts?: string;
   topic_tags?: string;
+  in_deck: boolean;
+  deck_added_at?: string;
 };
 
 export type UploadableFile = {
@@ -225,17 +228,38 @@ export async function setHsModeEnabled(enabled: boolean): Promise<void> {
   await AsyncStorage.setItem(HS_MODE_KEY, enabled ? 'true' : 'false');
 }
 
-export async function getSelectedDocIds(): Promise<string[]> {
-  const raw = await AsyncStorage.getItem(SELECTED_DOC_IDS_KEY);
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
+export async function addToDeck(docId: string): Promise<{ doc_id: string; in_deck: boolean; deck_count: number; deck_limit: number }> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/context/documents/${encodeURIComponent(docId)}/deck`, {
+    method: 'POST',
+    headers,
+  });
+  if (!res.ok) {
+    let detail = 'Failed to add to deck';
+    try {
+      const data = await res.json();
+      detail = data?.detail || detail;
+    } catch {
+      // keep fallback
+    }
+    throw new Error(detail);
   }
+  return res.json();
 }
 
-export async function setSelectedDocIds(ids: string[]): Promise<void> {
-  await AsyncStorage.setItem(SELECTED_DOC_IDS_KEY, JSON.stringify(ids));
+export async function removeFromDeck(docId: string): Promise<{ doc_id: string; in_deck: boolean; deck_count: number; deck_limit: number }> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/context/documents/${encodeURIComponent(docId)}/deck`, {
+    method: 'DELETE',
+    headers,
+  });
+  if (!res.ok) throw new Error('Failed to remove from deck');
+  return res.json();
+}
+
+export async function getDeck(): Promise<{ documents: ContextDocument[]; deck_count: number; deck_limit: number }> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/context/deck`, { headers });
+  if (!res.ok) throw new Error('Failed to load deck');
+  return res.json();
 }

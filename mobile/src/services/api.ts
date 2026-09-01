@@ -291,6 +291,15 @@ export async function endSession(userId: string, sessionId: string, timeSpentMin
   return res.json();
 }
 
+export type Citation = {
+  filename: string;
+  book_title: string;
+  page: string | number;
+  subject: string;
+  source_label: string;
+  snippet: string;
+};
+
 // ── Chat ─────────────────────────────────────────────────────────────
 export async function getConversationStarters(userId: string) {
   const headers = await authHeaders();
