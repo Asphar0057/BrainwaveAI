@@ -1059,6 +1059,42 @@ export async function getMasteryOverview(userId: number) {
   return res.json();
 }
 
+export type RecentMistakeSource = 'question_bank' | 'solo_quiz' | 'flashcard' | 'chat';
+export type RecentMistake = {
+  id: number;
+  source: RecentMistakeSource;
+  topic: string | null;
+  question_text: string;
+  user_answer: string | null;
+  correct_answer: string | null;
+  occurred_at: string | null;
+  has_explanation: boolean;
+  reviewed: boolean;
+};
+
+export async function getRecentMistakes(userId: string, limit = 20, source: 'all' | RecentMistakeSource = 'all') {
+  const headers = await authHeaders();
+  const params = new URLSearchParams({ user_id: userId, limit: String(limit), source });
+  const res = await fetch(`${API_URL}/weaknesses/recent_mistakes?${params.toString()}`, { headers });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to load recent mistakes');
+  }
+  return res.json() as Promise<{ mistakes: RecentMistake[]; total: number }>;
+}
+
+export async function explainMistake(userId: string, mistakeId: number, source: RecentMistakeSource) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/weaknesses/explain_mistake`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId, mistake_id: mistakeId, source }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Could not generate an explanation');
+  }
+  return res.json() as Promise<{ success: boolean; content: string; cached: boolean }>;
+}
+
 // ── Social ────────────────────────────────────────────────────────────
 export async function getFriends(userId: string) {
   const headers = await authHeaders();
@@ -1120,9 +1156,11 @@ export async function deleteNotification(notificationId: number) {
 }
 
 // ── Sharing ───────────────────────────────────────────────────────────
+export type ShareContentType = 'note' | 'chat' | 'quiz' | 'question_bank';
+
 export type SharedItem = {
   id: number;
-  content_type: 'note' | 'chat';
+  content_type: ShareContentType;
   content_id: number;
   title: string;
   permission: string;
@@ -1132,7 +1170,7 @@ export type SharedItem = {
 };
 
 export async function shareContent(payload: {
-  contentType: 'note' | 'chat';
+  contentType: ShareContentType;
   contentId: number;
   friendIds: number[];
   message?: string;
@@ -1161,7 +1199,7 @@ export async function getSharedWithMe(): Promise<{ shared_items: SharedItem[] }>
   return res.json();
 }
 
-export async function getSharedContentDetail(contentType: 'note' | 'chat', contentId: number) {
+export async function getSharedContentDetail(contentType: ShareContentType, contentId: number) {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}/shared/${contentType}/${contentId}`, { headers });
   if (!res.ok) await readApiError(res, 'Could not open this shared item');
@@ -2513,12 +2551,23 @@ export type SoloQuizQuestion = {
   explanation: string;
 };
 
+export type SoloQuizAnsweredResult = {
+  question_text: string;
+  user_answer: string;
+  correct_answer: string;
+  is_correct: boolean;
+  explanation?: string;
+};
+
 export async function getSoloQuiz(quizId: string | number) {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}/solo_quiz/${quizId}`, { headers });
   if (!res.ok) await readApiError(res, 'Could not load quiz');
   return res.json() as Promise<{
-    quiz: { id: number; uid: string; subject: string; difficulty: string; question_count: number; time_limit_seconds: number };
+    quiz: {
+      id: number; uid: string; subject: string; difficulty: string; question_count: number; time_limit_seconds: number;
+      completed?: boolean; score?: number | null; completed_at?: string | null; answers?: SoloQuizAnsweredResult[] | null;
+    };
     questions: SoloQuizQuestion[];
   }>;
 }
