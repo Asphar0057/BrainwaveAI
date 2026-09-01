@@ -51,7 +51,7 @@ type RootStackParamList = {
   Settings: undefined;
   QuestionBank: undefined;
   KnowledgeMaps: undefined;
-  KnowledgeHub: undefined;
+  KnowledgeHub: { initialTab?: 'library' | 'deck' | 'ask' } | undefined;
   SlideExplorer: undefined;
   CanvasHub: undefined;
   XpAnalytics: undefined;
@@ -303,10 +303,11 @@ export default function TabNavigator({ user, onLogout, onUserUpdate, onRetakeQui
             )}
           </Stack.Screen>
           <Stack.Screen name="KnowledgeHub">
-            {({ navigation }) => (
+            {({ navigation, route }) => (
               <ScreenErrorBoundary label="Knowledge Hub">
                 <KnowledgeHubScreen
                   user={user}
+                  initialTab={route.params?.initialTab}
                   onBack={() => navigation.goBack()}
                   onNavigate={(screen) => {
                     if (screen === 'flashcards') navigation.navigate('Flashcards');

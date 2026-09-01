@@ -8,6 +8,7 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -20,33 +21,25 @@ import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../services/auth';
 import {
-  addConceptNode,
-  ConceptNode,
   createKnowledgeRoadmapFromDocs,
   createNoteFromContextDocs,
-  generateConceptAsset,
-  generateConceptWeb,
   generatePracticeQuestions,
-  getConceptWeb,
-  getLearningReviews,
-  getSearchHubCommands,
   getSearchHubSuggestions,
-  LearningReview,
-  runSearchHubCommand,
-  submitLearningReviewResponse,
 } from '../services/api';
 import {
+  addToDeck,
   askKnowledgeBase,
   ContextDocument,
+  DECK_LIMIT,
   deleteDocument,
+  getDeck,
   getDocuments,
   getHsModeEnabled,
-  importContextUrl,
   getRelatedTopics,
-  getSelectedDocIds,
+  importContextUrl,
+  removeFromDeck,
   searchContext,
   setHsModeEnabled,
-  setSelectedDocIds,
   uploadContextDocument,
 } from '../services/contextService';
 import AmbientBubbles from '../components/AmbientBubbles';
@@ -59,16 +52,14 @@ import { darkenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 import MathText from '../components/MathText';
 
-type HubTab = 'vault' | 'ask' | 'concepts' | 'reviews' | 'commands';
+type HubTab = 'library' | 'deck' | 'ask';
 type AppTarget = 'flashcards' | 'notes' | 'aimedia' | 'settings' | 'questionBank' | 'knowledgeMaps' | 'slideExplorer' | 'canvasHub' | 'xpAnalytics' | 'weaknessPractice' | 'learningPaths';
-type Props = { user: AuthUser; onBack: () => void; onNavigate?: (screen: AppTarget) => void };
+type Props = { user: AuthUser; onBack: () => void; onNavigate?: (screen: AppTarget) => void; initialTab?: HubTab };
 
 const HUB_SIDEBAR_ITEMS: SidebarItem[] = [
-  { key: 'vault', label: 'Vault' },
+  { key: 'library', label: 'Library' },
+  { key: 'deck', label: 'Deck' },
   { key: 'ask', label: 'Ask' },
-  { key: 'concepts', label: 'Concepts' },
-  { key: 'reviews', label: 'Reviews' },
-  { key: 'commands', label: 'Commands' },
   { key: 'upload', label: 'Upload Source' },
 ];
 
@@ -85,11 +76,9 @@ type SearchResult = {
 };
 
 const TABS: Array<{ key: HubTab; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }> = [
-  { key: 'vault', label: 'vault', icon: 'file-tray-stacked-outline' },
+  { key: 'library', label: 'library', icon: 'file-tray-stacked-outline' },
+  { key: 'deck', label: 'deck', icon: 'layers-outline' },
   { key: 'ask', label: 'ask', icon: 'search-outline' },
-  { key: 'concepts', label: 'concepts', icon: 'git-network-outline' },
-  { key: 'reviews', label: 'reviews', icon: 'reader-outline' },
-  { key: 'commands', label: 'commands', icon: 'terminal-outline' },
 ];
 
 function truncate(value: string, max = 220) {
@@ -101,24 +90,20 @@ function docTopic(doc: ContextDocument) {
   return doc.subject || doc.grade_level || doc.scope || 'general';
 }
 
-export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) {
+export default function KnowledgeHubScreen({ user, onBack, onNavigate, initialTab }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
   const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
   const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black });
 
-  const [tab, setTab] = useState<HubTab>('vault');
+  const [tab, setTab] = useState<HubTab>(initialTab || 'library');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [docs, setDocs] = useState<ContextDocument[]>([]);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deck, setDeck] = useState<ContextDocument[]>([]);
   const [hsMode, setHsMode] = useState(false);
   const [relatedTopics, setRelatedTopics] = useState<string[]>([]);
-  const [concepts, setConcepts] = useState<ConceptNode[]>([]);
-  const [conceptConnections, setConceptConnections] = useState(0);
-  const [reviews, setReviews] = useState<LearningReview[]>([]);
-  const [commands, setCommands] = useState<Array<{ command: string; description: string }>>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
   const [askQuery, setAskQuery] = useState('');
@@ -126,42 +111,27 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [asking, setAsking] = useState(false);
 
-  const [commandText, setCommandText] = useState('/map ');
-  const [commandResult, setCommandResult] = useState<any>(null);
-  const [runningCommand, setRunningCommand] = useState(false);
-
   const [actionBusy, setActionBusy] = useState<string | null>(null);
-  const [showConceptModal, setShowConceptModal] = useState(false);
-  const [conceptName, setConceptName] = useState('');
-  const [conceptDescription, setConceptDescription] = useState('');
-  const [reviewModal, setReviewModal] = useState<LearningReview | null>(null);
-  const [reviewResponse, setReviewResponse] = useState('');
-  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [deckBusyId, setDeckBusyId] = useState<string | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importUrl, setImportUrl] = useState('');
   const [importSubject, setImportSubject] = useState('');
 
-  const selectedDocs = useMemo(() => docs.filter((doc) => selectedIds.has(doc.doc_id)), [docs, selectedIds]);
+  const deckIds = useMemo(() => deck.map((doc) => doc.doc_id), [deck]);
   const readyDocs = docs.filter((doc) => doc.status === 'ready');
+  const deckFull = deck.length >= DECK_LIMIT;
 
   const load = useCallback(async () => {
     try {
-      const [enabled, ids, docsData, conceptData, reviewData, commandData, suggestionData] = await Promise.all([
+      const [enabled, docsData, deckData, suggestionData] = await Promise.all([
         getHsModeEnabled().catch(() => false),
-        getSelectedDocIds().catch(() => []),
         getDocuments().catch(() => null),
-        getConceptWeb(user.username).catch(() => ({ nodes: [], connections: [] })),
-        getLearningReviews(user.username).catch(() => ({ reviews: [] })),
-        getSearchHubCommands().catch(() => ({ commands: [] })),
+        getDeck().catch(() => ({ documents: [] })),
         getSearchHubSuggestions(user.username, '').catch(() => ({ suggestions: [] })),
       ]);
       setHsMode(enabled);
-      setSelectedIds(new Set(ids));
       setDocs(docsData?.user_docs ?? []);
-      setConcepts(conceptData.nodes ?? []);
-      setConceptConnections(conceptData.connections?.length ?? 0);
-      setReviews(reviewData.reviews ?? []);
-      setCommands(commandData.commands ?? []);
+      setDeck(deckData.documents ?? []);
       setSuggestions(suggestionData.suggestions ?? []);
     } catch (error) {
       Alert.alert('Knowledge Hub', error instanceof Error ? error.message : 'Failed to load hub data');
@@ -174,7 +144,7 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    const seed = selectedDocs.map(docTopic).filter(Boolean).slice(0, 4);
+    const seed = deck.map(docTopic).filter(Boolean).slice(0, 4);
     if (!seed.length) {
       setRelatedTopics([]);
       return;
@@ -182,14 +152,29 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
     getRelatedTopics({ topics: seed, useHs: hsMode, maxRelated: 6 })
       .then((data) => setRelatedTopics(data.topics ?? []))
       .catch(() => setRelatedTopics([]));
-  }, [selectedDocs, hsMode]);
+  }, [deck, hsMode]);
 
-  const toggleDoc = async (docId: string) => {
-    const next = new Set(selectedIds);
-    if (next.has(docId)) next.delete(docId);
-    else next.add(docId);
-    setSelectedIds(next);
-    await setSelectedDocIds(Array.from(next));
+  const toggleDeckMembership = async (doc: ContextDocument) => {
+    if (!doc.in_deck && deckFull) {
+      Alert.alert('Deck is full', `Your deck already has ${DECK_LIMIT}/${DECK_LIMIT} documents — remove one first.`);
+      return;
+    }
+    setDeckBusyId(doc.doc_id);
+    try {
+      if (doc.in_deck) {
+        await removeFromDeck(doc.doc_id);
+        setDocs((cur) => cur.map((d) => (d.doc_id === doc.doc_id ? { ...d, in_deck: false } : d)));
+        setDeck((cur) => cur.filter((d) => d.doc_id !== doc.doc_id));
+      } else {
+        await addToDeck(doc.doc_id);
+        setDocs((cur) => cur.map((d) => (d.doc_id === doc.doc_id ? { ...d, in_deck: true } : d)));
+        setDeck((cur) => [{ ...doc, in_deck: true }, ...cur]);
+      }
+    } catch (error) {
+      Alert.alert('Deck', error instanceof Error ? error.message : 'Could not update deck');
+    } finally {
+      setDeckBusyId(null);
+    }
   };
 
   const toggleHs = async () => {
@@ -221,7 +206,7 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
           sourceName: 'Mobile upload',
         });
       }
-      Alert.alert('Sources imported', `${assets.length} document${assets.length === 1 ? '' : 's'} added to Knowledge Hub.`);
+      Alert.alert('Sources imported', `${assets.length} document${assets.length === 1 ? '' : 's'} added to your Library.`);
       await load();
     } catch (error) {
       Alert.alert('Upload failed', error instanceof Error ? error.message : 'Could not upload document');
@@ -246,7 +231,7 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
       setImportUrl('');
       setImportSubject('');
       setShowImportModal(false);
-      Alert.alert('Source imported', 'The URL is now available in Knowledge Hub.');
+      Alert.alert('Source imported', 'The URL is now available in your Library.');
       await load();
     } catch (error) {
       Alert.alert('Import failed', error instanceof Error ? error.message : 'Could not import this URL');
@@ -266,10 +251,7 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
           try {
             await deleteDocument(doc.doc_id);
             setDocs((current) => current.filter((item) => item.doc_id !== doc.doc_id));
-            const next = new Set(selectedIds);
-            next.delete(doc.doc_id);
-            setSelectedIds(next);
-            await setSelectedDocIds(Array.from(next));
+            setDeck((current) => current.filter((item) => item.doc_id !== doc.doc_id));
           } catch (error) {
             Alert.alert('Delete failed', error instanceof Error ? error.message : 'Could not delete source');
           } finally {
@@ -280,29 +262,29 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
     ]);
   };
 
-  const requireSelectedDocs = () => {
-    if (!selectedIds.size) {
-      Alert.alert('Select sources first', 'Pick one or more documents from the Vault tab.');
+  const requireDeckDocs = () => {
+    if (!deck.length) {
+      Alert.alert('Add sources to your deck first', 'Pick up to 8 documents from the Library tab.');
       return null;
     }
-    return Array.from(selectedIds);
+    return deckIds;
   };
 
   const runDocAction = async (kind: 'note' | 'map' | 'questions') => {
-    const docIds = requireSelectedDocs();
+    const docIds = requireDeckDocs();
     if (!docIds) return;
     setActionBusy(kind);
     try {
       if (kind === 'note') {
         const result = await createNoteFromContextDocs({ userId: user.username, contextDocIds: docIds, title: 'Knowledge Hub Notes', depth: 'deep' });
-        Alert.alert('Note created', result.title || 'Created notes from selected sources.');
+        Alert.alert('Note created', result.title || 'Created notes from your deck.');
         onNavigate?.('notes');
       } else if (kind === 'map') {
         await createKnowledgeRoadmapFromDocs(user.username, docIds);
-        Alert.alert('Knowledge map created', 'Created a map from selected sources.');
+        Alert.alert('Knowledge map created', 'Created a map from your deck.');
         onNavigate?.('knowledgeMaps');
       } else {
-        const topic = selectedDocs.map(docTopic).filter(Boolean)[0] || 'selected sources';
+        const topic = deck.map(docTopic).filter(Boolean)[0] || 'selected sources';
         await generatePracticeQuestions({
           userId: user.username,
           topic,
@@ -311,7 +293,7 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
           contextDocIds: docIds,
           useHsContext: hsMode,
         });
-        Alert.alert('Questions created', 'Created a question set from selected sources.');
+        Alert.alert('Questions created', 'Created a question set from your deck.');
         onNavigate?.('questionBank');
       }
     } catch (error) {
@@ -331,7 +313,7 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
     setAskResult(null);
     setSearchResults([]);
     try {
-      const docIds = selectedIds.size ? Array.from(selectedIds) : undefined;
+      const docIds = deckIds.length ? deckIds : undefined;
       if (mode === 'search') {
         const data = await searchContext({ query, useHs: hsMode, docIds, topK: 8 });
         setSearchResults(data.results ?? []);
@@ -343,104 +325,6 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
       Alert.alert('Knowledge search failed', error instanceof Error ? error.message : 'Try again');
     } finally {
       setAsking(false);
-    }
-  };
-
-  const runCommand = async (command = commandText) => {
-    const query = command.trim();
-    if (!query) {
-      Alert.alert('Enter a command');
-      return;
-    }
-    setRunningCommand(true);
-    setCommandResult(null);
-    try {
-      const result = await runSearchHubCommand({
-        userId: user.username,
-        query,
-        sessionId: 'mobile-knowledge-hub',
-        useHsContext: hsMode,
-        context: { selected_doc_ids: Array.from(selectedIds) },
-      });
-      setCommandResult(result);
-      const action = result?.metadata?.action;
-      if (action === 'create_note') onNavigate?.('notes');
-      if (action === 'create_flashcards') onNavigate?.('flashcards');
-      if (action === 'create_questions' || action === 'create_quiz') onNavigate?.('questionBank');
-      if (action === 'create_learning_path') onNavigate?.('learningPaths');
-      if (action === 'create_knowledge_map') onNavigate?.('knowledgeMaps');
-    } catch (error) {
-      Alert.alert('Command failed', error instanceof Error ? error.message : 'Could not run command');
-    } finally {
-      setRunningCommand(false);
-    }
-  };
-
-  const refreshConcepts = async (generate = false) => {
-    setActionBusy(generate ? 'concept-generate' : 'concept-refresh');
-    try {
-      if (generate) await generateConceptWeb(user.username);
-      const data = await getConceptWeb(user.username);
-      setConcepts(data.nodes ?? []);
-      setConceptConnections(data.connections?.length ?? 0);
-    } catch (error) {
-      Alert.alert('Concept web', error instanceof Error ? error.message : 'Could not refresh concepts');
-    } finally {
-      setActionBusy(null);
-    }
-  };
-
-  const saveConcept = async () => {
-    if (!conceptName.trim()) {
-      Alert.alert('Enter a concept');
-      return;
-    }
-    setActionBusy('concept-add');
-    try {
-      await addConceptNode({ userId: user.username, conceptName: conceptName.trim(), description: conceptDescription.trim() });
-      setConceptName('');
-      setConceptDescription('');
-      setShowConceptModal(false);
-      await refreshConcepts(false);
-    } catch (error) {
-      Alert.alert('Add concept failed', error instanceof Error ? error.message : 'Could not add concept');
-      setActionBusy(null);
-    }
-  };
-
-  const conceptAsset = async (concept: ConceptNode, asset: 'notes' | 'flashcards' | 'quiz') => {
-    setActionBusy(`${asset}-${concept.id}`);
-    try {
-      await generateConceptAsset(user.username, concept.id, asset);
-      Alert.alert('Generated', `${asset} created for ${concept.concept_name}.`);
-      if (asset === 'notes') onNavigate?.('notes');
-      if (asset === 'flashcards') onNavigate?.('flashcards');
-      if (asset === 'quiz') onNavigate?.('questionBank');
-      await refreshConcepts(false);
-    } catch (error) {
-      Alert.alert('Generation failed', error instanceof Error ? error.message : `Could not generate ${asset}`);
-    } finally {
-      setActionBusy(null);
-    }
-  };
-
-  const submitReview = async () => {
-    if (!reviewModal || !reviewResponse.trim()) {
-      Alert.alert('Write your recall response first');
-      return;
-    }
-    setReviewSubmitting(true);
-    try {
-      const result = await submitLearningReviewResponse(reviewModal.id, reviewResponse.trim());
-      Alert.alert('Review scored', `${Math.round(result.score || 0)}% · ${result.feedback || 'Submitted'}`);
-      setReviewModal(null);
-      setReviewResponse('');
-      const data = await getLearningReviews(user.username);
-      setReviews(data.reviews ?? []);
-    } catch (error) {
-      Alert.alert('Review failed', error instanceof Error ? error.message : 'Could not submit review');
-    } finally {
-      setReviewSubmitting(false);
     }
   };
 
@@ -463,7 +347,7 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
           </HapticTouchable>
           <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={s.title}>hub</Text>
-            <Text style={s.subtitle}>{readyDocs.length} sources · {concepts.length} concepts</Text>
+            <Text style={s.subtitle}>{deck.length}/{DECK_LIMIT} in deck</Text>
           </View>
           <HapticTouchable onPress={() => setSidebarOpen(true)} haptic="selection" accessibilityLabel="Open menu">
             <Ionicons name="menu-outline" size={24} color={selectedTheme.accentHover} />
@@ -473,17 +357,10 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
         <View style={s.hero}>
           <NeumorphicLayer grainOpacity={0.26} />
           <Text style={s.heroGhost}>01</Text>
-          <View style={s.heroTopRow}>
-            <Text style={[s.heroCopy, { flex: 1 }]}>{readyDocs.length} ready sources · {concepts.length} concepts · {reviews.length} reviews</Text>
-            <HapticTouchable style={[s.hsToggle, hsMode && s.hsToggleActive]} onPress={toggleHs} haptic="selection">
-              <Ionicons name={hsMode ? 'sparkles' : 'book-outline'} size={13} color={hsMode ? selectedTheme.bgPrimary : selectedTheme.textPrimary} />
-              <Text style={[s.hsToggleText, hsMode && s.hsToggleTextActive]}>{hsMode ? 'HS' : 'context'}</Text>
-            </HapticTouchable>
-          </View>
+          <Text style={s.heroCopy}>{readyDocs.length} ready sources · {deck.length}/{DECK_LIMIT} in deck</Text>
           <View style={s.heroMetrics}>
-            <Metric label="selected" value={String(selectedIds.size)} styles={s} />
-            <Metric label="links" value={String(conceptConnections)} styles={s} />
-            <Metric label="reviews" value={String(reviews.filter((r) => r.status !== 'completed').length)} styles={s} />
+            <Metric label="in deck" value={String(deck.length)} styles={s} />
+            <Metric label="sources" value={String(readyDocs.length)} styles={s} />
           </View>
         </View>
 
@@ -500,56 +377,10 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
         </View>
 
         {loading ? <ActivityIndicator color={selectedTheme.accent} size="large" style={{ marginTop: 46 }} /> : null}
-        {!loading && tab === 'vault' ? renderVault() : null}
+        {!loading && tab === 'library' ? renderLibrary() : null}
+        {!loading && tab === 'deck' ? renderDeck() : null}
         {!loading && tab === 'ask' ? renderAsk() : null}
-        {!loading && tab === 'concepts' ? renderConcepts() : null}
-        {!loading && tab === 'reviews' ? renderReviews() : null}
-        {!loading && tab === 'commands' ? renderCommands() : null}
       </ScrollView>
-
-      <Modal visible={showConceptModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowConceptModal(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalRoot}>
-          <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
-          <View style={s.modalHeader}>
-            <Text style={s.modalTitle}>add concept</Text>
-            <HapticTouchable onPress={() => setShowConceptModal(false)}><Ionicons name="close" size={22} color={selectedTheme.accent} /></HapticTouchable>
-          </View>
-          <View style={s.modalBody}>
-            <Text style={s.label}>concept</Text>
-            <TextInput value={conceptName} onChangeText={setConceptName} placeholder="e.g. Neural Networks" placeholderTextColor={selectedTheme.textSecondary} style={s.input} autoFocus />
-            <Text style={s.label}>description</Text>
-            <TextInput value={conceptDescription} onChangeText={setConceptDescription} placeholder="optional context" placeholderTextColor={selectedTheme.textSecondary} style={[s.input, s.textArea]} multiline />
-            <HapticTouchable style={s.primaryBtn} onPress={saveConcept} disabled={actionBusy === 'concept-add'}>
-              {actionBusy === 'concept-add' ? <ActivityIndicator color={selectedTheme.bgPrimary} /> : <Text style={s.primaryText}>save concept</Text>}
-            </HapticTouchable>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      <Modal visible={!!reviewModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setReviewModal(null)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalRoot}>
-          <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
-          <View style={s.modalHeader}>
-            <Text style={s.modalTitle}>recall review</Text>
-            <HapticTouchable onPress={() => setReviewModal(null)}><Ionicons name="close" size={22} color={selectedTheme.accent} /></HapticTouchable>
-          </View>
-          <View style={s.modalBody}>
-            <Text style={s.reviewPrompt}>{reviewModal?.title}</Text>
-            <TextInput
-              value={reviewResponse}
-              onChangeText={setReviewResponse}
-              placeholder="write everything you remember from this material..."
-              placeholderTextColor={selectedTheme.textSecondary}
-              style={[s.input, s.reviewInput]}
-              multiline
-              autoFocus
-            />
-            <HapticTouchable style={s.primaryBtn} onPress={submitReview} disabled={reviewSubmitting}>
-              {reviewSubmitting ? <ActivityIndicator color={selectedTheme.bgPrimary} /> : <Text style={s.primaryText}>submit recall</Text>}
-            </HapticTouchable>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
 
       <Modal visible={showImportModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowImportModal(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalRoot}>
@@ -577,8 +408,8 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
         items={HUB_SIDEBAR_ITEMS}
         activeKey={tab}
         onSelect={(key) => {
-          if (key === 'vault' || key === 'ask' || key === 'concepts' || key === 'reviews' || key === 'commands') setTab(key);
-          else if (key === 'upload') { setTab('vault'); pickDocuments(); }
+          if (key === 'library' || key === 'deck' || key === 'ask') setTab(key);
+          else if (key === 'upload') { setTab('library'); pickDocuments(); }
         }}
         footerLabel="Dashboard"
         onFooterPress={onBack}
@@ -586,21 +417,85 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
     </SafeAreaView>
   );
 
-  function renderVault() {
+  function renderLibrary() {
     return (
       <View style={s.sectionStack}>
         <View style={s.actionPanel}>
           <View style={{ flex: 1 }}>
-            <Text style={s.sectionTitle}>selected sources</Text>
-            <Text style={s.sectionHint}>{selectedIds.size ? `${selectedIds.size} documents selected` : 'select documents to create notes, maps, and questions'}</Text>
+            <Text style={s.sectionTitle}>your library</Text>
+            <Text style={s.sectionHint}>tap a source to add it to your deck ({deck.length}/{DECK_LIMIT})</Text>
           </View>
           <View style={s.actionRow}>
             <ActionIcon icon="cloud-upload-outline" label="upload" onPress={pickDocuments} busy={actionBusy === 'upload-docs'} styles={s} />
             <ActionIcon icon="link-outline" label="url" onPress={() => setShowImportModal(true)} styles={s} />
+          </View>
+        </View>
+
+        {docs.length === 0 ? (
+          <Empty icon="file-tray-outline" title="no sources yet" text="upload PDFs, text, or markdown here, or import a direct source URL" styles={s} />
+        ) : (
+          <View style={s.cardList}>
+            {docs.map((doc) => {
+              const active = doc.in_deck;
+              const disabled = !active && deckFull;
+              return (
+                <View key={doc.doc_id} style={[s.docCard, active && s.docCardActive]}>
+                  <HapticTouchable
+                    style={[s.docMain, disabled && { opacity: 0.45 }]}
+                    onPress={() => toggleDeckMembership(doc)}
+                    disabled={disabled || deckBusyId === doc.doc_id}
+                    haptic="selection"
+                  >
+                    <View style={[s.check, active && s.checkActive]}>
+                      {deckBusyId === doc.doc_id ? (
+                        <ActivityIndicator size="small" color={active ? selectedTheme.bgPrimary : selectedTheme.accentHover} />
+                      ) : active ? (
+                        <Ionicons name="checkmark" size={13} color={selectedTheme.bgPrimary} />
+                      ) : null}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.docTitle} numberOfLines={1}>{doc.filename}</Text>
+                      <Text style={s.docMeta}>{docTopic(doc)} · {doc.chunk_count} chunks · {doc.status}{disabled ? ' · deck full' : ''}</Text>
+                    </View>
+                  </HapticTouchable>
+                  <HapticTouchable style={s.deleteBtn} onPress={() => removeDoc(doc)} haptic="warning">
+                    {actionBusy === `delete-${doc.doc_id}` ? <ActivityIndicator color={selectedTheme.danger} size="small" /> : <Ionicons name="trash-outline" size={15} color={selectedTheme.danger} />}
+                  </HapticTouchable>
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  function renderDeck() {
+    return (
+      <View style={s.sectionStack}>
+        <View style={s.actionPanel}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.sectionTitle}>your deck · {deck.length}/{DECK_LIMIT}</Text>
+            <Text style={s.sectionHint}>documents here are used as AI context across chat, notes, and quizzes</Text>
+          </View>
+          <View style={s.actionRow}>
             <ActionIcon icon="document-text-outline" label="note" onPress={() => runDocAction('note')} busy={actionBusy === 'note'} styles={s} />
             <ActionIcon icon="git-network-outline" label="map" onPress={() => runDocAction('map')} busy={actionBusy === 'map'} styles={s} />
             <ActionIcon icon="help-circle-outline" label="quiz" onPress={() => runDocAction('questions')} busy={actionBusy === 'questions'} styles={s} />
           </View>
+        </View>
+
+        <View style={s.hsCard}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.sectionTitle}>HS curriculum mode</Text>
+            <Text style={s.sectionHint}>also answer using shared curriculum textbooks</Text>
+          </View>
+          <Switch
+            value={hsMode}
+            onValueChange={toggleHs}
+            trackColor={{ false: rgbaFromHex(selectedTheme.accent, 0.18), true: rgbaFromHex(selectedTheme.accent, 0.5) }}
+            thumbColor={hsMode ? selectedTheme.accentHover : selectedTheme.textSecondary}
+          />
         </View>
 
         {relatedTopics.length ? (
@@ -616,29 +511,23 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
           </View>
         ) : null}
 
-        {docs.length === 0 ? (
-          <Empty icon="file-tray-outline" title="no sources yet" text="upload PDFs, text, or markdown here, or import a direct source URL" styles={s} />
+        {deck.length === 0 ? (
+          <Empty icon="layers-outline" title="deck is empty" text="add up to 8 documents from your Library to use them as AI context" styles={s} />
         ) : (
           <View style={s.cardList}>
-            {docs.map((doc) => {
-              const active = selectedIds.has(doc.doc_id);
-              return (
-                <View key={doc.doc_id} style={[s.docCard, active && s.docCardActive]}>
-                  <HapticTouchable style={s.docMain} onPress={() => toggleDoc(doc.doc_id)} haptic="selection">
-                    <View style={[s.check, active && s.checkActive]}>
-                      {active ? <Ionicons name="checkmark" size={13} color={selectedTheme.bgPrimary} /> : null}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.docTitle} numberOfLines={1}>{doc.filename}</Text>
-                      <Text style={s.docMeta}>{docTopic(doc)} · {doc.chunk_count} chunks · {doc.status}</Text>
-                    </View>
-                  </HapticTouchable>
-                  <HapticTouchable style={s.deleteBtn} onPress={() => removeDoc(doc)} haptic="warning">
-                    {actionBusy === `delete-${doc.doc_id}` ? <ActivityIndicator color={selectedTheme.danger} size="small" /> : <Ionicons name="trash-outline" size={15} color={selectedTheme.danger} />}
-                  </HapticTouchable>
+            {deck.map((doc) => (
+              <View key={doc.doc_id} style={s.docCard}>
+                <View style={s.docMain}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.docTitle} numberOfLines={1}>{doc.filename}</Text>
+                    <Text style={s.docMeta}>{docTopic(doc)} · {doc.chunk_count} chunks</Text>
+                  </View>
                 </View>
-              );
-            })}
+                <HapticTouchable style={s.deleteBtn} onPress={() => toggleDeckMembership(doc)} haptic="warning" disabled={deckBusyId === doc.doc_id}>
+                  {deckBusyId === doc.doc_id ? <ActivityIndicator color={selectedTheme.danger} size="small" /> : <Ionicons name="close" size={16} color={selectedTheme.danger} />}
+                </HapticTouchable>
+              </View>
+            ))}
           </View>
         )}
       </View>
@@ -652,7 +541,7 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
           <TextInput
             value={askQuery}
             onChangeText={setAskQuery}
-            placeholder={selectedIds.size ? 'ask selected sources...' : 'search or ask your knowledge base...'}
+            placeholder={deck.length ? 'ask your deck...' : 'search or ask your knowledge base...'}
             placeholderTextColor={selectedTheme.textSecondary}
             style={s.composerInput}
             multiline
@@ -673,10 +562,11 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
             <MathText style={s.answerText}>{askResult.answer}</MathText>
             {askResult.sources?.length ? (
               <View style={s.sourceList}>
-                {askResult.sources.slice(0, 4).map((source, index) => (
+                {askResult.sources.map((source, index) => (
                   <View key={`${source.doc_id}-${index}`} style={s.sourceRow}>
                     <Text style={s.sourceTitle} numberOfLines={1}>{source.filename || 'source'}</Text>
                     <Text style={s.sourceMeta}>{source.source || 'private'}{source.page ? ` · p.${source.page}` : ''}</Text>
+                    {source.snippet ? <Text style={s.sourceSnippet} numberOfLines={3}>{source.snippet}</Text> : null}
                   </View>
                 ))}
               </View>
@@ -702,7 +592,7 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
           <View style={s.suggestionPanel}>
             <Text style={s.sectionTitle}>try this</Text>
             <View style={s.chipWrap}>
-              {['summarize selected sources', 'find weak concepts', 'what should I review next?', ...suggestions.slice(0, 4)].map((item) => (
+              {['summarize my deck', 'find weak concepts', 'what should I review next?', ...suggestions.slice(0, 4)].map((item) => (
                 <HapticTouchable key={item} style={s.chip} onPress={() => setAskQuery(item)} haptic="selection">
                   <Text style={s.chipText}>{item}</Text>
                 </HapticTouchable>
@@ -710,108 +600,6 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate }: Props) 
             </View>
           </View>
         ) : null}
-      </View>
-    );
-  }
-
-  function renderConcepts() {
-    return (
-      <View style={s.sectionStack}>
-        <View style={s.actionPanel}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.sectionTitle}>concept web</Text>
-            <Text style={s.sectionHint}>{concepts.length} concepts · {conceptConnections} relationships</Text>
-          </View>
-          <View style={s.actionRow}>
-            <ActionIcon icon="refresh-outline" label="build" onPress={() => refreshConcepts(true)} busy={actionBusy === 'concept-generate'} styles={s} />
-            <ActionIcon icon="add" label="add" onPress={() => setShowConceptModal(true)} styles={s} />
-          </View>
-        </View>
-
-        {concepts.length === 0 ? (
-          <Empty icon="git-network-outline" title="no concept web" text="generate it from your notes, chats, flashcards, and question sets" styles={s} />
-        ) : (
-          <View style={s.cardList}>
-            {concepts.slice(0, 40).map((concept) => (
-              <View key={concept.id} style={s.conceptCard}>
-                <View style={s.conceptTop}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.conceptTitle}>{concept.concept_name}</Text>
-                    <Text style={s.conceptMeta}>{concept.category || 'General'} · mastery {Math.round((concept.mastery_level || 0) * 100)}%</Text>
-                  </View>
-                  <View style={s.masteryDot}><Text style={s.masteryText}>{Math.round((concept.importance_score || 0.5) * 100)}</Text></View>
-                </View>
-                {!!concept.description && <Text style={s.conceptDescription} numberOfLines={2}>{concept.description}</Text>}
-                <View style={s.conceptActions}>
-                  <MiniAction label="notes" onPress={() => conceptAsset(concept, 'notes')} busy={actionBusy === `notes-${concept.id}`} styles={s} />
-                  <MiniAction label="cards" onPress={() => conceptAsset(concept, 'flashcards')} busy={actionBusy === `flashcards-${concept.id}`} styles={s} />
-                  <MiniAction label="quiz" onPress={() => conceptAsset(concept, 'quiz')} busy={actionBusy === `quiz-${concept.id}`} styles={s} />
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
-    );
-  }
-
-  function renderReviews() {
-    return (
-      <View style={s.sectionStack}>
-        {reviews.length === 0 ? (
-          <Empty icon="reader-outline" title="no learning reviews" text="reviews appear when you create recall checks from chats or slide sources" styles={s} />
-        ) : (
-          <View style={s.cardList}>
-            {reviews.map((review) => (
-              <HapticTouchable key={review.id} style={s.reviewCard} onPress={() => setReviewModal(review)} haptic="selection" activeOpacity={0.84}>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.reviewTitle}>{review.title}</Text>
-                  <Text style={s.reviewMeta}>{review.total_points || 0} points · best {Math.round(review.best_score || 0)}% · {review.status || 'active'}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={17} color={selectedTheme.accent} />
-              </HapticTouchable>
-            ))}
-          </View>
-        )}
-      </View>
-    );
-  }
-
-  function renderCommands() {
-    return (
-      <View style={s.sectionStack}>
-        <View style={s.composer}>
-          <TextInput
-            value={commandText}
-            onChangeText={setCommandText}
-            placeholder="/map biology, /notes calculus, /quiz history..."
-            placeholderTextColor={selectedTheme.textSecondary}
-            style={s.commandInput}
-            autoCapitalize="none"
-          />
-          <HapticTouchable style={s.primaryBtn} onPress={() => runCommand()} disabled={runningCommand}>
-            {runningCommand ? <ActivityIndicator color={selectedTheme.bgPrimary} /> : <Text style={s.primaryText}>run command</Text>}
-          </HapticTouchable>
-        </View>
-
-        {commandResult ? (
-          <View style={s.answerCard}>
-            <Text style={s.sectionTitle}>{commandResult.metadata?.action || 'result'}</Text>
-            <MathText style={s.answerText}>{commandResult.ai_response || commandResult.metadata?.chatbot_message || commandResult.content_title || 'Command completed.'}</MathText>
-            {Array.isArray(commandResult.search_results) && commandResult.search_results.length ? (
-              <Text style={s.sectionHint}>{commandResult.search_results.length} search results</Text>
-            ) : null}
-          </View>
-        ) : null}
-
-        <View style={s.cardList}>
-          {commands.map((cmd) => (
-            <HapticTouchable key={cmd.command} style={s.commandCard} onPress={() => { setCommandText(cmd.command.replace('<topic>', '').trim()); }} haptic="selection">
-              <Text style={s.commandName}>{cmd.command}</Text>
-              <Text style={s.commandDescription}>{cmd.description}</Text>
-            </HapticTouchable>
-          ))}
-        </View>
       </View>
     );
   }
@@ -831,14 +619,6 @@ function ActionIcon({ icon, label, onPress, busy, styles }: { icon: React.Compon
     <HapticTouchable style={styles.actionIcon} onPress={onPress} disabled={busy} haptic="medium">
       {busy ? <ActivityIndicator color={styles.actionIconText.color} size="small" /> : <Ionicons name={icon} size={16} color={styles.actionIconText.color} />}
       <Text style={styles.actionIconLabel}>{label}</Text>
-    </HapticTouchable>
-  );
-}
-
-function MiniAction({ label, onPress, busy, styles }: { label: string; onPress: () => void; busy?: boolean; styles: ReturnType<typeof createStyles> }) {
-  return (
-    <HapticTouchable style={styles.miniAction} onPress={onPress} disabled={busy} haptic="medium">
-      {busy ? <ActivityIndicator color={styles.miniActionText.color} size="small" /> : <Text style={styles.miniActionText}>{label}</Text>}
     </HapticTouchable>
   );
 }
@@ -863,13 +643,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     topBar: { flexDirection: 'row', alignItems: 'center', paddingTop: 18, paddingBottom: 12 },
     title: { fontFamily: 'Inter_900Black', fontSize: 32, color: theme.accentHover, letterSpacing: -0.8 },
     subtitle: { fontFamily: 'Inter_400Regular', fontSize: 10, color: theme.textSecondary, letterSpacing: 2.2, marginTop: 4, textTransform: 'uppercase' },
-    hsToggle: { height: 34, borderRadius: 14, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center', gap: 6, boxShadow: cbTileShadow(0.055) },
-    hsToggleActive: { backgroundColor: theme.accentHover, borderColor: theme.accentHover },
-    hsToggleText: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 10, textTransform: 'lowercase' },
-    hsToggleTextActive: { color: theme.bgPrimary },
     hero: { borderRadius: 30, padding: 20, overflow: 'hidden', boxShadow: cbModalShadow(0.14) } as ViewStyle,
     heroGhost: { position: 'absolute', right: 15, top: 0, fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 92 : 76, lineHeight: layout.isTablet ? 98 : 82, color: rgbaFromHex(theme.textPrimary, theme.isLight ? 0.035 : 0.055), letterSpacing: -4 },
-    heroTopRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     heroCopy: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 13 },
     heroMetrics: { flexDirection: 'row', gap: 9, marginTop: 16 },
     metric: { flex: 1, borderRadius: 16, padding: 10, backgroundColor: rgbaFromHex(theme.panelAlt, 0.74), overflow: 'hidden', boxShadow: cbTileShadow(0.05), ...cbTileBorder(0.13) },
@@ -882,6 +657,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     tabTextActive: { color: theme.bgPrimary },
     sectionStack: { gap: 13 },
     actionPanel: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 15, flexDirection: layout.twoColumn ? 'row' : 'column', gap: 14, alignItems: layout.twoColumn ? 'center' : 'stretch', boxShadow: cbTileShadow(0.08) } as ViewStyle,
+    hsCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 15, boxShadow: cbTileShadow(0.06) } as ViewStyle,
     sectionTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 17, letterSpacing: 0 },
     sectionHint: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, marginTop: 3, lineHeight: 18 },
     actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -915,27 +691,11 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     sourceRow: { borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 8 },
     sourceTitle: { fontFamily: 'Inter_700Bold', color: theme.accentHover, fontSize: 12 },
     sourceMeta: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 10, marginTop: 2 },
+    sourceSnippet: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11, marginTop: 6, lineHeight: 16 },
     resultCard: { borderRadius: 18, borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.12), backgroundColor: rgbaFromHex(surface, 0.72), padding: 14, gap: 7, boxShadow: cbTileShadow(0.045) } as ViewStyle,
     resultTitle: { fontFamily: 'Inter_700Bold', color: theme.accentHover, fontSize: 13 },
     resultText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, lineHeight: 18 },
     suggestionPanel: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 15, gap: 12, boxShadow: cbTileShadow(0.07) } as ViewStyle,
-    conceptCard: { borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 15, gap: 11, boxShadow: cbTileShadow(0.07) } as ViewStyle,
-    conceptTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    conceptTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 16, letterSpacing: 0 },
-    conceptMeta: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11, marginTop: 3 },
-    masteryDot: { width: 38, height: 38, borderRadius: 13, borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center', backgroundColor: rgbaFromHex(theme.accent, 0.1) },
-    masteryText: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 12 },
-    conceptDescription: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, lineHeight: 18 },
-    conceptActions: { flexDirection: 'row', gap: 8 },
-    miniAction: { flex: 1, height: 38, borderRadius: 12, borderWidth: 1, borderColor: theme.border, backgroundColor: rgbaFromHex(theme.panelAlt, 0.78), alignItems: 'center', justifyContent: 'center' },
-    miniActionText: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8 },
-    reviewCard: { borderRadius: 20, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 15, flexDirection: 'row', alignItems: 'center', gap: 12, boxShadow: cbTileShadow(0.055) } as ViewStyle,
-    reviewTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 16, letterSpacing: 0 },
-    reviewMeta: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11, marginTop: 4 },
-    commandInput: { minHeight: 46, color: theme.textPrimary, fontFamily: 'Inter_700Bold', fontSize: 15 },
-    commandCard: { borderRadius: 18, borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.12), backgroundColor: rgbaFromHex(surface, 0.72), padding: 14, boxShadow: cbTileShadow(0.045) } as ViewStyle,
-    commandName: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 14 },
-    commandDescription: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, marginTop: 4 },
     empty: { alignItems: 'center', paddingVertical: 48, gap: 9 },
     emptyIcon: { color: theme.accent },
     emptyTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 22 },
@@ -946,8 +706,5 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     modalBody: { padding: 20, gap: 12 },
     label: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 10, letterSpacing: 1.6, textTransform: 'uppercase' },
     input: { minHeight: 50, borderRadius: 13, borderWidth: 1, borderColor: border, paddingHorizontal: 14, color: theme.textPrimary, backgroundColor: rgbaFromHex(surface, 0.92), fontFamily: 'Inter_600SemiBold' },
-    textArea: { minHeight: 110, paddingTop: 13, textAlignVertical: 'top' },
-    reviewPrompt: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 17, lineHeight: 23 },
-    reviewInput: { minHeight: 190, paddingTop: 13, textAlignVertical: 'top' },
   });
 }
