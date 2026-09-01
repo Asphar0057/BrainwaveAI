@@ -410,6 +410,12 @@ async def complete_solo_quiz(
         db.commit()
         logger.info(f"Awarded {points_result['points_earned']} points for solo quiz")
 
+        try:
+            from services.redis_cache import invalidate_analytics
+            invalidate_analytics(str(current_user.id))
+        except Exception as cache_err:
+            logger.warning(f"[SOLO_QUIZ] analytics cache invalidation failed: {cache_err}")
+
         logger.info(f"Checking notification conditions - Score: {score}")
         notification = None
 

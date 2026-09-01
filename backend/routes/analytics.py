@@ -80,21 +80,6 @@ def _as_utc_datetime(value):
     return value.astimezone(timezone.utc)
 
 
-def _coerce_date_value(value):
-    if value is None:
-        return None
-    if hasattr(value, "date") and not isinstance(value, datetime):
-        return value
-    if isinstance(value, datetime):
-        return value.date()
-    if isinstance(value, str):
-        try:
-            return datetime.fromisoformat(value).date()
-        except ValueError:
-            return None
-    return None
-
-
 def _group_daily_counts(
     db: Session,
     model,
@@ -104,28 +89,32 @@ def _group_daily_counts(
     start_datetime,
     user_attr: str = "user_id",
     extra_filters=None,
+    tz_name=None,
 ):
+    """Buckets rows by the user's LOCAL calendar date, not the server's UTC
+    date -- grouping with a raw SQL func.date() (the previous approach) reads
+    the stored UTC date directly, so any user whose local day doesn't line
+    up with UTC's could have today's activity silently land under yesterday
+    (or tomorrow) and never show up as "today" in their own calendar."""
     if not hasattr(model, timestamp_attr) or not hasattr(model, user_attr):
         return {}
     timestamp_col = getattr(model, timestamp_attr)
     user_col = getattr(model, user_attr)
-    query = db.query(
-        func.date(timestamp_col).label("activity_date"),
-        func.count().label("activity_count"),
-    ).filter(
+    query = db.query(timestamp_col).filter(
         user_col == user_id,
         timestamp_col.isnot(None),
         timestamp_col >= start_datetime,
     )
     if extra_filters:
         query = query.filter(*extra_filters)
-    rows = query.group_by(func.date(timestamp_col)).all()
-    grouped = {}
-    for date_value, count_value in rows:
-        date_obj = _coerce_date_value(date_value)
-        if date_obj is None:
+    zone = _safe_zone(tz_name)
+    grouped: dict = {}
+    for (value,) in query.all():
+        utc_value = _as_utc_datetime(value)
+        if utc_value is None:
             continue
-        grouped[date_obj.isoformat()] = int(count_value or 0)
+        date_key = utc_value.astimezone(zone).date().isoformat()
+        grouped[date_key] = grouped.get(date_key, 0) + 1
     return grouped
 
 
@@ -423,8 +412,8 @@ def get_xp_history(
 
 
 @router.get("/get_activity_heatmap")
-def get_activity_heatmap(user_id: str = Query(...), db: Session = Depends(get_db)):
-    cache_key = f"heatmap:v2:{user_id}"
+def get_activity_heatmap(user_id: str = Query(...), tz: str = Query(None), db: Session = Depends(get_db)):
+    cache_key = f"heatmap:v2:{user_id}:{tz or 'UTC'}"
     cached = _cache_get(cache_key)
     if cached is not None:
         return cached
@@ -433,7 +422,7 @@ def get_activity_heatmap(user_id: str = Query(...), db: Session = Depends(get_db
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        end_date = datetime.now(timezone.utc).date()
+        end_date = _local_today(tz)
         start_date = end_date - timedelta(days=365)
         start_datetime = datetime.combine(start_date, datetime.min.time()).replace(tzinfo=timezone.utc)
 
@@ -455,6 +444,7 @@ def get_activity_heatmap(user_id: str = Query(...), db: Session = Depends(get_db
                     start_datetime=start_datetime,
                     user_attr=user_attr,
                     extra_filters=extra_filters,
+                    tz_name=tz,
                 )
                 merge_grouped_counts(grouped_counts)
                 return sum(grouped_counts.values())
