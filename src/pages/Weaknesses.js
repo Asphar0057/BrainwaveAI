@@ -14,6 +14,8 @@ import {
   BookOpen,
   Brain,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   CircleGauge,
   Clock3,
   Cpu,
@@ -22,14 +24,15 @@ import {
   MessageCircle,
   Play,
   RefreshCw,
+  Sparkles,
   Target,
   TrendingUp,
   X,
-  Zap,
 } from 'lucide-react';
 import './Weaknesses.css';
 import { API_URL } from '../config';
 import { queuedAIJsonFetch } from '../services/aiJobService';
+import { getRecentMistakes, explainMistake } from '../services/weaknessMistakeService';
 import WeaknessTracker from '../components/WeaknessTracker/WeaknessTracker';
 import RLInsights from '../components/RLInsights/RLInsights';
 import SocialHubChrome from '../components/SocialHubChrome';
@@ -48,7 +51,12 @@ const CATEGORY = {
   improving: { label: 'Improving', tone: 'green' },
 };
 
-const PRIORITY_PAGE_SIZE = 4;
+const MISTAKE_SOURCES = {
+  question_bank: { label: 'Practice', icon: BookOpen },
+  solo_quiz: { label: 'Quiz', icon: BookOpen },
+  flashcard: { label: 'Flashcard', icon: Layers3 },
+  chat: { label: 'AI Chat', icon: MessageCircle },
+};
 
 const Weaknesses = () => {
   const navigate = useNavigate();
@@ -59,13 +67,38 @@ const Weaknesses = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [weakAreasData, setWeakAreasData] = useState(null);
-  const [filterCategory, setFilterCategory] = useState('all');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activityFeed, setActivityFeed] = useState(null);
   const [activityLoading, setActivityLoading] = useState(false);
   const [topicsHub, setTopicsHub] = useState(null);
   const [topicsHubLoading, setTopicsHubLoading] = useState(false);
   const [topicsHubFilter, setTopicsHubFilter] = useState('all');
+
+  const [mistakes, setMistakes] = useState([]);
+  const [mistakesLoading, setMistakesLoading] = useState(true);
+  const [explainState, setExplainState] = useState(null); // { mistake, loading, content, error }
+
+  const loadRecentMistakes = async () => {
+    setMistakesLoading(true);
+    try {
+      const data = await getRecentMistakes(userName, { limit: 20 });
+      setMistakes(data.mistakes || []);
+    } catch (requestError) {
+      console.error('Error loading recent mistakes:', requestError);
+    } finally {
+      setMistakesLoading(false);
+    }
+  };
+
+  const openMistakeExplanation = async (mistake) => {
+    setExplainState({ mistake, loading: true, content: null, error: '' });
+    try {
+      const data = await explainMistake(userName, mistake.id, mistake.source);
+      setExplainState({ mistake, loading: false, content: data.content, error: '' });
+    } catch (requestError) {
+      setExplainState({ mistake, loading: false, content: null, error: requestError.message || 'Could not generate an explanation.' });
+    }
+  };
 
   const loadWeakAreas = async () => {
     setLoading(true);
@@ -122,6 +155,7 @@ const Weaknesses = () => {
       return;
     }
     loadWeakAreas();
+    loadRecentMistakes();
     // The diagnosis intentionally loads once when this workspace opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -148,7 +182,6 @@ const Weaknesses = () => {
     const topic = String(area?.topic || '').trim().toLowerCase();
     return topic && topic !== 'none' && topic !== 'null';
   }) || allAreas[0];
-  const filteredAreas = filterCategory === 'all' ? allAreas : (weakGroups[filterCategory] || []);
   const activeNav = VIEWS.find((item) => item.id === activeView);
 
   const pageTitle = {
@@ -166,8 +199,12 @@ const Weaknesses = () => {
     activity: 'Follow the recent study events that are changing your diagnosis and learning trajectory.',
   }[activeView];
 
+  const practiceTopTopic = () => {
+    if (priorityFocus?.topic) navigate(`/weakness-tips/${encodeURIComponent(priorityFocus.topic)}`);
+  };
+
   const sidebarLead = (
-    <button type="button" className="wa-practice-now" onClick={() => navigate('/weakness-practice')}>
+    <button type="button" className="wa-practice-now" onClick={practiceTopTopic} disabled={!priorityFocus?.topic}>
       <Play size={15} fill="currentColor" />
       <span>Practice now</span>
     </button>
@@ -234,18 +271,12 @@ const Weaknesses = () => {
               <DiagnosisView
                 loading={loading}
                 failed={Boolean(error) && !weakAreasData}
-                areas={filteredAreas}
-                focusArea={priorityFocus}
-                totalCount={totalCount}
-                criticalCount={criticalCount}
-                needsPracticeCount={needsPracticeCount}
-                improvingCount={improvingCount}
-                filter={filterCategory}
-                onFilter={setFilterCategory}
-                onPractice={(topic) => navigate(`/weakness-tips/${encodeURIComponent(topic)}`)}
-                onPracticeAll={() => navigate('/weakness-practice')}
+                areas={allAreas}
                 onStartLearning={() => navigate('/ai-chat')}
                 onRetry={loadWeakAreas}
+                mistakes={mistakes}
+                mistakesLoading={mistakesLoading}
+                onExplainMistake={openMistakeExplanation}
               />
             )}
 
@@ -280,7 +311,7 @@ const Weaknesses = () => {
                       criticalCount={criticalCount}
                       needsPracticeCount={needsPracticeCount}
                       onPractice={(topic) => navigate(`/weakness-tips/${encodeURIComponent(topic)}`)}
-                      onPracticeAll={() => navigate('/weakness-practice')}
+                      onPracticeAll={practiceTopTopic}
                     />
                   )}
                 />
@@ -304,6 +335,7 @@ const Weaknesses = () => {
           </div>
         </main>
       </SocialHubChrome>
+      <MistakeExplanationModal state={explainState} onClose={() => setExplainState(null)} />
     </div>
   );
 };
@@ -381,31 +413,27 @@ const IntelligenceFallback = ({
   );
 };
 
+const normalizeTopicKey = (topic) => String(topic || '').trim().toLowerCase();
+
 const DiagnosisView = ({
   loading,
   failed,
   areas,
-  focusArea,
-  totalCount,
-  criticalCount,
-  needsPracticeCount,
-  improvingCount,
-  filter,
-  onFilter,
-  onPractice,
-  onPracticeAll,
   onStartLearning,
   onRetry,
+  mistakes,
+  mistakesLoading,
+  onExplainMistake,
 }) => {
-  const [queuePage, setQueuePage] = useState(0);
+  const [expanded, setExpanded] = useState(() => new Set());
+
   if (loading) return <LoadingState label="Analyzing your performance" />;
   if (failed) return <RequestErrorState label="We could not read your diagnosis." onRetry={onRetry} />;
-
-  if (!totalCount) {
+  if (!areas.length) {
     return (
       <EmptyState
         icon={CheckCircle2}
-        title="No weak areas detected."
+        title="No weak topics detected."
         copy="Your tracked topics are holding steady. Keep studying to give Cerbyl more evidence."
         action="Continue learning"
         onAction={onStartLearning}
@@ -413,112 +441,101 @@ const DiagnosisView = ({
     );
   }
 
-  const pageCount = Math.max(1, Math.ceil(areas.length / PRIORITY_PAGE_SIZE));
-  const currentPage = Math.min(queuePage, pageCount - 1);
-  const visibleAreas = areas.slice(currentPage * PRIORITY_PAGE_SIZE, (currentPage + 1) * PRIORITY_PAGE_SIZE);
-  const changeFilter = (nextFilter) => {
-    setQueuePage(0);
-    onFilter(nextFilter);
+  const mistakesByTopic = new Map();
+  mistakes.forEach((mistake) => {
+    const key = normalizeTopicKey(mistake.topic);
+    if (!mistakesByTopic.has(key)) mistakesByTopic.set(key, []);
+    mistakesByTopic.get(key).push(mistake);
+  });
+
+  const toggle = (key) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
   };
 
   return (
-    <div className="wa-diagnosis">
-      <section className="wa-diagnosis-summary">
-        <div className="wa-summary-copy">
-          <span>Start here · {CATEGORY[focusArea?.category]?.label || 'Priority gap'}</span>
-          <h2>{displayTopic(focusArea?.topic)}</h2>
-          <p>
-            {Math.round(focusArea?.accuracy || 0)}% accuracy across {focusArea?.total_attempts || 0} attempts.
-            {' '}This is the strongest current intervention signal.
-          </p>
-        </div>
-        <dl className="wa-focus-evidence">
-          <div><dt>Wrong</dt><dd>{focusArea?.total_wrong || 0}</dd></div>
-          <div><dt>Source</dt><dd>{focusArea?.sources?.[0] || 'History'}</dd></div>
-          <div><dt>Queue</dt><dd>{criticalCount ? `${criticalCount} critical` : `${totalCount} active`}</dd></div>
-        </dl>
-        <button type="button" className="wa-focus-action" onClick={() => onPractice(focusArea?.topic)}><Target size={16} />Practice this gap<ArrowUpRight size={15} /></button>
-        <button type="button" className="wa-queue-action" onClick={onPracticeAll}><Zap size={15} />Practice the full queue</button>
-        <div className="wa-distribution" aria-label={`${criticalCount} critical, ${needsPracticeCount} need practice, ${improvingCount} improving`}>
-          <span className="critical" style={{ flex: criticalCount || 0.001 }} />
-          <span className="practice" style={{ flex: needsPracticeCount || 0.001 }} />
-          <span className="improving" style={{ flex: improvingCount || 0.001 }} />
-        </div>
-      </section>
-
-      <section className="wa-queue">
-        <header className="wa-queue-head">
-          <div><span>Priority queue</span><strong>{areas.length} visible</strong></div>
-          <div className="wa-filters" role="group" aria-label="Filter weak areas">
-            {[
-              ['all', 'All', totalCount],
-              ['critical', 'Critical', criticalCount],
-              ['needs_practice', 'Practice', needsPracticeCount],
-              ['improving', 'Improving', improvingCount],
-            ].map(([key, label, count]) => (
-              <button key={key} type="button" className={filter === key ? 'active' : ''} onClick={() => changeFilter(key)} aria-pressed={filter === key}>
-                {label}<small>{count}</small>
+    <section className="wa-queue">
+      <header className="wa-queue-head">
+        <div><span>Weak topics</span><strong>{areas.length} tracked</strong></div>
+      </header>
+      <div className="wa-queue-list">
+        {areas.map((area) => {
+          const key = normalizeTopicKey(area.topic);
+          const isOpen = expanded.has(key);
+          const topicMistakes = mistakesByTopic.get(key) || [];
+          const accuracy = Math.max(0, Math.min(100, Math.round(area.accuracy || 0)));
+          return (
+            <div key={key} className="wa-topic-group">
+              <button type="button" className="wa-topic-row" onClick={() => toggle(key)} aria-expanded={isOpen}>
+                <div className="wa-topic-body">
+                  <span>{displayTopic(area.topic)}</span>
+                  <div className="wa-topic-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={accuracy}>
+                    <i style={{ '--wa-accuracy': accuracy / 100 }} />
+                  </div>
+                </div>
+                <strong className="wa-topic-percent">{accuracy}%</strong>
+                {isOpen ? <ChevronDown size={17} /> : <ChevronRight size={17} />}
               </button>
-            ))}
-          </div>
-        </header>
-
-        <div className="wa-queue-list">
-          {areas.length ? visibleAreas.map((area, index) => (
-            <WeaknessRow key={`${area.topic}-${currentPage * PRIORITY_PAGE_SIZE + index}`} area={area} index={currentPage * PRIORITY_PAGE_SIZE + index} onPractice={() => onPractice(area.topic)} />
-          )) : (
-            <div className="wa-filter-empty"><CheckCircle2 size={24} /><span>No topics match this diagnosis filter.</span></div>
-          )}
-        </div>
-        {areas.length > PRIORITY_PAGE_SIZE && (
-          <footer className="wa-queue-pagination" aria-label="Priority queue pages">
-            <span>{currentPage * PRIORITY_PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PRIORITY_PAGE_SIZE, areas.length)} of {areas.length}</span>
-            <div>
-              <button type="button" onClick={() => setQueuePage((page) => Math.max(0, page - 1))} disabled={currentPage === 0}>Previous</button>
-              <button type="button" onClick={() => setQueuePage((page) => Math.min(pageCount - 1, page + 1))} disabled={currentPage === pageCount - 1}>Next</button>
+              {isOpen && (
+                <div className="wa-topic-mistakes">
+                  {mistakesLoading ? (
+                    <div className="wa-mistakes-loading"><LoadingState label="Gathering mistakes" /></div>
+                  ) : topicMistakes.length === 0 ? (
+                    <p className="wa-topic-mistakes-empty">No recorded mistakes for this topic yet.</p>
+                  ) : topicMistakes.map((mistake) => {
+                    const meta = MISTAKE_SOURCES[mistake.source] || { label: mistake.source, icon: Target };
+                    const Icon = meta.icon;
+                    return (
+                      <button type="button" key={`${mistake.source}-${mistake.id}`} className="wa-mistake-row" onClick={() => onExplainMistake(mistake)}>
+                        <div className="wa-mistake-icon"><Icon size={14} /></div>
+                        <span className="wa-mistake-text">{mistake.question_text}</span>
+                        <ChevronRight size={15} />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </footer>
-        )}
-      </section>
-    </div>
+          );
+        })}
+      </div>
+    </section>
   );
 };
 
-const WeaknessRow = ({ area, index, onPractice }) => {
-  const category = CATEGORY[area.category] || CATEGORY.needs_practice;
-  const accuracy = Math.max(0, Math.min(100, Math.round(area.accuracy || 0)));
-  const attempts = area.total_attempts || 0;
-  const wrong = area.total_wrong || 0;
-  const correct = Math.max(0, attempts - wrong);
-  const sources = area.sources || [];
-
+const MistakeExplanationModal = ({ state, onClose }) => {
+  if (!state) return null;
+  const { mistake, loading, content, error } = state;
+  const meta = MISTAKE_SOURCES[mistake.source] || { label: mistake.source };
   return (
-    <article className={`wa-weak-row tone-${category.tone}`}>
-      <div className="wa-rank"><span>{String(index + 1).padStart(2, '0')}</span><i /></div>
-      <div className="wa-row-core">
-        <div className="wa-row-title">
-          <span>{category.label}</span>
-          <h3>{displayTopic(area.topic)}</h3>
-        </div>
-        <div className="wa-source-list" aria-label="Evidence sources">
-          {sources.length ? sources.map((source) => <span key={source}>{source}</span>) : <span>learning history</span>}
+    <div className="wa-modal-overlay" onClick={onClose}>
+      <div className="wa-modal" onClick={(e) => e.stopPropagation()}>
+        <header className="wa-modal-head">
+          <h3><Sparkles size={18} />{displayTopic(mistake.topic)}</h3>
+          <button type="button" className="wa-modal-close" onClick={onClose} aria-label="Close"><X size={18} /></button>
+        </header>
+        <div className="wa-modal-body">
+          <div className="wa-modal-source">{meta.label}</div>
+          <p className="wa-modal-question">{mistake.question_text}</p>
+          {mistake.user_answer ? (
+            <dl className="wa-modal-answers">
+              <div><dt>Your answer</dt><dd>{mistake.user_answer}</dd></div>
+              {mistake.correct_answer ? <div><dt>Correct answer</dt><dd>{mistake.correct_answer}</dd></div> : null}
+            </dl>
+          ) : null}
+          {loading ? (
+            <div className="wa-modal-loading"><LoadingState label="Generating explanation" /></div>
+          ) : error ? (
+            <p className="wa-modal-error">{error}</p>
+          ) : (
+            <p className="wa-modal-explanation">{content}</p>
+          )}
         </div>
       </div>
-      <div className="wa-accuracy">
-        <div><span>Accuracy</span><strong>{accuracy}%</strong></div>
-        <div className="wa-accuracy-track" role="progressbar" aria-label={`${displayTopic(area.topic)} accuracy`} aria-valuemin="0" aria-valuemax="100" aria-valuenow={accuracy}>
-          <i style={{ '--wa-accuracy': accuracy / 100 }} />
-        </div>
-      </div>
-      <dl className="wa-row-metrics">
-        <div><dt>Correct</dt><dd>{correct}</dd></div>
-        <div><dt>Wrong</dt><dd>{wrong}</dd></div>
-        <div><dt>Attempts</dt><dd>{attempts}</dd></div>
-      </dl>
-      <button type="button" className="wa-row-action" onClick={onPractice}>
-        Practice <ArrowUpRight size={15} />
-      </button>
-    </article>
+    </div>
   );
 };
 
