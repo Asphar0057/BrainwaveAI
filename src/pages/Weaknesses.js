@@ -75,16 +75,19 @@ const Weaknesses = () => {
   const [topicsHubFilter, setTopicsHubFilter] = useState('all');
 
   const [mistakes, setMistakes] = useState([]);
+  const [mistakeTopics, setMistakeTopics] = useState([]);
   const [mistakesLoading, setMistakesLoading] = useState(true);
   const [explainState, setExplainState] = useState(null); // { mistake, loading, content, error }
 
   const loadRecentMistakes = async () => {
     setMistakesLoading(true);
     try {
-      const data = await getRecentMistakes(userName, { limit: 20 });
+      const data = await getRecentMistakes(userName, { limit: 40 });
       setMistakes(data.mistakes || []);
+      setMistakeTopics(data.topics || []);
     } catch (requestError) {
       console.error('Error loading recent mistakes:', requestError);
+      setError(requestError.message || 'Your recent mistakes could not be loaded.');
     } finally {
       setMistakesLoading(false);
     }
@@ -257,7 +260,7 @@ const Weaknesses = () => {
               <span><strong>{totalCount}</strong>signals</span>
               <span><strong>{allAreas.reduce((sum, area) => sum + (area.total_attempts || 0), 0)}</strong>attempts</span>
               {['weak-areas', 'topics-hub', 'activity'].includes(activeView) ? (
-                <button type="button" onClick={activeView === 'weak-areas' ? loadWeakAreas : activeView === 'topics-hub' ? loadTopicsHub : loadActivityFeed} aria-label={`Refresh ${activeNav?.label}`}>
+                <button type="button" onClick={activeView === 'weak-areas' ? loadRecentMistakes : activeView === 'topics-hub' ? loadTopicsHub : loadActivityFeed} aria-label={`Refresh ${activeNav?.label}`}>
                   <RefreshCw size={16} />
                 </button>
               ) : null}
@@ -269,11 +272,11 @@ const Weaknesses = () => {
           <div className="wa-stage" key={activeView}>
             {activeView === 'weak-areas' && (
               <DiagnosisView
-                loading={loading}
-                failed={Boolean(error) && !weakAreasData}
-                areas={allAreas}
+                loading={mistakesLoading}
+                failed={Boolean(error) && !mistakeTopics.length && !mistakes.length}
+                areas={mistakeTopics}
                 onStartLearning={() => navigate('/ai-chat')}
-                onRetry={loadWeakAreas}
+                onRetry={loadRecentMistakes}
                 mistakes={mistakes}
                 mistakesLoading={mistakesLoading}
                 onExplainMistake={openMistakeExplanation}

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, RefreshControl, ScrollView, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Modal, RefreshControl, ScrollView, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../services/auth';
-import { getStrengthsWeaknesses, getRecentMistakes, explainMistake, RecentMistake, RecentMistakeSource } from '../services/api';
+import { getRecentMistakes, explainMistake, RecentMistake, RecentMistakeSource, RecentMistakeTopic } from '../services/api';
 import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
 import PulseCubes from '../components/PulseCubes';
@@ -19,21 +19,11 @@ type Props = { user: AuthUser; onBack: () => void; onNavigate?: (screen: 'rlInsi
 
 const WEAKNESS_SIDEBAR_ITEMS: SidebarItem[] = [
   { key: 'weak-areas', label: 'Weak topics' },
-  { key: 'topics-hub', label: 'Topic mastery' },
-  { key: 'how-i-learn', label: 'How I learn' },
   { key: 'activity', label: 'Activity' },
-  { key: 'refresh', label: 'Refresh' },
 ];
 
-type WeakTopic = { topic: string; mastery_level?: number; accuracy?: number };
-
-function asTopics(value: unknown): WeakTopic[] {
-  return Array.isArray(value) ? value.filter((item) => item && typeof item === 'object') as WeakTopic[] : [];
-}
-
-function topicAccuracy(topic: WeakTopic) {
-  const raw = topic.accuracy ?? (topic.mastery_level ?? 0) * 100;
-  return Math.max(0, Math.min(100, Math.round(raw)));
+function topicAccuracy(topic: RecentMistakeTopic) {
+  return Math.max(0, Math.min(100, Math.round(topic.accuracy ?? 0)));
 }
 
 function normalizeTopicKey(topic: string | null | undefined): string {
@@ -56,29 +46,14 @@ export default function WeaknessPracticeScreen({ user, onBack, onNavigate }: Pro
   const layout = useResponsiveLayout();
   const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
   const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black });
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [analysis, setAnalysis] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [mistakes, setMistakes] = useState<RecentMistake[]>([]);
+  const [mistakeTopics, setMistakeTopics] = useState<RecentMistakeTopic[]>([]);
   const [mistakesLoading, setMistakesLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [explainModal, setExplainModal] = useState<{ mistake: RecentMistake; loading: boolean; content: string; error: string } | null>(null);
-
-  const load = useCallback(async () => {
-    if (!user.username) { setLoading(false); setRefreshing(false); return; }
-    try {
-      // Same UserWeakArea-backed data source the web Weaknesses page reads,
-      // so mobile and web show the exact same weak-topic signal.
-      setAnalysis(await getStrengthsWeaknesses(user.username));
-    } catch (error) {
-      Alert.alert('Weaknesses', error instanceof Error ? error.message : 'Failed to load weak topics');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [user.username]);
 
   const loadMistakes = useCallback(async () => {
     if (!user.username) { setMistakesLoading(false); return; }
@@ -86,16 +61,19 @@ export default function WeaknessPracticeScreen({ user, onBack, onNavigate }: Pro
     try {
       const data = await getRecentMistakes(user.username, 40);
       setMistakes(data.mistakes || []);
+      setMistakeTopics(data.topics || []);
     } catch {
       setMistakes([]);
+      setMistakeTopics([]);
     } finally {
       setMistakesLoading(false);
+      setRefreshing(false);
     }
   }, [user.username]);
 
-  useEffect(() => { load(); loadMistakes(); }, [load, loadMistakes]);
+  useEffect(() => { loadMistakes(); }, [loadMistakes]);
 
-  const refreshAll = () => { setRefreshing(true); load(); loadMistakes(); };
+  const refreshAll = () => { setRefreshing(true); loadMistakes(); };
 
   const openExplain = async (mistake: RecentMistake) => {
     setExplainModal({ mistake, loading: true, content: '', error: '' });
@@ -115,19 +93,20 @@ export default function WeaknessPracticeScreen({ user, onBack, onNavigate }: Pro
     });
   };
 
-  // Only weak topics ever land in `weak_areas` (critical/needs_practice/
-  // improving) -- a topic that's been mastered simply isn't in this payload
-  // any more, so nothing extra needs filtering out here.
+  // Topics come straight from the mistakes endpoint (every topic with at
+  // least one wrong answer, ordered weakest-first) rather than the separate
+  // "weak areas" summary -- that summary excludes any topic whose accuracy
+  // has climbed high enough to be marked "mastered", which was hiding
+  // mistakes from quizzes taken the same day if the rest of the quiz went
+  // well. This way every recorded mistake is guaranteed a visible topic.
   const topics = useMemo(() => {
-    const groups = analysis?.weak_areas && typeof analysis.weak_areas === 'object' ? analysis.weak_areas : {};
-    const combined = [...asTopics(groups.critical), ...asTopics(groups.needs_practice), ...asTopics(groups.improving)];
-    const unique = new Map<string, WeakTopic>();
-    combined.forEach((topic) => {
+    const unique = new Map<string, RecentMistakeTopic>();
+    mistakeTopics.forEach((topic) => {
       const key = normalizeTopicKey(topic.topic);
       if (key && !unique.has(key)) unique.set(key, topic);
     });
-    return [...unique.values()].sort((a, b) => topicAccuracy(a) - topicAccuracy(b)).slice(0, 12);
-  }, [analysis]);
+    return [...unique.values()].slice(0, 12);
+  }, [mistakeTopics]);
 
   const mistakesByTopic = useMemo(() => {
     const map = new Map<string, RecentMistake[]>();
@@ -139,7 +118,7 @@ export default function WeaknessPracticeScreen({ user, onBack, onNavigate }: Pro
     return map;
   }, [mistakes]);
 
-  const busy = loading || mistakesLoading;
+  const busy = mistakesLoading;
 
   if (!fontsLoaded) return null;
 
@@ -167,9 +146,11 @@ export default function WeaknessPracticeScreen({ user, onBack, onNavigate }: Pro
         ) : busy ? (
           <View style={{ paddingVertical: 80, alignItems: 'center' }}><PulseCubes color={selectedTheme.accent} size={14} /></View>
         ) : topics.length === 0 ? (
-          <EmptyState icon="checkmark-circle-outline" title="no weak topics" copy="Keep studying — topics that need work will appear here." styles={s} />
+          <EmptyState icon="checkmark-circle-outline" title="no mistakes yet" copy="Recent mistakes from quizzes, practice, flashcards, and chat will appear here, grouped by topic." styles={s} />
         ) : (
-          <View style={s.listCard}>
+          <>
+            <Text style={s.sectionTitle}>recent mistakes</Text>
+            <View style={s.listCard}>
             {topics.map((topic) => {
               const key = normalizeTopicKey(topic.topic);
               const isOpen = expanded.has(key);
@@ -197,7 +178,8 @@ export default function WeaknessPracticeScreen({ user, onBack, onNavigate }: Pro
                 </View>
               );
             })}
-          </View>
+            </View>
+          </>
         )}
       </ScrollView>
 
@@ -208,10 +190,7 @@ export default function WeaknessPracticeScreen({ user, onBack, onNavigate }: Pro
         items={WEAKNESS_SIDEBAR_ITEMS}
         activeKey="weak-areas"
         onSelect={(key) => {
-          if (key === 'topics-hub') onNavigate?.('topicsHub');
-          else if (key === 'how-i-learn') onNavigate?.('rlInsights');
-          else if (key === 'activity') onNavigate?.('activityTimeline');
-          else if (key === 'refresh') refreshAll();
+          if (key === 'activity') onNavigate?.('activityTimeline');
         }}
       />
 
@@ -280,6 +259,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 10, paddingBottom: 110, gap: 12 },
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 18, paddingBottom: 12 },
     title: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 26, letterSpacing: -0.6 },
+    sectionTitle: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 10, marginLeft: 2 },
 
     listCard: { borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.82), overflow: 'hidden', boxShadow: cbTileShadow(0.06) } as ViewStyle,
 
