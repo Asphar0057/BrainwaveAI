@@ -24,6 +24,18 @@ type ActivityType = 'note' | 'flashcard' | 'quiz' | 'chat';
 type ActivityItem = { id: string; type: ActivityType; title: string; date: string };
 type Props = { user: AuthUser; onBack: () => void; onNavigate?: (screen: 'activityTimeline') => void };
 
+// A raw ISO-timestamp string slice (e.g. `ts.slice(0, 10)`) reads the UTC
+// calendar date, not the device's -- for any user whose local day doesn't
+// line up with UTC's, "today's" activity could get bucketed under
+// yesterday or tomorrow and never show up where it belongs. This mirrors
+// the `today` computation below (device-local Y/M/D), matching the
+// timezone-corrected bucketing get_activity_heatmap now does server-side.
+function toLocalDateKey(ts: string): string {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return String(ts).slice(0, 10);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 const TYPE_COLORS: Record<ActivityType, string> = {
   note: '#34d399',
   flashcard: '#fbbf24',
@@ -99,7 +111,7 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
         if (note?.is_deleted) return;
         const ts = note.updated_at || note.created_at;
         if (!ts) return;
-        items.push({ id: `note-${note.id}`, type: 'note', title: note.title || 'Untitled Note', date: String(ts).slice(0, 10) });
+        items.push({ id: `note-${note.id}`, type: 'note', title: note.title || 'Untitled Note', date: toLocalDateKey(ts) });
       });
     } catch {}
 
@@ -109,7 +121,7 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
       sets.forEach((setInfo: any) => {
         const ts = setInfo.updated_at || setInfo.created_at;
         if (!ts) return;
-        items.push({ id: `flashcard-${setInfo.id}`, type: 'flashcard', title: setInfo.title || 'Flashcard Set', date: String(ts).slice(0, 10) });
+        items.push({ id: `flashcard-${setInfo.id}`, type: 'flashcard', title: setInfo.title || 'Flashcard Set', date: toLocalDateKey(ts) });
       });
     } catch {}
 
@@ -119,7 +131,7 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
       sessions.forEach((session: any) => {
         const ts = session.updated_at || session.created_at;
         if (!ts) return;
-        items.push({ id: `chat-${session.id}`, type: 'chat', title: session.title || 'AI Chat Session', date: String(ts).slice(0, 10) });
+        items.push({ id: `chat-${session.id}`, type: 'chat', title: session.title || 'AI Chat Session', date: toLocalDateKey(ts) });
       });
     } catch {}
 
@@ -133,7 +145,7 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
         quizzes.forEach((quiz: any) => {
           const ts = quiz.completed_at || quiz.created_at;
           if (!ts) return;
-          items.push({ id: `quiz-${quiz.id}`, type: 'quiz', title: quiz.title || 'Quiz Session', date: String(ts).slice(0, 10) });
+          items.push({ id: `quiz-${quiz.id}`, type: 'quiz', title: quiz.title || 'Quiz Session', date: toLocalDateKey(ts) });
         });
       }
     } catch {}
@@ -247,6 +259,10 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const selectedDay = heatByDate[selected ?? ''];
   const selectedActivities = activitiesByDate[selected ?? ''] ?? [];
+  // The heatmap's count and the itemized activities list below are two
+  // independently-fetched signals -- never let the summary line claim
+  // fewer activities than are visibly listed underneath it.
+  const selectedDayCount = Math.max(selectedDay?.count || 0, selectedActivities.length);
   const selectedReminders = remindersByDate[selected ?? ''] ?? [];
 
   return (
@@ -315,13 +331,18 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
                   >
                     {isToday && (
                       <LinearGradient
-                        colors={[lightenColor(selectedTheme.accent, 18), lightenColor(selectedTheme.accentHover, 10)]}
+                        colors={[lightenColor(selectedTheme.accent, 42), selectedTheme.accentHover]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={StyleSheet.absoluteFillObject}
                       />
                     )}
-                    <Text style={[s.cellNum, isToday && s.cellNumToday, isSel && s.cellNumSel]}>{day}</Text>
+                    {/* isToday always wins the text-color fight, even when also
+                        selected -- the light gradient fill needs dark ink text
+                        regardless, otherwise selecting today (GOLD_XL, a light
+                        color meant for a dark background) made the number
+                        nearly invisible against its own light background. */}
+                    <Text style={[s.cellNum, isToday ? s.cellNumToday : (isSel && s.cellNumSel)]}>{day}</Text>
                     {dayActivityTypes.length > 0 ? (
                       <View style={s.signalRow}>
                         {dayActivityTypes.map((t) => (
@@ -355,10 +376,10 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
                 <Ionicons name="add" size={16} color={GOLD_L} />
               </HapticTouchable>
             </View>
-            {selectedDay ? (
+            {selectedDayCount > 0 ? (
               <View style={s.dayDetailRow}>
                 <Ionicons name="flash" size={14} color={GOLD_M} />
-                <Text style={s.dayDetailText}>{selectedDay.count} {selectedDay.count === 1 ? 'activity' : 'activities'} logged</Text>
+                <Text style={s.dayDetailText}>{selectedDayCount} {selectedDayCount === 1 ? 'activity' : 'activities'} logged</Text>
               </View>
             ) : (
               <Text style={s.dayDetailEmpty}>No activity on this day</Text>
