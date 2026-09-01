@@ -15,6 +15,7 @@ import models
 from deps import call_ai, enforce_request_user_scope, get_current_user, get_db, get_user_by_email, get_user_by_username, unified_ai
 from services.ai_json_parser import parse_json_array_response
 from services.document_flashcard_source import build_document_flashcard_source
+from services.adaptive_quiz import record_flashcard_review
 from services.content_bandit import (
     get_content_bandit,
     is_auto_difficulty,
@@ -28,6 +29,17 @@ router = APIRouter(
     tags=["flashcards"],
     dependencies=[Depends(enforce_request_user_scope)],
 )
+
+def _flashcard_topic(card: "models.Flashcard", flashcard_set: Optional["models.FlashcardSet"]) -> str:
+    """Same topic-key convention comprehensive_weakness_analyzer.py already
+    uses when deriving struggling flashcard topics: prefer the card's own
+    category, fall back to its set's title when the category is just a
+    placeholder value."""
+    category = (card.category or "").strip()
+    if category and category.lower() not in ("general", "misc", "default"):
+        return category
+    return (flashcard_set.title if flashcard_set else "") or "General"
+
 
 def _load_test_fallback_enabled(user: models.User) -> bool:
     identifiers = {
@@ -954,6 +966,20 @@ async def update_flashcard_review(request: FlashcardReviewRequest, db: Session =
     set_title = flashcard_set.title if flashcard_set else ""
     owner_id = str(flashcard_set.user_id) if flashcard_set else ""
 
+    try:
+        record_flashcard_review(
+            db, owner.id, _flashcard_topic(card, flashcard_set),
+            is_correct=request.was_correct,
+            question_text=card.question,
+            correct_answer=card.answer,
+            flashcard_id=card.id,
+            difficulty=card.difficulty,
+        )
+        db.commit()
+    except Exception as e:
+        logger.warning(f"[FLASHCARD_REVIEW] weak-area/mistake recording failed: {e}")
+        db.rollback()
+
     # Close the content-difficulty-bandit loop for the main "Study" review flow.
     # generate_flashcards() (above) selects a difficulty via the bandit for this
     # exact topic key, but until now only the separate FSRS "Due Cards" flow
@@ -1246,6 +1272,24 @@ async def sr_review(request: SRReviewRequest, db: Session = Depends(get_db)):
         models.FlashcardSet.id == card.set_id
     ).first()
     set_title = flashcard_set.title if flashcard_set else ""
+
+    try:
+        # Same "known"/"not known" line the card's own last_known field uses
+        # (grade_str in ("good", "easy")) -- "again"/"hard" both count as a
+        # miss for weakness tracking, consistent with how this card already
+        # reports itself as known/unknown elsewhere.
+        record_flashcard_review(
+            db, user.id, _flashcard_topic(card, flashcard_set),
+            is_correct=grade_str in ("good", "easy"),
+            question_text=card.question,
+            correct_answer=card.answer,
+            flashcard_id=card.id,
+            difficulty=card.difficulty,
+        )
+        db.commit()
+    except Exception as e:
+        logger.warning(f"[SR_REVIEW] weak-area/mistake recording failed: {e}")
+        db.rollback()
 
     if flashcard_set:
         try:
