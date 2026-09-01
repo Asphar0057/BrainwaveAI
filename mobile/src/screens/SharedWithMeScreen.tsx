@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, ViewStyle, Modal } from 'react-native';
+import { ActivityIndicator, Alert, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, ViewStyle, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../services/auth';
 import {
   getSharedWithMe, getSharedContentDetail, removeSharedAccess, shareContent,
-  getFriends, getNotes, getChatSessions, SharedItem,
+  getFriends, getNotes, getChatSessions, getSoloQuizHistory, getQuestionSets,
+  SharedItem, ShareContentType,
 } from '../services/api';
 import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
@@ -21,13 +23,32 @@ import { triggerHaptic } from '../utils/haptics';
 
 type Props = { user: AuthUser; onBack: () => void };
 type Detail = {
-  content_type: 'note' | 'chat';
+  content_type: ShareContentType;
   title: string;
   content?: string;
   messages?: { user_message: string; ai_response: string; timestamp: string }[];
+  questions?: { question?: string; question_text?: string; options?: string[]; correct_answer?: string | number; explanation?: string | null }[];
+  subject?: string;
+  difficulty?: string;
+  score?: number;
+  description?: string | null;
 };
-type Filter = 'all' | 'chat' | 'note';
-type MyContentItem = { id: number; title: string; type: 'note' | 'chat' };
+type Filter = 'all' | ShareContentType;
+type MyContentItem = { id: number; title: string; type: ShareContentType };
+
+type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+const TYPE_ICON: Record<ShareContentType, IoniconsName> = {
+  note: 'document-text-outline',
+  chat: 'chatbubble-ellipses-outline',
+  quiz: 'trophy-outline',
+  question_bank: 'help-circle-outline',
+};
+const TYPE_LABEL: Record<ShareContentType, string> = {
+  note: 'note',
+  chat: 'chat',
+  quiz: 'quiz',
+  question_bank: 'question set',
+};
 
 function timeAgo(iso: string | null): string {
   if (!iso) return '';
@@ -42,14 +63,17 @@ function timeAgo(iso: string | null): string {
 
 const SHARED_SIDEBAR_BASE: SidebarItem[] = [
   { key: 'all', label: 'All Content' },
-  { key: 'chat', label: 'AI Chats' },
   { key: 'note', label: 'Notes' },
+  { key: 'chat', label: 'AI Chats' },
+  { key: 'quiz', label: 'Quizzes' },
+  { key: 'question_bank', label: 'Question Bank' },
 ];
 
 export default function SharedWithMeScreen({ user, onBack }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
-  const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
+  const insets = useSafeAreaInsets();
+  const s = useMemo(() => createStyles(selectedTheme, layout, insets.top), [selectedTheme, layout, insets.top]);
   const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black });
   const ink = selectedTheme.isLight ? darkenColor(selectedTheme.accent, 34) : selectedTheme.bgPrimary;
 
@@ -66,7 +90,7 @@ export default function SharedWithMeScreen({ user, onBack }: Props) {
 
   // Share-new-content flow: pick one of my notes/chats, then pick friends.
   const [showPicker, setShowPicker] = useState(false);
-  const [pickerFilter, setPickerFilter] = useState<'all' | 'note' | 'chat'>('all');
+  const [pickerFilter, setPickerFilter] = useState<Filter>('all');
   const [myContent, setMyContent] = useState<MyContentItem[]>([]);
   const [loadingMyContent, setLoadingMyContent] = useState(false);
   const [shareTarget, setShareTarget] = useState<MyContentItem | null>(null);
@@ -128,13 +152,17 @@ export default function SharedWithMeScreen({ user, onBack }: Props) {
     if (myContent.length === 0) {
       setLoadingMyContent(true);
       try {
-        const [notesData, chatsData] = await Promise.all([
+        const [notesData, chatsData, quizData, qbData] = await Promise.all([
           getNotes(user.username).catch(() => []),
           getChatSessions(user.username).catch(() => ({ sessions: [] })),
+          getSoloQuizHistory().catch(() => ({ history: [] })),
+          getQuestionSets(user.username).catch(() => ({ question_sets: [] })),
         ]);
         const notes: MyContentItem[] = (Array.isArray(notesData) ? notesData : []).map((n: any) => ({ id: n.id, title: n.title || 'untitled note', type: 'note' as const }));
         const chats: MyContentItem[] = (chatsData?.sessions ?? []).map((c: any) => ({ id: c.id, title: c.title || 'untitled chat', type: 'chat' as const }));
-        setMyContent([...notes, ...chats]);
+        const quizzes: MyContentItem[] = (quizData?.history ?? []).map((q) => ({ id: q.id, title: `${q.subject || 'untitled'} quiz · ${q.score}%`, type: 'quiz' as const }));
+        const questionSets: MyContentItem[] = (qbData?.question_sets ?? []).map((qs) => ({ id: qs.id, title: qs.title || 'untitled set', type: 'question_bank' as const }));
+        setMyContent([...notes, ...chats, ...quizzes, ...questionSets]);
       } finally {
         setLoadingMyContent(false);
       }
@@ -178,11 +206,10 @@ export default function SharedWithMeScreen({ user, onBack }: Props) {
     }
   };
 
-  const chatCount = items.filter((i) => i.content_type === 'chat').length;
-  const noteCount = items.filter((i) => i.content_type === 'note').length;
+  const countByType = (type: ShareContentType) => items.filter((i) => i.content_type === type).length;
   const sidebarItems: SidebarItem[] = SHARED_SIDEBAR_BASE.map((item) => ({
     ...item,
-    badge: item.key === 'all' ? items.length : item.key === 'chat' ? chatCount : noteCount,
+    badge: item.key === 'all' ? items.length : countByType(item.key as ShareContentType),
   }));
 
   const filteredItems = items.filter((item) => {
@@ -227,6 +254,40 @@ export default function SharedWithMeScreen({ user, onBack }: Props) {
                 </View>
               ))}
             </View>
+          ) : detail?.content_type === 'quiz' || detail?.content_type === 'question_bank' ? (
+            <View style={{ gap: 10 }}>
+              {detail.content_type === 'quiz' && (
+                <View style={s.quizMetaRow}>
+                  {typeof detail.score === 'number' && <View style={s.quizMetaChip}><Text style={s.quizMetaChipText}>score {detail.score}%</Text></View>}
+                  {!!detail.difficulty && <View style={s.quizMetaChip}><Text style={s.quizMetaChipText}>{detail.difficulty}</Text></View>}
+                </View>
+              )}
+              {!!detail.description && <Text style={s.qbDescription}>{detail.description}</Text>}
+              {(detail.questions ?? []).map((q, i) => {
+                const questionText = q.question ?? q.question_text ?? '';
+                const options = q.options ?? [];
+                return (
+                  <View key={i} style={s.card}>
+                    <Text style={s.qNumber}>Q{i + 1}</Text>
+                    <Text style={s.qText}>{questionText}</Text>
+                    {options.length > 0 && (
+                      <View style={{ gap: 6, marginTop: 4 }}>
+                        {options.map((opt, oi) => {
+                          const isCorrect = typeof q.correct_answer === 'number' ? oi === q.correct_answer : opt === q.correct_answer;
+                          return (
+                            <View key={oi} style={s.optionRow}>
+                              <Ionicons name={isCorrect ? 'checkmark-circle' : 'ellipse-outline'} size={14} color={isCorrect ? selectedTheme.success : selectedTheme.textSecondary} />
+                              <Text style={[s.optionText, isCorrect && s.optionTextCorrect]}>{opt}</Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
+                    {!!q.explanation && <Text style={s.qExplanation}>{q.explanation}</Text>}
+                  </View>
+                );
+              })}
+            </View>
           ) : null}
         </ScrollView>
       </View>
@@ -251,6 +312,7 @@ export default function SharedWithMeScreen({ user, onBack }: Props) {
       </View>
 
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={s.scroll}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={selectedTheme.accent} />}
@@ -290,7 +352,7 @@ export default function SharedWithMeScreen({ user, onBack }: Props) {
             <Ionicons name="people-outline" size={30} color={selectedTheme.accent} />
             <Text style={s.emptyTitle}>{search || filter !== 'all' ? 'nothing matches' : 'nothing shared yet'}</Text>
             <Text style={s.emptyText}>
-              {search || filter !== 'all' ? 'try a different search or filter' : 'notes and chats friends share with you show up here'}
+              {search || filter !== 'all' ? 'try a different search or filter' : 'notes, chats, quizzes, and question sets friends share with you show up here'}
             </Text>
           </View>
         ) : (
@@ -298,11 +360,11 @@ export default function SharedWithMeScreen({ user, onBack }: Props) {
             {filteredItems.map((item) => (
               <HapticTouchable key={item.id} style={s.row} onPress={() => openItem(item)} onLongPress={() => removeAccess(item)} haptic="none">
                 <View style={s.rowIcon}>
-                  <Ionicons name={item.content_type === 'note' ? 'document-text-outline' : 'chatbubble-ellipses-outline'} size={16} color={selectedTheme.accent} />
+                  <Ionicons name={TYPE_ICON[item.content_type]} size={16} color={selectedTheme.accent} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.rowTitle} numberOfLines={1}>{item.title}</Text>
-                  <Text style={s.rowMeta}>from {item.shared_by.username} · {timeAgo(item.shared_at)}</Text>
+                  <Text style={s.rowMeta}>{TYPE_LABEL[item.content_type]} · from {item.shared_by.username} · {timeAgo(item.shared_at)}</Text>
                   {item.message ? <Text style={s.rowMessage} numberOfLines={1}>"{item.message}"</Text> : null}
                 </View>
                 <View style={[s.permBadge, item.permission === 'edit' && s.permBadgeEdit]}>
@@ -329,86 +391,99 @@ export default function SharedWithMeScreen({ user, onBack }: Props) {
         onFooterPress={onBack}
       />
 
-      {/* Step 1: pick one of my notes/chats to share. */}
-      <Modal visible={showPicker} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowPicker(false)}>
+      {/* Single sheet for the whole share flow: step 1 picks content, step 2 (shareTarget set)
+          picks friends. Two separately-visible native <Modal>s stacked at once causes Android
+          to resize/relayout the window underneath, which looks like the sheet briefly stretching
+          taller then snapping back -- so this swaps content inside one Modal instead. */}
+      <Modal
+        visible={showPicker}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => (shareTarget ? setShareTarget(null) : setShowPicker(false))}
+      >
         <View style={s.modalRoot}>
           <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFillObject} />
           <GeoBackground />
           <View style={s.modalHeader}>
-            <Text style={s.modalTitle}>share something</Text>
-            <HapticTouchable onPress={() => setShowPicker(false)} haptic="light">
+            {shareTarget ? (
+              <HapticTouchable onPress={() => setShareTarget(null)} haptic="light">
+                <Ionicons name="chevron-back" size={22} color={selectedTheme.accent} />
+              </HapticTouchable>
+            ) : (
+              <View style={{ width: 22 }} />
+            )}
+            <Text style={s.modalTitle} numberOfLines={1}>{shareTarget ? `share "${shareTarget.title}"` : 'share something'}</Text>
+            <HapticTouchable onPress={() => { setShowPicker(false); setShareTarget(null); }} haptic="light">
               <Ionicons name="close" size={22} color={selectedTheme.accent} />
             </HapticTouchable>
           </View>
 
-          <View style={s.pickerTabs}>
-            {(['all', 'note', 'chat'] as const).map((f) => (
-              <HapticTouchable key={f} style={[s.pickerTab, pickerFilter === f && s.pickerTabActive]} onPress={() => setPickerFilter(f)} haptic="selection">
-                <Text style={[s.pickerTabText, pickerFilter === f && s.pickerTabTextActive]}>{f === 'all' ? 'all' : f === 'note' ? 'notes' : 'chats'}</Text>
-              </HapticTouchable>
-            ))}
-          </View>
+          {!shareTarget ? (
+            <View style={{ flex: 1 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.pickerTabs} style={{ flexGrow: 0 }}>
+                {(['all', 'note', 'chat', 'quiz', 'question_bank'] as const).map((f) => (
+                  <HapticTouchable key={f} style={[s.pickerTab, pickerFilter === f && s.pickerTabActive]} onPress={() => setPickerFilter(f)} haptic="selection">
+                    {f !== 'all' && <Ionicons name={TYPE_ICON[f]} size={13} color={pickerFilter === f ? selectedTheme.accentHover : selectedTheme.textSecondary} />}
+                    <Text style={[s.pickerTabText, pickerFilter === f && s.pickerTabTextActive]}>{f === 'all' ? 'all' : f === 'note' ? 'notes' : f === 'chat' ? 'chats' : f === 'quiz' ? 'quizzes' : 'question bank'}</Text>
+                  </HapticTouchable>
+                ))}
+              </ScrollView>
 
-          {loadingMyContent ? (
-            <View style={{ marginTop: 40, alignItems: 'center' }}><PulseCubes color={selectedTheme.accent} size={13} /></View>
-          ) : filteredMyContent.length === 0 ? (
-            <Text style={s.emptyText}>nothing to share yet</Text>
-          ) : (
-            <ScrollView contentContainerStyle={s.modalBody} showsVerticalScrollIndicator={false}>
-              {filteredMyContent.map((item) => (
-                <HapticTouchable key={`${item.type}-${item.id}`} style={s.pickerRow} onPress={() => pickToShare(item)} haptic="selection">
-                  <View style={s.rowIcon}>
-                    <Ionicons name={item.type === 'note' ? 'document-text-outline' : 'chatbubble-ellipses-outline'} size={16} color={selectedTheme.accent} />
-                  </View>
-                  <Text style={s.pickerRowTitle} numberOfLines={1}>{item.title}</Text>
-                  <Ionicons name="chevron-forward" size={14} color={selectedTheme.textSecondary} />
-                </HapticTouchable>
-              ))}
-            </ScrollView>
-          )}
-        </View>
-      </Modal>
-
-      {/* Step 2: pick friends to share the chosen item with. */}
-      <Modal transparent visible={!!shareTarget} animationType="fade" onRequestClose={() => setShareTarget(null)}>
-        <View style={s.centerOverlay}>
-          <HapticTouchable style={StyleSheet.absoluteFill} onPress={() => setShareTarget(null)} activeOpacity={1} haptic="none" />
-          <View style={s.centerCard}>
-            <Text style={s.centerCardTitle}>share "{shareTarget?.title || 'this'}"</Text>
-            {friends.length === 0 ? (
-              <Text style={s.centerCardSub}>add friends to share directly with them</Text>
-            ) : (
-              <>
-                <Text style={s.centerCardSub}>share with friends</Text>
-                <ScrollView style={{ maxHeight: 220 }} showsVerticalScrollIndicator={false}>
-                  {friends.map((f: any) => {
-                    const selected = selectedFriendIds.has(f.id);
-                    return (
-                      <HapticTouchable key={f.id} style={s.friendRow} onPress={() => toggleFriendSelected(f.id)} haptic="selection">
-                        <Ionicons name={selected ? 'checkbox' : 'square-outline'} size={18} color={selected ? selectedTheme.accentHover : selectedTheme.textSecondary} />
-                        <Text style={s.friendRowText}>{f.username || f.friend_username || f.name || '?'}</Text>
-                      </HapticTouchable>
-                    );
-                  })}
+              {loadingMyContent ? (
+                <View style={{ marginTop: 40, alignItems: 'center' }}><PulseCubes color={selectedTheme.accent} size={13} /></View>
+              ) : filteredMyContent.length === 0 ? (
+                <Text style={s.emptyText}>nothing to share yet</Text>
+              ) : (
+                <ScrollView style={{ flex: 1 }} contentContainerStyle={s.modalBody} showsVerticalScrollIndicator={false}>
+                  {filteredMyContent.map((item) => (
+                    <HapticTouchable key={`${item.type}-${item.id}`} style={s.pickerRow} onPress={() => pickToShare(item)} haptic="selection">
+                      <View style={s.rowIcon}>
+                        <Ionicons name={TYPE_ICON[item.type]} size={16} color={selectedTheme.accent} />
+                      </View>
+                      <Text style={s.pickerRowTitle} numberOfLines={1}>{item.title}</Text>
+                      <Ionicons name="chevron-forward" size={14} color={selectedTheme.textSecondary} />
+                    </HapticTouchable>
+                  ))}
                 </ScrollView>
-                <View style={s.centerCardActions}>
-                  <HapticTouchable style={s.centerCardCancel} onPress={() => setShareTarget(null)} haptic="light">
-                    <Text style={s.centerCardCancelText}>cancel</Text>
-                  </HapticTouchable>
-                  <HapticTouchable style={s.centerCardSave} onPress={submitShare} haptic="medium" disabled={sharing || selectedFriendIds.size === 0}>
-                    {sharing ? <ActivityIndicator size="small" color={selectedTheme.bgPrimary} /> : <Text style={s.centerCardSaveText}>share</Text>}
-                  </HapticTouchable>
-                </View>
-              </>
-            )}
-          </View>
+              )}
+            </View>
+          ) : (
+            <View style={s.friendPickerBody}>
+              {friends.length === 0 ? (
+                <Text style={s.emptyText}>add friends to share directly with them</Text>
+              ) : (
+                <>
+                  <Text style={s.centerCardSub}>share with friends</Text>
+                  <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+                    {friends.map((f: any) => {
+                      const selected = selectedFriendIds.has(f.id);
+                      return (
+                        <HapticTouchable key={f.id} style={s.friendRow} onPress={() => toggleFriendSelected(f.id)} haptic="selection">
+                          <Ionicons name={selected ? 'checkbox' : 'square-outline'} size={18} color={selected ? selectedTheme.accentHover : selectedTheme.textSecondary} />
+                          <Text style={s.friendRowText}>{f.username || f.friend_username || f.name || '?'}</Text>
+                        </HapticTouchable>
+                      );
+                    })}
+                  </ScrollView>
+                  <View style={s.centerCardActions}>
+                    <HapticTouchable style={s.centerCardCancel} onPress={() => setShareTarget(null)} haptic="light">
+                      <Text style={s.centerCardCancelText}>back</Text>
+                    </HapticTouchable>
+                    <HapticTouchable style={s.centerCardSave} onPress={submitShare} haptic="medium" disabled={sharing || selectedFriendIds.size === 0}>
+                      {sharing ? <ActivityIndicator size="small" color={selectedTheme.bgPrimary} /> : <Text style={s.centerCardSaveText}>share</Text>}
+                    </HapticTouchable>
+                  </View>
+                </>
+              )}
+            </View>
+          )}
         </View>
       </Modal>
     </View>
   );
 }
 
-function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>) {
+function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], layout: ReturnType<typeof useResponsiveLayout>, topInset: number) {
   const surface = theme.panel;
   const border = rgbaFromHex(theme.accentHover, theme.isLight ? 0.18 : 0.2);
   const ink = theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary;
@@ -417,7 +492,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     header: {
       width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center',
       flexDirection: 'row', alignItems: 'center',
-      paddingHorizontal: 10, paddingTop: 18, paddingBottom: 12,
+      paddingHorizontal: 10, paddingTop: Math.max(topInset + 8, 18), paddingBottom: 12,
     },
     scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 4, paddingBottom: 110, gap: 12 },
     kicker: { fontFamily: 'Inter_700Bold', color: theme.accent, fontSize: 10, letterSpacing: 1.7 },
@@ -455,22 +530,31 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     chatUserMsg: { fontFamily: 'Inter_600SemiBold', color: theme.accentHover, fontSize: 13, lineHeight: 19 },
     chatAiMsg: { fontFamily: 'Inter_400Regular', color: theme.textPrimary, fontSize: 13, lineHeight: 19 },
 
+    quizMetaRow: { flexDirection: 'row', gap: 8, marginHorizontal: 6 },
+    quizMetaChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 9, backgroundColor: rgbaFromHex(theme.accent, 0.14) },
+    quizMetaChipText: { fontFamily: 'Inter_700Bold', fontSize: 10.5, color: theme.accentHover, textTransform: 'uppercase', letterSpacing: 0.4 },
+    qbDescription: { fontFamily: 'Inter_400Regular', fontSize: 12.5, color: theme.textSecondary, marginHorizontal: 6, lineHeight: 18 },
+    qNumber: { fontFamily: 'Inter_700Bold', fontSize: 10, color: theme.accent, letterSpacing: 0.6 },
+    qText: { fontFamily: 'Inter_700Bold', fontSize: 13.5, color: theme.textPrimary, lineHeight: 19 },
+    optionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 3 },
+    optionText: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 12.5, color: theme.textSecondary },
+    optionTextCorrect: { fontFamily: 'Inter_600SemiBold', color: theme.textPrimary },
+    qExplanation: { fontFamily: 'Inter_400Regular', fontSize: 11.5, color: theme.accentHover, fontStyle: 'italic', marginTop: 4, lineHeight: 16 },
+
     // Share-flow modals
-    modalRoot: { flex: 1, paddingTop: 20 },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingBottom: 16 },
-    modalTitle: { fontFamily: 'Inter_900Black', fontSize: 24, color: theme.accentHover },
+    modalRoot: { flex: 1, paddingTop: Platform.OS === 'android' ? topInset + 12 : 20 },
+    modalHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 24, paddingBottom: 16 },
+    modalTitle: { flex: 1, fontFamily: 'Inter_900Black', fontSize: 22, color: theme.accentHover },
+    friendPickerBody: { flex: 1, paddingHorizontal: 24, paddingBottom: 24, gap: 4 },
     modalBody: { paddingHorizontal: 18, paddingBottom: 60, gap: 8 },
     pickerTabs: { flexDirection: 'row', gap: 8, paddingHorizontal: 24, marginBottom: 14 },
-    pickerTab: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 12, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72) },
+    pickerTab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72) } as ViewStyle,
     pickerTabActive: { backgroundColor: rgbaFromHex(theme.accent, 0.16), borderColor: rgbaFromHex(theme.accent, 0.34) },
     pickerTabText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: theme.textSecondary, textTransform: 'uppercase', letterSpacing: 0.6 },
     pickerTabTextActive: { color: theme.accentHover },
     pickerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.9), paddingHorizontal: 14, paddingVertical: 12 } as ViewStyle,
     pickerRowTitle: { flex: 1, fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 13 },
 
-    centerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', padding: 24 },
-    centerCard: { width: '100%', maxWidth: 380, borderRadius: 22, backgroundColor: theme.panel, padding: 20, gap: 10, boxShadow: cbTileShadow(0.14), ...cbTileBorder(0.16) } as ViewStyle,
-    centerCardTitle: { fontFamily: 'Inter_900Black', fontSize: 17, color: theme.accentHover },
     centerCardSub: { fontFamily: 'Inter_400Regular', fontSize: 12, color: theme.textSecondary, marginBottom: 4 },
     friendRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
     friendRowText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: theme.textPrimary },

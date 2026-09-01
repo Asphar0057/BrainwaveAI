@@ -1,3 +1,4 @@
+import json
 import logging
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -47,8 +48,30 @@ async def share_content(
             ).first()
             if not content:
                 raise HTTPException(status_code=404, detail="Chat not found or not owned by user")
+        elif share_data.content_type == "quiz":
+            content = db.query(models.SoloQuiz).filter(
+                models.SoloQuiz.id == share_data.content_id,
+                models.SoloQuiz.user_id == current_user.id,
+                models.SoloQuiz.completed == True  # noqa: E712
+            ).first()
+            if not content:
+                raise HTTPException(status_code=404, detail="Quiz not found or not owned by user")
+        elif share_data.content_type == "question_bank":
+            content = db.query(models.QuestionSet).filter(
+                models.QuestionSet.id == share_data.content_id,
+                models.QuestionSet.user_id == current_user.id
+            ).first()
+            if not content:
+                raise HTTPException(status_code=404, detail="Question set not found or not owned by user")
         else:
             raise HTTPException(status_code=400, detail="Invalid content type")
+
+        if share_data.content_type == "quiz":
+            content_title = f"{content.subject} quiz" if content.subject else "quiz"
+        elif share_data.content_type == "question_bank":
+            content_title = content.title or "question set"
+        else:
+            content_title = content.title if hasattr(content, "title") else share_data.content_type
 
         shared_records = []
         for friend_id in share_data.friend_ids:
@@ -99,7 +122,6 @@ async def share_content(
                 shared_records.append(shared_content)
                 logger.info(f"Created new share for friend {friend_id}")
 
-                content_title = content.title if hasattr(content, "title") else share_data.content_type
                 share_notification = models.Notification(
                     user_id=friend_id,
                     title="New Shared Content",
@@ -156,6 +178,16 @@ def get_shared_with_me(
             c.id: c for c in db.query(models.ChatSession).filter(models.ChatSession.id.in_(chat_ids)).all()
         } if chat_ids else {}
 
+        quiz_ids = {item.content_id for item in shared_items if item.content_type == "quiz"}
+        quizzes_by_id = {
+            q.id: q for q in db.query(models.SoloQuiz).filter(models.SoloQuiz.id.in_(quiz_ids)).all()
+        } if quiz_ids else {}
+
+        qb_ids = {item.content_id for item in shared_items if item.content_type == "question_bank"}
+        question_sets_by_id = {
+            qs.id: qs for qs in db.query(models.QuestionSet).filter(models.QuestionSet.id.in_(qb_ids)).all()
+        } if qb_ids else {}
+
         result = []
         for item in shared_items:
             owner = owners_by_id.get(item.owner_id)
@@ -180,6 +212,20 @@ def get_shared_with_me(
                     content_exists = True
                 else:
                     title = "Deleted Chat"
+            elif item.content_type == "quiz":
+                quiz = quizzes_by_id.get(item.content_id)
+                if quiz:
+                    title = f"{quiz.subject} quiz" if quiz.subject else "Untitled Quiz"
+                    content_exists = True
+                else:
+                    title = "Deleted Quiz"
+            elif item.content_type == "question_bank":
+                question_set = question_sets_by_id.get(item.content_id)
+                if question_set:
+                    title = question_set.title or "Untitled Set"
+                    content_exists = True
+                else:
+                    title = "Deleted Question Set"
 
             if content_exists:
                 result.append({
@@ -339,6 +385,95 @@ def get_shared_content(
                         "timestamp": msg.timestamp.isoformat() + "Z"
                     }
                     for msg in messages
+                ]
+            }
+
+        elif content_type == "quiz":
+            content = db.query(models.SoloQuiz).filter(models.SoloQuiz.id == content_id).first()
+            if not content:
+                raise HTTPException(status_code=404, detail="Quiz not found")
+
+            is_owner = content.user_id == current_user.id
+            if not is_owner and not shared:
+                raise HTTPException(status_code=403, detail="No access to this quiz")
+
+            questions = db.query(models.SoloQuizQuestion).filter(
+                models.SoloQuizQuestion.quiz_id == content_id
+            ).all()
+
+            owner = db.query(models.User).filter(models.User.id == content.user_id).first()
+
+            return {
+                "content_type": "quiz",
+                "content_id": content.id,
+                "title": f"{content.subject} quiz" if content.subject else "Untitled Quiz",
+                "subject": content.subject,
+                "difficulty": content.difficulty,
+                "score": content.score,
+                "question_count": content.question_count,
+                "completed_at": content.completed_at.isoformat() + "Z" if content.completed_at else None,
+                "permission": shared.permission if shared else "owner",
+                "is_owner": is_owner,
+                "owner": {
+                    "id": owner.id,
+                    "username": owner.username,
+                    "first_name": owner.first_name or "",
+                    "last_name": owner.last_name or "",
+                    "picture_url": owner.picture_url or ""
+                },
+                "questions": [
+                    {
+                        "question": q.question,
+                        "options": json.loads(q.options) if q.options else [],
+                        "correct_answer": q.correct_answer,
+                        "explanation": q.explanation
+                    }
+                    for q in questions
+                ]
+            }
+
+        elif content_type == "question_bank":
+            content = db.query(models.QuestionSet).filter(models.QuestionSet.id == content_id).first()
+            if not content:
+                raise HTTPException(status_code=404, detail="Question set not found")
+
+            is_owner = content.user_id == current_user.id
+            if not is_owner and not shared:
+                raise HTTPException(status_code=403, detail="No access to this question set")
+
+            questions = db.query(models.Question).filter(
+                models.Question.question_set_id == content_id
+            ).order_by(models.Question.order_index).all()
+
+            owner = db.query(models.User).filter(models.User.id == content.user_id).first()
+
+            return {
+                "content_type": "question_bank",
+                "content_id": content.id,
+                "title": content.title or "Untitled Set",
+                "description": content.description,
+                "total_questions": content.total_questions,
+                "best_score": content.best_score,
+                "permission": shared.permission if shared else "owner",
+                "is_owner": is_owner,
+                "owner": {
+                    "id": owner.id,
+                    "username": owner.username,
+                    "first_name": owner.first_name or "",
+                    "last_name": owner.last_name or "",
+                    "picture_url": owner.picture_url or ""
+                },
+                "questions": [
+                    {
+                        "question_text": q.question_text,
+                        "question_type": q.question_type,
+                        "difficulty": q.difficulty,
+                        "topic": q.topic,
+                        "correct_answer": q.correct_answer,
+                        "options": json.loads(q.options) if q.options else [],
+                        "explanation": q.explanation
+                    }
+                    for q in questions
                 ]
             }
         else:
