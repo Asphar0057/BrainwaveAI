@@ -555,7 +555,12 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     dayHeader: { flex: 1, textAlign: 'center', fontFamily: 'Inter_600SemiBold', fontSize: 10, color: DIM, letterSpacing: 1.2, paddingVertical: 8 },
     grid: { flexDirection: 'row', flexWrap: 'wrap' },
     cell: { width: '14.2857%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 8, padding: 2, overflow: 'hidden' },
-    cellNum: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: GOLD_D },
+    // includeFontPadding:false + a fixed lineHeight -- Android bakes extra
+    // padding into a custom font's line box (usually above the glyph),
+    // which visually pushes text toward the bottom of whatever centers it.
+    // Without this the number reads as sitting low in the cell even though
+    // the layout itself is centered correctly.
+    cellNum: { fontFamily: 'Inter_600SemiBold', fontSize: 13, lineHeight: 16, color: GOLD_D, includeFontPadding: false, textAlignVertical: 'center' },
     dot: { width: 4, height: 4, borderRadius: 2, marginTop: 2 },
     signalRow: { flexDirection: 'row', gap: 2, marginTop: 2 },
     signalDot: { width: 4, height: 4, borderRadius: 2 },
