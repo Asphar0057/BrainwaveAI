@@ -816,10 +816,35 @@ async def get_recent_mistakes(
 
         items.sort(key=lambda i: i["occurred_at"] or "", reverse=True)
 
+        # Per-topic accuracy for every topic that has ever had a wrong
+        # answer, regardless of UserWeakArea.status -- deliberately NOT the
+        # same `status != "mastered"` filter get_comprehensive_weakness_analysis
+        # uses, because that filter was hiding topics (and their mistakes)
+        # the moment a single bad quiz's accuracy crossed the "mastered"
+        # threshold, even on the same day the mistake happened. This is the
+        # topic list the mistake-review UI groups by, so every mistake is
+        # guaranteed to land under a visible topic.
+        topic_rows = (
+            db.query(models.UserWeakArea)
+            .filter(models.UserWeakArea.user_id == uid, models.UserWeakArea.incorrect_count > 0)
+            .order_by(models.UserWeakArea.accuracy.asc())
+            .all()
+        )
+        topics = [
+            {
+                "topic": t.topic,
+                "accuracy": t.accuracy,
+                "total_attempts": t.total_questions,
+                "total_wrong": t.incorrect_count,
+            }
+            for t in topic_rows
+        ]
+
         return JSONResponse(content={
             "status": "success",
             "mistakes": items[:limit],
             "total": len(items[:limit]),
+            "topics": topics,
         })
     except HTTPException:
         raise
