@@ -98,9 +98,15 @@ class WrongAnswerLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    question_id = Column(Integer, ForeignKey("questions.id"), nullable=False)
-    question_set_id = Column(Integer, ForeignKey("question_sets.id"), nullable=False)
+    # question_id/question_set_id are nullable because this table also holds
+    # solo-quiz and flashcard mistakes (see `source`), which have no
+    # question-bank Question/QuestionSet row to point at.
+    question_id = Column(Integer, ForeignKey("questions.id"), nullable=True)
+    question_set_id = Column(Integer, ForeignKey("question_sets.id"), nullable=True)
     attempt_id = Column(Integer, ForeignKey("question_attempts.id"), nullable=True)
+    source = Column(String(20), nullable=False, default="question_bank", server_default="question_bank")
+    solo_quiz_question_id = Column(Integer, ForeignKey("solo_quiz_questions.id"), nullable=True)
+    flashcard_id = Column(Integer, ForeignKey("flashcards.id"), nullable=True)
 
     question_text = Column(Text, nullable=False)
     topic = Column(String(255), nullable=True, index=True)
@@ -116,10 +122,15 @@ class WrongAnswerLog(Base):
     reviewed_at = Column(DateTime, nullable=True)
     understood_after_review = Column(Boolean, nullable=True)
 
+    ai_explanation = Column(Text, nullable=True)
+    ai_explanation_generated_at = Column(DateTime, nullable=True)
+
     answered_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User")
     question = relationship("Question")
+    solo_quiz_question = relationship("SoloQuizQuestion")
+    flashcard = relationship("Flashcard")
 
 
 class PracticeRecommendation(Base):

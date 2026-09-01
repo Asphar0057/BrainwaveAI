@@ -417,6 +417,20 @@ async def generate_practice_questions(
                 bandit_selection = None
                 bandit_topic_key = None
 
+        # Repeat-avoidance always applies (orthogonal to what the quiz is
+        # about); weak-areas targeting only auto-upgrades generation_type when
+        # the caller left it at the default "topic" -- an explicit caller
+        # choice (or the chat_history branch above) takes precedence. Same
+        # adaptive engine solo quiz uses.
+        if topic:
+            try:
+                from services import adaptive_quiz
+                generation_type, additional_specs = adaptive_quiz.build_additional_specs(
+                    db, user.id, topic, base_specs=additional_specs, default_generation_type=generation_type,
+                )
+            except Exception as adaptive_err:
+                logger.warning(f"[QUIZ ROUTE] adaptive weak-area targeting failed: {adaptive_err}")
+
         questions_data = []
         if load_test_fallback:
             questions_data = _build_local_question_fallback(

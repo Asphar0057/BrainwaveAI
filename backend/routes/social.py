@@ -86,15 +86,26 @@ async def create_solo_quiz(
         use_hs_context = bool(payload.get("use_hs_context", True))
         context_doc_ids = payload.get("context_doc_ids") or []
 
+        recent_texts = []
         questions = []
         try:
             from graphs.quiz_graph import get_quiz_graph
+            from services import adaptive_quiz
             quiz_graph = get_quiz_graph()
             if quiz_graph and subject:
-                logger.info(f"[SOLO_QUIZ] routing through quiz_graph use_hs_context={use_hs_context}")
+                recent_texts = adaptive_quiz.get_recent_question_texts(db, current_user.id, subject)
+                generation_type, additional_specs = adaptive_quiz.build_additional_specs(
+                    db, current_user.id, subject,
+                )
+                logger.info(
+                    f"[SOLO_QUIZ] routing through quiz_graph use_hs_context={use_hs_context} "
+                    f"generation_type={generation_type} avoid_list={len(recent_texts)}"
+                )
                 questions_data = await quiz_graph.invoke(
                     user_id=str(current_user.id),
                     topic=subject,
+                    generation_type=generation_type,
+                    additional_specs=additional_specs,
                     question_count=question_count,
                     difficulty=difficulty,
                     question_types=["multiple_choice"],
@@ -105,13 +116,17 @@ async def create_solo_quiz(
                     options = q.get("options") or []
                     if len(options) < 2:
                         continue
+                    question_text = q.get("question_text", "")
+                    if adaptive_quiz.is_duplicate_question(question_text, recent_texts):
+                        logger.info("[SOLO_QUIZ] dropped duplicate question from generation")
+                        continue
                     correct_text = q.get("correct_answer", "")
                     try:
                         correct_index = options.index(correct_text)
                     except ValueError:
                         correct_index = 0
                     questions.append({
-                        "question": q.get("question_text", ""),
+                        "question": question_text,
                         "options": options,
                         "correct_answer": correct_index,
                         "explanation": q.get("explanation", ""),
@@ -193,6 +208,13 @@ async def get_solo_quiz(
             models.SoloQuizQuestion.quiz_id == quiz.id
         ).all()
 
+        answers = None
+        if quiz.completed and quiz.answers:
+            try:
+                answers = json.loads(quiz.answers)
+            except Exception:
+                answers = None
+
         return {
             "quiz": {
                 "id": quiz.id,
@@ -200,7 +222,11 @@ async def get_solo_quiz(
                 "subject": quiz.subject,
                 "difficulty": quiz.difficulty,
                 "question_count": quiz.question_count,
-                "time_limit_seconds": quiz.time_limit_seconds
+                "time_limit_seconds": quiz.time_limit_seconds,
+                "completed": quiz.completed,
+                "score": quiz.score,
+                "completed_at": quiz.completed_at.isoformat() + "Z" if quiz.completed_at else None,
+                "answers": answers,
             },
             "questions": [{
                 "id": q.id,
@@ -319,44 +345,16 @@ async def complete_solo_quiz(
 
             if topic:
                 now = datetime.now(timezone.utc)
-                existing_wa = db.query(models.UserWeakArea).filter(
-                    models.UserWeakArea.user_id == current_user.id,
-                    models.UserWeakArea.topic == topic[:255],
-                ).first()
-                if existing_wa:
-                    total = (existing_wa.total_questions or 0) + quiz.question_count
-                    correct_total = (existing_wa.correct_count or 0) + correct_count
-                    wrong_total = (existing_wa.incorrect_count or 0) + incorrect_count
-                    acc = round(correct_total / total * 100, 1) if total else 0.0
-                    existing_wa.total_questions = total
-                    existing_wa.correct_count = correct_total
-                    existing_wa.incorrect_count = wrong_total
-                    existing_wa.accuracy = acc
-                    existing_wa.weakness_score = max(existing_wa.weakness_score or 0.0, round((100 - acc) * 0.8, 1))
-                    existing_wa.last_practiced = now
-                    if score < 60:
-                        existing_wa.consecutive_wrong = (existing_wa.consecutive_wrong or 0) + incorrect_count
-                        existing_wa.status = "critical" if acc < 50 else "needs_practice"
-                        existing_wa.priority = min(10, (existing_wa.priority or 5) + 1)
-                    elif score >= 80:
-                        existing_wa.status = "improving"
-                        existing_wa.improvement_rate = min(1.0, (existing_wa.improvement_rate or 0.0) + 0.1)
-                elif score < 75:
-                    db.add(models.UserWeakArea(
-                        user_id=current_user.id,
-                        topic=topic[:255],
-                        total_questions=quiz.question_count,
-                        correct_count=correct_count,
-                        incorrect_count=incorrect_count,
-                        accuracy=round(score, 1),
-                        weakness_score=round((100 - score) * 0.8, 1),
-                        consecutive_wrong=incorrect_count,
-                        practice_sessions=1,
-                        last_practiced=now,
-                        improvement_rate=0.0,
-                        status="critical" if score < 50 else "needs_practice",
-                        priority=8 if score < 50 else 5,
-                    ))
+
+                # Per-question UserWeakArea update + WrongAnswerLog rows (one per
+                # wrong answer) -- replaces the old whole-quiz-score aggregate so
+                # solo quizzes feed the same fine-grained weakness signal every
+                # other surface (question-bank practice, flashcards) does.
+                try:
+                    from services import adaptive_quiz
+                    await adaptive_quiz.record_solo_quiz_mistakes(db, current_user.id, quiz, answers if isinstance(answers, list) else [])
+                except Exception as mistake_err:
+                    logger.warning(f"[SOLO_QUIZ] per-question mistake recording failed: {mistake_err}")
 
                 mastery = db.query(models.TopicMastery).filter(
                     models.TopicMastery.user_id == current_user.id,
