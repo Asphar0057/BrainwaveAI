@@ -97,6 +97,7 @@ class TutorGraph:
                 "attempt_evaluation": result.get("attempt_evaluation"),
                 "evaluation": result.get("evaluation"),
                 "chroma_writes": result.get("chroma_writes", []),
+                "rag_sources": result.get("rag_sources", []),
             }
         except Exception as e:
             logger.error(f"Tutor graph failed: {e}")
