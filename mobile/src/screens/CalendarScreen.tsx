@@ -553,7 +553,16 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     panelGhost: { position: 'absolute', right: 15, top: -2, fontFamily: 'Inter_900Black', fontSize: 76, lineHeight: 82, color: rgbaFromHex(GOLD_XL, 0.055), letterSpacing: -4 },
     dayHeaders: { flexDirection: 'row' },
     dayHeader: { flex: 1, textAlign: 'center', fontFamily: 'Inter_600SemiBold', fontSize: 10, color: DIM, letterSpacing: 1.2, paddingVertical: 8 },
-    grid: { flexDirection: 'row', flexWrap: 'wrap' },
+    // alignItems defaults to 'stretch' for a flex container -- without
+    // overriding it, every cell in a wrapped row gets stretched to match
+    // whichever cell in that same row has the tallest natural content (e.g.
+    // one day with an activity-dot row, others without), overriding each
+    // cell's own aspectRatio:1 square and leaving its content
+    // (justifyContent:'center') centered within a taller-than-square box
+    // instead -- which reads as the number sitting low in its own square.
+    // 'flex-start' forces every cell to size purely off its own width/aspect
+    // ratio, ignoring its row siblings entirely.
+    grid: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start' },
     cell: { width: '14.2857%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 8, padding: 2, overflow: 'hidden' },
     // includeFontPadding:false + a fixed lineHeight -- Android bakes extra
     // padding into a custom font's line box (usually above the glyph),
