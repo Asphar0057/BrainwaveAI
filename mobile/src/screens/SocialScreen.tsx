@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView, ViewStyle, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ViewStyle, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -17,7 +17,8 @@ import QuizPlaylistScreen  from './social/QuizPlaylistScreen';
 import PlaylistsScreen     from './social/PlaylistsScreen';
 import LearningPathsScreen from './social/LearningPathsScreen';
 import SharedWithMeScreen  from './SharedWithMeScreen';
-import CircleBackground from '../components/CircleBackground';
+import GeoBackground from '../components/GeoBackground';
+import PulseCubes from '../components/PulseCubes';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, lightenColor, rgbaFromHex } from '../utils/theme';
 import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
@@ -246,8 +247,8 @@ export default function SocialScreen({ user, onOpenLeaderboard }: Props) {
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
-      <CircleBackground />
+      <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFillObject} />
+      <GeoBackground />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[s.scroll, { paddingBottom: 24 }]}>
 
@@ -258,7 +259,7 @@ export default function SocialScreen({ user, onOpenLeaderboard }: Props) {
         </View>
 
         {loading || !data ? (
-          <View style={s.loadingWrap}><ActivityIndicator color={selectedTheme.accent} size="large" /></View>
+          <View style={s.loadingWrap}><PulseCubes color={selectedTheme.accent} size={13} /></View>
         ) : (
           <>
             {/* ══ LEVEL / XP ══ */}
