@@ -45,7 +45,7 @@ import {
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
 import HapticTouchable from '../components/HapticTouchable';
-import { NeumorphicLayer, cbTileShadow, cbModalShadow, cbTileBorder } from '../components/NeumorphicTexture';
+import { cbTileShadow } from '../components/NeumorphicTexture';
 import SectionSidebar, { SidebarItem } from '../components/SectionSidebar';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
@@ -57,8 +57,8 @@ type AppTarget = 'flashcards' | 'notes' | 'aimedia' | 'settings' | 'questionBank
 type Props = { user: AuthUser; onBack: () => void; onNavigate?: (screen: AppTarget) => void; initialTab?: HubTab };
 
 const HUB_SIDEBAR_ITEMS: SidebarItem[] = [
-  { key: 'library', label: 'Library' },
   { key: 'deck', label: 'Deck' },
+  { key: 'library', label: 'Library' },
   { key: 'ask', label: 'Ask' },
   { key: 'upload', label: 'Upload Source' },
 ];
@@ -75,10 +75,10 @@ type SearchResult = {
   source?: string;
 };
 
-const TABS: Array<{ key: HubTab; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }> = [
-  { key: 'library', label: 'library', icon: 'file-tray-stacked-outline' },
-  { key: 'deck', label: 'deck', icon: 'layers-outline' },
-  { key: 'ask', label: 'ask', icon: 'search-outline' },
+const GENERATORS: Array<{ kind: 'note' | 'map' | 'questions'; icon: React.ComponentProps<typeof Ionicons>['name']; label: string; hint: string }> = [
+  { kind: 'note', icon: 'document-text-outline', label: 'notes', hint: 'summarize your deck' },
+  { kind: 'map', icon: 'git-network-outline', label: 'map', hint: 'link the key ideas' },
+  { kind: 'questions', icon: 'help-circle-outline', label: 'quiz', hint: 'test what you know' },
 ];
 
 function truncate(value: string, max = 220) {
@@ -90,13 +90,19 @@ function docTopic(doc: ContextDocument) {
   return doc.subject || doc.grade_level || doc.scope || 'general';
 }
 
+const PAGE_COPY: Record<HubTab, { title: string; kicker: string }> = {
+  deck: { title: 'deck', kicker: 'AI CONTEXT' },
+  library: { title: 'library', kicker: 'ALL SOURCES' },
+  ask: { title: 'ask', kicker: 'QUERY YOUR DECK' },
+};
+
 export default function KnowledgeHubScreen({ user, onBack, onNavigate, initialTab }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
   const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
   const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black });
 
-  const [tab, setTab] = useState<HubTab>(initialTab || 'library');
+  const [tab, setTab] = useState<HubTab>(initialTab || 'deck');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -118,8 +124,8 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate, initialTa
   const [importSubject, setImportSubject] = useState('');
 
   const deckIds = useMemo(() => deck.map((doc) => doc.doc_id), [deck]);
-  const readyDocs = docs.filter((doc) => doc.status === 'ready');
   const deckFull = deck.length >= DECK_LIMIT;
+  const slots = useMemo(() => Array.from({ length: DECK_LIMIT }, (_, i) => deck[i] || null), [deck]);
 
   const load = useCallback(async () => {
     try {
@@ -264,7 +270,7 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate, initialTa
 
   const requireDeckDocs = () => {
     if (!deck.length) {
-      Alert.alert('Add sources to your deck first', 'Pick up to 8 documents from the Library tab.');
+      Alert.alert('Add sources to your deck first', 'Pick up to 8 documents from the Library page.');
       return null;
     }
     return deckIds;
@@ -330,6 +336,8 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate, initialTa
 
   if (!fontsLoaded) return null;
 
+  const copy = PAGE_COPY[tab];
+
   return (
     <SafeAreaView style={s.root} edges={['top']}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
@@ -346,39 +354,17 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate, initialTa
             <Ionicons name="chevron-back" size={22} color={selectedTheme.accentHover} />
           </HapticTouchable>
           <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={s.title}>hub</Text>
-            <Text style={s.subtitle}>{deck.length}/{DECK_LIMIT} in deck</Text>
+            <Text style={s.kicker}>{copy.kicker}</Text>
+            <Text style={s.title}>{copy.title}</Text>
           </View>
-          <HapticTouchable onPress={() => setSidebarOpen(true)} haptic="selection" accessibilityLabel="Open menu">
-            <Ionicons name="menu-outline" size={24} color={selectedTheme.accentHover} />
+          <HapticTouchable onPress={() => setSidebarOpen(true)} haptic="selection" accessibilityLabel="Open menu" style={s.menuBtn}>
+            <Ionicons name="menu-outline" size={22} color={selectedTheme.accentHover} />
           </HapticTouchable>
         </View>
 
-        <View style={s.hero}>
-          <NeumorphicLayer grainOpacity={0.26} />
-          <Text style={s.heroGhost}>01</Text>
-          <Text style={s.heroCopy}>{readyDocs.length} ready sources · {deck.length}/{DECK_LIMIT} in deck</Text>
-          <View style={s.heroMetrics}>
-            <Metric label="in deck" value={String(deck.length)} styles={s} />
-            <Metric label="sources" value={String(readyDocs.length)} styles={s} />
-          </View>
-        </View>
-
-        <View style={s.tabStrip}>
-          {TABS.map((item) => {
-            const active = tab === item.key;
-            return (
-              <HapticTouchable key={item.key} style={[s.tab, active && s.tabActive]} onPress={() => setTab(item.key)} haptic="selection">
-                <Ionicons name={item.icon} size={15} color={active ? selectedTheme.bgPrimary : selectedTheme.textSecondary} />
-                <Text style={[s.tabText, active && s.tabTextActive]}>{item.label}</Text>
-              </HapticTouchable>
-            );
-          })}
-        </View>
-
         {loading ? <ActivityIndicator color={selectedTheme.accent} size="large" style={{ marginTop: 46 }} /> : null}
-        {!loading && tab === 'library' ? renderLibrary() : null}
         {!loading && tab === 'deck' ? renderDeck() : null}
+        {!loading && tab === 'library' ? renderLibrary() : null}
         {!loading && tab === 'ask' ? renderAsk() : null}
       </ScrollView>
 
@@ -417,19 +403,104 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate, initialTa
     </SafeAreaView>
   );
 
+  function renderDeck() {
+    return (
+      <View style={s.sectionStack}>
+        <View style={s.slotGrid}>
+          {slots.map((doc, i) =>
+            doc ? (
+              <View key={doc.doc_id} style={s.slotFilled}>
+                <HapticTouchable
+                  style={s.slotRemove}
+                  onPress={() => toggleDeckMembership(doc)}
+                  disabled={deckBusyId === doc.doc_id}
+                  haptic="warning"
+                >
+                  {deckBusyId === doc.doc_id ? (
+                    <ActivityIndicator size="small" color={selectedTheme.danger} />
+                  ) : (
+                    <Ionicons name="close" size={11} color={selectedTheme.danger} />
+                  )}
+                </HapticTouchable>
+                <Ionicons name="document-text" size={18} color={selectedTheme.accentHover} />
+                <Text style={s.slotName} numberOfLines={2}>{doc.filename}</Text>
+              </View>
+            ) : (
+              <HapticTouchable key={`empty-${i}`} style={s.slotEmpty} onPress={() => setTab('library')} haptic="selection">
+                <Ionicons name="add" size={20} color={selectedTheme.textSecondary} />
+              </HapticTouchable>
+            )
+          )}
+        </View>
+
+        <View style={s.hsCard}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.sectionTitle}>HS curriculum mode</Text>
+            <Text style={s.sectionHint}>also answer using shared curriculum textbooks</Text>
+          </View>
+          <Switch
+            value={hsMode}
+            onValueChange={toggleHs}
+            trackColor={{ false: rgbaFromHex(selectedTheme.accent, 0.18), true: rgbaFromHex(selectedTheme.accent, 0.5) }}
+            thumbColor={hsMode ? selectedTheme.accentHover : selectedTheme.textSecondary}
+          />
+        </View>
+
+        <View style={s.generatorSection}>
+          <Text style={s.sectionLabel}>generate from your deck</Text>
+          <View style={s.generatorRow}>
+            {GENERATORS.map((gen) => (
+              <HapticTouchable
+                key={gen.kind}
+                style={[s.generatorCard, deck.length === 0 && { opacity: 0.5 }]}
+                onPress={() => runDocAction(gen.kind)}
+                disabled={actionBusy === gen.kind}
+                haptic="medium"
+              >
+                <View style={s.generatorIconWrap}>
+                  {actionBusy === gen.kind ? (
+                    <ActivityIndicator size="small" color={selectedTheme.accentHover} />
+                  ) : (
+                    <Ionicons name={gen.icon} size={20} color={selectedTheme.accentHover} />
+                  )}
+                </View>
+                <Text style={s.generatorLabel}>{gen.label}</Text>
+                <Text style={s.generatorHint}>{gen.hint}</Text>
+              </HapticTouchable>
+            ))}
+          </View>
+        </View>
+
+        {relatedTopics.length ? (
+          <View style={s.relatedBox}>
+            <Text style={s.sectionLabel}>related topics</Text>
+            <View style={s.chipWrap}>
+              {relatedTopics.map((topic) => (
+                <HapticTouchable key={topic} style={s.chip} onPress={() => { setAskQuery(topic); setTab('ask'); }} haptic="selection">
+                  <Text style={s.chipText}>{topic}</Text>
+                </HapticTouchable>
+              ))}
+            </View>
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+
   function renderLibrary() {
     return (
       <View style={s.sectionStack}>
-        <View style={s.actionPanel}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.sectionTitle}>your library</Text>
-            <Text style={s.sectionHint}>tap a source to add it to your deck ({deck.length}/{DECK_LIMIT})</Text>
-          </View>
-          <View style={s.actionRow}>
-            <ActionIcon icon="cloud-upload-outline" label="upload" onPress={pickDocuments} busy={actionBusy === 'upload-docs'} styles={s} />
-            <ActionIcon icon="link-outline" label="url" onPress={() => setShowImportModal(true)} styles={s} />
-          </View>
+        <View style={s.libraryToolbar}>
+          <HapticTouchable style={s.libraryToolBtn} onPress={pickDocuments} disabled={actionBusy === 'upload-docs'} haptic="medium">
+            {actionBusy === 'upload-docs' ? <ActivityIndicator size="small" color={selectedTheme.bgPrimary} /> : <Ionicons name="cloud-upload-outline" size={16} color={selectedTheme.bgPrimary} />}
+            <Text style={s.libraryToolBtnText}>upload</Text>
+          </HapticTouchable>
+          <HapticTouchable style={[s.libraryToolBtn, s.libraryToolBtnAlt]} onPress={() => setShowImportModal(true)} haptic="selection">
+            <Ionicons name="link-outline" size={16} color={selectedTheme.accentHover} />
+            <Text style={[s.libraryToolBtnText, s.libraryToolBtnTextAlt]}>import URL</Text>
+          </HapticTouchable>
         </View>
+        <Text style={s.sectionHint}>tap a source to add it to your deck ({deck.length}/{DECK_LIMIT})</Text>
 
         {docs.length === 0 ? (
           <Empty icon="file-tray-outline" title="no sources yet" text="upload PDFs, text, or markdown here, or import a direct source URL" styles={s} />
@@ -470,90 +541,27 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate, initialTa
     );
   }
 
-  function renderDeck() {
-    return (
-      <View style={s.sectionStack}>
-        <View style={s.actionPanel}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.sectionTitle}>your deck · {deck.length}/{DECK_LIMIT}</Text>
-            <Text style={s.sectionHint}>documents here are used as AI context across chat, notes, and quizzes</Text>
-          </View>
-          <View style={s.actionRow}>
-            <ActionIcon icon="document-text-outline" label="note" onPress={() => runDocAction('note')} busy={actionBusy === 'note'} styles={s} />
-            <ActionIcon icon="git-network-outline" label="map" onPress={() => runDocAction('map')} busy={actionBusy === 'map'} styles={s} />
-            <ActionIcon icon="help-circle-outline" label="quiz" onPress={() => runDocAction('questions')} busy={actionBusy === 'questions'} styles={s} />
-          </View>
-        </View>
-
-        <View style={s.hsCard}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.sectionTitle}>HS curriculum mode</Text>
-            <Text style={s.sectionHint}>also answer using shared curriculum textbooks</Text>
-          </View>
-          <Switch
-            value={hsMode}
-            onValueChange={toggleHs}
-            trackColor={{ false: rgbaFromHex(selectedTheme.accent, 0.18), true: rgbaFromHex(selectedTheme.accent, 0.5) }}
-            thumbColor={hsMode ? selectedTheme.accentHover : selectedTheme.textSecondary}
-          />
-        </View>
-
-        {relatedTopics.length ? (
-          <View style={s.relatedBox}>
-            <Text style={s.sectionTitle}>related topics</Text>
-            <View style={s.chipWrap}>
-              {relatedTopics.map((topic) => (
-                <HapticTouchable key={topic} style={s.chip} onPress={() => { setAskQuery(topic); setTab('ask'); }} haptic="selection">
-                  <Text style={s.chipText}>{topic}</Text>
-                </HapticTouchable>
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        {deck.length === 0 ? (
-          <Empty icon="layers-outline" title="deck is empty" text="add up to 8 documents from your Library to use them as AI context" styles={s} />
-        ) : (
-          <View style={s.cardList}>
-            {deck.map((doc) => (
-              <View key={doc.doc_id} style={s.docCard}>
-                <View style={s.docMain}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.docTitle} numberOfLines={1}>{doc.filename}</Text>
-                    <Text style={s.docMeta}>{docTopic(doc)} · {doc.chunk_count} chunks</Text>
-                  </View>
-                </View>
-                <HapticTouchable style={s.deleteBtn} onPress={() => toggleDeckMembership(doc)} haptic="warning" disabled={deckBusyId === doc.doc_id}>
-                  {deckBusyId === doc.doc_id ? <ActivityIndicator color={selectedTheme.danger} size="small" /> : <Ionicons name="close" size={16} color={selectedTheme.danger} />}
-                </HapticTouchable>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
-    );
-  }
-
   function renderAsk() {
     return (
       <View style={s.sectionStack}>
-        <View style={s.composer}>
+        <View style={s.askComposer}>
+          <Ionicons name="search" size={16} color={selectedTheme.textSecondary} style={{ marginTop: 3 }} />
           <TextInput
             value={askQuery}
             onChangeText={setAskQuery}
             placeholder={deck.length ? 'ask your deck...' : 'search or ask your knowledge base...'}
             placeholderTextColor={selectedTheme.textSecondary}
-            style={s.composerInput}
+            style={s.askInput}
             multiline
           />
-          <View style={s.composerActions}>
-            <HapticTouchable style={s.secondaryBtn} onPress={() => ask('search')} disabled={asking}>
-              <Text style={s.secondaryText}>search</Text>
-            </HapticTouchable>
-            <HapticTouchable style={s.primarySmallBtn} onPress={() => ask('answer')} disabled={asking}>
-              {asking ? <ActivityIndicator color={selectedTheme.bgPrimary} size="small" /> : <Text style={s.primaryText}>ask</Text>}
-            </HapticTouchable>
-          </View>
+        </View>
+        <View style={s.composerActions}>
+          <HapticTouchable style={s.secondaryBtn} onPress={() => ask('search')} disabled={asking}>
+            <Text style={s.secondaryText}>search</Text>
+          </HapticTouchable>
+          <HapticTouchable style={s.primarySmallBtn} onPress={() => ask('answer')} disabled={asking}>
+            {asking ? <ActivityIndicator color={selectedTheme.bgPrimary} size="small" /> : <Text style={s.primaryText}>ask</Text>}
+          </HapticTouchable>
         </View>
 
         {askResult ? (
@@ -590,7 +598,7 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate, initialTa
 
         {!askResult && !searchResults.length ? (
           <View style={s.suggestionPanel}>
-            <Text style={s.sectionTitle}>try this</Text>
+            <Text style={s.sectionLabel}>try this</Text>
             <View style={s.chipWrap}>
               {['summarize my deck', 'find weak concepts', 'what should I review next?', ...suggestions.slice(0, 4)].map((item) => (
                 <HapticTouchable key={item} style={s.chip} onPress={() => setAskQuery(item)} haptic="selection">
@@ -603,24 +611,6 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate, initialTa
       </View>
     );
   }
-}
-
-function Metric({ label, value, styles }: { label: string; value: string; styles: ReturnType<typeof createStyles> }) {
-  return (
-    <View style={styles.metric}>
-      <Text style={styles.metricValue}>{value}</Text>
-      <Text style={styles.metricLabel}>{label}</Text>
-    </View>
-  );
-}
-
-function ActionIcon({ icon, label, onPress, busy, styles }: { icon: React.ComponentProps<typeof Ionicons>['name']; label: string; onPress: () => void; busy?: boolean; styles: ReturnType<typeof createStyles> }) {
-  return (
-    <HapticTouchable style={styles.actionIcon} onPress={onPress} disabled={busy} haptic="medium">
-      {busy ? <ActivityIndicator color={styles.actionIconText.color} size="small" /> : <Ionicons name={icon} size={16} color={styles.actionIconText.color} />}
-      <Text style={styles.actionIconLabel}>{label}</Text>
-    </HapticTouchable>
-  );
 }
 
 function Empty({ icon, title, text, styles }: { icon: React.ComponentProps<typeof Ionicons>['name']; title: string; text: string; styles: ReturnType<typeof createStyles> }) {
@@ -640,34 +630,64 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bgPrimary },
     scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 10, paddingBottom: 118, gap: 14 },
-    topBar: { flexDirection: 'row', alignItems: 'center', paddingTop: 18, paddingBottom: 12 },
-    title: { fontFamily: 'Inter_900Black', fontSize: 32, color: theme.accentHover, letterSpacing: -0.8 },
-    subtitle: { fontFamily: 'Inter_400Regular', fontSize: 10, color: theme.textSecondary, letterSpacing: 2.2, marginTop: 4, textTransform: 'uppercase' },
-    hero: { borderRadius: 30, padding: 20, overflow: 'hidden', boxShadow: cbModalShadow(0.14) } as ViewStyle,
-    heroGhost: { position: 'absolute', right: 15, top: 0, fontFamily: 'Inter_900Black', fontSize: layout.isTablet ? 92 : 76, lineHeight: layout.isTablet ? 98 : 82, color: rgbaFromHex(theme.textPrimary, theme.isLight ? 0.035 : 0.055), letterSpacing: -4 },
-    heroCopy: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 13 },
-    heroMetrics: { flexDirection: 'row', gap: 9, marginTop: 16 },
-    metric: { flex: 1, borderRadius: 16, padding: 10, backgroundColor: rgbaFromHex(theme.panelAlt, 0.74), overflow: 'hidden', boxShadow: cbTileShadow(0.05), ...cbTileBorder(0.13) },
-    metricValue: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 20, letterSpacing: 0 },
-    metricLabel: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 9, textTransform: 'uppercase', letterSpacing: 1.1, marginTop: 2 },
-    tabStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    tab: { flexGrow: 1, minWidth: layout.width >= 760 ? 110 : 94, height: 42, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, boxShadow: cbTileShadow(0.045) },
-    tabActive: { backgroundColor: theme.accentHover, borderColor: theme.accentHover },
-    tabText: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 11, textTransform: 'lowercase' },
-    tabTextActive: { color: theme.bgPrimary },
+    topBar: { flexDirection: 'row', alignItems: 'center', paddingTop: 18, paddingBottom: 8 },
+    kicker: { fontFamily: 'Inter_700Bold', fontSize: 10, color: theme.textSecondary, letterSpacing: 2.2, textTransform: 'uppercase' },
+    title: { fontFamily: 'Inter_900Black', fontSize: 30, color: theme.accentHover, letterSpacing: -0.8, marginTop: 2 },
+    menuBtn: {
+      width: 38, height: 38, borderRadius: 13, alignItems: 'center', justifyContent: 'center',
+      borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72),
+    },
     sectionStack: { gap: 13 },
-    actionPanel: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 15, flexDirection: layout.twoColumn ? 'row' : 'column', gap: 14, alignItems: layout.twoColumn ? 'center' : 'stretch', boxShadow: cbTileShadow(0.08) } as ViewStyle,
-    hsCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 15, boxShadow: cbTileShadow(0.06) } as ViewStyle,
-    sectionTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 17, letterSpacing: 0 },
-    sectionHint: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, marginTop: 3, lineHeight: 18 },
-    actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    actionIcon: { minWidth: 62, borderRadius: 16, borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.14), backgroundColor: rgbaFromHex(theme.accent, 0.1), paddingHorizontal: 10, paddingVertical: 10, alignItems: 'center', gap: 5 },
-    actionIconText: { color: theme.accentHover },
-    actionIconLabel: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 9, textTransform: 'uppercase', letterSpacing: 1 },
-    relatedBox: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 15, gap: 12, boxShadow: cbTileShadow(0.07) } as ViewStyle,
+
+    slotGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 },
+    slotEmpty: {
+      width: '23%', aspectRatio: 1, borderRadius: 16,
+      borderWidth: 1.5, borderColor: rgbaFromHex(theme.textSecondary, 0.28), borderStyle: 'dashed',
+      alignItems: 'center', justifyContent: 'center',
+    },
+    slotFilled: {
+      width: '23%', aspectRatio: 1, borderRadius: 16, padding: 8,
+      borderWidth: 1, borderColor: rgbaFromHex(theme.accent, 0.4), backgroundColor: rgbaFromHex(theme.accent, 0.1),
+      alignItems: 'center', justifyContent: 'center', gap: 4, boxShadow: cbTileShadow(0.05),
+    },
+    slotRemove: {
+      position: 'absolute', top: 4, right: 4, width: 18, height: 18, borderRadius: 9,
+      alignItems: 'center', justifyContent: 'center', backgroundColor: rgbaFromHex(surface, 0.9),
+    },
+    slotName: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: theme.textPrimary, textAlign: 'center', lineHeight: 12 },
+
+    hsCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 15, boxShadow: cbTileShadow(0.06) } as ViewStyle,
+    sectionTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 15, letterSpacing: 0 },
+    sectionHint: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, lineHeight: 18 },
+    sectionLabel: { fontFamily: 'Inter_700Bold', fontSize: 11, color: theme.textSecondary, textTransform: 'uppercase', letterSpacing: 1.4 },
+
+    generatorSection: { gap: 10 },
+    generatorRow: { flexDirection: 'row', gap: 10 },
+    generatorCard: {
+      flex: 1, borderRadius: 20, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72),
+      paddingVertical: 16, paddingHorizontal: 10, alignItems: 'center', gap: 6, boxShadow: cbTileShadow(0.06),
+    } as ViewStyle,
+    generatorIconWrap: {
+      width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
+      backgroundColor: rgbaFromHex(theme.accent, 0.14),
+    },
+    generatorLabel: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 13, textTransform: 'lowercase' },
+    generatorHint: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 10, textAlign: 'center' },
+
+    relatedBox: { borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 15, gap: 12, boxShadow: cbTileShadow(0.06) } as ViewStyle,
     chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     chip: { borderRadius: 999, borderWidth: 1, borderColor: theme.border, backgroundColor: rgbaFromHex(theme.panelAlt, 0.82), paddingHorizontal: 12, paddingVertical: 9 },
     chipText: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 12 },
+
+    libraryToolbar: { flexDirection: 'row', gap: 10 },
+    libraryToolBtn: {
+      flex: 1, height: 46, borderRadius: 14, backgroundColor: theme.accentHover,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    },
+    libraryToolBtnAlt: { backgroundColor: rgbaFromHex(surface, 0.72), borderWidth: 1, borderColor: border },
+    libraryToolBtnText: { fontFamily: 'Inter_900Black', color: theme.bgPrimary, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.6 },
+    libraryToolBtnTextAlt: { color: theme.accentHover },
+
     cardList: { gap: 11 },
     docCard: { borderRadius: 20, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10, boxShadow: cbTileShadow(0.055) } as ViewStyle,
     docCardActive: { borderColor: theme.accent, backgroundColor: rgbaFromHex(theme.accent, 0.09) },
@@ -677,8 +697,12 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     docTitle: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 14 },
     docMeta: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 11, marginTop: 3 },
     deleteBtn: { width: 34, height: 34, borderRadius: 11, borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' },
-    composer: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 14, gap: 12, boxShadow: cbTileShadow(0.08) } as ViewStyle,
-    composerInput: { minHeight: 96, color: theme.textPrimary, fontFamily: 'Inter_600SemiBold', fontSize: 15, textAlignVertical: 'top' },
+
+    askComposer: {
+      flexDirection: 'row', gap: 10, borderRadius: 20, borderWidth: 1, borderColor: border,
+      backgroundColor: rgbaFromHex(surface, 0.72), padding: 14, boxShadow: cbTileShadow(0.07),
+    } as ViewStyle,
+    askInput: { flex: 1, minHeight: 60, color: theme.textPrimary, fontFamily: 'Inter_600SemiBold', fontSize: 15, textAlignVertical: 'top' },
     composerActions: { flexDirection: 'row', gap: 10 },
     secondaryBtn: { flex: 1, height: 45, borderRadius: 13, borderWidth: 1, borderColor: border, alignItems: 'center', justifyContent: 'center' },
     secondaryText: { fontFamily: 'Inter_900Black', color: theme.textSecondary, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 },
@@ -695,7 +719,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     resultCard: { borderRadius: 18, borderWidth: 1, borderColor: rgbaFromHex(theme.accentHover, 0.12), backgroundColor: rgbaFromHex(surface, 0.72), padding: 14, gap: 7, boxShadow: cbTileShadow(0.045) } as ViewStyle,
     resultTitle: { fontFamily: 'Inter_700Bold', color: theme.accentHover, fontSize: 13 },
     resultText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, lineHeight: 18 },
-    suggestionPanel: { borderRadius: 24, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 15, gap: 12, boxShadow: cbTileShadow(0.07) } as ViewStyle,
+    suggestionPanel: { borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 15, gap: 12, boxShadow: cbTileShadow(0.06) } as ViewStyle,
     empty: { alignItems: 'center', paddingVertical: 48, gap: 9 },
     emptyIcon: { color: theme.accent },
     emptyTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 22 },
