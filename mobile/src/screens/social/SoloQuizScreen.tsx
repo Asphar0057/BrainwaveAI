@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import {
-  View, Text, StyleSheet, ScrollView,
+  Alert, View, Text, StyleSheet, ScrollView,
   TextInput, ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -132,6 +132,24 @@ export default function SoloQuizScreen({ user, onBack }: Props) {
     setAnswers(prev => ({ ...prev, [questionId]: optionIndex }));
   };
 
+  const viewPastQuiz = async (id: string | number) => {
+    setStage('loading');
+    try {
+      const data = await getSoloQuiz(id);
+      if (!data.quiz.completed || !data.quiz.answers?.length) {
+        throw new Error('This quiz has no recorded answers to review.');
+      }
+      setQuizId(data.quiz.id);
+      setSubject(data.quiz.subject || '');
+      setResults(data.quiz.answers);
+      setScore(Math.round(data.quiz.score ?? 0));
+      setStage('review');
+    } catch (e: any) {
+      Alert.alert('Could not open quiz', e.message || 'Please try again.');
+      setStage('history');
+    }
+  };
+
   const finishQuiz = async () => {
     let correctCount = 0;
     const graded: AnsweredResult[] = questions.map(q => {
@@ -199,7 +217,9 @@ export default function SoloQuizScreen({ user, onBack }: Props) {
           <Ionicons name={stage === 'session' ? 'close' : 'chevron-back'} size={22} color={ACCENT_HOVER} />
         </HapticTouchable>
         <View style={{ flex: 1 }}>
-          <Text style={s.title}>solo quiz</Text>
+          <Text style={s.title} numberOfLines={1}>
+            {(stage === 'session' || stage === 'review') && subject.trim() ? subject.trim() : 'solo quiz'}
+          </Text>
         </View>
         <HapticTouchable onPress={() => setSidebarOpen(true)} haptic="selection" accessibilityLabel="Open menu">
           <Ionicons name="menu-outline" size={24} color={ACCENT_HOVER} />
@@ -271,7 +291,7 @@ export default function SoloQuizScreen({ user, onBack }: Props) {
           </View>
 
           <Text style={s.fieldLabel}>TIMING</Text>
-          <View style={{ gap: 8, marginBottom: 8 }}>
+          <View style={{ gap: 8, marginBottom: 22 }}>
             {([
               { key: 'timed' as const, name: 'Timed', desc: 'Countdown timer, 1 minute per question.' },
               { key: 'stopwatch' as const, name: 'Stopwatch', desc: 'Track how fast you complete the quiz.' },
@@ -314,6 +334,7 @@ export default function SoloQuizScreen({ user, onBack }: Props) {
         <HistoryView
           s={s} theme={selectedTheme} loading={historyLoading} entries={historyData?.history ?? []}
           onCreateQuiz={() => setStage('generator')}
+          onOpenQuiz={viewPastQuiz}
         />
       )}
 
@@ -355,7 +376,7 @@ export default function SoloQuizScreen({ user, onBack }: Props) {
       <SectionSidebar
         visible={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-        pageTitle="solo quiz"
+        pageTitle={(stage === 'session' || stage === 'review') && subject.trim() ? subject.trim() : 'solo quiz'}
         items={SOLO_SIDEBAR_ITEMS}
         activeKey={stage === 'history' || stage === 'stats' ? stage : 'generator'}
         onSelect={(key) => goSection(key as 'generator' | 'history' | 'stats')}
@@ -484,7 +505,7 @@ function QuizSession({
           disabled={prevDisabled}
           haptic="light"
         >
-          <Ionicons name="arrow-back" size={16} color={prevDisabled ? theme.textSecondary : ACCENT} />
+          <Ionicons name="chevron-back" size={17} color={prevDisabled ? theme.textSecondary : ACCENT} />
         </HapticTouchable>
         <HapticTouchable
           style={[s.navBtnPrimary, mustAnswerToProceed && s.navBtnDisabled]}
@@ -493,7 +514,7 @@ function QuizSession({
           haptic="medium"
         >
           <Text style={s.navBtnPrimaryText}>{isLast ? 'finish quiz' : 'next question'}</Text>
-          <Ionicons name={isLast ? 'checkmark-circle' : 'arrow-forward'} size={16} color={INK} />
+          <Ionicons name={isLast ? 'checkmark-circle' : 'chevron-forward'} size={17} color={INK} />
         </HapticTouchable>
       </View>
     </View>
@@ -540,7 +561,7 @@ function QuizReview({
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
         <HapticTouchable style={[s.launchBtn, { flex: 1 }]} onPress={onRetry} haptic="medium">
           <Ionicons name="refresh" size={16} color={INK} />
-          <Text style={s.launchBtnText}>new quiz</Text>
+          <Text style={[s.launchBtnText, s.reviewNewQuizText]}>new quiz</Text>
         </HapticTouchable>
         <HapticTouchable style={[s.navBtn, { flex: 1, height: 52 }]} onPress={onDone} haptic="light">
           <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 13, color: theme.accentHover }}>done</Text>
@@ -562,13 +583,14 @@ const SOLO_SIDEBAR_ITEMS: SidebarItem[] = [
 // The generator form is a destination reached by tapping that CTA, not
 // the default view.
 function HistoryView({
-  s, theme, loading, entries, onCreateQuiz,
+  s, theme, loading, entries, onCreateQuiz, onOpenQuiz,
 }: {
   s: ReturnType<typeof createStyles>;
   theme: ReturnType<typeof useAppTheme>['selectedTheme'];
   loading: boolean;
   entries: SoloQuizHistoryEntry[];
   onCreateQuiz: () => void;
+  onOpenQuiz: (id: string | number) => void;
 }) {
   const [search, setSearch] = useState('');
 
@@ -625,7 +647,7 @@ function HistoryView({
       )}
 
       {filtered.map((q) => (
-        <View key={q.id} style={s.historyCard}>
+        <HapticTouchable key={q.id} style={s.historyCard} onPress={() => onOpenQuiz(q.id)} haptic="selection">
           <SocialTileMaterial />
           <View style={{ flex: 1 }}>
             <Text style={s.historySubject} numberOfLines={1}>{q.subject}</Text>
@@ -636,7 +658,8 @@ function HistoryView({
           <Text style={[s.historyScore, { color: q.score >= 80 ? theme.success : q.score >= 60 ? theme.accent : theme.danger }]}>
             {Math.round(q.score)}%
           </Text>
-        </View>
+          <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+        </HapticTouchable>
       ))}
     </ScrollView>
   );
@@ -770,6 +793,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     launchBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: ACCENT, borderRadius: 18, paddingVertical: 16, boxShadow: cbModalShadow(0.1) } as ViewStyle,
     launchBtnDisabled: { opacity: 0.45 },
     launchBtnText: { fontFamily: 'Inter_700Bold', fontSize: 13, color: INK, textTransform: 'uppercase', letterSpacing: 2 },
+    reviewNewQuizText: { fontSize: 11, letterSpacing: 1.4 },
 
     sessionWrap: { flex: 1, width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 5 },
     progressTrack: { height: 5, borderRadius: 3, backgroundColor: rgbaFromHex(ACCENT, 0.14), overflow: 'hidden', marginBottom: 8 },
@@ -792,9 +816,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     optionTextActive: { color: ACCENT_HOVER, fontFamily: 'Inter_600SemiBold' },
 
     sessionNav: { flexDirection: 'row', gap: 10, paddingVertical: 16 },
-    navBtn: { width: 52, height: 52, borderRadius: 16, backgroundColor: rgbaFromHex(CARD, 0.85), borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.05) } as ViewStyle,
+    navBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: rgbaFromHex(CARD, 0.85), borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.05) } as ViewStyle,
     navBtnDisabled: { opacity: 0.4 },
-    navBtnPrimary: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: ACCENT, borderRadius: 16, boxShadow: cbTileShadow(0.06) } as ViewStyle,
+    navBtnPrimary: { flex: 1, height: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: ACCENT, borderRadius: 14, boxShadow: cbTileShadow(0.06) } as ViewStyle,
     navBtnPrimaryText: { fontFamily: 'Inter_900Black', fontSize: 13, color: INK, textTransform: 'uppercase', letterSpacing: 0.5 },
 
     reviewCard: { backgroundColor: rgbaFromHex(CARD, 0.9), borderRadius: 18, borderWidth: 1, borderColor: BORDER, padding: 16, marginBottom: 10, gap: 8, boxShadow: cbTileShadow(0.05) } as ViewStyle,
@@ -802,7 +826,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     reviewBadge: { width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
     reviewQuestion: { flex: 1, fontFamily: 'Inter_700Bold', fontSize: 14, lineHeight: 20, color: theme.textPrimary },
     reviewAnswer: { fontFamily: 'Inter_400Regular', fontSize: 12, color: DIM, marginLeft: 34 },
-    reviewExplanation: { fontFamily: 'Inter_400Regular', fontSize: 12, lineHeight: 18, color: DIM, marginLeft: 34, marginTop: 2, fontStyle: 'italic' },
+    reviewExplanation: { fontFamily: 'Inter_400Regular', fontSize: 12, lineHeight: 18, color: DIM, marginLeft: 34, fontStyle: 'italic' },
 
     historyCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: CARD, borderRadius: 18, borderWidth: 1, borderColor: BORDER, padding: 16, marginBottom: 10, overflow: 'hidden', boxShadow: cbTileShadow(0.05) } as ViewStyle,
     historySubject: { fontFamily: 'Inter_700Bold', fontSize: 14.5, color: ACCENT_HOVER },
