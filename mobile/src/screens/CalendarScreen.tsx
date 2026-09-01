@@ -63,6 +63,7 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
   const GOLD_M  = selectedTheme.accent;
   const GOLD_D  = selectedTheme.textSecondary;
   const DIM     = selectedTheme.textSecondary;
+  const INK     = selectedTheme.isLight ? darkenColor(selectedTheme.accent, 34) : selectedTheme.bgPrimary;
   const BG = useMemo(() => [selectedTheme.bgTop, selectedTheme.bgTop, selectedTheme.bgBottom] as const, [selectedTheme]);
   const LEVEL_COLORS = useMemo(() => [
     'transparent',
@@ -321,10 +322,35 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
                 const isToday = dateStr === today;
                 const isSel = dateStr === selected;
                 const dayActivityTypes = Array.from(new Set((activitiesByDate[dateStr] ?? []).map((a) => a.type)));
+
+                // One deterministic pass computing this cell's fill + text
+                // color as plain values, instead of stacking several
+                // conditional style-array entries against each other (that
+                // was the actual bug: two different entries could both
+                // apply at once and silently fight over the same property).
+                // No borders anywhere here either -- React Native adds
+                // border width to a view's layout box rather than insetting
+                // it, so a cell gaining a border only on selection nudged
+                // every cell after it in the wrapped grid, reading as
+                // numbers "jumping"/disappearing on tap.
+                let cellBg = 'transparent';
+                let numColor = GOLD_D;
+                let numBold = false;
+                if (isToday) {
+                  numColor = INK;
+                  numBold = true;
+                } else if (heat) {
+                  cellBg = LEVEL_COLORS[heat.level];
+                }
+                if (isSel && !isToday) {
+                  cellBg = rgbaFromHex(selectedTheme.accentHover, 0.34);
+                  numColor = GOLD_XL;
+                }
+
                 return (
                   <HapticTouchable
                     key={dateStr}
-                    style={[s.cell, { backgroundColor: !isToday && heat ? LEVEL_COLORS[heat.level] : 'transparent' }, isSel && s.cellSelected]}
+                    style={[s.cell, { backgroundColor: cellBg }]}
                     onPress={() => setSelected(isSel ? null : dateStr)}
                     haptic="selection"
                     activeOpacity={0.75}
@@ -337,12 +363,7 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
                         style={StyleSheet.absoluteFillObject}
                       />
                     )}
-                    {/* isToday always wins the text-color fight, even when also
-                        selected -- the light gradient fill needs dark ink text
-                        regardless, otherwise selecting today (GOLD_XL, a light
-                        color meant for a dark background) made the number
-                        nearly invisible against its own light background. */}
-                    <Text style={[s.cellNum, isToday ? s.cellNumToday : (isSel && s.cellNumSel)]}>{day}</Text>
+                    <Text style={[s.cellNum, { color: numColor, fontFamily: numBold ? 'Inter_900Black' : 'Inter_600SemiBold' }]}>{day}</Text>
                     {dayActivityTypes.length > 0 ? (
                       <View style={s.signalRow}>
                         {dayActivityTypes.map((t) => (
@@ -519,10 +540,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     dayHeader: { flex: 1, textAlign: 'center', fontFamily: 'Inter_600SemiBold', fontSize: 10, color: DIM, letterSpacing: 1.2, paddingVertical: 8 },
     grid: { flexDirection: 'row', flexWrap: 'wrap' },
     cell: { width: '14.2857%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 8, padding: 2, overflow: 'hidden' },
-    cellSelected: { borderWidth: 1.5, borderColor: GOLD_L },
     cellNum: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: GOLD_D },
-    cellNumToday: { color: INK, fontFamily: 'Inter_900Black' },
-    cellNumSel: { color: GOLD_XL },
     dot: { width: 4, height: 4, borderRadius: 2, marginTop: 2 },
     signalRow: { flexDirection: 'row', gap: 2, marginTop: 2 },
     signalDot: { width: 4, height: 4, borderRadius: 2 },
