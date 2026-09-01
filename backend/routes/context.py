@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import uuid
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urljoin, urlparse, unquote
 import ipaddress
@@ -29,6 +30,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/context", tags=["context"])
 
 MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024
+DECK_LIMIT = 8
 
 def _safe_storage_filename(filename: str) -> str:
     return re.sub(r"[^\w.\-]", "_", filename or "upload")[:180] or "upload"
@@ -982,6 +984,8 @@ def list_documents(
             "ai_summary":   d.ai_summary or "",
             "key_concepts": _parse_json_list(d.key_concepts),
             "topic_tags":   _parse_json_list(d.topic_tags),
+            "in_deck":      bool(d.in_deck),
+            "deck_added_at": d.deck_added_at.isoformat() + "Z" if d.deck_added_at else "",
             "created_at":   d.created_at.isoformat() + "Z" if d.created_at else "",
         }
         for d in user_docs_db
@@ -1255,6 +1259,114 @@ def delete_document(
     db.commit()
 
     return {"success": True, "doc_id": doc_id}
+
+def _get_own_doc_or_404(db: Session, user_id: int, doc_id: str) -> models.ContextDocument:
+    doc = (
+        db.query(models.ContextDocument)
+        .filter(
+            models.ContextDocument.doc_id == doc_id,
+            models.ContextDocument.user_id == user_id,
+        )
+        .first()
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return doc
+
+def _serialize_deck_doc(d: models.ContextDocument) -> dict:
+    return {
+        "doc_id":        d.doc_id,
+        "filename":      d.filename,
+        "subject":       d.subject or "",
+        "grade_level":   d.grade_level or "",
+        "scope":         d.scope,
+        "chunk_count":   d.chunk_count,
+        "status":        d.status,
+        "ai_summary":    d.ai_summary or "",
+        "key_concepts":  _parse_json_list(d.key_concepts),
+        "topic_tags":    _parse_json_list(d.topic_tags),
+        "in_deck":       bool(d.in_deck),
+        "deck_added_at": d.deck_added_at.isoformat() + "Z" if d.deck_added_at else "",
+        "created_at":    d.created_at.isoformat() + "Z" if d.created_at else "",
+    }
+
+@router.post("/documents/{doc_id}/deck")
+def add_document_to_deck(
+    doc_id: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    doc = _get_own_doc_or_404(db, current_user.id, doc_id)
+
+    if not doc.in_deck:
+        deck_count = (
+            db.query(func.count(models.ContextDocument.id))
+            .filter(
+                models.ContextDocument.user_id == current_user.id,
+                models.ContextDocument.in_deck == True,  # noqa: E712
+            )
+            .scalar()
+        )
+        if deck_count >= DECK_LIMIT:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Your deck is full ({DECK_LIMIT}/{DECK_LIMIT}) — remove a document first.",
+            )
+        doc.in_deck = True
+        doc.deck_added_at = datetime.now(timezone.utc)
+        db.commit()
+
+    deck_count = (
+        db.query(func.count(models.ContextDocument.id))
+        .filter(
+            models.ContextDocument.user_id == current_user.id,
+            models.ContextDocument.in_deck == True,  # noqa: E712
+        )
+        .scalar()
+    )
+    return {"doc_id": doc_id, "in_deck": True, "deck_count": deck_count, "deck_limit": DECK_LIMIT}
+
+@router.delete("/documents/{doc_id}/deck")
+def remove_document_from_deck(
+    doc_id: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    doc = _get_own_doc_or_404(db, current_user.id, doc_id)
+
+    doc.in_deck = False
+    doc.deck_added_at = None
+    db.commit()
+
+    deck_count = (
+        db.query(func.count(models.ContextDocument.id))
+        .filter(
+            models.ContextDocument.user_id == current_user.id,
+            models.ContextDocument.in_deck == True,  # noqa: E712
+        )
+        .scalar()
+    )
+    return {"doc_id": doc_id, "in_deck": False, "deck_count": deck_count, "deck_limit": DECK_LIMIT}
+
+@router.get("/deck")
+def get_deck(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    docs = (
+        db.query(models.ContextDocument)
+        .filter(
+            models.ContextDocument.user_id == current_user.id,
+            models.ContextDocument.in_deck == True,  # noqa: E712
+        )
+        .order_by(models.ContextDocument.deck_added_at.desc())
+        .all()
+    )
+    return {
+        "documents": [_serialize_deck_doc(d) for d in docs],
+        "deck_count": len(docs),
+        "deck_limit": DECK_LIMIT,
+    }
 
 @router.get("/search")
 def search_context_endpoint(

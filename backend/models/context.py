@@ -44,6 +44,8 @@ class ContextDocument(Base):
     ai_summary   = Column(Text, nullable=True)
     key_concepts = Column(Text, nullable=True)
     topic_tags   = Column(Text, nullable=True)
+    in_deck      = Column(Boolean, nullable=False, default=False, server_default="false")
+    deck_added_at = Column(DateTime, nullable=True)
     created_at   = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at   = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
