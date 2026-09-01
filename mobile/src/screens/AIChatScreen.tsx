@@ -21,9 +21,9 @@ import {
   createChatSession, askAI, askAIWithFile, getChatSessions, getChatMessages, getSearchHubSuggestions,
   getConversationStarters,
   renameChatSession, deleteChatSession, submitChatFeedback, getFriends, shareContent, getChatShareLink, WEB_URL,
-  createChatFolder, getChatFolders, deleteChatFolder, moveChatToFolder, ChatFolder,
+  createChatFolder, getChatFolders, deleteChatFolder, moveChatToFolder, ChatFolder, Citation,
 } from '../services/api';
-import { getHsModeEnabled, getSelectedDocIds } from '../services/contextService';
+import { getHsModeEnabled, getDeck } from '../services/contextService';
 import { triggerHaptic } from '../utils/haptics';
 import { useAppTheme } from '../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../utils/theme';
@@ -32,7 +32,7 @@ import { useResponsiveLayout } from '../hooks/useResponsiveLayout';
 const EDGE_SWIPE_WIDTH = 20;
 
 type ChatAttachment = { uri: string; name: string; type: string };
-type Msg = { id: string; role: 'user' | 'ai'; text: string; attachmentUri?: string };
+type Msg = { id: string; role: 'user' | 'ai'; text: string; attachmentUri?: string; sources?: Citation[] };
 type Session = { id: number; title: string; updated_at: string | null; folder_id?: number | null };
 type Props = { user: AuthUser };
 
@@ -207,7 +207,7 @@ export default function AIChatScreen({ user }: Props) {
 
   useEffect(() => {
     getHsModeEnabled().then(setHsMode).catch(() => {});
-    getSelectedDocIds().then(setSelectedDocIds).catch(() => {});
+    getDeck().then((d) => setSelectedDocIds(d.documents.map((doc) => doc.doc_id))).catch(() => {});
   }, []);
   const [starterPrompts, setStarterPrompts] = useState<string[]>([]);
   const greeting = useMemo(() => getRandomGreeting(user.first_name || user.username), [user.first_name, user.username]);
@@ -562,6 +562,7 @@ export default function AIChatScreen({ user }: Props) {
           id: String(Date.now() + 1),
           role: 'ai',
           text: data.answer,
+          sources: Array.isArray(data.sources) && data.sources.length ? data.sources : undefined,
         },
       ]);
     } catch (error) {
@@ -805,6 +806,29 @@ export default function AIChatScreen({ user }: Props) {
                       <MarkdownText>{preprocessText(item.text)}</MarkdownText>
                     )}
                   </View>
+                  {!isUser && item.sources?.length ? (
+                    <View style={s.sourcesRow}>
+                      {item.sources.map((src: Citation, i: number) => (
+                        <HapticTouchable
+                          key={`${src.filename}-${i}`}
+                          style={s.sourceChip}
+                          activeOpacity={0.8}
+                          haptic="selection"
+                          onPress={() =>
+                            Alert.alert(
+                              src.book_title || src.filename || 'Source',
+                              [src.snippet, src.page ? `Page ${src.page}` : null].filter(Boolean).join('\n\n')
+                            )
+                          }
+                        >
+                          <Ionicons name="document-text-outline" size={11} color={selectedTheme.accentHover} />
+                          <Text style={s.sourceChipText} numberOfLines={1}>
+                            {src.book_title || src.filename}{src.page ? ` · p.${src.page}` : ''}
+                          </Text>
+                        </HapticTouchable>
+                      ))}
+                    </View>
+                  ) : null}
                   {!isUser ? (
                     <View style={s.feedbackRow}>
                       <HapticTouchable onPress={() => giveFeedback(item, 'up')} style={s.feedbackBtn} haptic="none" accessibilityLabel="Good response">
@@ -1314,6 +1338,31 @@ function createStyles(
     backgroundColor: CARD,
     borderWidth: 1,
     borderColor: BORDER,
+  },
+  sourcesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 6,
+    marginHorizontal: 6,
+    maxWidth: '92%',
+  },
+  sourceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    maxWidth: 200,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: CARD,
+  },
+  sourceChipText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10,
+    color: GOLD_L,
   },
   feedbackRow: {
     flexDirection: 'row',
