@@ -255,7 +255,7 @@ export async function getRecentPointActivities(userId: string, limit = 100): Pro
 }
 
 // ── Session time tracking ─────────────────────────────────────────────
-function deviceTimeZone(): string {
+export function deviceTimeZone(): string {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   } catch {
@@ -1072,6 +1072,8 @@ export type RecentMistake = {
   reviewed: boolean;
 };
 
+export type RecentMistakeTopic = { topic: string; accuracy: number | null; total_attempts: number; total_wrong: number };
+
 export async function getRecentMistakes(userId: string, limit = 20, source: 'all' | RecentMistakeSource = 'all') {
   const headers = await authHeaders();
   const params = new URLSearchParams({ user_id: userId, limit: String(limit), source });
@@ -1079,7 +1081,7 @@ export async function getRecentMistakes(userId: string, limit = 20, source: 'all
   if (!res.ok) {
     await readApiError(res, 'Failed to load recent mistakes');
   }
-  return res.json() as Promise<{ mistakes: RecentMistake[]; total: number }>;
+  return res.json() as Promise<{ mistakes: RecentMistake[]; total: number; topics: RecentMistakeTopic[] }>;
 }
 
 export async function explainMistake(userId: string, mistakeId: number, source: RecentMistakeSource) {
