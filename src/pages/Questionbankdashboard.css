@@ -364,7 +364,15 @@
 }
 
 .qbd-hub .qbd-custom-card { height: 100%; padding: 20px; }
-.qbd-hub .qbd-custom-card--settings { padding: 20px; }
+.qbd-hub .qbd-builder-studio .qbd-custom-card {
+  align-self: stretch;
+}
+
+.qbd-hub .qbd-builder-studio .qbd-custom-card--settings {
+  position: static;
+  top: auto;
+  padding: 20px;
+}
 .qbd-hub .qbd-custom-section-header { padding-bottom: 14px; margin-bottom: 16px; }
 .qbd-hub .qbd-custom-section-icon { border-radius: 10px; box-shadow: none; }
 .qbd-hub .qbd-custom-section-title { font-size: 17px; }
