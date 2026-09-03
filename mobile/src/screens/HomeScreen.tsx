@@ -506,13 +506,13 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
               <LinearGradient colors={cbCardGradient.colors} start={cbCardGradient.start} end={cbCardGradient.end} style={StyleSheet.absoluteFillObject} />
               <NeumorphicTexture />
               <View style={styles.xpHeadRow}>
-                <View style={styles.sectionHeadRow}>
-                  <Text style={styles.sectionTitle}>xp this week</Text>
+                <View style={[styles.sectionHeadRow, styles.xpHeadLeft]}>
+                  <Text style={styles.sectionTitle} numberOfLines={1}>xp this week</Text>
                 </View>
                 <View style={styles.xpHeadRight}>
-                  <Text style={styles.xpTotalValue}>{weeklyXp}</Text>
+                  <Text style={styles.xpTotalValue} numberOfLines={1}>{weeklyXp}</Text>
                   {xpDeltaPercent !== 0 ? (
-                    <Text style={[styles.xpDelta, xpDeltaPercent > 0 ? styles.xpDeltaUp : styles.xpDeltaDown]}>
+                    <Text style={[styles.xpDelta, xpDeltaPercent > 0 ? styles.xpDeltaUp : styles.xpDeltaDown]} numberOfLines={1}>
                       {xpDeltaPercent > 0 ? '+' : ''}{xpDeltaPercent}%
                     </Text>
                   ) : null}
@@ -527,7 +527,9 @@ export default function HomeScreen({ user, onNavigate, onNavigateToAI, onSwipeLe
                     color={GOLD_L}
                     labelColor={selectedTheme.textSecondary}
                   />
-                ) : null}
+                ) : (
+                  <View style={styles.xpChartLoading} />
+                )}
               </View>
               <View style={styles.xpFooterRow}>
                 <Text style={styles.xpFooterHint}>tap for the full breakdown</Text>
@@ -780,10 +782,15 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     alignItems: 'flex-start',
     justifyContent: 'space-between',
   },
+  xpHeadLeft: {
+    flexShrink: 1,
+    minWidth: 0,
+  },
   xpHeadRight: {
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: 6,
+    flexShrink: 0,
   },
   xpTotalValue: {
     fontFamily: 'Inter_900Black',
@@ -799,7 +806,9 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
   xpDeltaDown: { color: '#EB5757' },
   xpChartWrap: {
     marginTop: 10,
-    marginHorizontal: -4,
+  },
+  xpChartLoading: {
+    height: 108,
   },
   xpFooterRow: {
     flexDirection: 'row',

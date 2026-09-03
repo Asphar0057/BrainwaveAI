@@ -238,7 +238,7 @@ export default function SocialScreen({ user, onOpenLeaderboard }: Props) {
   if (screen === 'friends')  return <FriendsScreen       user={user} onBack={() => setScreen(null)} />;
   if (screen === 'quiz')     return <QuizPlaylistScreen  user={user} onBack={() => setScreen(null)} />;
   if (screen === 'playlists')return <PlaylistsScreen     user={user} onBack={() => setScreen(null)} />;
-  if (screen === 'paths')    return <LearningPathsScreen user={user} onBack={() => setScreen(null)} />;
+  if (screen === 'paths')    return <LearningPathsScreen user={user} onBack={() => setScreen(null)} embedded />;
   if (screen === 'shared')   return <SharedWithMeScreen  user={user} onBack={() => setScreen(null)} />;
 
   const levelProgress = data ? Math.max(0.03, Math.min(1, data.experience / data.nextLevelXp)) : 0.03;

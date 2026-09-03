@@ -74,7 +74,12 @@ type LearningPath = {
 };
 
 type NavTarget = 'notes' | 'flashcards';
-type Props = { user: AuthUser; onBack: () => void; onNavigate?: (screen: NavTarget) => void };
+// When rendered inline inside SocialScreen's tab page, the surrounding PagerView
+// container already applies the device's top safe-area inset -- this component's own
+// SafeAreaView(edges:['top']) would then stack a second copy on top of it, pushing the
+// header well below where every other page's header sits. `embedded` lets the caller say
+// "the top inset is already handled for you", so this screen doesn't add it a second time.
+type Props = { user: AuthUser; onBack: () => void; onNavigate?: (screen: NavTarget) => void; embedded?: boolean };
 
 async function authHeaders(json = false) {
   const token = await getToken();
@@ -91,11 +96,12 @@ function nodeStatus(node: LearningNode): NodeStatus {
   return node.progress?.status ?? 'locked';
 }
 
-export default function LearningPathsScreen({ onBack, onNavigate }: Props) {
+export default function LearningPathsScreen({ onBack, onNavigate, embedded = false }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
   const insets = useSafeAreaInsets();
-  const s = useMemo(() => createStyles(selectedTheme, layout, insets.top), [selectedTheme, layout, insets.top]);
+  const topInset = embedded ? 0 : insets.top;
+  const s = useMemo(() => createStyles(selectedTheme, layout, topInset), [selectedTheme, layout, topInset]);
   const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black });
   const [paths, setPaths] = useState<LearningPath[]>([]);
   const [loading, setLoading] = useState(true);
@@ -322,7 +328,7 @@ export default function LearningPathsScreen({ onBack, onNavigate }: Props) {
   }
 
   return (
-    <SafeAreaView style={s.root} edges={['top']}>
+    <SafeAreaView style={s.root} edges={embedded ? [] : ['top']}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
       <GeoBackground />
       <View style={s.libraryScreen}>
@@ -451,9 +457,16 @@ function CreatePathModal({ visible, topic, difficulty, length, goals, generating
           <TextInput style={styles.topicInput} value={topic} onChangeText={onTopic} placeholder="e.g. Backend system design" placeholderTextColor={theme.textSecondary} autoFocus multiline />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestionRow}>{SUGGESTED_TOPICS.map((item) => <HapticTouchable key={item} style={styles.suggestionChip} onPress={() => onTopic(item)} haptic="selection"><Text style={styles.suggestionText}>{item}</Text></HapticTouchable>)}</ScrollView>
           <Text style={styles.formLabel}>DIFFICULTY</Text>
-          <View style={styles.optionRow}>{DIFFICULTIES.map((item) => <HapticTouchable key={item} style={[styles.optionBtn, difficulty === item && styles.optionBtnActive]} onPress={() => onDifficulty(item)} haptic="selection"><Text style={[styles.optionText, difficulty === item && styles.optionTextActive]}>{item.toUpperCase()}</Text></HapticTouchable>)}</View>
+          <View style={styles.optionRow}>{DIFFICULTIES.map((item) => <HapticTouchable key={item} style={[styles.optionPill, difficulty === item && styles.optionPillActive]} onPress={() => onDifficulty(item)} haptic="selection"><Text style={[styles.optionPillText, difficulty === item && styles.optionPillTextActive]}>{item.toUpperCase()}</Text></HapticTouchable>)}</View>
           <Text style={styles.formLabel}>PATH LENGTH</Text>
-          <View style={styles.optionRow}>{LENGTHS.map((item) => <HapticTouchable key={item} style={[styles.optionBtn, length === item && styles.optionBtnActive]} onPress={() => onLength(item)} haptic="selection"><Text style={[styles.optionText, length === item && styles.optionTextActive]}>{item.toUpperCase()}</Text><Text style={[styles.optionHint, length === item && { color: ink }]}>{item === 'short' ? '3–5' : item === 'medium' ? '6–9' : '10+'} steps</Text></HapticTouchable>)}</View>
+          <View style={styles.optionRow}>{LENGTHS.map((item) => {
+            const stepsLabel = item === 'short' ? '3–5' : item === 'medium' ? '6–9' : '10+';
+            return (
+              <HapticTouchable key={item} style={[styles.optionPill, length === item && styles.optionPillActive]} onPress={() => onLength(item)} haptic="selection">
+                <Text style={[styles.optionPillText, length === item && styles.optionPillTextActive]}>{item.toUpperCase()} · {stepsLabel}</Text>
+              </HapticTouchable>
+            );
+          })}</View>
           <Text style={styles.formLabel}>PERSONAL GOALS · OPTIONAL</Text>
           <TextInput style={styles.goalsInput} value={goals} onChangeText={onGoals} placeholder={'Build practical projects\nUnderstand the fundamentals'} placeholderTextColor={theme.textSecondary} multiline textAlignVertical="top" />
           <HapticTouchable style={styles.startBtn} onPress={onGenerate} disabled={generating} haptic="medium">{generating ? <><ActivityIndicator color={ink} /><Text style={styles.startBtnText}>BUILDING YOUR ROUTE…</Text></> : <><Ionicons name="sparkles" size={17} color={ink} /><Text style={styles.startBtnText}>GENERATE LEARNING PATH</Text></>}</HapticTouchable>
@@ -589,12 +602,13 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     suggestionRow: { gap: 7 },
     suggestionChip: { height: 34, borderRadius: 11, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surfaceAlt, 0.7), alignItems: 'center', justifyContent: 'center', paddingHorizontal: 11 },
     suggestionText: { fontFamily: 'Inter_600SemiBold', color: theme.textPrimary, fontSize: 9 },
-    optionRow: { flexDirection: 'row', gap: 7 },
-    optionBtn: { flex: 1, minHeight: 48, borderRadius: 13, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.78), alignItems: 'center', justifyContent: 'center', gap: 3 },
-    optionBtnActive: { backgroundColor: theme.accent, borderColor: theme.accentHover },
-    optionText: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 10, letterSpacing: 0.5 },
-    optionTextActive: { color: ink },
-    optionHint: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 9.5 },
+    // Same flat wrap-pill language as the flashcards create form -- auto-width chips,
+    // not equal-width boxes.
+    optionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
+    optionPill: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 9, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.8) },
+    optionPillActive: { backgroundColor: theme.accent, borderColor: theme.accentHover },
+    optionPillText: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 9.5, textTransform: 'uppercase', letterSpacing: 1.2 },
+    optionPillTextActive: { color: ink },
     goalsInput: { minHeight: 100, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.91), padding: 13, color: theme.textPrimary, fontFamily: 'Inter_400Regular', fontSize: 11, lineHeight: 17 },
     iconColor: { color: theme.accentHover },
   });

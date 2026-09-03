@@ -14,18 +14,35 @@ import {
   ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as DocumentPicker from 'expo-document-picker';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../services/auth';
 import {
+  deleteQuestionBankDocument,
   deleteQuestionSet,
+  DifficultyMix,
+  generateAdaptiveQuestions,
   generatePracticeQuestions,
+  generateQuestionsFromCustomContent,
+  generateQuestionsFromMultiplePdfs,
+  generateQuestionsFromPdf,
+  generateRelatedQuestionsFromPdf,
+  getQuestionBankDocuments,
   getQuestionSet,
   getQuestionSets,
   PracticeQuestion,
+  PreviewQuestion,
+  PreviewStats,
+  previewGenerateQuestions,
+  QBDocument,
   QuestionSetSummary,
+  regenerateQuestionPreview,
+  savePreviewedQuestions,
+  smartGenerateQuestions,
   submitQuestionAnswers,
+  uploadQuestionBankPdf,
 } from '../services/api';
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
@@ -45,6 +62,23 @@ const QUESTION_BANK_SIDEBAR_ITEMS: SidebarItem[] = [
   { key: 'generate', label: 'Generate Set' },
 ];
 
+const QUESTION_TYPE_OPTIONS = ['multiple_choice', 'true_false', 'short_answer', 'fill_blank'];
+const QUICK_PROMPTS = [
+  { label: 'Match sample style', value: 'Generate questions similar to the sample questions style from my textbook content' },
+  { label: 'Practical focus', value: 'Focus on practical applications and real-world scenarios' },
+  { label: 'Exam style', value: 'Create exam-style questions with detailed explanations' },
+];
+
+function formatDocumentType(documentType?: string | null) {
+  const value = String(documentType || '').trim();
+  if (!value || value.toLowerCase() === 'unknown') return 'PDF source';
+  return value.replace(/[_-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatQuestionType(type: string) {
+  return type.replace(/_/g, ' ');
+}
+
 type Props = { user: AuthUser; onBack: () => void };
 type ResultDetail = { question_id: number; user_answer: string; correct_answer: string; is_correct: boolean; explanation?: string };
 type SubmitResult = { score: number; correct_count: number; total_questions: number; details: ResultDetail[] };
@@ -60,6 +94,7 @@ function normalizeOptions(question: PracticeQuestion) {
 export default function QuestionBankScreen({ user, onBack }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
+  const insets = useSafeAreaInsets();
   const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
   const ink = selectedTheme.isLight ? darkenColor(selectedTheme.accent, 38) : selectedTheme.bgPrimary;
   const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black });
@@ -74,10 +109,43 @@ export default function QuestionBankScreen({ user, onBack }: Props) {
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [openingId, setOpeningId] = useState<number | null>(null);
   const [showGenerate, setShowGenerate] = useState(false);
+  const [generateMode, setGenerateMode] = useState<'topic' | 'pdf' | 'paste'>('topic');
   const [topic, setTopic] = useState('');
   const [difficulty, setDifficulty] = useState('mixed');
   const [count, setCount] = useState('10');
   const [generating, setGenerating] = useState(false);
+
+  // Paste-content source
+  const [customTitle, setCustomTitle] = useState('');
+  const [customContent, setCustomContent] = useState('');
+  const [pasteGenerating, setPasteGenerating] = useState(false);
+
+  // PDF sources
+  const [documents, setDocuments] = useState<QBDocument[]>([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [selectedDocIds, setSelectedDocIds] = useState<number[]>([]);
+  const [referenceDocId, setReferenceDocId] = useState<number | null>(null);
+  const [showSmartOptions, setShowSmartOptions] = useState(false);
+
+  // PDF generation settings
+  const [pdfCustomPrompt, setPdfCustomPrompt] = useState('');
+  const [pdfQuestionCount, setPdfQuestionCount] = useState('10');
+  const [pdfDifficultyMix, setPdfDifficultyMix] = useState<DifficultyMix>({ easy: 30, medium: 50, hard: 20 });
+  const [pdfQuestionTypes, setPdfQuestionTypes] = useState<string[]>(['multiple_choice', 'true_false', 'short_answer']);
+  const [pdfGenerating, setPdfGenerating] = useState(false);
+  const [pdfPreviewing, setPdfPreviewing] = useState(false);
+  const [pdfAdaptiveLoading, setPdfAdaptiveLoading] = useState(false);
+  const [pdfRelatedLoading, setPdfRelatedLoading] = useState(false);
+
+  // Preview → regenerate → accept
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewQuestions, setPreviewQuestions] = useState<PreviewQuestion[]>([]);
+  const [previewStats, setPreviewStats] = useState<PreviewStats | null>(null);
+  const [previewSaving, setPreviewSaving] = useState(false);
+  const [regenIndex, setRegenIndex] = useState<number | null>(null);
+  const [regenBusyIndex, setRegenBusyIndex] = useState<number | null>(null);
+  const [regenFeedback, setRegenFeedback] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -137,6 +205,363 @@ export default function QuestionBankScreen({ user, onBack }: Props) {
       Alert.alert('Generate questions', error instanceof Error ? error.message : 'Failed to generate questions');
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const pdfDifficultyCounts = useMemo<DifficultyMix>(() => {
+    const total = pdfDifficultyMix.easy + pdfDifficultyMix.medium + pdfDifficultyMix.hard;
+    if (total === 0) return { easy: 0, medium: 0, hard: 0 };
+    const target = Math.max(1, Math.min(100, Number.parseInt(pdfQuestionCount, 10) || 10));
+    let easy = Math.round((pdfDifficultyMix.easy / total) * target);
+    let medium = Math.round((pdfDifficultyMix.medium / total) * target);
+    let hard = Math.round((pdfDifficultyMix.hard / total) * target);
+    const diff = target - (easy + medium + hard);
+    if (diff !== 0) {
+      if (medium >= easy && medium >= hard) medium += diff;
+      else if (easy >= hard) easy += diff;
+      else hard += diff;
+    }
+    return { easy, medium, hard };
+  }, [pdfDifficultyMix, pdfQuestionCount]);
+
+  const loadDocuments = useCallback(async () => {
+    setLoadingDocuments(true);
+    try {
+      const data = await getQuestionBankDocuments(user.username);
+      setDocuments(data.documents ?? []);
+    } catch {
+      // non-critical: the picker still works without a refreshed list
+    } finally {
+      setLoadingDocuments(false);
+    }
+  }, [user.username]);
+
+  useEffect(() => {
+    if (showGenerate) loadDocuments();
+  }, [showGenerate, loadDocuments]);
+
+  const pickAndUploadPdf = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', multiple: false, copyToCacheDirectory: true });
+      if (result.canceled) return;
+      const asset = result.assets?.[0];
+      if (!asset) return;
+      setUploadingPdf(true);
+      await uploadQuestionBankPdf(user.username, { uri: asset.uri, name: asset.name || 'document.pdf', mimeType: asset.mimeType });
+      await loadDocuments();
+    } catch (error) {
+      Alert.alert('Upload failed', error instanceof Error ? error.message : 'Could not upload PDF');
+    } finally {
+      setUploadingPdf(false);
+    }
+  };
+
+  const removeDocument = (doc: QBDocument) => {
+    Alert.alert('Delete this PDF?', doc.filename, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteQuestionBankDocument(user.username, doc.id);
+            setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
+            setSelectedDocIds((prev) => prev.filter((id) => id !== doc.id));
+            if (referenceDocId === doc.id) setReferenceDocId(null);
+          } catch (error) {
+            Alert.alert('Delete failed', error instanceof Error ? error.message : 'Could not delete document');
+          }
+        },
+      },
+    ]);
+  };
+
+  const toggleDocSelection = (docId: number) => {
+    setSelectedDocIds((prev) => {
+      const isSelected = prev.includes(docId);
+      if (isSelected && referenceDocId === docId) setReferenceDocId(null);
+      return isSelected ? prev.filter((id) => id !== docId) : [...prev, docId];
+    });
+  };
+
+  const toggleReferenceDoc = (docId: number) => {
+    setReferenceDocId((prev) => (prev === docId ? null : docId));
+  };
+
+  const toggleQuestionType = (type: string) => {
+    setPdfQuestionTypes((prev) => (prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]));
+  };
+
+  const adjustDifficulty = (level: keyof DifficultyMix, delta: number) => {
+    setPdfDifficultyMix((prev) => {
+      const value = Math.max(0, Math.min(100, prev[level] + delta));
+      const others = (['easy', 'medium', 'hard'] as const).filter((l) => l !== level);
+      const remaining = 100 - value;
+      const othersTotal = others.reduce((sum, l) => sum + prev[l], 0);
+      if (othersTotal === 0) {
+        return { ...prev, [level]: value, [others[0]]: Math.floor(remaining / 2), [others[1]]: Math.ceil(remaining / 2) } as DifficultyMix;
+      }
+      const scale = remaining / othersTotal;
+      const next: DifficultyMix = { ...prev, [level]: value } as DifficultyMix;
+      let allocated = value;
+      others.forEach((l, idx) => {
+        if (idx === others.length - 1) {
+          next[l] = 100 - allocated;
+        } else {
+          next[l] = Math.round(prev[l] * scale);
+          allocated += next[l];
+        }
+      });
+      return next;
+    });
+  };
+
+  const resetPdfSelections = () => {
+    setSelectedDocIds([]);
+    setReferenceDocId(null);
+    setPdfCustomPrompt('');
+    setShowSmartOptions(false);
+  };
+
+  const ensurePdfSelectionValid = () => {
+    if (selectedDocIds.length === 0) {
+      Alert.alert('Select at least one PDF source');
+      return false;
+    }
+    if (pdfQuestionTypes.length === 0) {
+      Alert.alert('Select at least one question type');
+      return false;
+    }
+    return true;
+  };
+
+  const finishPdfGenerate = async (result: { status?: string; question_set_id?: number }) => {
+    if (result.status !== 'success') {
+      Alert.alert('Generate questions', 'Could not generate questions.');
+      return;
+    }
+    resetPdfSelections();
+    setShowGenerate(false);
+    await load();
+    if (result.question_set_id) await openSet(result.question_set_id);
+  };
+
+  const generateFromPdfSources = async () => {
+    if (!ensurePdfSelectionValid()) return;
+    setPdfGenerating(true);
+    try {
+      const selectedDocs = documents.filter((d) => selectedDocIds.includes(d.id));
+      const questionCountValue = Math.max(1, Math.min(100, Number.parseInt(pdfQuestionCount, 10) || 10));
+      const useSmart = pdfCustomPrompt.trim().length > 0 || referenceDocId != null;
+      let result;
+      if (useSmart) {
+        result = await smartGenerateQuestions({
+          userId: user.username,
+          sourceIds: selectedDocIds,
+          questionCount: questionCountValue,
+          difficultyMix: pdfDifficultyCounts,
+          title: selectedDocs.length === 1 ? `Questions from ${selectedDocs[0].filename}` : `Smart Questions from ${selectedDocs.length} documents`,
+          questionTypes: pdfQuestionTypes,
+          customPrompt: pdfCustomPrompt.trim() || null,
+          referenceDocumentId: referenceDocId,
+          contentDocumentIds: selectedDocIds.filter((id) => id !== referenceDocId),
+        });
+      } else if (selectedDocIds.length === 1) {
+        result = await generateQuestionsFromPdf({
+          userId: user.username,
+          sourceId: selectedDocIds[0],
+          questionCount: questionCountValue,
+          difficultyMix: pdfDifficultyCounts,
+          questionTypes: pdfQuestionTypes,
+        });
+      } else {
+        result = await generateQuestionsFromMultiplePdfs({
+          userId: user.username,
+          sourceIds: selectedDocIds,
+          questionCount: questionCountValue,
+          difficultyMix: pdfDifficultyCounts,
+          title: `Questions from ${selectedDocIds.length} documents`,
+          questionTypes: pdfQuestionTypes,
+        });
+      }
+      await finishPdfGenerate(result);
+    } catch (error) {
+      Alert.alert('Generate questions', error instanceof Error ? error.message : 'Failed to generate questions');
+    } finally {
+      setPdfGenerating(false);
+    }
+  };
+
+  const generateFromPastedContent = async () => {
+    if (!customContent.trim()) {
+      Alert.alert('Paste some content first');
+      return;
+    }
+    if (pdfQuestionTypes.length === 0) {
+      Alert.alert('Select at least one question type');
+      return;
+    }
+    setPasteGenerating(true);
+    try {
+      const questionCountValue = Math.max(1, Math.min(100, Number.parseInt(pdfQuestionCount, 10) || 10));
+      const result = await generateQuestionsFromCustomContent({
+        userId: user.username,
+        content: customContent.trim(),
+        title: customTitle.trim() || 'Custom Question Set',
+        questionCount: questionCountValue,
+        difficultyMix: pdfDifficultyCounts,
+        questionTypes: pdfQuestionTypes,
+        customPrompt: pdfCustomPrompt.trim() || null,
+      });
+      if (result.status !== 'success') {
+        Alert.alert('Generate questions', 'Could not generate questions.');
+        return;
+      }
+      setCustomTitle('');
+      setCustomContent('');
+      setShowGenerate(false);
+      await load();
+      if (result.question_set_id) await openSet(result.question_set_id);
+    } catch (error) {
+      Alert.alert('Generate questions', error instanceof Error ? error.message : 'Failed to generate questions');
+    } finally {
+      setPasteGenerating(false);
+    }
+  };
+
+  const previewFromPdfSources = async () => {
+    if (!ensurePdfSelectionValid()) return;
+    setPdfPreviewing(true);
+    try {
+      const questionCountValue = Math.max(1, Math.min(100, Number.parseInt(pdfQuestionCount, 10) || 10));
+      const result = await previewGenerateQuestions({
+        userId: user.username,
+        sourceIds: selectedDocIds,
+        questionCount: questionCountValue,
+        difficultyMix: pdfDifficultyCounts,
+        questionTypes: pdfQuestionTypes,
+        customPrompt: pdfCustomPrompt.trim() || null,
+        referenceDocumentId: referenceDocId,
+        contentDocumentIds: selectedDocIds.filter((id) => id !== referenceDocId),
+        sessionId: `qb_preview_${user.username}_${Date.now()}`,
+      });
+      if (result.status === 'success') {
+        setPreviewQuestions(result.questions);
+        setPreviewStats(result.stats);
+        setShowPreview(true);
+      }
+    } catch (error) {
+      Alert.alert('Preview', error instanceof Error ? error.message : 'Failed to generate preview');
+    } finally {
+      setPdfPreviewing(false);
+    }
+  };
+
+  const generateAdaptiveFromPdfSources = async () => {
+    if (selectedDocIds.length === 0) {
+      Alert.alert('Select at least one PDF source');
+      return;
+    }
+    setPdfAdaptiveLoading(true);
+    try {
+      const questionCountValue = Math.max(1, Math.min(100, Number.parseInt(pdfQuestionCount, 10) || 10));
+      const result = await generateAdaptiveQuestions(user.username, selectedDocIds, questionCountValue);
+      if (result.status === 'success') {
+        const focusTopics = result.weakness_analysis?.recommendations?.focus_topics
+          ?? (result.weakness_analysis?.weak_topics ?? []).map((t) => t.topic).filter((t): t is string => Boolean(t));
+        setPreviewQuestions(result.questions);
+        setPreviewStats({ total: result.questions.length, average_quality_score: 7, adaptive: true, weak_topics: focusTopics });
+        setShowPreview(true);
+      }
+    } catch (error) {
+      Alert.alert('Adaptive generate', error instanceof Error ? error.message : 'Failed to generate adaptive questions');
+    } finally {
+      setPdfAdaptiveLoading(false);
+    }
+  };
+
+  const generateRelatedFromPdfSources = async () => {
+    if (!ensurePdfSelectionValid()) return;
+    setPdfRelatedLoading(true);
+    try {
+      const selectedDocs = documents.filter((d) => selectedDocIds.includes(d.id));
+      const questionCountValue = Math.max(1, Math.min(100, Number.parseInt(pdfQuestionCount, 10) || 10));
+      const result = await generateRelatedQuestionsFromPdf({
+        userId: user.username,
+        sourceIds: selectedDocIds,
+        questionCount: questionCountValue,
+        difficultyMix: pdfDifficultyCounts,
+        questionTypes: pdfQuestionTypes,
+        title: selectedDocs.length === 1 ? `Related Questions from ${selectedDocs[0].filename}` : `Related Questions from ${selectedDocs.length} documents`,
+      });
+      if (result.status === 'success') {
+        setPreviewQuestions(result.questions ?? []);
+        setPreviewStats({
+          total: result.questions?.length ?? 0,
+          average_quality_score: 7,
+          personalized: true,
+          weak_topics: result.personalization?.weak_topics ?? [],
+          strong_topics: result.personalization?.strong_topics ?? [],
+        });
+        setShowPreview(true);
+      }
+    } catch (error) {
+      Alert.alert('Related questions', error instanceof Error ? error.message : 'Failed to generate related questions');
+    } finally {
+      setPdfRelatedLoading(false);
+    }
+  };
+
+  const regeneratePreviewQuestion = async (index: number) => {
+    const question = previewQuestions[index];
+    if (!question) return;
+    setRegenBusyIndex(index);
+    try {
+      const result = await regenerateQuestionPreview(user.username, question, regenFeedback.trim() || 'Make it better', selectedDocIds[0] ?? null);
+      if (result.regenerated) {
+        setPreviewQuestions((prev) => prev.map((q, i) => (i === index ? { ...result.regenerated, quality_score: 7 } : q)));
+        setRegenFeedback('');
+      }
+    } catch (error) {
+      Alert.alert('Regenerate', error instanceof Error ? error.message : 'Failed to regenerate question');
+    } finally {
+      setRegenBusyIndex(null);
+    }
+  };
+
+  const removePreviewQuestion = (index: number) => {
+    setPreviewQuestions((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const acceptPreviewQuestions = async () => {
+    if (previewQuestions.length === 0) return;
+    setPreviewSaving(true);
+    try {
+      const selectedDocs = documents.filter((d) => selectedDocIds.includes(d.id));
+      const title = selectedDocs.length === 1
+        ? `Questions from ${selectedDocs[0].filename}`
+        : selectedDocs.length > 1
+          ? `Questions from ${selectedDocs.length} documents`
+          : 'Generated Questions';
+      const result = await savePreviewedQuestions(
+        user.username,
+        previewQuestions,
+        title,
+        `Generated with AI preview. Quality score: ${previewStats?.average_quality_score ?? 'N/A'}`
+      );
+      if (result.status === 'success') {
+        setShowPreview(false);
+        setPreviewQuestions([]);
+        setPreviewStats(null);
+        resetPdfSelections();
+        setShowGenerate(false);
+        await load();
+        if (result.question_set_id) await openSet(result.question_set_id);
+      }
+    } catch (error) {
+      Alert.alert('Save questions', error instanceof Error ? error.message : 'Failed to save questions');
+    } finally {
+      setPreviewSaving(false);
     }
   };
 
@@ -336,27 +761,326 @@ export default function QuestionBankScreen({ user, onBack }: Props) {
       <Modal visible={showGenerate} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowGenerate(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalRoot}>
           <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
-          <View style={s.modalHeader}>
+          <View style={[s.modalHeader, { paddingTop: insets.top + 12 }]}>
             <Text style={s.modalTitle}>generate questions</Text>
             <HapticTouchable onPress={() => setShowGenerate(false)}><Ionicons name="close" size={22} color={selectedTheme.accent} /></HapticTouchable>
           </View>
-          <ScrollView contentContainerStyle={s.modalBody} keyboardShouldPersistTaps="handled">
-            <Text style={s.label}>topic</Text>
-            <TextInput value={topic} onChangeText={setTopic} placeholder="calculus, biology, react hooks..." placeholderTextColor={selectedTheme.textSecondary} style={s.input} autoFocus />
-            <Text style={s.label}>difficulty</Text>
-            <View style={s.choiceRow}>
-              {['adaptive', 'mixed', 'easy', 'medium', 'hard'].map((item) => (
-                <HapticTouchable key={item} style={[s.choice, difficulty === item && s.choiceActive]} onPress={() => setDifficulty(item)} haptic="selection">
-                  <Text style={[s.choiceText, difficulty === item && s.choiceTextActive]}>{item}</Text>
-                </HapticTouchable>
-              ))}
-            </View>
-            <Text style={s.label}>question count</Text>
-            <TextInput value={count} onChangeText={setCount} keyboardType="number-pad" placeholder="10" placeholderTextColor={selectedTheme.textSecondary} style={s.input} />
-            <HapticTouchable style={s.modalSubmit} onPress={generateSet} disabled={generating}>
-              {generating ? <ActivityIndicator color={selectedTheme.bgPrimary} /> : <Text style={s.primaryText}>generate set</Text>}
+
+          <View style={s.modeTabRow}>
+            <HapticTouchable style={[s.modeTab, generateMode === 'topic' && s.modeTabActive]} onPress={() => setGenerateMode('topic')} haptic="selection">
+              <Text style={[s.modeTabText, generateMode === 'topic' && s.modeTabTextActive]}>topic</Text>
             </HapticTouchable>
+            <HapticTouchable style={[s.modeTab, generateMode === 'pdf' && s.modeTabActive]} onPress={() => setGenerateMode('pdf')} haptic="selection">
+              <Text style={[s.modeTabText, generateMode === 'pdf' && s.modeTabTextActive]}>from PDF</Text>
+            </HapticTouchable>
+            <HapticTouchable style={[s.modeTab, generateMode === 'paste' && s.modeTabActive]} onPress={() => setGenerateMode('paste')} haptic="selection">
+              <Text style={[s.modeTabText, generateMode === 'paste' && s.modeTabTextActive]}>paste text</Text>
+            </HapticTouchable>
+          </View>
+
+          {generateMode === 'topic' ? (
+            <ScrollView contentContainerStyle={s.modalBody} keyboardShouldPersistTaps="handled">
+              <Text style={s.label}>topic</Text>
+              <TextInput value={topic} onChangeText={setTopic} placeholder="calculus, biology, react hooks..." placeholderTextColor={selectedTheme.textSecondary} style={s.input} autoFocus />
+              <Text style={s.label}>difficulty</Text>
+              <View style={s.choiceRow}>
+                {['adaptive', 'mixed', 'easy', 'medium', 'hard'].map((item) => (
+                  <HapticTouchable key={item} style={[s.choice, difficulty === item && s.choiceActive]} onPress={() => setDifficulty(item)} haptic="selection">
+                    <Text style={[s.choiceText, difficulty === item && s.choiceTextActive]}>{item}</Text>
+                  </HapticTouchable>
+                ))}
+              </View>
+              <Text style={s.label}>question count</Text>
+              <TextInput value={count} onChangeText={setCount} keyboardType="number-pad" placeholder="10" placeholderTextColor={selectedTheme.textSecondary} style={s.input} />
+              <HapticTouchable style={s.modalSubmit} onPress={generateSet} disabled={generating}>
+                {generating ? <ActivityIndicator color={selectedTheme.bgPrimary} /> : <Text style={s.primaryText}>generate set</Text>}
+              </HapticTouchable>
+            </ScrollView>
+          ) : generateMode === 'pdf' ? (
+            <ScrollView contentContainerStyle={s.modalBody} keyboardShouldPersistTaps="handled">
+              <Text style={s.label}>PDF sources</Text>
+              <HapticTouchable style={s.uploadBtn} onPress={pickAndUploadPdf} disabled={uploadingPdf} haptic="medium">
+                {uploadingPdf ? <ActivityIndicator color={ink} size="small" /> : (
+                  <>
+                    <Ionicons name="cloud-upload-outline" size={16} color={ink} />
+                    <Text style={s.uploadBtnText}>Choose PDF</Text>
+                  </>
+                )}
+              </HapticTouchable>
+
+              {loadingDocuments ? (
+                <View style={s.docLoading}><PulseCubes color={selectedTheme.accent} size={11} /></View>
+              ) : documents.length === 0 ? (
+                <Text style={s.docEmptyText}>No PDFs yet — upload one to generate questions from it.</Text>
+              ) : (
+                <View style={s.docGrid}>
+                  {documents.map((doc) => {
+                    const isSelected = selectedDocIds.includes(doc.id);
+                    const topics = doc.analysis?.main_topics?.slice(0, 2) ?? [];
+                    return (
+                      <HapticTouchable
+                        key={doc.id}
+                        style={[s.docCard, isSelected && s.docCardSelected]}
+                        onPress={() => toggleDocSelection(doc.id)}
+                        haptic="selection"
+                        activeOpacity={0.85}
+                      >
+                        <View style={s.docCardTop}>
+                          <View style={[s.docCheck, isSelected && s.docCheckActive]}>
+                            {isSelected ? <Ionicons name="checkmark" size={11} color={ink} /> : null}
+                          </View>
+                          <HapticTouchable style={s.docDeleteBtn} onPress={() => removeDocument(doc)} haptic="warning">
+                            <Ionicons name="trash-outline" size={12} color={selectedTheme.textSecondary} />
+                          </HapticTouchable>
+                        </View>
+                        <Text style={s.docTitle} numberOfLines={2}>{doc.filename}</Text>
+                        <Text style={s.docMeta}>{formatDocumentType(doc.document_type)}</Text>
+                        {topics.length > 0 ? (
+                          <View style={s.docTopicsRow}>
+                            {topics.map((t) => <Text key={t} style={s.docTopicTag} numberOfLines={1}>{t}</Text>)}
+                          </View>
+                        ) : null}
+                      </HapticTouchable>
+                    );
+                  })}
+                </View>
+              )}
+
+              {selectedDocIds.length >= 2 ? (
+                <HapticTouchable style={[s.choice, showSmartOptions && s.choiceActive]} onPress={() => setShowSmartOptions((v) => !v)} haptic="selection">
+                  <Text style={[s.choiceText, showSmartOptions && s.choiceTextActive]}>Smart mode</Text>
+                </HapticTouchable>
+              ) : null}
+
+              {showSmartOptions && selectedDocIds.length >= 2 ? (
+                <View style={s.selectedSourcesList}>
+                  {documents.filter((d) => selectedDocIds.includes(d.id)).map((doc) => (
+                    <View key={doc.id} style={s.selectedSourceItem}>
+                      <Ionicons name="document-text-outline" size={13} color={selectedTheme.textSecondary} />
+                      <Text style={s.selectedSourceName} numberOfLines={1}>{doc.filename}</Text>
+                      <HapticTouchable
+                        style={[s.refToggle, referenceDocId === doc.id && s.refToggleActive]}
+                        onPress={() => toggleReferenceDoc(doc.id)}
+                        haptic="selection"
+                      >
+                        <Text style={[s.refToggleText, referenceDocId === doc.id && s.refToggleTextActive]}>
+                          {referenceDocId === doc.id ? 'Reference' : 'Set reference'}
+                        </Text>
+                      </HapticTouchable>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+
+              {selectedDocIds.length > 0 ? (
+                <>
+                  <Text style={s.label}>custom instructions (optional)</Text>
+                  <TextInput
+                    value={pdfCustomPrompt}
+                    onChangeText={setPdfCustomPrompt}
+                    placeholder="e.g. focus on chapters 3-5, or match the sample question style..."
+                    placeholderTextColor={selectedTheme.textSecondary}
+                    style={s.textarea}
+                    multiline
+                  />
+                  <View style={s.choiceRow}>
+                    {QUICK_PROMPTS.map((qp) => (
+                      <HapticTouchable key={qp.label} style={s.choice} onPress={() => setPdfCustomPrompt(qp.value)} haptic="selection">
+                        <Text style={s.choiceText}>{qp.label}</Text>
+                      </HapticTouchable>
+                    ))}
+                  </View>
+
+                  <Text style={s.label}>question count</Text>
+                  <TextInput value={pdfQuestionCount} onChangeText={setPdfQuestionCount} keyboardType="number-pad" placeholder="10" placeholderTextColor={selectedTheme.textSecondary} style={s.input} />
+
+                  <Text style={s.label}>difficulty mix</Text>
+                  {(['easy', 'medium', 'hard'] as const).map((level) => (
+                    <View key={level} style={s.difficultyRow}>
+                      <Text style={s.difficultyLabel}>{level} · {pdfDifficultyCounts[level]} ({pdfDifficultyMix[level]}%)</Text>
+                      <View style={s.stepperRow}>
+                        <HapticTouchable style={s.stepperBtn} onPress={() => adjustDifficulty(level, -5)} haptic="selection">
+                          <Ionicons name="remove" size={14} color={selectedTheme.textPrimary} />
+                        </HapticTouchable>
+                        <HapticTouchable style={s.stepperBtn} onPress={() => adjustDifficulty(level, 5)} haptic="selection">
+                          <Ionicons name="add" size={14} color={selectedTheme.textPrimary} />
+                        </HapticTouchable>
+                      </View>
+                    </View>
+                  ))}
+
+                  <Text style={s.label}>question types</Text>
+                  <View style={s.choiceRow}>
+                    {QUESTION_TYPE_OPTIONS.map((type) => (
+                      <HapticTouchable key={type} style={[s.choice, pdfQuestionTypes.includes(type) && s.choiceActive]} onPress={() => toggleQuestionType(type)} haptic="selection">
+                        <Text style={[s.choiceText, pdfQuestionTypes.includes(type) && s.choiceTextActive]}>{formatQuestionType(type)}</Text>
+                      </HapticTouchable>
+                    ))}
+                  </View>
+
+                  <HapticTouchable style={s.modalSubmit} onPress={generateFromPdfSources} disabled={pdfGenerating}>
+                    {pdfGenerating ? <ActivityIndicator color={selectedTheme.bgPrimary} /> : <Text style={s.primaryText}>generate set</Text>}
+                  </HapticTouchable>
+
+                  <View style={s.secondaryActionRow}>
+                    <HapticTouchable style={s.secondaryActionBtn} onPress={previewFromPdfSources} disabled={pdfPreviewing} haptic="selection">
+                      {pdfPreviewing ? <ActivityIndicator color={selectedTheme.accentHover} size="small" /> : <Text style={s.secondaryActionText}>Preview & refine</Text>}
+                    </HapticTouchable>
+                    <HapticTouchable style={s.secondaryActionBtn} onPress={generateAdaptiveFromPdfSources} disabled={pdfAdaptiveLoading} haptic="selection">
+                      {pdfAdaptiveLoading ? <ActivityIndicator color={selectedTheme.accentHover} size="small" /> : <Text style={s.secondaryActionText}>Adaptive</Text>}
+                    </HapticTouchable>
+                    <HapticTouchable style={s.secondaryActionBtn} onPress={generateRelatedFromPdfSources} disabled={pdfRelatedLoading} haptic="selection">
+                      {pdfRelatedLoading ? <ActivityIndicator color={selectedTheme.accentHover} size="small" /> : <Text style={s.secondaryActionText}>Related</Text>}
+                    </HapticTouchable>
+                  </View>
+                </>
+              ) : null}
+            </ScrollView>
+          ) : (
+            <ScrollView contentContainerStyle={s.modalBody} keyboardShouldPersistTaps="handled">
+              <Text style={s.label}>question set title</Text>
+              <TextInput value={customTitle} onChangeText={setCustomTitle} placeholder="e.g. Physics Chapter 5 Review" placeholderTextColor={selectedTheme.textSecondary} style={s.input} />
+
+              <Text style={s.label}>content</Text>
+              <TextInput
+                value={customContent}
+                onChangeText={setCustomContent}
+                placeholder="paste your notes, an article, or any study material — the AI will turn it into practice questions..."
+                placeholderTextColor={selectedTheme.textSecondary}
+                style={s.textareaLarge}
+                multiline
+                autoFocus
+              />
+              <Text style={s.contentMeta}>
+                {customContent.trim() ? customContent.trim().split(/\s+/).length : 0} words · {customContent.length} characters
+              </Text>
+
+              <Text style={s.label}>custom instructions (optional)</Text>
+              <TextInput
+                value={pdfCustomPrompt}
+                onChangeText={setPdfCustomPrompt}
+                placeholder="e.g. ask scenario-based questions, keep explanations short..."
+                placeholderTextColor={selectedTheme.textSecondary}
+                style={s.textarea}
+                multiline
+              />
+              <View style={s.choiceRow}>
+                {QUICK_PROMPTS.map((qp) => (
+                  <HapticTouchable key={qp.label} style={s.choice} onPress={() => setPdfCustomPrompt(qp.value)} haptic="selection">
+                    <Text style={s.choiceText}>{qp.label}</Text>
+                  </HapticTouchable>
+                ))}
+              </View>
+
+              <Text style={s.label}>question count</Text>
+              <TextInput value={pdfQuestionCount} onChangeText={setPdfQuestionCount} keyboardType="number-pad" placeholder="10" placeholderTextColor={selectedTheme.textSecondary} style={s.input} />
+
+              <Text style={s.label}>difficulty mix</Text>
+              {(['easy', 'medium', 'hard'] as const).map((level) => (
+                <View key={level} style={s.difficultyRow}>
+                  <Text style={s.difficultyLabel}>{level} · {pdfDifficultyCounts[level]} ({pdfDifficultyMix[level]}%)</Text>
+                  <View style={s.stepperRow}>
+                    <HapticTouchable style={s.stepperBtn} onPress={() => adjustDifficulty(level, -5)} haptic="selection">
+                      <Ionicons name="remove" size={14} color={selectedTheme.textPrimary} />
+                    </HapticTouchable>
+                    <HapticTouchable style={s.stepperBtn} onPress={() => adjustDifficulty(level, 5)} haptic="selection">
+                      <Ionicons name="add" size={14} color={selectedTheme.textPrimary} />
+                    </HapticTouchable>
+                  </View>
+                </View>
+              ))}
+
+              <Text style={s.label}>question types</Text>
+              <View style={s.choiceRow}>
+                {QUESTION_TYPE_OPTIONS.map((type) => (
+                  <HapticTouchable key={type} style={[s.choice, pdfQuestionTypes.includes(type) && s.choiceActive]} onPress={() => toggleQuestionType(type)} haptic="selection">
+                    <Text style={[s.choiceText, pdfQuestionTypes.includes(type) && s.choiceTextActive]}>{formatQuestionType(type)}</Text>
+                  </HapticTouchable>
+                ))}
+              </View>
+
+              <HapticTouchable style={s.modalSubmit} onPress={generateFromPastedContent} disabled={pasteGenerating}>
+                {pasteGenerating ? <ActivityIndicator color={selectedTheme.bgPrimary} /> : <Text style={s.primaryText}>generate set</Text>}
+              </HapticTouchable>
+            </ScrollView>
+          )}
+        </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal visible={showPreview} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowPreview(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalRoot}>
+          <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
+          <View style={[s.modalHeader, { paddingTop: insets.top + 12 }]}>
+            <View>
+              <Text style={s.modalTitle}>preview questions</Text>
+              <Text style={s.subtitle}>review, regenerate, or remove before saving</Text>
+            </View>
+            <HapticTouchable onPress={() => setShowPreview(false)}><Ionicons name="close" size={22} color={selectedTheme.accent} /></HapticTouchable>
+          </View>
+
+          {previewStats ? (
+            <View style={s.statsRow}>
+              <View style={s.statChip}><Text style={s.statChipText}>{previewStats.total} questions</Text></View>
+              {typeof previewStats.average_quality_score === 'number' ? (
+                <View style={s.statChip}><Ionicons name="star" size={11} color={selectedTheme.accentHover} /><Text style={s.statChipText}>{previewStats.average_quality_score}/10</Text></View>
+              ) : null}
+              {previewStats.potential_duplicates ? (
+                <View style={[s.statChip, s.statChipWarning]}><Ionicons name="warning-outline" size={11} color={selectedTheme.warning} /><Text style={s.statChipText}>{previewStats.potential_duplicates} similar</Text></View>
+              ) : null}
+            </View>
+          ) : null}
+
+          <ScrollView contentContainerStyle={s.previewBody} keyboardShouldPersistTaps="handled">
+            {previewQuestions.map((q, idx) => (
+              <View key={idx} style={[s.previewCard, q.is_potential_duplicate && s.previewCardWarning]}>
+                <View style={s.questionMetaRow}>
+                  <Text style={s.pill}>Q{idx + 1}</Text>
+                  <Text style={s.pill}>{q.difficulty || 'medium'}</Text>
+                  {typeof q.quality_score === 'number' ? <Text style={s.pill}>★ {q.quality_score.toFixed(1)}</Text> : null}
+                  {q.is_potential_duplicate ? <Text style={[s.pill, s.pillWarning]}>similar exists</Text> : null}
+                </View>
+                <MathText style={s.previewQuestionText}>{q.question_text}</MathText>
+                {q.options && q.options.length > 0 ? (
+                  <View style={s.options}>
+                    {q.options.map((opt, oidx) => (
+                      <View key={oidx} style={[s.previewOption, opt === q.correct_answer && s.previewOptionCorrect]}>
+                        <MathText style={s.optionText}>{`${String.fromCharCode(65 + oidx)}. ${opt}`}</MathText>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={s.explainText}>answer: {q.correct_answer}</Text>
+                )}
+                {q.explanation ? <MathText style={s.explainText}>{q.explanation}</MathText> : null}
+
+                <View style={s.regenRow}>
+                  <TextInput
+                    value={regenIndex === idx ? regenFeedback : ''}
+                    onChangeText={(value) => { setRegenIndex(idx); setRegenFeedback(value); }}
+                    onFocus={() => setRegenIndex(idx)}
+                    placeholder="feedback for regeneration..."
+                    placeholderTextColor={selectedTheme.textSecondary}
+                    style={s.regenInput}
+                  />
+                  <HapticTouchable style={s.regenBtn} onPress={() => regeneratePreviewQuestion(idx)} disabled={regenBusyIndex === idx} haptic="selection">
+                    {regenBusyIndex === idx ? <ActivityIndicator color={selectedTheme.accentHover} size="small" /> : <Ionicons name="refresh" size={15} color={selectedTheme.accentHover} />}
+                  </HapticTouchable>
+                  <HapticTouchable style={s.regenBtn} onPress={() => removePreviewQuestion(idx)} haptic="warning">
+                    <Ionicons name="trash-outline" size={15} color={selectedTheme.danger} />
+                  </HapticTouchable>
+                </View>
+              </View>
+            ))}
           </ScrollView>
+
+          <View style={s.previewFooter}>
+            <HapticTouchable style={[s.secondaryBtn, { flex: 1 }]} onPress={() => setShowPreview(false)} haptic="selection">
+              <Text style={s.secondaryText}>cancel</Text>
+            </HapticTouchable>
+            <HapticTouchable style={[s.primaryBtn, { flex: 2 }]} onPress={acceptPreviewQuestions} disabled={previewSaving || previewQuestions.length === 0}>
+              {previewSaving ? <ActivityIndicator color={selectedTheme.bgPrimary} /> : <Text style={s.primaryText}>save {previewQuestions.length} questions</Text>}
+            </HapticTouchable>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -479,10 +1203,69 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     label: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 10, letterSpacing: 1.6, textTransform: 'uppercase', marginTop: 4 },
     input: { minHeight: 48, borderRadius: 13, borderWidth: 1, borderColor: border, paddingHorizontal: 14, color: theme.textPrimary, backgroundColor: rgbaFromHex(surface, 0.92), fontFamily: 'Inter_600SemiBold' },
     choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    choice: { borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 13, paddingVertical: 9, backgroundColor: rgbaFromHex(surface, 0.78) },
-    choiceActive: { borderColor: theme.accent, backgroundColor: rgbaFromHex(theme.accent, 0.13) },
-    choiceText: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 12, textTransform: 'uppercase' },
-    choiceTextActive: { color: theme.accentHover },
+    choice: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 9, borderWidth: 1, borderColor: theme.border, backgroundColor: rgbaFromHex(surface, 0.8) },
+    choiceActive: { backgroundColor: theme.accent, borderColor: theme.accentHover },
+    choiceText: { fontFamily: 'Inter_700Bold', color: theme.accentHover, fontSize: 9.5, textTransform: 'uppercase', letterSpacing: 1.6 },
+    choiceTextActive: { color: accentInk },
     modalSubmit: { height: 52, borderRadius: 14, backgroundColor: theme.accentHover, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+
+    modeTabRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, paddingBottom: 14 },
+    modeTab: { flex: 1, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.border, backgroundColor: rgbaFromHex(surface, 0.6) },
+    modeTabActive: { borderColor: theme.accent, backgroundColor: rgbaFromHex(theme.accent, 0.14) },
+    modeTabText: { fontFamily: 'Inter_700Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: theme.textSecondary },
+    modeTabTextActive: { color: theme.accentHover },
+
+    uploadBtn: { minHeight: 46, borderRadius: 13, backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 4 },
+    uploadBtnText: { fontFamily: 'Inter_700Bold', color: accentInk, fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.8 },
+    docLoading: { alignItems: 'center', paddingVertical: 20 },
+    docEmptyText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, textAlign: 'center', paddingVertical: 14 },
+    docGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    docCard: { width: '47%', borderRadius: 14, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.7), padding: 10, gap: 4 },
+    docCardSelected: { borderColor: theme.accent, backgroundColor: rgbaFromHex(theme.accent, 0.1) },
+    docCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    docCheck: { width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' },
+    docCheckActive: { backgroundColor: theme.accent, borderColor: theme.accent },
+    docDeleteBtn: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+    docTitle: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 12, lineHeight: 16 },
+    docMeta: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.6 },
+    docTopicsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2 },
+    docTopicTag: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: theme.accentHover, backgroundColor: rgbaFromHex(theme.accent, 0.13), borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2, maxWidth: 100 },
+
+    selectedSourcesList: { gap: 8, marginTop: 8 },
+    selectedSourceItem: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 8 },
+    selectedSourceName: { flex: 1, fontFamily: 'Inter_600SemiBold', color: theme.textPrimary, fontSize: 11 },
+    refToggle: { borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 9, paddingVertical: 5 },
+    refToggleActive: { borderColor: theme.accent, backgroundColor: rgbaFromHex(theme.accent, 0.16) },
+    refToggleText: { fontFamily: 'Inter_700Bold', fontSize: 9, color: theme.textSecondary, textTransform: 'uppercase' },
+    refToggleTextActive: { color: theme.accentHover },
+
+    textarea: { minHeight: 76, borderRadius: 13, borderWidth: 1, borderColor: border, padding: 14, color: theme.textPrimary, backgroundColor: rgbaFromHex(surface, 0.92), fontFamily: 'Inter_600SemiBold', fontSize: 13, textAlignVertical: 'top' },
+    textareaLarge: { minHeight: 180, borderRadius: 13, borderWidth: 1, borderColor: border, padding: 14, color: theme.textPrimary, backgroundColor: rgbaFromHex(surface, 0.92), fontFamily: 'Inter_600SemiBold', fontSize: 13, textAlignVertical: 'top' },
+    contentMeta: { fontFamily: 'Inter_400Regular', fontSize: 10, color: theme.textSecondary, marginTop: 4, textAlign: 'right' },
+
+    difficultyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
+    difficultyLabel: { fontFamily: 'Inter_600SemiBold', color: theme.textPrimary, fontSize: 12, textTransform: 'capitalize' },
+    stepperRow: { flexDirection: 'row', gap: 8 },
+    stepperBtn: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' },
+
+    secondaryActionRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
+    secondaryActionBtn: { flex: 1, minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: rgbaFromHex(surface, 0.6) },
+    secondaryActionText: { fontFamily: 'Inter_700Bold', color: theme.accentHover, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.4 },
+
+    statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 20, paddingBottom: 10 },
+    statChip: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 5 },
+    statChipWarning: { borderColor: theme.warning },
+    statChipText: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 10 },
+    previewBody: { paddingHorizontal: 20, paddingBottom: 24, gap: 14 },
+    previewCard: { borderWidth: 1, borderColor: border, borderRadius: 20, backgroundColor: rgbaFromHex(surface, 0.72), padding: 16, gap: 10 },
+    previewCardWarning: { borderColor: theme.warning },
+    pillWarning: { borderColor: theme.warning, color: theme.warning },
+    previewQuestionText: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 15, lineHeight: 21 },
+    previewOption: { borderRadius: 12, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 9 },
+    previewOptionCorrect: { borderColor: theme.success, backgroundColor: rgbaFromHex(theme.success, 0.12) },
+    regenRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+    regenInput: { flex: 1, height: 38, borderRadius: 10, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, color: theme.textPrimary, fontFamily: 'Inter_600SemiBold', fontSize: 12 },
+    regenBtn: { width: 34, height: 34, borderRadius: 10, borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' },
+    previewFooter: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingVertical: 14, borderTopWidth: 1, borderTopColor: theme.border },
   });
 }
