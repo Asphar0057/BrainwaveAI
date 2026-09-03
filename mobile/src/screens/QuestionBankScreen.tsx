@@ -701,6 +701,288 @@ export default function QuestionBankScreen({ user, onBack }: Props) {
     );
   }
 
+  if (showGenerate) {
+    return (
+      <SafeAreaView style={s.root} edges={['top']}>
+        <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
+        <GeoBackground />
+        <AmbientBubbles theme={selectedTheme} variant="flashcards" opacity={0.72} />
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={s.header}>
+            <HapticTouchable onPress={() => setShowGenerate(false)} style={{ marginRight: 12 }} haptic="selection">
+              <Ionicons name="chevron-back" size={20} color={selectedTheme.accentHover} />
+            </HapticTouchable>
+            <Text style={[s.genTitle, { flex: 1 }]}>generate questions</Text>
+          </View>
+
+          <View style={s.modeTabRow}>
+            <HapticTouchable style={[s.modeTab, generateMode === 'topic' && s.modeTabActive]} onPress={() => setGenerateMode('topic')} haptic="selection">
+              <Text style={[s.modeTabText, generateMode === 'topic' && s.modeTabTextActive]}>topic</Text>
+            </HapticTouchable>
+            <HapticTouchable style={[s.modeTab, generateMode === 'pdf' && s.modeTabActive]} onPress={() => setGenerateMode('pdf')} haptic="selection">
+              <Text style={[s.modeTabText, generateMode === 'pdf' && s.modeTabTextActive]}>from PDF</Text>
+            </HapticTouchable>
+            <HapticTouchable style={[s.modeTab, generateMode === 'paste' && s.modeTabActive]} onPress={() => setGenerateMode('paste')} haptic="selection">
+              <Text style={[s.modeTabText, generateMode === 'paste' && s.modeTabTextActive]}>paste text</Text>
+            </HapticTouchable>
+          </View>
+
+          {generateMode === 'topic' ? (
+            <ScrollView contentContainerStyle={s.genContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <View style={s.formGroup}>
+                <Text style={s.fieldLabel}>topic</Text>
+                <TextInput value={topic} onChangeText={setTopic} placeholder="calculus, biology, react hooks..." placeholderTextColor={selectedTheme.textSecondary} style={s.input} autoFocus />
+                <Text style={s.fieldLabel}>difficulty</Text>
+                <View style={s.choiceRow}>
+                  {['adaptive', 'mixed', 'easy', 'medium', 'hard'].map((item) => (
+                    <HapticTouchable key={item} style={[s.choice, difficulty === item && s.choiceActive]} onPress={() => setDifficulty(item)} haptic="selection">
+                      <Text style={[s.choiceText, difficulty === item && s.choiceTextActive]}>{item}</Text>
+                    </HapticTouchable>
+                  ))}
+                </View>
+                <Text style={s.fieldLabel}>question count</Text>
+                <TextInput value={count} onChangeText={setCount} keyboardType="number-pad" placeholder="10" placeholderTextColor={selectedTheme.textSecondary} style={s.input} />
+              </View>
+              <HapticTouchable style={[s.genSubmit, generating && s.genSubmitDisabled]} onPress={generateSet} disabled={generating} activeOpacity={0.88} haptic="medium">
+                {generating ? <ActivityIndicator color={ink} size="small" /> : (
+                  <View style={s.genSubmitRow}>
+                    <Text style={s.genSubmitText}>generate set</Text>
+                    <Ionicons name="chevron-forward" size={14} color={ink} />
+                  </View>
+                )}
+              </HapticTouchable>
+            </ScrollView>
+          ) : generateMode === 'pdf' ? (
+            <ScrollView contentContainerStyle={s.genContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <View style={s.formGroup}>
+                <Text style={s.fieldLabel}>PDF sources</Text>
+                <HapticTouchable style={s.uploadBtn} onPress={pickAndUploadPdf} disabled={uploadingPdf} haptic="medium">
+                  {uploadingPdf ? <ActivityIndicator color={ink} size="small" /> : (
+                    <>
+                      <Ionicons name="cloud-upload-outline" size={16} color={ink} />
+                      <Text style={s.uploadBtnText}>Choose PDF</Text>
+                    </>
+                  )}
+                </HapticTouchable>
+
+                {loadingDocuments ? (
+                  <View style={s.docLoading}><PulseCubes color={selectedTheme.accent} size={11} /></View>
+                ) : documents.length === 0 ? (
+                  <Text style={s.docEmptyText}>No PDFs yet — upload one to generate questions from it.</Text>
+                ) : (
+                  <View style={s.docGrid}>
+                    {documents.map((doc) => {
+                      const isSelected = selectedDocIds.includes(doc.id);
+                      const topics = doc.analysis?.main_topics?.slice(0, 2) ?? [];
+                      return (
+                        <HapticTouchable
+                          key={doc.id}
+                          style={[s.docCard, isSelected && s.docCardSelected]}
+                          onPress={() => toggleDocSelection(doc.id)}
+                          haptic="selection"
+                          activeOpacity={0.85}
+                        >
+                          <View style={s.docCardTop}>
+                            <View style={[s.docCheck, isSelected && s.docCheckActive]}>
+                              {isSelected ? <Ionicons name="checkmark" size={11} color={ink} /> : null}
+                            </View>
+                            <HapticTouchable style={s.docDeleteBtn} onPress={() => removeDocument(doc)} haptic="warning">
+                              <Ionicons name="trash-outline" size={12} color={selectedTheme.textSecondary} />
+                            </HapticTouchable>
+                          </View>
+                          <Text style={s.docTitle} numberOfLines={2}>{doc.filename}</Text>
+                          <Text style={s.docMeta}>{formatDocumentType(doc.document_type)}</Text>
+                          {topics.length > 0 ? (
+                            <View style={s.docTopicsRow}>
+                              {topics.map((t) => <Text key={t} style={s.docTopicTag} numberOfLines={1}>{t}</Text>)}
+                            </View>
+                          ) : null}
+                        </HapticTouchable>
+                      );
+                    })}
+                  </View>
+                )}
+
+                {selectedDocIds.length >= 2 ? (
+                  <HapticTouchable style={[s.choice, showSmartOptions && s.choiceActive]} onPress={() => setShowSmartOptions((v) => !v)} haptic="selection">
+                    <Text style={[s.choiceText, showSmartOptions && s.choiceTextActive]}>Smart mode</Text>
+                  </HapticTouchable>
+                ) : null}
+
+                {showSmartOptions && selectedDocIds.length >= 2 ? (
+                  <View style={s.selectedSourcesList}>
+                    {documents.filter((d) => selectedDocIds.includes(d.id)).map((doc) => (
+                      <View key={doc.id} style={s.selectedSourceItem}>
+                        <Ionicons name="document-text-outline" size={13} color={selectedTheme.textSecondary} />
+                        <Text style={s.selectedSourceName} numberOfLines={1}>{doc.filename}</Text>
+                        <HapticTouchable
+                          style={[s.refToggle, referenceDocId === doc.id && s.refToggleActive]}
+                          onPress={() => toggleReferenceDoc(doc.id)}
+                          haptic="selection"
+                        >
+                          <Text style={[s.refToggleText, referenceDocId === doc.id && s.refToggleTextActive]}>
+                            {referenceDocId === doc.id ? 'Reference' : 'Set reference'}
+                          </Text>
+                        </HapticTouchable>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+
+                {selectedDocIds.length > 0 ? (
+                  <>
+                    <Text style={s.fieldLabel}>custom instructions (optional)</Text>
+                    <TextInput
+                      value={pdfCustomPrompt}
+                      onChangeText={setPdfCustomPrompt}
+                      placeholder="e.g. focus on chapters 3-5, or match the sample question style..."
+                      placeholderTextColor={selectedTheme.textSecondary}
+                      style={s.textarea}
+                      multiline
+                    />
+                    <View style={s.choiceRow}>
+                      {QUICK_PROMPTS.map((qp) => (
+                        <HapticTouchable key={qp.label} style={s.choice} onPress={() => setPdfCustomPrompt(qp.value)} haptic="selection">
+                          <Text style={s.choiceText}>{qp.label}</Text>
+                        </HapticTouchable>
+                      ))}
+                    </View>
+
+                    <Text style={s.fieldLabel}>question count</Text>
+                    <TextInput value={pdfQuestionCount} onChangeText={setPdfQuestionCount} keyboardType="number-pad" placeholder="10" placeholderTextColor={selectedTheme.textSecondary} style={s.input} />
+
+                    <Text style={s.fieldLabel}>difficulty mix</Text>
+                    {(['easy', 'medium', 'hard'] as const).map((level) => (
+                      <View key={level} style={s.difficultyRow}>
+                        <Text style={s.difficultyLabel}>{level} · {pdfDifficultyCounts[level]} ({pdfDifficultyMix[level]}%)</Text>
+                        <View style={s.stepperRow}>
+                          <HapticTouchable style={s.stepperBtn} onPress={() => adjustDifficulty(level, -5)} haptic="selection">
+                            <Ionicons name="remove" size={14} color={selectedTheme.textPrimary} />
+                          </HapticTouchable>
+                          <HapticTouchable style={s.stepperBtn} onPress={() => adjustDifficulty(level, 5)} haptic="selection">
+                            <Ionicons name="add" size={14} color={selectedTheme.textPrimary} />
+                          </HapticTouchable>
+                        </View>
+                      </View>
+                    ))}
+
+                    <Text style={s.fieldLabel}>question types</Text>
+                    <View style={s.choiceRow}>
+                      {QUESTION_TYPE_OPTIONS.map((type) => (
+                        <HapticTouchable key={type} style={[s.choice, pdfQuestionTypes.includes(type) && s.choiceActive]} onPress={() => toggleQuestionType(type)} haptic="selection">
+                          <Text style={[s.choiceText, pdfQuestionTypes.includes(type) && s.choiceTextActive]}>{formatQuestionType(type)}</Text>
+                        </HapticTouchable>
+                      ))}
+                    </View>
+                  </>
+                ) : null}
+              </View>
+
+              {selectedDocIds.length > 0 ? (
+                <>
+                  <HapticTouchable style={[s.genSubmit, pdfGenerating && s.genSubmitDisabled]} onPress={generateFromPdfSources} disabled={pdfGenerating} activeOpacity={0.88} haptic="medium">
+                    {pdfGenerating ? <ActivityIndicator color={ink} size="small" /> : (
+                      <View style={s.genSubmitRow}>
+                        <Text style={s.genSubmitText}>generate set</Text>
+                        <Ionicons name="chevron-forward" size={14} color={ink} />
+                      </View>
+                    )}
+                  </HapticTouchable>
+
+                  <View style={s.secondaryActionRow}>
+                    <HapticTouchable style={s.secondaryActionBtn} onPress={previewFromPdfSources} disabled={pdfPreviewing} haptic="selection">
+                      {pdfPreviewing ? <ActivityIndicator color={selectedTheme.accentHover} size="small" /> : <Text style={s.secondaryActionText}>Preview & refine</Text>}
+                    </HapticTouchable>
+                    <HapticTouchable style={s.secondaryActionBtn} onPress={generateAdaptiveFromPdfSources} disabled={pdfAdaptiveLoading} haptic="selection">
+                      {pdfAdaptiveLoading ? <ActivityIndicator color={selectedTheme.accentHover} size="small" /> : <Text style={s.secondaryActionText}>Adaptive</Text>}
+                    </HapticTouchable>
+                    <HapticTouchable style={s.secondaryActionBtn} onPress={generateRelatedFromPdfSources} disabled={pdfRelatedLoading} haptic="selection">
+                      {pdfRelatedLoading ? <ActivityIndicator color={selectedTheme.accentHover} size="small" /> : <Text style={s.secondaryActionText}>Related</Text>}
+                    </HapticTouchable>
+                  </View>
+                </>
+              ) : null}
+            </ScrollView>
+          ) : (
+            <ScrollView contentContainerStyle={s.genContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <View style={s.formGroup}>
+                <Text style={s.fieldLabel}>question set title</Text>
+                <TextInput value={customTitle} onChangeText={setCustomTitle} placeholder="e.g. Physics Chapter 5 Review" placeholderTextColor={selectedTheme.textSecondary} style={s.input} />
+
+                <Text style={s.fieldLabel}>content</Text>
+                <TextInput
+                  value={customContent}
+                  onChangeText={setCustomContent}
+                  placeholder="paste your notes, an article, or any study material — the AI will turn it into practice questions..."
+                  placeholderTextColor={selectedTheme.textSecondary}
+                  style={s.textareaLarge}
+                  multiline
+                  autoFocus
+                />
+                <Text style={s.contentMeta}>
+                  {customContent.trim() ? customContent.trim().split(/\s+/).length : 0} words · {customContent.length} characters
+                </Text>
+
+                <Text style={s.fieldLabel}>custom instructions (optional)</Text>
+                <TextInput
+                  value={pdfCustomPrompt}
+                  onChangeText={setPdfCustomPrompt}
+                  placeholder="e.g. ask scenario-based questions, keep explanations short..."
+                  placeholderTextColor={selectedTheme.textSecondary}
+                  style={s.textarea}
+                  multiline
+                />
+                <View style={s.choiceRow}>
+                  {QUICK_PROMPTS.map((qp) => (
+                    <HapticTouchable key={qp.label} style={s.choice} onPress={() => setPdfCustomPrompt(qp.value)} haptic="selection">
+                      <Text style={s.choiceText}>{qp.label}</Text>
+                    </HapticTouchable>
+                  ))}
+                </View>
+
+                <Text style={s.fieldLabel}>question count</Text>
+                <TextInput value={pdfQuestionCount} onChangeText={setPdfQuestionCount} keyboardType="number-pad" placeholder="10" placeholderTextColor={selectedTheme.textSecondary} style={s.input} />
+
+                <Text style={s.fieldLabel}>difficulty mix</Text>
+                {(['easy', 'medium', 'hard'] as const).map((level) => (
+                  <View key={level} style={s.difficultyRow}>
+                    <Text style={s.difficultyLabel}>{level} · {pdfDifficultyCounts[level]} ({pdfDifficultyMix[level]}%)</Text>
+                    <View style={s.stepperRow}>
+                      <HapticTouchable style={s.stepperBtn} onPress={() => adjustDifficulty(level, -5)} haptic="selection">
+                        <Ionicons name="remove" size={14} color={selectedTheme.textPrimary} />
+                      </HapticTouchable>
+                      <HapticTouchable style={s.stepperBtn} onPress={() => adjustDifficulty(level, 5)} haptic="selection">
+                        <Ionicons name="add" size={14} color={selectedTheme.textPrimary} />
+                      </HapticTouchable>
+                    </View>
+                  </View>
+                ))}
+
+                <Text style={s.fieldLabel}>question types</Text>
+                <View style={s.choiceRow}>
+                  {QUESTION_TYPE_OPTIONS.map((type) => (
+                    <HapticTouchable key={type} style={[s.choice, pdfQuestionTypes.includes(type) && s.choiceActive]} onPress={() => toggleQuestionType(type)} haptic="selection">
+                      <Text style={[s.choiceText, pdfQuestionTypes.includes(type) && s.choiceTextActive]}>{formatQuestionType(type)}</Text>
+                    </HapticTouchable>
+                  ))}
+                </View>
+              </View>
+
+              <HapticTouchable style={[s.genSubmit, pasteGenerating && s.genSubmitDisabled]} onPress={generateFromPastedContent} disabled={pasteGenerating} activeOpacity={0.88} haptic="medium">
+                {pasteGenerating ? <ActivityIndicator color={ink} size="small" /> : (
+                  <View style={s.genSubmitRow}>
+                    <Text style={s.genSubmitText}>generate set</Text>
+                    <Ionicons name="chevron-forward" size={14} color={ink} />
+                  </View>
+                )}
+              </HapticTouchable>
+            </ScrollView>
+          )}
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={s.root} edges={['top']}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
@@ -757,255 +1039,6 @@ export default function QuestionBankScreen({ user, onBack }: Props) {
           </View>
         )}
       </ScrollView>
-
-      <Modal visible={showGenerate} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowGenerate(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalRoot}>
-          <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
-          <View style={[s.modalHeader, { paddingTop: insets.top + 12 }]}>
-            <Text style={s.modalTitle}>generate questions</Text>
-            <HapticTouchable onPress={() => setShowGenerate(false)}><Ionicons name="close" size={22} color={selectedTheme.accent} /></HapticTouchable>
-          </View>
-
-          <View style={s.modeTabRow}>
-            <HapticTouchable style={[s.modeTab, generateMode === 'topic' && s.modeTabActive]} onPress={() => setGenerateMode('topic')} haptic="selection">
-              <Text style={[s.modeTabText, generateMode === 'topic' && s.modeTabTextActive]}>topic</Text>
-            </HapticTouchable>
-            <HapticTouchable style={[s.modeTab, generateMode === 'pdf' && s.modeTabActive]} onPress={() => setGenerateMode('pdf')} haptic="selection">
-              <Text style={[s.modeTabText, generateMode === 'pdf' && s.modeTabTextActive]}>from PDF</Text>
-            </HapticTouchable>
-            <HapticTouchable style={[s.modeTab, generateMode === 'paste' && s.modeTabActive]} onPress={() => setGenerateMode('paste')} haptic="selection">
-              <Text style={[s.modeTabText, generateMode === 'paste' && s.modeTabTextActive]}>paste text</Text>
-            </HapticTouchable>
-          </View>
-
-          {generateMode === 'topic' ? (
-            <ScrollView contentContainerStyle={s.modalBody} keyboardShouldPersistTaps="handled">
-              <Text style={s.label}>topic</Text>
-              <TextInput value={topic} onChangeText={setTopic} placeholder="calculus, biology, react hooks..." placeholderTextColor={selectedTheme.textSecondary} style={s.input} autoFocus />
-              <Text style={s.label}>difficulty</Text>
-              <View style={s.choiceRow}>
-                {['adaptive', 'mixed', 'easy', 'medium', 'hard'].map((item) => (
-                  <HapticTouchable key={item} style={[s.choice, difficulty === item && s.choiceActive]} onPress={() => setDifficulty(item)} haptic="selection">
-                    <Text style={[s.choiceText, difficulty === item && s.choiceTextActive]}>{item}</Text>
-                  </HapticTouchable>
-                ))}
-              </View>
-              <Text style={s.label}>question count</Text>
-              <TextInput value={count} onChangeText={setCount} keyboardType="number-pad" placeholder="10" placeholderTextColor={selectedTheme.textSecondary} style={s.input} />
-              <HapticTouchable style={s.modalSubmit} onPress={generateSet} disabled={generating}>
-                {generating ? <ActivityIndicator color={selectedTheme.bgPrimary} /> : <Text style={s.primaryText}>generate set</Text>}
-              </HapticTouchable>
-            </ScrollView>
-          ) : generateMode === 'pdf' ? (
-            <ScrollView contentContainerStyle={s.modalBody} keyboardShouldPersistTaps="handled">
-              <Text style={s.label}>PDF sources</Text>
-              <HapticTouchable style={s.uploadBtn} onPress={pickAndUploadPdf} disabled={uploadingPdf} haptic="medium">
-                {uploadingPdf ? <ActivityIndicator color={ink} size="small" /> : (
-                  <>
-                    <Ionicons name="cloud-upload-outline" size={16} color={ink} />
-                    <Text style={s.uploadBtnText}>Choose PDF</Text>
-                  </>
-                )}
-              </HapticTouchable>
-
-              {loadingDocuments ? (
-                <View style={s.docLoading}><PulseCubes color={selectedTheme.accent} size={11} /></View>
-              ) : documents.length === 0 ? (
-                <Text style={s.docEmptyText}>No PDFs yet — upload one to generate questions from it.</Text>
-              ) : (
-                <View style={s.docGrid}>
-                  {documents.map((doc) => {
-                    const isSelected = selectedDocIds.includes(doc.id);
-                    const topics = doc.analysis?.main_topics?.slice(0, 2) ?? [];
-                    return (
-                      <HapticTouchable
-                        key={doc.id}
-                        style={[s.docCard, isSelected && s.docCardSelected]}
-                        onPress={() => toggleDocSelection(doc.id)}
-                        haptic="selection"
-                        activeOpacity={0.85}
-                      >
-                        <View style={s.docCardTop}>
-                          <View style={[s.docCheck, isSelected && s.docCheckActive]}>
-                            {isSelected ? <Ionicons name="checkmark" size={11} color={ink} /> : null}
-                          </View>
-                          <HapticTouchable style={s.docDeleteBtn} onPress={() => removeDocument(doc)} haptic="warning">
-                            <Ionicons name="trash-outline" size={12} color={selectedTheme.textSecondary} />
-                          </HapticTouchable>
-                        </View>
-                        <Text style={s.docTitle} numberOfLines={2}>{doc.filename}</Text>
-                        <Text style={s.docMeta}>{formatDocumentType(doc.document_type)}</Text>
-                        {topics.length > 0 ? (
-                          <View style={s.docTopicsRow}>
-                            {topics.map((t) => <Text key={t} style={s.docTopicTag} numberOfLines={1}>{t}</Text>)}
-                          </View>
-                        ) : null}
-                      </HapticTouchable>
-                    );
-                  })}
-                </View>
-              )}
-
-              {selectedDocIds.length >= 2 ? (
-                <HapticTouchable style={[s.choice, showSmartOptions && s.choiceActive]} onPress={() => setShowSmartOptions((v) => !v)} haptic="selection">
-                  <Text style={[s.choiceText, showSmartOptions && s.choiceTextActive]}>Smart mode</Text>
-                </HapticTouchable>
-              ) : null}
-
-              {showSmartOptions && selectedDocIds.length >= 2 ? (
-                <View style={s.selectedSourcesList}>
-                  {documents.filter((d) => selectedDocIds.includes(d.id)).map((doc) => (
-                    <View key={doc.id} style={s.selectedSourceItem}>
-                      <Ionicons name="document-text-outline" size={13} color={selectedTheme.textSecondary} />
-                      <Text style={s.selectedSourceName} numberOfLines={1}>{doc.filename}</Text>
-                      <HapticTouchable
-                        style={[s.refToggle, referenceDocId === doc.id && s.refToggleActive]}
-                        onPress={() => toggleReferenceDoc(doc.id)}
-                        haptic="selection"
-                      >
-                        <Text style={[s.refToggleText, referenceDocId === doc.id && s.refToggleTextActive]}>
-                          {referenceDocId === doc.id ? 'Reference' : 'Set reference'}
-                        </Text>
-                      </HapticTouchable>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
-
-              {selectedDocIds.length > 0 ? (
-                <>
-                  <Text style={s.label}>custom instructions (optional)</Text>
-                  <TextInput
-                    value={pdfCustomPrompt}
-                    onChangeText={setPdfCustomPrompt}
-                    placeholder="e.g. focus on chapters 3-5, or match the sample question style..."
-                    placeholderTextColor={selectedTheme.textSecondary}
-                    style={s.textarea}
-                    multiline
-                  />
-                  <View style={s.choiceRow}>
-                    {QUICK_PROMPTS.map((qp) => (
-                      <HapticTouchable key={qp.label} style={s.choice} onPress={() => setPdfCustomPrompt(qp.value)} haptic="selection">
-                        <Text style={s.choiceText}>{qp.label}</Text>
-                      </HapticTouchable>
-                    ))}
-                  </View>
-
-                  <Text style={s.label}>question count</Text>
-                  <TextInput value={pdfQuestionCount} onChangeText={setPdfQuestionCount} keyboardType="number-pad" placeholder="10" placeholderTextColor={selectedTheme.textSecondary} style={s.input} />
-
-                  <Text style={s.label}>difficulty mix</Text>
-                  {(['easy', 'medium', 'hard'] as const).map((level) => (
-                    <View key={level} style={s.difficultyRow}>
-                      <Text style={s.difficultyLabel}>{level} · {pdfDifficultyCounts[level]} ({pdfDifficultyMix[level]}%)</Text>
-                      <View style={s.stepperRow}>
-                        <HapticTouchable style={s.stepperBtn} onPress={() => adjustDifficulty(level, -5)} haptic="selection">
-                          <Ionicons name="remove" size={14} color={selectedTheme.textPrimary} />
-                        </HapticTouchable>
-                        <HapticTouchable style={s.stepperBtn} onPress={() => adjustDifficulty(level, 5)} haptic="selection">
-                          <Ionicons name="add" size={14} color={selectedTheme.textPrimary} />
-                        </HapticTouchable>
-                      </View>
-                    </View>
-                  ))}
-
-                  <Text style={s.label}>question types</Text>
-                  <View style={s.choiceRow}>
-                    {QUESTION_TYPE_OPTIONS.map((type) => (
-                      <HapticTouchable key={type} style={[s.choice, pdfQuestionTypes.includes(type) && s.choiceActive]} onPress={() => toggleQuestionType(type)} haptic="selection">
-                        <Text style={[s.choiceText, pdfQuestionTypes.includes(type) && s.choiceTextActive]}>{formatQuestionType(type)}</Text>
-                      </HapticTouchable>
-                    ))}
-                  </View>
-
-                  <HapticTouchable style={s.modalSubmit} onPress={generateFromPdfSources} disabled={pdfGenerating}>
-                    {pdfGenerating ? <ActivityIndicator color={selectedTheme.bgPrimary} /> : <Text style={s.primaryText}>generate set</Text>}
-                  </HapticTouchable>
-
-                  <View style={s.secondaryActionRow}>
-                    <HapticTouchable style={s.secondaryActionBtn} onPress={previewFromPdfSources} disabled={pdfPreviewing} haptic="selection">
-                      {pdfPreviewing ? <ActivityIndicator color={selectedTheme.accentHover} size="small" /> : <Text style={s.secondaryActionText}>Preview & refine</Text>}
-                    </HapticTouchable>
-                    <HapticTouchable style={s.secondaryActionBtn} onPress={generateAdaptiveFromPdfSources} disabled={pdfAdaptiveLoading} haptic="selection">
-                      {pdfAdaptiveLoading ? <ActivityIndicator color={selectedTheme.accentHover} size="small" /> : <Text style={s.secondaryActionText}>Adaptive</Text>}
-                    </HapticTouchable>
-                    <HapticTouchable style={s.secondaryActionBtn} onPress={generateRelatedFromPdfSources} disabled={pdfRelatedLoading} haptic="selection">
-                      {pdfRelatedLoading ? <ActivityIndicator color={selectedTheme.accentHover} size="small" /> : <Text style={s.secondaryActionText}>Related</Text>}
-                    </HapticTouchable>
-                  </View>
-                </>
-              ) : null}
-            </ScrollView>
-          ) : (
-            <ScrollView contentContainerStyle={s.modalBody} keyboardShouldPersistTaps="handled">
-              <Text style={s.label}>question set title</Text>
-              <TextInput value={customTitle} onChangeText={setCustomTitle} placeholder="e.g. Physics Chapter 5 Review" placeholderTextColor={selectedTheme.textSecondary} style={s.input} />
-
-              <Text style={s.label}>content</Text>
-              <TextInput
-                value={customContent}
-                onChangeText={setCustomContent}
-                placeholder="paste your notes, an article, or any study material — the AI will turn it into practice questions..."
-                placeholderTextColor={selectedTheme.textSecondary}
-                style={s.textareaLarge}
-                multiline
-                autoFocus
-              />
-              <Text style={s.contentMeta}>
-                {customContent.trim() ? customContent.trim().split(/\s+/).length : 0} words · {customContent.length} characters
-              </Text>
-
-              <Text style={s.label}>custom instructions (optional)</Text>
-              <TextInput
-                value={pdfCustomPrompt}
-                onChangeText={setPdfCustomPrompt}
-                placeholder="e.g. ask scenario-based questions, keep explanations short..."
-                placeholderTextColor={selectedTheme.textSecondary}
-                style={s.textarea}
-                multiline
-              />
-              <View style={s.choiceRow}>
-                {QUICK_PROMPTS.map((qp) => (
-                  <HapticTouchable key={qp.label} style={s.choice} onPress={() => setPdfCustomPrompt(qp.value)} haptic="selection">
-                    <Text style={s.choiceText}>{qp.label}</Text>
-                  </HapticTouchable>
-                ))}
-              </View>
-
-              <Text style={s.label}>question count</Text>
-              <TextInput value={pdfQuestionCount} onChangeText={setPdfQuestionCount} keyboardType="number-pad" placeholder="10" placeholderTextColor={selectedTheme.textSecondary} style={s.input} />
-
-              <Text style={s.label}>difficulty mix</Text>
-              {(['easy', 'medium', 'hard'] as const).map((level) => (
-                <View key={level} style={s.difficultyRow}>
-                  <Text style={s.difficultyLabel}>{level} · {pdfDifficultyCounts[level]} ({pdfDifficultyMix[level]}%)</Text>
-                  <View style={s.stepperRow}>
-                    <HapticTouchable style={s.stepperBtn} onPress={() => adjustDifficulty(level, -5)} haptic="selection">
-                      <Ionicons name="remove" size={14} color={selectedTheme.textPrimary} />
-                    </HapticTouchable>
-                    <HapticTouchable style={s.stepperBtn} onPress={() => adjustDifficulty(level, 5)} haptic="selection">
-                      <Ionicons name="add" size={14} color={selectedTheme.textPrimary} />
-                    </HapticTouchable>
-                  </View>
-                </View>
-              ))}
-
-              <Text style={s.label}>question types</Text>
-              <View style={s.choiceRow}>
-                {QUESTION_TYPE_OPTIONS.map((type) => (
-                  <HapticTouchable key={type} style={[s.choice, pdfQuestionTypes.includes(type) && s.choiceActive]} onPress={() => toggleQuestionType(type)} haptic="selection">
-                    <Text style={[s.choiceText, pdfQuestionTypes.includes(type) && s.choiceTextActive]}>{formatQuestionType(type)}</Text>
-                  </HapticTouchable>
-                ))}
-              </View>
-
-              <HapticTouchable style={s.modalSubmit} onPress={generateFromPastedContent} disabled={pasteGenerating}>
-                {pasteGenerating ? <ActivityIndicator color={selectedTheme.bgPrimary} /> : <Text style={s.primaryText}>generate set</Text>}
-              </HapticTouchable>
-            </ScrollView>
-          )}
-        </KeyboardAvoidingView>
-      </Modal>
 
       <Modal visible={showPreview} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowPreview(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalRoot}>
@@ -1144,6 +1177,15 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     header: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingTop: 18, paddingBottom: 12 },
     bankTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 32, letterSpacing: -0.8 },
     subtitle: { fontFamily: 'Inter_400Regular', fontSize: 10, color: theme.textSecondary, letterSpacing: 2.2, marginTop: 4, textTransform: 'uppercase' },
+    // Generate screen -- same compact sub-page header style (small title in the
+    // page's own s.header container) and the same boxless form + single flat
+    // submit button as FlashcardsScreen's create screen.
+    genTitle: { fontFamily: 'Inter_700Bold', fontSize: 18, color: theme.accentHover, letterSpacing: -0.2 },
+    genContent: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', padding: 4, gap: 16, paddingBottom: 100 },
+    genSubmit: { backgroundColor: theme.accent, borderRadius: 12, paddingVertical: 13, alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.1), ...cbTileBorder(0.24) } as ViewStyle,
+    genSubmitDisabled: { opacity: 0.7 },
+    genSubmitRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    genSubmitText: { fontFamily: 'Inter_900Black', fontSize: 13, letterSpacing: 0.4, textTransform: 'uppercase', color: accentInk },
     scroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 10, paddingTop: 14, paddingBottom: 118, gap: 14 },
     topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     topMeta: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase' },
@@ -1199,17 +1241,16 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     modalRoot: { flex: 1, backgroundColor: theme.bgPrimary },
     modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 22, paddingBottom: 12 },
     modalTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 25 },
-    modalBody: { padding: 20, paddingBottom: 46, gap: 12 },
-    label: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 10, letterSpacing: 1.6, textTransform: 'uppercase', marginTop: 4 },
-    input: { minHeight: 48, borderRadius: 13, borderWidth: 1, borderColor: border, paddingHorizontal: 14, color: theme.textPrimary, backgroundColor: rgbaFromHex(surface, 0.92), fontFamily: 'Inter_600SemiBold' },
-    choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    choice: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 9, borderWidth: 1, borderColor: theme.border, backgroundColor: rgbaFromHex(surface, 0.8) },
+    formGroup: { gap: 7 },
+    fieldLabel: { fontFamily: 'Inter_600SemiBold', color: theme.textSecondary, fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, marginTop: 7 },
+    input: { backgroundColor: rgbaFromHex(surface, 0.8), borderWidth: 1, borderColor: border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11, color: theme.textPrimary, fontFamily: 'Inter_400Regular', fontSize: 13 },
+    choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
+    choice: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 9, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.8) },
     choiceActive: { backgroundColor: theme.accent, borderColor: theme.accentHover },
     choiceText: { fontFamily: 'Inter_700Bold', color: theme.accentHover, fontSize: 9.5, textTransform: 'uppercase', letterSpacing: 1.6 },
     choiceTextActive: { color: accentInk },
-    modalSubmit: { height: 52, borderRadius: 14, backgroundColor: theme.accentHover, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
 
-    modeTabRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, paddingBottom: 14 },
+    modeTabRow: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', flexDirection: 'row', gap: 8, paddingHorizontal: 10, paddingBottom: 14 },
     modeTab: { flex: 1, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.border, backgroundColor: rgbaFromHex(surface, 0.6) },
     modeTabActive: { borderColor: theme.accent, backgroundColor: rgbaFromHex(theme.accent, 0.14) },
     modeTabText: { fontFamily: 'Inter_700Bold', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: theme.textSecondary },
@@ -1239,8 +1280,8 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     refToggleText: { fontFamily: 'Inter_700Bold', fontSize: 9, color: theme.textSecondary, textTransform: 'uppercase' },
     refToggleTextActive: { color: theme.accentHover },
 
-    textarea: { minHeight: 76, borderRadius: 13, borderWidth: 1, borderColor: border, padding: 14, color: theme.textPrimary, backgroundColor: rgbaFromHex(surface, 0.92), fontFamily: 'Inter_600SemiBold', fontSize: 13, textAlignVertical: 'top' },
-    textareaLarge: { minHeight: 180, borderRadius: 13, borderWidth: 1, borderColor: border, padding: 14, color: theme.textPrimary, backgroundColor: rgbaFromHex(surface, 0.92), fontFamily: 'Inter_600SemiBold', fontSize: 13, textAlignVertical: 'top' },
+    textarea: { backgroundColor: rgbaFromHex(surface, 0.8), borderWidth: 1, borderColor: border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11, color: theme.textPrimary, fontFamily: 'Inter_400Regular', fontSize: 13, minHeight: 70, textAlignVertical: 'top' },
+    textareaLarge: { backgroundColor: rgbaFromHex(surface, 0.8), borderWidth: 1, borderColor: border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11, color: theme.textPrimary, fontFamily: 'Inter_400Regular', fontSize: 13, minHeight: 180, textAlignVertical: 'top' },
     contentMeta: { fontFamily: 'Inter_400Regular', fontSize: 10, color: theme.textSecondary, marginTop: 4, textAlign: 'right' },
 
     difficultyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },

@@ -572,11 +572,15 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     moduleStatusCurrent: { backgroundColor: theme.accent },
     moduleStatusText: { fontFamily: 'Inter_900Black', color: theme.textSecondary, fontSize: 9.5, letterSpacing: 0.6 },
     modalRoot: { flex: 1, backgroundColor: theme.bgPrimary },
-    sheetHandle: { width: 42, height: 5, borderRadius: 3, backgroundColor: rgbaFromHex(theme.textSecondary, 0.28), alignSelf: 'center', marginTop: 9 },
-    sheetHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 18, paddingBottom: 11 },
+    // presentationStyle="pageSheet" is iOS-only -- on iOS the sheet already presents
+    // below the status bar with its own gap, so a small fixed marginTop is enough. On
+    // Android the same Modal goes full-screen edge-to-edge, so without adding the
+    // device's own top inset here the handle/header sit flush under the status bar.
+    sheetHandle: { width: 42, height: 5, borderRadius: 3, backgroundColor: rgbaFromHex(theme.textSecondary, 0.28), alignSelf: 'center', marginTop: Platform.OS === 'android' ? topInset + 9 : 9 },
+    sheetHeader: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 18, paddingBottom: 11 },
     sheetTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 24, lineHeight: 29, marginTop: 3 },
     sheetClose: { width: 39, height: 39, borderRadius: 13, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.84), alignItems: 'center', justifyContent: 'center' },
-    sheetScroll: { paddingHorizontal: 18, paddingBottom: 32, gap: 12 },
+    sheetScroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 32, gap: 12 },
     sheetDescription: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, lineHeight: 19 },
     nodeInfoRow: { flexDirection: 'row', gap: 7 },
     nodeInfoPill: { minHeight: 31, borderRadius: 10, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surfaceAlt, 0.7), flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9 },
@@ -592,11 +596,11 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     outlineTitle: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 11 },
     outlineText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 9.5, lineHeight: 15, marginTop: 3 },
     takeawayText: { fontFamily: 'Inter_400Regular', color: theme.textPrimary, fontSize: 11, lineHeight: 17 },
-    sheetFooter: { padding: 15, paddingBottom: Math.max(15, topInset ? 15 : 25), borderTopWidth: 1, borderTopColor: border },
+    sheetFooter: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', padding: 15, paddingBottom: Math.max(15, topInset ? 15 : 25), borderTopWidth: 1, borderTopColor: border },
     startBtn: { minHeight: 49, borderRadius: 14, backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 14 },
     startBtnText: { fontFamily: 'Inter_900Black', color: ink, fontSize: 9, letterSpacing: 0.9 },
     createSub: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 10.5, lineHeight: 16, marginTop: 5 },
-    createScroll: { paddingHorizontal: 18, paddingBottom: 50, gap: 10 },
+    createScroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 50, gap: 10 },
     formLabel: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 10, letterSpacing: 1.2, marginTop: 4 },
     topicInput: { minHeight: 76, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.91), padding: 13, color: theme.textPrimary, fontFamily: 'Inter_700Bold', fontSize: 14, textAlignVertical: 'top' },
     suggestionRow: { gap: 7 },

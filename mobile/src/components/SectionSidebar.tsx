@@ -172,7 +172,7 @@ function styles(theme: ReturnType<typeof useAppTheme>['selectedTheme']) {
   const INK = theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary;
   const DIM = theme.textSecondary;
   return StyleSheet.create({
-    overlay: { flex: 1, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.55)' },
+    overlay: { flex: 1, flexDirection: 'row', backgroundColor: 'transparent' },
     panelOuter: {
       height: '100%',
       // Cast shadow along the leading edge, so the panel visibly lifts off

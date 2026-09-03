@@ -20,12 +20,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../services/auth';
-import {
-  createKnowledgeRoadmapFromDocs,
-  createNoteFromContextDocs,
-  generatePracticeQuestions,
-  getSearchHubSuggestions,
-} from '../services/api';
+import { getSearchHubSuggestions } from '../services/api';
 import {
   addToDeck,
   askKnowledgeBase,
@@ -75,11 +70,6 @@ type SearchResult = {
   source?: string;
 };
 
-const GENERATORS: Array<{ kind: 'note' | 'map' | 'questions'; icon: React.ComponentProps<typeof Ionicons>['name']; label: string; hint: string }> = [
-  { kind: 'note', icon: 'document-text-outline', label: 'notes', hint: 'summarize your deck' },
-  { kind: 'map', icon: 'git-network-outline', label: 'map', hint: 'link the key ideas' },
-  { kind: 'questions', icon: 'help-circle-outline', label: 'quiz', hint: 'test what you know' },
-];
 
 function truncate(value: string, max = 220) {
   const clean = String(value || '').replace(/\s+/g, ' ').trim();
@@ -268,47 +258,6 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate, initialTa
     ]);
   };
 
-  const requireDeckDocs = () => {
-    if (!deck.length) {
-      Alert.alert('Add sources to your deck first', 'Pick up to 8 documents from the Library page.');
-      return null;
-    }
-    return deckIds;
-  };
-
-  const runDocAction = async (kind: 'note' | 'map' | 'questions') => {
-    const docIds = requireDeckDocs();
-    if (!docIds) return;
-    setActionBusy(kind);
-    try {
-      if (kind === 'note') {
-        const result = await createNoteFromContextDocs({ userId: user.username, contextDocIds: docIds, title: 'Knowledge Hub Notes', depth: 'deep' });
-        Alert.alert('Note created', result.title || 'Created notes from your deck.');
-        onNavigate?.('notes');
-      } else if (kind === 'map') {
-        await createKnowledgeRoadmapFromDocs(user.username, docIds);
-        Alert.alert('Knowledge map created', 'Created a map from your deck.');
-        onNavigate?.('knowledgeMaps');
-      } else {
-        const topic = deck.map(docTopic).filter(Boolean)[0] || 'selected sources';
-        await generatePracticeQuestions({
-          userId: user.username,
-          topic,
-          title: `Practice: ${topic}`,
-          questionCount: 10,
-          contextDocIds: docIds,
-          useHsContext: hsMode,
-        });
-        Alert.alert('Questions created', 'Created a question set from your deck.');
-        onNavigate?.('questionBank');
-      }
-    } catch (error) {
-      Alert.alert('Action failed', error instanceof Error ? error.message : 'Could not complete action');
-    } finally {
-      setActionBusy(null);
-    }
-  };
-
   const ask = async (mode: 'answer' | 'search' = 'answer') => {
     const query = askQuery.trim();
     if (query.length < 2) {
@@ -410,6 +359,8 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate, initialTa
           {slots.map((doc, i) =>
             doc ? (
               <View key={doc.doc_id} style={s.slotFilled}>
+                <Ionicons name="document-text" size={22} color={selectedTheme.accentHover} />
+                <Text style={s.slotName} numberOfLines={1}>{doc.filename}</Text>
                 <HapticTouchable
                   style={s.slotRemove}
                   onPress={() => toggleDeckMembership(doc)}
@@ -419,15 +370,14 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate, initialTa
                   {deckBusyId === doc.doc_id ? (
                     <ActivityIndicator size="small" color={selectedTheme.danger} />
                   ) : (
-                    <Ionicons name="close" size={11} color={selectedTheme.danger} />
+                    <Ionicons name="close" size={13} color={selectedTheme.danger} />
                   )}
                 </HapticTouchable>
-                <Ionicons name="document-text" size={18} color={selectedTheme.accentHover} />
-                <Text style={s.slotName} numberOfLines={2}>{doc.filename}</Text>
               </View>
             ) : (
               <HapticTouchable key={`empty-${i}`} style={s.slotEmpty} onPress={() => setTab('library')} haptic="selection">
-                <Ionicons name="add" size={20} color={selectedTheme.textSecondary} />
+                <Ionicons name="add" size={18} color={selectedTheme.textSecondary} />
+                <Text style={s.slotEmptyText}>add a source</Text>
               </HapticTouchable>
             )
           )}
@@ -444,31 +394,6 @@ export default function KnowledgeHubScreen({ user, onBack, onNavigate, initialTa
             trackColor={{ false: rgbaFromHex(selectedTheme.accent, 0.18), true: rgbaFromHex(selectedTheme.accent, 0.5) }}
             thumbColor={hsMode ? selectedTheme.accentHover : selectedTheme.textSecondary}
           />
-        </View>
-
-        <View style={s.generatorSection}>
-          <Text style={s.sectionLabel}>generate from your deck</Text>
-          <View style={s.generatorRow}>
-            {GENERATORS.map((gen) => (
-              <HapticTouchable
-                key={gen.kind}
-                style={[s.generatorCard, deck.length === 0 && { opacity: 0.5 }]}
-                onPress={() => runDocAction(gen.kind)}
-                disabled={actionBusy === gen.kind}
-                haptic="medium"
-              >
-                <View style={s.generatorIconWrap}>
-                  {actionBusy === gen.kind ? (
-                    <ActivityIndicator size="small" color={selectedTheme.accentHover} />
-                  ) : (
-                    <Ionicons name={gen.icon} size={20} color={selectedTheme.accentHover} />
-                  )}
-                </View>
-                <Text style={s.generatorLabel}>{gen.label}</Text>
-                <Text style={s.generatorHint}>{gen.hint}</Text>
-              </HapticTouchable>
-            ))}
-          </View>
         </View>
 
         {relatedTopics.length ? (
@@ -639,40 +564,30 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     },
     sectionStack: { gap: 13 },
 
-    slotGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 },
+    // Full-width rows instead of a cramped 4-up grid of tiny squares -- each
+    // deck slot now reads as a real list item, not a postage stamp.
+    slotGrid: { gap: 10 },
     slotEmpty: {
-      width: '23%', aspectRatio: 1, borderRadius: 16,
+      width: '100%', minHeight: 60, borderRadius: 16,
       borderWidth: 1.5, borderColor: rgbaFromHex(theme.textSecondary, 0.28), borderStyle: 'dashed',
-      alignItems: 'center', justifyContent: 'center',
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     },
+    slotEmptyText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: theme.textSecondary },
     slotFilled: {
-      width: '23%', aspectRatio: 1, borderRadius: 16, padding: 8,
+      width: '100%', minHeight: 60, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12,
       borderWidth: 1, borderColor: rgbaFromHex(theme.accent, 0.4), backgroundColor: rgbaFromHex(theme.accent, 0.1),
-      alignItems: 'center', justifyContent: 'center', gap: 4, boxShadow: cbTileShadow(0.05),
+      flexDirection: 'row', alignItems: 'center', gap: 12, boxShadow: cbTileShadow(0.05),
     },
     slotRemove: {
-      position: 'absolute', top: 4, right: 4, width: 18, height: 18, borderRadius: 9,
+      width: 26, height: 26, borderRadius: 13,
       alignItems: 'center', justifyContent: 'center', backgroundColor: rgbaFromHex(surface, 0.9),
     },
-    slotName: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: theme.textPrimary, textAlign: 'center', lineHeight: 12 },
+    slotName: { flex: 1, fontFamily: 'Inter_600SemiBold', fontSize: 14, color: theme.textPrimary },
 
     hsCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 15, boxShadow: cbTileShadow(0.06) } as ViewStyle,
     sectionTitle: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 15, letterSpacing: 0 },
     sectionHint: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, lineHeight: 18 },
     sectionLabel: { fontFamily: 'Inter_700Bold', fontSize: 11, color: theme.textSecondary, textTransform: 'uppercase', letterSpacing: 1.4 },
-
-    generatorSection: { gap: 10 },
-    generatorRow: { flexDirection: 'row', gap: 10 },
-    generatorCard: {
-      flex: 1, borderRadius: 20, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72),
-      paddingVertical: 16, paddingHorizontal: 10, alignItems: 'center', gap: 6, boxShadow: cbTileShadow(0.06),
-    } as ViewStyle,
-    generatorIconWrap: {
-      width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
-      backgroundColor: rgbaFromHex(theme.accent, 0.14),
-    },
-    generatorLabel: { fontFamily: 'Inter_900Black', color: theme.textPrimary, fontSize: 13, textTransform: 'lowercase' },
-    generatorHint: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 10, textAlign: 'center' },
 
     relatedBox: { borderRadius: 22, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72), padding: 15, gap: 12, boxShadow: cbTileShadow(0.06) } as ViewStyle,
     chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
