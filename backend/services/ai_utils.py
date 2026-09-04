@@ -27,7 +27,7 @@ class UnifiedAIClient:
         self,
         gemini_client=None,
         groq_client=None,
-        gemini_model: str = "gemini-2.0-flash",
+        gemini_model: str = "gemini-flash-latest",
         groq_model: str = "openai/gpt-oss-120b",
         gemini_api_key: str = None,
         gemini_key_pool: ApiKeyPool = None,
@@ -138,7 +138,14 @@ class UnifiedAIClient:
                     f"https://generativelanguage.googleapis.com/v1beta/models/"
                     f"{self.gemini_model}:generateContent?key={api_key}"
                 )
-                for attempt in range(3):
+                # Gemini's "high demand" 429/503 responses are usually transient --
+                # observed live 2026-09-04 clearing within a single 3s retry -- so
+                # they get the same retry-then-backoff treatment as any other
+                # transient error. Only exhausting every attempt still on a 429
+                # marks the key exhausted; a single 429 no longer immediately locks
+                # out the only configured Gemini key.
+                last_attempt = 4
+                for attempt in range(last_attempt + 1):
                     try:
                         resp = requests.post(url, json=payload, timeout=60)
                         if resp.status_code == 200:
@@ -146,21 +153,32 @@ class UnifiedAIClient:
                             usage = extract_usage_from_gemini_payload(data)
                             self._record_key_success(self.gemini_key_pool, lease, usage)
                             if "candidates" in data and data["candidates"]:
-                                text = data["candidates"][0]["content"]["parts"][0]["text"]
+                                candidate = data["candidates"][0]
+                                parts = (candidate.get("content") or {}).get("parts")
+                                if not parts:
+                                    finish_reason = candidate.get("finishReason", "UNKNOWN")
+                                    raise Exception(
+                                        f"Gemini response had no text (finishReason={finish_reason}); "
+                                        "the thinking-token budget likely used up maxOutputTokens"
+                                    )
+                                text = parts[0].get("text", "")
                                 self._log_usage(usage, model=self.gemini_model, provider="gemini", prompt=prompt, completion=text)
                                 return text
                             raise Exception("Gemini response has no candidates")
                         if resp.status_code == 429 or (resp.status_code == 400 and "quota" in resp.text.lower()):
-                            if not lease:
-                                raise self._provider_limit_error("gemini")
-                            self._mark_key_exhausted(self.gemini_key_pool, lease)
-                            break
-                        if attempt == 2:
+                            if attempt == last_attempt:
+                                if not lease:
+                                    raise self._provider_limit_error("gemini")
+                                self._mark_key_exhausted(self.gemini_key_pool, lease, resp.text)
+                                break
+                            time.sleep(2 ** attempt)
+                            continue
+                        if attempt == last_attempt:
                             self._release_key(self.gemini_key_pool, lease)
                             raise Exception(f"Gemini API error: {resp.status_code}")
-                        time.sleep(1)
+                        time.sleep(2 ** attempt)
                     except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
-                        if attempt == 2:
+                        if attempt == last_attempt:
                             self._release_key(self.gemini_key_pool, lease)
                             raise
                         time.sleep(2)
@@ -305,10 +323,22 @@ class UnifiedAIClient:
         if self._has_pool(pool) and lease:
             pool.release(lease)
 
-    def _mark_key_exhausted(self, pool: ApiKeyPool, lease) -> None:
+    def _mark_key_exhausted(self, pool: ApiKeyPool, lease, response_text: str = "") -> None:
         if self._has_pool(pool) and lease:
             pool.release(lease)
-            pool.mark_exhausted(lease)
+            if self._is_daily_quota_error(response_text):
+                # A genuine per-day RPD cap (Google's free tier, e.g., is only
+                # 20 requests/day/model) won't clear until the provider's own
+                # daily reset, so don't burn retries against it all day --
+                # lock out for the rest of our own usage_day window instead.
+                pool.mark_exhausted(lease, cooldown_seconds=86400)
+            else:
+                pool.mark_exhausted(lease)
+
+    @staticmethod
+    def _is_daily_quota_error(response_text: str) -> bool:
+        normalized = (response_text or "").lower().replace(" ", "")
+        return "perday" in normalized or "requestsperday" in normalized
 
     def _pool_attempts(self, pool: ApiKeyPool) -> int:
         if self._has_pool(pool):
@@ -488,7 +518,14 @@ class UnifiedAIClient:
                     f"https://generativelanguage.googleapis.com/v1beta/models/"
                     f"{self.gemini_model}:generateContent?key={api_key}"
                 )
-                for attempt in range(3):
+                # Gemini's "high demand" 429/503 responses are usually transient --
+                # observed live 2026-09-04 clearing within a single 3s retry -- so
+                # they get the same retry-then-backoff treatment as any other
+                # transient error. Only exhausting every attempt still on a 429
+                # marks the key exhausted; a single 429 no longer immediately locks
+                # out the only configured Gemini key.
+                last_attempt = 4
+                for attempt in range(last_attempt + 1):
                     try:
                         resp = requests.post(url, json=payload, timeout=90)
                         if resp.status_code == 200:
@@ -496,21 +533,34 @@ class UnifiedAIClient:
                             usage = extract_usage_from_gemini_payload(data)
                             self._record_key_success(self.gemini_key_pool, lease, usage)
                             if "candidates" in data and data["candidates"]:
-                                text = data["candidates"][0]["content"]["parts"][0]["text"]
+                                candidate = data["candidates"][0]
+                                parts = (candidate.get("content") or {}).get("parts")
+                                if not parts:
+                                    finish_reason = candidate.get("finishReason", "UNKNOWN")
+                                    raise Exception(
+                                        f"Gemini vision response had no text (finishReason={finish_reason}); "
+                                        "the thinking-token budget likely used up maxOutputTokens"
+                                    )
+                                text = parts[0].get("text", "")
                                 self._log_usage(usage, model=self.gemini_model, provider="gemini_vision", prompt=prompt, completion=text)
                                 return text
                             raise Exception("Gemini vision response has no candidates")
                         if resp.status_code == 429 or "quota" in resp.text.lower():
-                            if not lease:
-                                raise self._provider_limit_error("gemini")
-                            self._mark_key_exhausted(self.gemini_key_pool, lease)
-                            break
-                        if attempt == 2:
+                            if attempt == last_attempt:
+                                if not lease:
+                                    raise self._provider_limit_error("gemini")
+                                self._mark_key_exhausted(self.gemini_key_pool, lease, resp.text)
+                                break
+                            time.sleep(2 ** attempt)
+                            continue
+                        if attempt == last_attempt:
                             self._release_key(self.gemini_key_pool, lease)
                             raise Exception(f"Gemini vision API error: {resp.status_code} — {resp.text[:200]}")
-                        time.sleep(1)
+                        # Gemini's "high demand" 503s are usually transient; back off
+                        # a bit more than a flat 1s so a retry has a real chance.
+                        time.sleep(2 ** attempt)
                     except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
-                        if attempt == 2:
+                        if attempt == last_attempt:
                             self._release_key(self.gemini_key_pool, lease)
                             raise
                         time.sleep(2)

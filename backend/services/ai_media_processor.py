@@ -38,9 +38,11 @@ except ImportError:
     GEMINI_AVAILABLE = False
 
 # "gemini-2.0-flash-exp" (the experimental preview model this used to target)
-# has been retired by Google and now 404s on every call -- this Gemini
-# fallback path was silently dead. Using the same stable model as deps.py.
-GEMINI_MODEL_NAME = "gemini-2.0-flash"
+# and then "gemini-2.0-flash" itself have both since been retired by Google
+# and now 404 on every call -- this Gemini fallback path was silently dead
+# twice in a row. Using the same rolling alias as deps.py so it tracks
+# whatever Google currently considers the stable Flash model.
+GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
 
 try:
     from groq import Groq
