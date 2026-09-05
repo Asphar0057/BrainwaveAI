@@ -9,6 +9,7 @@ from typing import Optional
 
 import torch
 from torch.utils.data import Dataset
+from services.mastery_evidence import VERIFIED_CHAT_SIGNAL_TYPES
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +90,10 @@ def get_user_sequences(
                 ChatConceptSignal.knowledge_signal,
                 ChatConceptSignal.created_at,
             )
-            .filter(ChatConceptSignal.concept != None, ChatConceptSignal.concept != "")
+            .filter(
+                ChatConceptSignal.concept != None, ChatConceptSignal.concept != "",
+                ChatConceptSignal.signal_type.in_(VERIFIED_CHAT_SIGNAL_TYPES),
+            )
         )
         if user_id is not None:
             quiz_query = quiz_query.filter(QuestionAttempt.user_id == user_id)

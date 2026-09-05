@@ -115,26 +115,26 @@ def test_vision_failure_does_not_fall_back_to_previous_chat_topic(monkeypatch):
     )
     monkeypatch.setattr(chat, "_store_chat_upload", lambda *args: "uploads/chat_images/test.png")
 
-    result = asyncio.run(
-        chat.ask_with_files(
-            user_id="tester",
-            question="Explain this image.",
-            original_question="Explain this image.",
-            chat_id=None,
-            use_hs_context=True,
-            context_doc_ids="selected-vault-document",
-            tutor_mode=False,
-            tutor_reply_style="guided",
-            tutor_choice=None,
-            files=[FakeUpload("diagram.png", "image/png", b"fake-png-data")],
-            db=SimpleNamespace(),
-            current_user=SimpleNamespace(id=1, username="tester", email=None),
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(
+            chat.ask_with_files(
+                user_id="tester",
+                question="Explain this image.",
+                original_question="Explain this image.",
+                chat_id=None,
+                use_hs_context=True,
+                context_doc_ids="selected-vault-document",
+                tutor_mode=False,
+                tutor_reply_style="guided",
+                tutor_choice=None,
+                files=[FakeUpload("diagram.png", "image/png", b"fake-png-data")],
+                db=SimpleNamespace(),
+                current_user=SimpleNamespace(id=1, username="tester", email=None),
+            )
         )
-    )
 
-    assert result["answer"] == ""
-    assert result["attachment_error"].startswith("I received the image")
-    assert result["query_type"] == "multimodal_error"
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail["code"] == "ai_attachment_failed"
 
 
 def test_person_identity_request_returns_privacy_safe_response(monkeypatch):

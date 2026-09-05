@@ -157,11 +157,14 @@ def should_retrain(
     (cheap COUNT queries) rather than building the full vocab/sequence
     structure just to check whether a real training pass is warranted."""
     from models import ChatConceptSignal, QuestionResult
+    from services.mastery_evidence import VERIFIED_CHAT_SIGNAL_TYPES
 
     db = db_session_factory()
     try:
         n_now = (
-            db.query(ChatConceptSignal).count()
+            db.query(ChatConceptSignal).filter(
+                ChatConceptSignal.signal_type.in_(VERIFIED_CHAT_SIGNAL_TYPES)
+            ).count()
             + db.query(QuestionResult).count()
         )
     finally:

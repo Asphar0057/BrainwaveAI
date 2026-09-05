@@ -22,6 +22,8 @@ class AIJobQueueUnavailable(RuntimeError):
 class QueueMessage:
     job_id: int
     queued_at: float
+    receipt: str = ""
+    queue_name: str = ""
 
 
 def get_redis_url() -> str:
@@ -104,19 +106,33 @@ def promote_due_retry_jobs(
 ) -> int:
     client = get_redis_client()
     retry_queue = retry_queue_name or get_retry_queue_name()
-    ready_items = client.zrangebyscore(retry_queue, min=0, max=time.time(), start=0, num=limit)
-    promoted = 0
-    for raw_payload in ready_items:
-        removed = client.zrem(retry_queue, raw_payload)
-        if not removed:
-            continue
-        try:
-            payload: dict[str, Any] = json.loads(raw_payload)
-            client.rpush(queue_name or get_queue_name(), json.dumps(payload))
-            promoted += 1
-        except Exception:
-            logger.warning("Discarding malformed AI retry queue payload: %s", raw_payload)
-    return promoted
+    return int(client.eval(_PROMOTE_DUE, 2, retry_queue, queue_name or get_queue_name(), time.time(), limit))
+
+
+_PROMOTE_DUE = """
+local items = redis.call('ZRANGEBYSCORE', KEYS[1], '-inf', ARGV[1], 'LIMIT', 0, ARGV[2])
+for _, item in ipairs(items) do
+    redis.call('RPUSH', KEYS[2], item)
+    redis.call('ZREM', KEYS[1], item)
+end
+return #items
+"""
+
+_CLAIM = """
+local item = redis.call('LPOP', KEYS[1])
+if item then redis.call('ZADD', KEYS[2], ARGV[1], item) end
+return item
+"""
+
+
+def acknowledge_ai_job(message: QueueMessage) -> None:
+    if message.receipt:
+        get_redis_client().zrem(f"{message.queue_name or get_queue_name()}:processing", message.receipt)
+
+
+def recover_queue_deliveries(*, queue_name: str | None = None) -> int:
+    queue = queue_name or get_queue_name()
+    return int(get_redis_client().eval(_PROMOTE_DUE, 2, f"{queue}:processing", queue, time.time(), 100))
 
 
 def dead_letter_ai_job(
@@ -145,19 +161,27 @@ def dequeue_ai_job(
     timeout: int = 5,
 ) -> QueueMessage | None:
     client = get_redis_client()
-    item = client.blpop(queue_name or get_queue_name(), timeout=timeout)
-    if not item:
+    queue = queue_name or get_queue_name()
+    deadline = time.monotonic() + timeout
+    raw_payload = None
+    while raw_payload is None:
+        raw_payload = client.eval(_CLAIM, 2, queue, f"{queue}:processing", time.time() + 120)
+        if raw_payload is not None or time.monotonic() >= deadline:
+            break
+        time.sleep(0.2)
+    if raw_payload is None:
         return None
-
-    _, raw_payload = item
     try:
         payload: dict[str, Any] = json.loads(raw_payload)
         return QueueMessage(
             job_id=int(payload["job_id"]),
             queued_at=float(payload.get("queued_at") or time.time()),
+            receipt=raw_payload,
+            queue_name=queue,
         )
     except Exception:
         logger.warning("Discarding malformed AI job queue payload: %s", raw_payload)
+        client.zrem(f"{queue}:processing", raw_payload)
         return None
 
 

@@ -209,34 +209,32 @@ def test_short_answer_reaches_semantic_grader_with_previous_turn_context():
     assert progressed.expected_step_answer == "search many possibilities efficiently"
 
 
-def test_power_rule_intermediate_equivalence_cannot_be_misgraded_by_model():
-    class IncorrectGrader:
+@pytest.mark.parametrize("answer,verdict", [
+    ("x^3", "correct"),
+    ("For the first term, I get x^3 because 3 cancels the denominator 3.", "correct"),
+    ("It is not x^3", "not_yet"),
+    ("x^3 + 99", "not_yet"),
+])
+def test_power_rule_attempt_is_graded_in_full(answer, verdict):
+    class Grader:
+        calls = []
         def generate(self, prompt, max_tokens, temperature):
-            raise AssertionError("deterministic equivalence should bypass the model grader")
+            self.calls.append(prompt)
+            return __import__("json").dumps({
+                "verdict": verdict, "confidence": 0.95,
+                "next_action": "Check the next term from the lesson plan",
+            })
 
-    result = asyncio.run(
-        nodes.evaluate_tutor_attempt(
-            {
-                "intent": "comprehension_answer",
-                "user_input": "For the first term, I get x^3 because 3 cancels the denominator 3.",
-                "tutor_mode": True,
-                "chat_history": [
-                    {
-                        "user": "Help me solve the integral of 3x^2 + 4.",
-                        "ai": "Can you integrate just the 3x^2 term using the power rule?",
-                    }
-                ],
-                "tutor_session_state": {},
-                "tutor_plan": nodes.TutorPlan(),
-                "_ai_client": IncorrectGrader(),
-            }
-        )
-    )
-
-    evaluation = result["attempt_evaluation"]
-    assert evaluation.verdict == "correct"
-    assert evaluation.confidence == 0.99
-    assert evaluation.next_action == "Integrate the constant term 4"
+    grader = Grader()
+    result = asyncio.run(nodes.evaluate_tutor_attempt({
+        "intent": "comprehension_answer", "user_input": answer, "tutor_mode": True,
+        "chat_history": [{"user": "Integrate 3x^2 + 8", "ai": "Integrate just the 3x^2 term using the power rule?"}],
+        "tutor_session_state": {}, "tutor_plan": nodes.TutorPlan(), "_ai_client": grader,
+    }))
+    assert len(grader.calls) == 1
+    assert f"Student attempt:\n{answer}" in grader.calls[0]
+    assert result["attempt_evaluation"].verdict == verdict
+    assert result["attempt_evaluation"].next_action != "Integrate the constant term 4"
 
 
 def test_comprehension_answer_task_uses_tutor_feedback_rubric():

@@ -37,7 +37,7 @@ import ContextPanel from '../components/ContextPanel';
 import GeometricGrid from '../components/GeometricGrid';
 import contextService from '../services/contextService';
 import { enableChatDock } from '../utils/chatDock';
-import { queueChatCompletion, queueLegacyAIFileEndpoint, queuedAIJsonFetch, USE_AI_JOB_QUEUE } from '../services/aiJobService';
+import { discoverPendingChatJobs, pollAIJob, queueChatCompletion, queueLegacyAIFileEndpoint, queuedAIJsonFetch, USE_AI_JOB_QUEUE } from '../services/aiJobService';
 import { parseNumericChatRouteId } from '../utils/chatSession';
 import { getConversationPrompts } from '../utils/conversationMap';
 import { formatUsageLimitMessage, getUsageLimitFromError, throwIfUsageLimitResponse } from '../utils/usageLimit';
@@ -1739,6 +1739,32 @@ const AIChat = ({ sharedMode = false }) => {
       setLoading(false);
     }
   };
+
+  // Resume the existing server job after reload/navigation instead of creating
+  // another provider request. Saved chat history is the completion source.
+  useEffect(() => {
+    if (!USE_AI_JOB_QUEUE || !activeChatId) return undefined;
+    const controller = new AbortController();
+    let observing = false;
+    discoverPendingChatJobs(activeChatId, controller.signal)
+      .then(async pending => {
+        if (!pending.length || controller.signal.aborted) return;
+        observing = true;
+        setLoading(true);
+        await Promise.all(pending.map(job => pollAIJob(job.id, { signal: controller.signal })));
+        if (!controller.signal.aborted) await loadChatMessages(activeChatId);
+      })
+      .catch(error => {
+        if (error.name !== 'AbortError' && !controller.signal.aborted) {
+          setMessages(previous => [...previous, {
+            id: `job_error_${Date.now()}`, type: 'ai', content: error.message,
+            timestamp: new Date().toISOString(),
+          }]);
+        }
+      })
+      .finally(() => { if (observing && !controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [activeChatId]);
 
   const handleTutorOptionClick = (option) => {
     if (loading || !option) return;

@@ -42,6 +42,7 @@ def _estimate_stability(interactions: list[dict]) -> float:
 
 def get_concept_recency(user_id: int, db) -> dict[str, dict]:
     from models import ChatConceptSignal, QuestionResult, QuestionAttempt, Question
+    from services.mastery_evidence import VERIFIED_CHAT_SIGNAL_TYPES
 
     now = datetime.now(timezone.utc)
 
@@ -54,7 +55,10 @@ def get_concept_recency(user_id: int, db) -> dict[str, dict]:
                 ChatConceptSignal.knowledge_signal,
                 ChatConceptSignal.created_at,
             )
-            .filter(ChatConceptSignal.user_id == user_id)
+            .filter(
+                ChatConceptSignal.user_id == user_id,
+                ChatConceptSignal.signal_type.in_(VERIFIED_CHAT_SIGNAL_TYPES),
+            )
             .order_by(ChatConceptSignal.created_at)
             .all()
         )

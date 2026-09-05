@@ -343,34 +343,30 @@ class MessageMLPipeline:
         return compute_decay(p_mastery, days_elapsed, stability)
 
     async def _layer2_bkt_update(
-        self, db, user_id: int, concept_ids: List[str], intent: str
+        self, db, user_id: int, concept_ids: List[str], intent: str,
+        *, verified_correct: Optional[bool] = None
     ) -> Tuple[float, float, Dict, Dict]:
         import models
 
-        # obs is fed to `if obs > 0.5` below to pick the BKT "correct" vs
-        # "wrong" update branch. Every value here used to be <= 0.5, so the
-        # "correct" branch was dead code -- no matter how a conversation
-        # went, mastery could only ever be pulled toward the low equilibrium
-        # the "wrong" branch converges to. "confident" (a real breakthrough
-        # signal, see INTENT_KEYWORDS) is the only intent that should read
-        # as genuine positive evidence.
-        CONFIDENCE = {
-            "confident": 0.85,
-            "exploration": 0.5,
-            "question": 0.4,
-            "confusion": 0.1,
-            "confused": 0.1,
-            "stuck": 0.05,
-            "emotional": 0.1,
-            "off_topic": 0.5,
-        }
-        obs = CONFIDENCE.get(intent, 0.4)
+        # Intent is affect/self-report, not evidence of a correct or wrong answer.
+        # Callers must provide a server-graded outcome to change mastery.
+        if verified_correct is None:
+            before = {}
+            for cid in concept_ids[:2]:
+                state = db.query(models.StudentKnowledgeState).filter_by(
+                    user_id=user_id, concept_id=cid
+                ).first()
+                if state:
+                    before[cid] = state.p_mastery
+            average = sum(before.values()) / len(before) if before else 0.1
+            return average, 0.0, before, dict(before)
 
         archetype_p_learn = {"Logicor": 0.12, "Kinetiq": 0.08, "Flowist": 0.10}
 
         kt_before: Dict[str, float] = {}
         kt_after: Dict[str, float] = {}
         p_mastery_avg = 0.1
+        p_mastery_delta = 0.0
 
         if not concept_ids:
             return p_mastery_avg, 0.0, kt_before, kt_after
@@ -404,7 +400,7 @@ class MessageMLPipeline:
 
                 kt_before[cid] = p
 
-                if obs > 0.5:
+                if verified_correct:
                     p_update = (p * (1 - ps)) / (p * (1 - ps) + (1 - p) * pg)
                 else:
                     p_update = (p * ps) / (p * ps + (1 - p) * (1 - pg))
@@ -424,7 +420,7 @@ class MessageMLPipeline:
                 masteries.append(state.p_mastery)
                 logger.info(
                     "[ML L2] BKT  concept=%-30s  before=%.3f → after=%.3f  obs=%.2f",
-                    cid[:30], kt_before[cid], state.p_mastery, obs,
+                    cid[:30], kt_before[cid], state.p_mastery, float(verified_correct),
                 )
 
             db.commit()
@@ -434,7 +430,7 @@ class MessageMLPipeline:
             logger.warning(f"[ML] BKT update failed: {e}")
             db.rollback()
 
-        return p_mastery_avg, 0.0, kt_before, kt_after
+        return p_mastery_avg, p_mastery_delta, kt_before, kt_after
 
     async def _layer3_affect(
         self, message: str, session: SessionContext
@@ -538,12 +534,8 @@ class MessageMLPipeline:
             # concurrently via asyncio.gather, so layer2 could never see layer1's
             # own output).
             intent, concepts = await self._layer1_intent_concept(message, db, user_id, session)
-            # Off-topic turns ("hi", "thanks", small talk) carry no evidence about
-            # any concept. Previously these still fell back to the stale
-            # session.current_concept_id inside layer1 and were fed into the BKT
-            # update as a low-confidence "wrong answer" observation (obs=0.5, not
-            # > 0.5), silently dragging down mastery of whatever concept was last
-            # discussed even though the student said nothing substantive about it.
+            # Read existing mastery for personalization. Conversational intent
+            # never counts as an attempt; grading updates mastery separately.
             concept_ids_for_bkt = [] if intent == "off_topic" else (
                 concepts or ([session.current_concept_id] if session.current_concept_id else [])
             )

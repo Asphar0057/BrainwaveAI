@@ -63,6 +63,7 @@ const MyNotes = lazyRoute(() => import('./pages/MyNotes'));
 const NotesPodcastMode = lazyRoute(() => import('./pages/NotesPodcastMode'));
 const Login = lazyRoute(() => import('./pages/Login'));
 const Register = lazyRoute(() => import('./pages/Register'));
+const LegalPage = lazyRoute(() => import('./pages/LegalPage'));
 const WorkspaceSelect = lazyRoute(() => import('./pages/WorkspaceSelect'));
 const StudentDashboard = lazyRoute(() => import('./pages/StudentDashboard'));
 const EducatorDashboard = lazyRoute(() => import('./pages/EducatorDashboard'));
@@ -297,6 +298,15 @@ function App() {
                   <Route path="/search-hub" element={<ProtectedRoute><SearchHub /></ProtectedRoute>} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
+                  <Route path="/terms-and-conditions" element={<LegalPage />} />
+                  <Route path="/privacy-policy" element={<LegalPage />} />
+                  <Route path="/refund-and-cancellation-policy" element={<LegalPage />} />
+                  <Route path="/service-delivery-policy" element={<LegalPage />} />
+                  <Route path="/contact" element={<LegalPage />} />
+                  <Route path="/company-details" element={<LegalPage />} />
+                  <Route path="/terms" element={<Navigate to="/terms-and-conditions" replace />} />
+                  <Route path="/privacy" element={<Navigate to="/privacy-policy" replace />} />
+                  <Route path="/refund-policy" element={<Navigate to="/refund-and-cancellation-policy" replace />} />
                   <Route path="/workspace" element={<ProtectedRoute><WorkspaceSelect /></ProtectedRoute>} />
                   <Route path="/student" element={<ProtectedRoute><RoleProtectedRoute role="student"><StudentDashboard /></RoleProtectedRoute></ProtectedRoute>} />
                   <Route path="/educator" element={<ProtectedRoute><RoleProtectedRoute role="educator"><EducatorDashboard /></RoleProtectedRoute></ProtectedRoute>} />

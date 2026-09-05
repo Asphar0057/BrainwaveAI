@@ -12,6 +12,7 @@ from tutor.state import TutorState, StudentState, EvalResult, AttemptEvaluation,
 from tutor import chroma_store
 from tutor.prompt import build_tutor_prompt
 from tutor.evaluator import evaluate
+from services.ai_result import require_ai_success
 
 logger = logging.getLogger(__name__)
 
@@ -1228,7 +1229,7 @@ def gate_and_retrieve(state: TutorState) -> dict:
         "rag_context": rag_chunks,
         "rag_sources": rag_sources,
         "context_only": context_only,
-        "context_only_no_match": bool(context_only and use_hs and not rag_chunks),
+        "context_only_no_match": bool(context_only and not rag_chunks),
     }
 
 def select_teaching_style(state: TutorState) -> dict:
@@ -1773,7 +1774,7 @@ def _plan_from_session_state(session_state: dict) -> TutorPlan | None:
     return None
 
 async def plan_tutor_steps(state: TutorState) -> dict:
-    if not state.get("tutor_mode"):
+    if not state.get("tutor_mode") or state.get("context_only_no_match"):
         return {"tutor_plan": TutorPlan()}
 
     session_state = state.get("tutor_session_state") or {}
@@ -1828,7 +1829,7 @@ Return only JSON:
         return {"tutor_plan": existing_plan or _normalize_tutor_plan({"goal": user_input[:140]})}
 
 async def evaluate_tutor_attempt(state: TutorState) -> dict:
-    if not state.get("tutor_mode"):
+    if not state.get("tutor_mode") or state.get("context_only_no_match"):
         return {"attempt_evaluation": AttemptEvaluation()}
 
     if state.get("intent") != "comprehension_answer":
@@ -1862,31 +1863,6 @@ async def evaluate_tutor_attempt(state: TutorState) -> dict:
         or session_state.get("next_action")
         or _extract_last_question(last_tutor_message)
     )
-
-    # Keep elementary symbolic equivalences out of the model's judgment loop.
-    # This is intentionally narrow: it only accepts the intermediate power-rule
-    # step the tutor explicitly asked for, while leaving completed integrals and
-    # all other subjects to the general evaluator.
-    compact_context = re.sub(
-        r"[\s{}()\\]", "", f"{previous_check or ''} {last_tutor_message}".lower()
-    )
-    asks_three_x_squared_term = (
-        "3x^2" in compact_context
-        and any(token in compact_context for token in ("integrat", "integral", "power rule", "powerrule"))
-    )
-    gives_x_cubed = bool(re.search(r"(?:^|[^0-9a-z])x(?:\^?3|³)(?:[^0-9a-z]|$)", user_answer.lower()))
-    if asks_three_x_squared_term and gives_x_cubed:
-        return {
-            "attempt_evaluation": AttemptEvaluation(
-                verdict="correct",
-                confidence=0.99,
-                rationale="the coefficient 3 cancels the power-rule denominator 3, giving x cubed",
-                expected_answer="x^3 for the integrated 3x^2 term",
-                next_action="Integrate the constant term 4",
-                is_final_answer=False,
-                final_answer_correct=None,
-            )
-        }
 
     if not previous_check and not last_tutor_message:
         return {"attempt_evaluation": AttemptEvaluation(verdict="not_applicable", confidence=0.0)}
@@ -1955,8 +1931,8 @@ Return JSON with this exact shape:
         raw = await _agenerate(ai_client, prompt, max_tokens=550, temperature=0.0)
         parsed = _extract_json_dict(raw)
         evaluation = _attempt_evaluation_from_dict(parsed)
-        if evaluation.verdict == "not_applicable" and parsed:
-            evaluation.verdict = "not_yet"
+        if evaluation.confidence < 0.8:
+            return {"attempt_evaluation": AttemptEvaluation()}
         return {"attempt_evaluation": evaluation}
     except Exception as exc:
         logger.warning(f"[TUTOR ATTEMPT] grading skipped: {exc}")
@@ -1968,7 +1944,7 @@ def update_tutor_plan_progress(state: TutorState) -> dict:
         return {}
 
     evaluation = state.get("attempt_evaluation")
-    if not isinstance(evaluation, AttemptEvaluation):
+    if not isinstance(evaluation, AttemptEvaluation) or evaluation.confidence < 0.8:
         return {"tutor_plan": plan}
 
     verdict = evaluation.verdict
@@ -2014,7 +1990,7 @@ async def build_prompt_and_respond(state: TutorState) -> dict:
     ai_client = (hs_ai if rag_active and hs_ai else None) or state.get("_ai_client")
 
     if not ai_client:
-        return {"response": "AI client not available.", "error": "no_ai_client"}
+        raise RuntimeError("AI client not available")
 
     if rag_active and hs_ai:
         logger.info("[TUTOR GEN] *** Using HS context AI client (RAG-enriched prompt) ***")
@@ -2159,6 +2135,7 @@ async def build_prompt_and_respond(state: TutorState) -> dict:
                 response,
                 str(state.get("user_input") or ""),
             )
+        require_ai_success({"response": response}, answer_key="response")
         response = _append_rag_citations(response, state.get("rag_sources") or [])
         return {"response": response, "instructional_task": task}
     except Exception as e:
@@ -2188,15 +2165,18 @@ async def build_prompt_and_respond(state: TutorState) -> dict:
                         response,
                         str(state.get("user_input") or ""),
                     )
+                require_ai_success({"response": response}, answer_key="response")
                 response = _append_rag_citations(response, state.get("rag_sources") or [])
                 return {"response": response, "instructional_task": task}
             except Exception as fallback_error:
                 logger.error(f"Fallback LLM generation failed: {fallback_error}")
-                return {"response": "I'm having trouble responding right now. Please try again.", "error": str(fallback_error)}
+                raise RuntimeError("AI provider temporarily unavailable") from fallback_error
         logger.error(f"LLM generation failed: {e}")
-        return {"response": "I'm having trouble responding right now. Please try again.", "error": str(e)}
+        raise RuntimeError("AI provider temporarily unavailable") from e
 
 async def evaluate_response(state: TutorState) -> dict:
+    if state.get("error"):
+        return {"evaluation": EvalResult()}
     ai_client = state.get("_ai_client")
     if not ai_client or state.get("intent") in ("greeting", "returning_greeting", "off_topic", "repetitive"):
         return {"evaluation": EvalResult()}
@@ -2211,6 +2191,8 @@ async def evaluate_response(state: TutorState) -> dict:
     return {"evaluation": result}
 
 async def persist_updates(state: TutorState) -> dict:
+    if state.get("error") or state.get("context_only_no_match"):
+        return {"chroma_writes": []}
     user_id       = state.get("user_id", "")
     intent        = state.get("intent", "")
     user_input    = state.get("user_input", "")
@@ -2244,52 +2226,6 @@ async def persist_updates(state: TutorState) -> dict:
                 )
                 db.add(sig)
 
-                if knowledge_signal < -0.3:
-                    existing = db.query(UserWeakArea).filter(
-                        UserWeakArea.user_id == uid,
-                        UserWeakArea.topic   == primary_concept,
-                    ).first()
-                    now = datetime.now(timezone.utc)
-                    if existing:
-                        existing.weakness_score  = min(1.0, (existing.weakness_score or 0.0) + abs(knowledge_signal) * 0.15)
-                        existing.incorrect_count = (existing.incorrect_count or 0) + 1
-                        existing.total_questions = (existing.total_questions or 0) + 1
-                        accuracy = (existing.correct_count or 0) / max(existing.total_questions, 1)
-                        existing.accuracy        = round(accuracy, 4)
-                        existing.status          = "needs_practice" if existing.weakness_score > 0.4 else existing.status
-                        existing.last_updated    = now
-                    else:
-                        wa = UserWeakArea(
-                            user_id          = uid,
-                            topic            = primary_concept[:255],
-                            subtopic         = signal_type,
-                            total_questions  = 1,
-                            correct_count    = 0,
-                            incorrect_count  = 1,
-                            accuracy         = 0.0,
-                            weakness_score   = abs(knowledge_signal),
-                            status           = "needs_practice",
-                            priority         = int(abs(knowledge_signal) * 10),
-                            first_identified = now,
-                            last_updated     = now,
-                        )
-                        db.add(wa)
-
-                elif knowledge_signal > 0.4:
-                    existing = db.query(UserWeakArea).filter(
-                        UserWeakArea.user_id == uid,
-                        UserWeakArea.topic   == primary_concept,
-                    ).first()
-                    if existing:
-                        existing.weakness_score  = max(0.0, (existing.weakness_score or 0.0) - knowledge_signal * 0.1)
-                        existing.correct_count   = (existing.correct_count or 0) + 1
-                        existing.total_questions = (existing.total_questions or 0) + 1
-                        accuracy = existing.correct_count / max(existing.total_questions, 1)
-                        existing.accuracy        = round(accuracy, 4)
-                        if existing.weakness_score < 0.2:
-                            existing.status = "improving"
-                        existing.last_updated = datetime.now(timezone.utc)
-
                 db.commit()
                 logger.info(
                     f"[LANG PERSIST] user={uid} concept={primary_concept!r} "
@@ -2307,6 +2243,34 @@ async def persist_updates(state: TutorState) -> dict:
                 db.close()
         except Exception as e:
             logger.warning(f"ChatConceptSignal persist failed: {e}")
+
+    attempt = state.get("attempt_evaluation")
+    outcome = getattr(attempt, "verdict", "not_applicable")
+    if (
+        db_factory and intent == "comprehension_answer"
+        and outcome in {"correct", "not_yet"}
+        and getattr(attempt, "confidence", 0.0) >= 0.8
+    ):
+        concept = primary_concept or (state.get("tutor_session_state") or {}).get("objective")
+        if concept:
+            db = db_factory()
+            try:
+                from services.ml_pipeline import MessageMLPipeline
+                await MessageMLPipeline(None)._layer2_bkt_update(
+                    db, int(user_id), [concept], intent,
+                    verified_correct=(outcome == "correct"),
+                )
+                from models import ChatConceptSignal
+                db.add(ChatConceptSignal(
+                    user_id=int(user_id), chat_session_id=chat_id,
+                    concept=concept[:255],
+                    signal_type="verified_correct" if outcome == "correct" else "verified_incorrect",
+                    knowledge_signal=0.65 if outcome == "correct" else -0.65,
+                    message_snippet=user_input[:300],
+                ))
+                db.commit()
+            finally:
+                db.close()
 
     selected_style = state.get("selected_style", "")
     style_context  = state.get("style_context") or []

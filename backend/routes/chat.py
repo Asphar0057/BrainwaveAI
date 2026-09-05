@@ -59,6 +59,8 @@ _PERSON_IDENTITY_REQUEST_RE = re.compile(
     re.IGNORECASE,
 )
 
+from services.ai_result import require_ai_success
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["chat"])
 
@@ -369,7 +371,7 @@ def _record_tutor_weakness_signals(
     tutor_state: Optional[dict],
     tutor_choice: Optional[str] = None,
 ) -> list[str]:
-    if not tutor_state:
+    if not tutor_state or not tutor_state.get("_attempt_verified"):
         return []
 
     verdict = str(tutor_state.get("verdict") or "").strip().lower()
@@ -696,9 +698,16 @@ def _apply_attempt_evaluation(
     data = _attempt_evaluation_to_dict(attempt_evaluation)
     verdict = str(data.get("verdict") or "").strip().lower()
     if verdict not in {"correct", "partly_correct", "not_yet", "needs_attempt"}:
-        return response_text, tutor_state
+        state = dict(tutor_state or {})
+        state["verdict"] = "not_applicable"
+        state["_attempt_verified"] = False
+        return response_text, state
 
     state = dict(tutor_state or {})
+    state["_attempt_verified"] = (
+        verdict in {"correct", "partly_correct", "not_yet"}
+        and float(data.get("confidence") or 0.0) >= 0.8
+    )
     state["verdict"] = verdict
     try:
         existing_confidence = float(state.get("confidence") or 0.0)
@@ -850,7 +859,7 @@ def _persist_tutor_session_state(
         db.add(row)
 
     verdict = tutor_state.get("verdict")
-    is_student_attempt = bool(tutor_choice) or verdict in {"correct", "partly_correct", "not_yet"}
+    is_student_attempt = bool(tutor_state.get("_attempt_verified"))
 
     if is_student_attempt:
         row.attempts = (row.attempts or 0) + 1
@@ -861,7 +870,7 @@ def _persist_tutor_session_state(
     if is_student_attempt and verdict == "correct":
         row.correct_count = (row.correct_count or 0) + 1
 
-    row.level = tutor_state.get("level", "intermediate")
+    row.level = row.level or "intermediate"
     row.phase = tutor_state.get("phase", "teach")
     row.verdict = tutor_state.get("verdict", "not_applicable")
     row.confidence = tutor_state.get("confidence", 0.65)
@@ -874,10 +883,9 @@ def _persist_tutor_session_state(
     row.final_answer = tutor_state.get("final_answer") or row.final_answer
     row.skills_used = tutor_state.get("skills_used") or row.skills_used or []
     row.misconceptions = tutor_state.get("misconceptions") or row.misconceptions or []
-    row.mastery_score = tutor_state.get("mastery_score", row.mastery_score or 0.0)
-    if not is_student_attempt:
-        row.correct_streak = tutor_state.get("correct_streak", row.correct_streak or 0)
-        row.wrong_streak = tutor_state.get("wrong_streak", row.wrong_streak or 0)
+    row.mastery_score = row.mastery_score or 0.0
+    row.correct_streak = row.correct_streak or 0
+    row.wrong_streak = row.wrong_streak or 0
     row.lesson_plan = tutor_state.get("lesson_plan") or row.lesson_plan
     if is_student_attempt and verdict == "correct":
         row.correct_streak = (row.correct_streak or 0) + 1
@@ -886,17 +894,18 @@ def _persist_tutor_session_state(
         row.wrong_streak = (row.wrong_streak or 0) + 1
         row.correct_streak = 0
 
-    if row.correct_streak >= 2 and row.level == "beginner":
+    if is_student_attempt and row.correct_streak >= 2 and row.level == "beginner":
         row.level = "intermediate"
-    elif row.correct_streak >= 2 and row.level == "intermediate":
+    elif is_student_attempt and row.correct_streak >= 2 and row.level == "intermediate":
         row.level = "advanced"
-    elif row.wrong_streak >= 2 and row.level == "advanced":
+    elif is_student_attempt and row.wrong_streak >= 2 and row.level == "advanced":
         row.level = "intermediate"
-    elif row.wrong_streak >= 2 and row.level == "intermediate":
+    elif is_student_attempt and row.wrong_streak >= 2 and row.level == "intermediate":
         row.level = "beginner"
 
     total_attempts = max(1, row.attempts or 0)
-    row.mastery_score = round(min(1.0, max(0.0, (row.correct_count or 0) / total_attempts)), 2)
+    if is_student_attempt:
+        row.mastery_score = round(min(1.0, max(0.0, (row.correct_count or 0) / total_attempts)), 2)
     row.reply_style = reply_style or "guided"
     row.last_options = tutor_options or []
     row.updated_at = datetime.now(timezone.utc)
@@ -947,13 +956,13 @@ def _lightweight_sources(rag_sources: object) -> list[dict]:
 
 def _context_only_fallback_answer(user_id: str, question: str, context_doc_ids: list[str], use_hs_context: bool = True) -> str:
     selected_ids = [str(d).strip() for d in (context_doc_ids or []) if str(d).strip()]
-    if not selected_ids or not use_hs_context:
+    if not selected_ids:
         return call_ai(question)
 
     try:
         from services import context_store
         if not context_store.available():
-            return call_ai(question)
+            raise RuntimeError("Selected document retrieval is unavailable")
 
         q = (question or "").strip() or "Summarize the selected context."
         results = context_store.search_context(
@@ -981,11 +990,9 @@ def _context_only_fallback_answer(user_id: str, question: str, context_doc_ids: 
         )
         return call_ai(prompt)
     except Exception as e:
-        logger.warning(f"Context-only fallback failed: {e}")
-        return (
-            "I couldn't complete a context-only answer right now. "
-            "Please try again in a moment."
-        )
+        logger.warning("Context-only fallback failed: %s", e)
+        raise RuntimeError("Selected document generation temporarily unavailable") from e
+
 
 async def _run_chat_ml_pipeline(
     db: Session,
@@ -1206,7 +1213,7 @@ async def ask_ai(
                 tutor_choice=tutor_choice,
                 tutor_session_state=tutor_session_state,
             )
-            response_text = result.get("response", "")
+            response_text = require_ai_success(result, answer_key="response")["response"]
             if tutor_mode:
                 response_text, tutor_options, tutor_state = _parse_tutor_response(
                     response_text,
@@ -1231,6 +1238,7 @@ async def ask_ai(
             except Exception:
                 pass
         else:
+            result = {}
             response_text = _context_only_fallback_answer(str(user.id), question, selected_doc_ids, use_hs_context)
             tutor_options = []
             tutor_state = _normalize_tutor_state({}, tutor_reply_style, tutor_choice) if tutor_mode else None
@@ -1345,13 +1353,10 @@ async def ask_ai(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in /api/ask/: {e}", exc_info=True)
-        return {
-            "answer": "I apologize, but I encountered an error. Could you please rephrase your question?",
-            "ai_confidence": 0.3,
-            "topics_discussed": ["error"],
-            "query_type": "error",
-        }
+        _raise_if_usage_limit_error(e)
+        logger.error("Error in /api/ask/", exc_info=True)
+        raise HTTPException(status_code=503, detail={"code": "ai_generation_failed", "message": "AI is temporarily unavailable. Please retry."}) from e
+
 
 @router.post("/ask_simple/")
 async def ask_simple(
@@ -1437,7 +1442,7 @@ async def ask_simple(
                 tutor_choice=tutor_choice,
                 tutor_session_state=tutor_session_state,
             )
-            response_text = result.get("response", "")
+            response_text = require_ai_success(result, answer_key="response")["response"]
             if tutor_mode:
                 response_text, tutor_options, tutor_state = _parse_tutor_response(
                     response_text,
@@ -1545,25 +1550,10 @@ async def ask_simple(
     except HTTPException:
         raise
     except Exception as e:
-        if _is_usage_limit_error(e):
-            fallback_answer = _load_test_answer((original_question or question or "").strip())
-            return {
-                "answer": fallback_answer,
-                "ai_confidence": 0.45,
-                "topics_discussed": [],
-                "query_type": "provider_quota_fallback",
-                "tutor_mode": bool(tutor_mode),
-                "tutor_reply_style": tutor_reply_style,
-                "tutor_options": [],
-                "tutor_state": None,
-            }
-        logger.error(f"Error in /api/ask_simple/: {e}", exc_info=True)
-        return {
-            "answer": "I encountered an error processing your request.",
-            "ai_confidence": 0.3,
-            "topics_discussed": ["error"],
-            "query_type": "error",
-        }
+        _raise_if_usage_limit_error(e)
+        logger.error("Error in /api/ask_simple/", exc_info=True)
+        raise HTTPException(status_code=503, detail={"code": "ai_generation_failed", "message": "AI is temporarily unavailable. Please retry."}) from e
+
 
 @router.post("/ask_with_files/")
 async def ask_with_files(
@@ -1786,30 +1776,10 @@ async def ask_with_files(
                 )
 
         if image_payloads and not response_text:
-            return {
-                "answer": "",
-                "attachment_error": (
-                    "I received the image, but could not analyze it right now. "
-                    "Please retry in a moment."
-                ),
-                "attachment_error_detail": vision_error or "Vision service returned an empty response",
-                "ai_confidence": 0.0,
-                "topics_discussed": [],
-                "query_type": "multimodal_error",
-                "files_processed": len(saved_metadata),
-                "file_summaries": [
-                    {"file_name": m["filename"], "is_image": m["is_image"], "size": m["size"]}
-                    for m in saved_metadata
-                ],
-                "has_file_context": True,
-                "images_analyzed": 0,
-                "ai_provider": "vision_error",
-                "storage_type": storage_type,
-                "tutor_mode": bool(tutor_mode),
-                "tutor_reply_style": tutor_reply_style,
-                "tutor_options": [],
-                "tutor_state": None,
-            }
+            raise HTTPException(status_code=503, detail={
+                "code": "ai_attachment_failed",
+                "message": "I received the image but could not analyze it. Please retry.",
+            })
 
         if not response_text:
             tutor_input = (tutor_user_question if tutor_mode else model_question).strip() or "What can you help me with?"
@@ -1834,13 +1804,15 @@ async def ask_with_files(
                         tutor_choice=tutor_choice,
                         tutor_session_state=tutor_session_state,
                     )
-                    response_text = result.get("response", "")
+                    response_text = require_ai_success(result, answer_key="response")["response"]
                 else:
                     response_text = _context_only_fallback_answer(str(user.id), tutor_input, selected_doc_ids, use_hs_context)
             except Exception as e:
                 _raise_if_usage_limit_error(e)
                 logger.error(f"Tutor graph failed in ask_with_files: {e}")
                 response_text = _context_only_fallback_answer(str(user.id), tutor_input, selected_doc_ids, use_hs_context)
+
+        require_ai_success({"answer": response_text}, answer_key="answer")
 
         if tutor_mode:
             response_text, tutor_options, tutor_state = _parse_tutor_response(
@@ -1948,14 +1920,9 @@ async def ask_with_files(
         raise
     except Exception as e:
         _raise_if_usage_limit_error(e)
-        logger.error(f"Error in /api/ask_with_files/: {e}", exc_info=True)
-        return {
-            "answer": "I encountered an error processing your files. Please try again.",
-            "ai_confidence": 0.3,
-            "topics_discussed": ["error"],
-            "query_type": "error",
-            "files_processed": 0,
-        }
+        logger.error("Error in /api/ask_with_files/", exc_info=True)
+        raise HTTPException(status_code=503, detail={"code": "ai_generation_failed", "message": "AI could not process your files. Please retry."}) from e
+
 
 def _safe_filename(user_id: int, original: str) -> str:
     ts = int(datetime.now(timezone.utc).timestamp() * 1000)

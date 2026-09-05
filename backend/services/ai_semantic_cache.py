@@ -75,7 +75,7 @@ def _init_semantic_cache() -> Any | None:
 
 
 def _cache_metadata(user_id: int, job_type: str, cache_scope: str | None = None) -> dict[str, Any]:
-    scope = cache_scope or semantic_cache_scope()
+    scope = "user" if job_type == "chat_completion" else (cache_scope or semantic_cache_scope())
     metadata: dict[str, Any] = {
         "job_type": job_type,
         "scope": scope,

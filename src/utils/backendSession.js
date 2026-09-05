@@ -11,6 +11,7 @@ export const ACCOUNT_LOCAL_STORAGE_KEYS = [
   'cerbyl.customPfp',
   'cerbyl.displayName',
   'cerbyl.chatDock',
+  'cerbyl.aiJobs',
   'active_context',
   'hs_mode_enabled',
   'ctx_selected_doc_ids',

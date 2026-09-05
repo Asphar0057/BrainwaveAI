@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Eye, EyeOff } from 'lucide-react';
 import { signInWithPopup } from 'firebase/auth';
@@ -487,6 +487,11 @@ function Login() {
               Don't have an account?
               <span className="lg-link" onClick={() => navigate('/register')}>Create one</span>
             </div>
+            <nav className="lg-legal-links" aria-label="Legal">
+              <Link to="/terms-and-conditions">Terms</Link>
+              <Link to="/privacy-policy">Privacy</Link>
+              <Link to="/contact">Contact</Link>
+            </nav>
           </div>
         </div>
       </div>

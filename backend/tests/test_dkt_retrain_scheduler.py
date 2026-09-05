@@ -74,7 +74,7 @@ def _mk_user(db, email: str) -> int:
 def _add_chat_signals(db, uid: int, n: int) -> None:
     for i in range(n):
         db.add(models.ChatConceptSignal(
-            user_id=uid, concept=f"concept_{i}", signal_type="explicit", knowledge_signal=0.5,
+            user_id=uid, concept=f"concept_{i}", signal_type="verified_correct", knowledge_signal=0.5,
         ))
     db.commit()
 

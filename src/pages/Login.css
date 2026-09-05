@@ -426,6 +426,15 @@
   text-decoration: underline;
 }
 
+.lg-legal-consent { display: grid; grid-template-columns: 18px 1fr; gap: 10px; align-items: start; color: var(--lg-fg-dim); font-size: 0.72rem; line-height: 1.55; cursor: pointer; }
+.lg-legal-consent input { width: 16px; height: 16px; margin: 2px 0 0; accent-color: var(--lg-accent); }
+.lg-legal-consent a { color: var(--lg-accent); text-underline-offset: 2px; }
+.lg-legal-consent input:focus-visible { outline: 2px solid var(--lg-accent); outline-offset: 3px; }
+.lg-legal-links { display: flex; justify-content: center; gap: 14px; margin-top: 13px; }
+.lg-legal-links a { color: var(--lg-fg-dim); font-size: 0.68rem; text-decoration: none; }
+.lg-legal-links a:hover { color: var(--lg-accent); }
+.lg-legal-links a:focus-visible { outline: 2px solid var(--lg-accent); outline-offset: 3px; }
+
 @media (max-width: 480px) {
   .lg-card-inner {
     padding: 34px 24px 30px;

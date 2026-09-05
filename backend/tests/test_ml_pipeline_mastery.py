@@ -164,7 +164,51 @@ class TestIntentClassification:
 
 class TestBKTMasteryDirection:
 
-    def test_confident_signal_increases_mastery_from_mid(self, db):
+    def test_dkt_training_and_recency_ignore_conversational_signals(self, db):
+        from dkt.dataset import get_user_sequences
+        from dkt.temporal_decay import get_concept_recency
+        uid = _mk_user(db, f"dkt_{uuid.uuid4().hex[:6]}@x.com")
+        for kind, concept, value in [
+            ("confusion", "algebra", -0.9),
+            ("confidence", "biology", 0.9),
+            ("verified_correct", "geometry", 0.65),
+        ]:
+            db.add(models.ChatConceptSignal(user_id=uid, concept=concept, signal_type=kind, knowledge_signal=value))
+        db.commit()
+        sequences = get_user_sequences(database.SessionLocal, {"algebra": 1, "biology": 2, "geometry": 3}, uid)
+        assert len(sequences[uid]) == 1
+        assert sequences[uid][0][0] == 3
+        assert set(get_concept_recency(uid, db)) == {"geometry"}
+
+    @pytest.mark.parametrize("intent", ["question", "confident", "confused", "exploration", "off_topic"])
+    def test_conversation_is_not_correctness_evidence(self, db, intent):
+        pipeline = _mk_pipeline()
+        uid = _mk_user(db, f"neutral_{uuid.uuid4().hex[:6]}@x.com")
+        state = models.StudentKnowledgeState(
+            user_id=uid, concept_id="algebra", concept_name="algebra",
+            p_mastery=0.8, p_learn=0.09, p_slip=0.1, p_guess=0.2,
+        )
+        db.add(state)
+        db.commit()
+        previous_count = state.interaction_count
+        _, delta, before, after = asyncio.run(
+            pipeline._layer2_bkt_update(db, uid, ["algebra"], intent)
+        )
+        db.refresh(state)
+        assert before == after == {"algebra": 0.8}
+        assert delta == 0
+        assert state.interaction_count == previous_count
+
+    def test_verified_attempt_returns_real_delta(self, db):
+        pipeline = _mk_pipeline()
+        uid = _mk_user(db, f"delta_{uuid.uuid4().hex[:6]}@x.com")
+        _, delta, before, after = asyncio.run(pipeline._layer2_bkt_update(
+            db, uid, ["algebra"], "comprehension_answer", verified_correct=True,
+        ))
+        assert delta == pytest.approx(after["algebra"] - before["algebra"])
+        assert delta != 0
+
+    def test_verified_correct_attempt_increases_mastery_from_mid(self, db):
         # Regression: every CONFIDENCE value used to be <= 0.5, so
         # `if obs > 0.5` (the "correct answer" BKT branch) was unreachable --
         # mastery could only ever be pulled toward a low floor, never rise
@@ -182,10 +226,10 @@ class TestBKTMasteryDirection:
         db.commit()
 
         _p, _d, kt_before, kt_after = asyncio.run(
-            pipeline._layer2_bkt_update(db, uid, [concept], "confident")
+            pipeline._layer2_bkt_update(db, uid, [concept], "comprehension_answer", verified_correct=True)
         )
         assert kt_after[concept] > kt_before[concept], \
-            "a confident/breakthrough turn should raise mastery"
+            "a verified correct attempt should raise mastery"
         assert kt_after[concept] > 0.5, \
             f"expected a real jump above the 0.4 seed, got {kt_after[concept]}"
 
@@ -204,7 +248,7 @@ class TestBKTMasteryDirection:
         )
         assert intent == "confident"
 
-    def test_confused_signal_decreases_mastery_from_mid(self, db):
+    def test_verified_wrong_attempt_decreases_mastery_from_mid(self, db):
         pipeline = _mk_pipeline()
         uid = _mk_user(db, f"confd_{uuid.uuid4().hex[:6]}@x.com")
         concept = "integration_by_parts"
@@ -216,10 +260,10 @@ class TestBKTMasteryDirection:
         db.commit()
 
         _p, _d, kt_before, kt_after = asyncio.run(
-            pipeline._layer2_bkt_update(db, uid, [concept], "confused")
+            pipeline._layer2_bkt_update(db, uid, [concept], "comprehension_answer", verified_correct=False)
         )
         assert kt_after[concept] < kt_before[concept], \
-            "a confused-intent turn should lower mastery, not raise it"
+            "a verified incorrect attempt should lower mastery"
 
     def test_off_topic_never_touches_mastery(self, db):
         pipeline = _mk_pipeline()

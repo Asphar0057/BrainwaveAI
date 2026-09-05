@@ -43,8 +43,8 @@ class AIJobCreateRequest(BaseModel):
     max_tokens: int = Field(default=2000, ge=1, le=8000)
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     conversation_id: Optional[str] = Field(default=None, max_length=200)
-    use_semantic_cache: bool = True
-    cache_scope: Literal["user", "global"] = "user"
+    use_semantic_cache: bool = False
+    cache_scope: Literal["user"] = "user"
     timeout_seconds: Optional[int] = Field(default=None, ge=5, le=1800)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -79,7 +79,7 @@ def _active_job_limit() -> int:
     return int(os.getenv("AI_MAX_ACTIVE_JOBS_PER_USER", "4"))
 
 
-ACTIVE_JOB_STATUSES = ("queued", "running", "retrying")
+ACTIVE_JOB_STATUSES = ("preparing", "queued", "running", "retrying")
 
 
 def _serialize_job(job: models.AIJob) -> AIJobResponse:
@@ -346,7 +346,7 @@ async def create_legacy_file_route_job(
     job = models.AIJob(
         user_id=current_user.id,
         job_type="legacy_file_route",
-        status="queued",
+        status="preparing",
         input_json={
             "method": method,
             "path": path,
@@ -407,6 +407,7 @@ async def create_legacy_file_route_job(
         **(job.input_json or {}),
         "files": saved_files,
     }
+    job.status = "queued"
     db.commit()
     db.refresh(job)
 
@@ -480,6 +481,27 @@ def create_legacy_ai_route_job(
     return _serialize_job(job)
 
 
+@router.get("/jobs", response_model=list[AIJobResponse])
+def list_active_chat_jobs(
+    chat_session_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    _assert_chat_access(db, current_user, chat_session_id)
+    jobs = db.query(models.AIJob).filter(
+        models.AIJob.user_id == current_user.id,
+        models.AIJob.status.in_(ACTIVE_JOB_STATUSES),
+    ).all()
+    matching = []
+    for job in jobs:
+        payload = job.input_json or {}
+        body = payload.get("form_body") or payload.get("json_body") or {}
+        job_chat_id = payload.get("chat_session_id") or body.get("chat_id")
+        if str(job_chat_id) == str(chat_session_id):
+            matching.append(_serialize_job(job))
+    return matching
+
+
 @router.get("/jobs/{job_id}", response_model=AIJobResponse)
 def get_ai_job(
     job_id: int,
@@ -512,8 +534,14 @@ def cancel_ai_job(
     if job.status not in {"queued", "retrying"}:
         raise HTTPException(status_code=409, detail="Only queued or retrying AI jobs can be cancelled")
 
-    job.status = "cancelled"
-    job.completed_at = datetime.now(timezone.utc)
+    changed = db.query(models.AIJob).filter(
+        models.AIJob.id == job_id,
+        models.AIJob.user_id == current_user.id,
+        models.AIJob.status.in_(("queued", "retrying")),
+    ).update({models.AIJob.status: "cancelled", models.AIJob.completed_at: datetime.now(timezone.utc)}, synchronize_session=False)
+    if not changed:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="AI job has already started")
     db.commit()
     db.refresh(job)
     return _serialize_job(job)

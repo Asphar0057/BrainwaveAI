@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import {
   Brain, Layers, BookOpen, Target, Award, Mic, Swords,
@@ -441,6 +441,18 @@ export default function Home() {
           ))}
         </div>
       </div>
+
+      <footer className="cb-legal-footer">
+        <span>© 2026 Cerbyl Technologies Private Limited</span>
+        <nav aria-label="Legal and support">
+          <Link to="/terms-and-conditions">Terms</Link>
+          <Link to="/privacy-policy">Privacy</Link>
+          <Link to="/refund-and-cancellation-policy">Refunds</Link>
+          <Link to="/service-delivery-policy">Delivery</Link>
+          <Link to="/contact">Contact</Link>
+          <Link to="/company-details">Company</Link>
+        </nav>
+      </footer>
 
       {activeIdx !== null && (
         <div className={`cb-modal-overlay${closing ? ' cb-modal-overlay--closing' : ''}`} onClick={closeModal}>

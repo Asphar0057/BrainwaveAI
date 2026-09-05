@@ -7,6 +7,7 @@ from langgraph.graph import StateGraph, END
 
 from tutor.state import TutorState
 from tutor import nodes
+from services.ai_result import AIWorkflowError, require_ai_success
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,11 @@ class TutorGraph:
         g.add_edge("evaluate_tutor_attempt",  "update_tutor_plan_progress")
         g.add_edge("update_tutor_plan_progress","select_teaching_style")
         g.add_edge("select_teaching_style",   "build_prompt_and_respond")
-        g.add_edge("build_prompt_and_respond","evaluate_response")
+        g.add_conditional_edges(
+            "build_prompt_and_respond",
+            lambda state: "failed" if state.get("error") else "ready",
+            {"failed": END, "ready": "evaluate_response"},
+        )
         g.add_edge("evaluate_response",       "persist_updates")
         g.add_edge("persist_updates",         END)
 
@@ -78,7 +83,7 @@ class TutorGraph:
             "chat_history": chat_history or [],
             "use_hs_context": use_hs_context,
             "context_doc_ids": selected_doc_ids,
-            "context_only": bool((context_only or selected_doc_ids) and use_hs_context),
+            "context_only": bool(context_only or selected_doc_ids),
             "tutor_mode": bool(tutor_mode),
             "tutor_reply_style": tutor_reply_style or "guided",
             "tutor_choice": tutor_choice,
@@ -90,6 +95,7 @@ class TutorGraph:
         }
         try:
             result = await self._graph.ainvoke(initial_state)
+            require_ai_success(result, answer_key="response")
             return {
                 "response": result.get("response", ""),
                 "intent": result.get("intent", ""),
@@ -101,7 +107,7 @@ class TutorGraph:
             }
         except Exception as e:
             logger.error(f"Tutor graph failed: {e}")
-            return {"response": "Something went wrong. Please try again.", "error": str(e)}
+            raise AIWorkflowError("Tutor generation failed") from e
 
 _tutor: Optional[TutorGraph] = None
 

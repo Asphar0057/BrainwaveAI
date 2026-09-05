@@ -3,52 +3,135 @@ import { createUsageLimitError, getUsageLimitFromResponse } from '../utils/usage
 
 export const USE_AI_JOB_QUEUE = process.env.REACT_APP_USE_AI_JOB_QUEUE === 'true';
 
-const DEFAULT_TIMEOUT_MS = 180000;
-const DEFAULT_POLL_INTERVAL_MS = 750;
+const DEFAULT_POLL_INTERVAL_MS = 1000;
+const PENDING_JOBS_KEY = 'cerbyl.aiJobs';
+const ACTIVE_JOB_STATUSES = new Set(['preparing', 'queued', 'running', 'retrying']);
 
 const authHeaders = (extra = {}) => {
   const token = getAuthToken();
-  return {
-    ...(token && { Authorization: `Bearer ${token}` }),
-    ...extra,
-  };
+  return { ...(token && { Authorization: `Bearer ${token}` }), ...extra };
 };
 
-export async function pollAIJob(jobId, options = {}) {
-  const timeoutMs = options.timeoutMs || DEFAULT_TIMEOUT_MS;
-  const pollIntervalMs = options.pollIntervalMs || DEFAULT_POLL_INTERVAL_MS;
-  const startedAt = Date.now();
-  let job = { id: jobId, status: 'queued' };
+const owner = () => {
+  try {
+    const token = getAuthToken();
+    const payload = token?.split('.')[1];
+    return payload ? JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/'))).sub : null;
+  } catch (_) { return null; }
+};
 
-  while (job.status === 'queued' || job.status === 'running' || job.status === 'retrying') {
-    if (Date.now() - startedAt > timeoutMs) {
-      throw new Error('AI job timed out while waiting for a result');
-    }
-    const response = await fetch(`${API_URL}/ai/jobs/${jobId}`, {
-      headers: authHeaders(),
+export function getPendingAIJobs() {
+  try {
+    const jobs = JSON.parse(localStorage.getItem(PENDING_JOBS_KEY) || '[]');
+    return Array.isArray(jobs) ? jobs.filter(job => job.owner === owner() && job.api === API_URL) : [];
+  } catch (_) { return []; }
+}
+
+export async function discoverPendingChatJobs(chatSessionId, signal) {
+  const local = getPendingAIJobs().filter(job => String(job.chatSessionId) === String(chatSessionId));
+  try {
+    const response = await fetch(`${API_URL}/ai/jobs?chat_session_id=${encodeURIComponent(chatSessionId)}`, {
+      headers: authHeaders(), signal,
     });
+    if (!response.ok) return local;
+    const remote = await response.json();
+    remote.forEach(job => rememberJob(job, chatSessionId));
+    return [...new Map([...local, ...remote].map(job => [job.id, job])).values()];
+  } catch (error) {
+    if (signal?.aborted) throw aborted();
+    return local;
+  }
+}
+
+function rememberJob(job, chatSessionId = null) {
+  try {
+    const jobs = getPendingAIJobs().filter(entry => entry.id !== job.id);
+    jobs.push({ id: job.id, chatSessionId, owner: owner(), api: API_URL });
+    localStorage.setItem(PENDING_JOBS_KEY, JSON.stringify(jobs));
+  } catch (_) { /* Server job status remains authoritative without local storage. */ }
+}
+
+function forgetJob(jobId) {
+  try {
+    localStorage.setItem(PENDING_JOBS_KEY, JSON.stringify(getPendingAIJobs().filter(job => job.id !== jobId)));
+  } catch (_) { /* Storage may be unavailable. */ }
+}
+
+function aborted() { return new DOMException('Stopped waiting for this job', 'AbortError'); }
+
+function waitForPoll(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(aborted()); return; }
+    const onAbort = () => { clearTimeout(timer); reject(aborted()); };
+    const timer = setTimeout(() => { signal?.removeEventListener('abort', onAbort); resolve(); }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+export async function pollAIJob(jobId, options = {}) {
+  const startedAt = Date.now();
+  const initialOwner = owner();
+  const initialToken = getAuthToken();
+  let job = { id: jobId, status: 'queued' };
+  let connectionFailures = 0;
+
+  while (ACTIVE_JOB_STATUSES.has(job.status)) {
+    if (options.signal?.aborted || owner() !== initialOwner || !getAuthToken() && initialToken) throw aborted();
+    // An explicit caller deadline pauses observation; it never fails the job.
+    // By default, follow the persisted server state through queueing and retries.
+    if (options.timeoutMs && Date.now() - startedAt >= options.timeoutMs) {
+      const error = new Error('This AI job is still pending. Reopen the conversation to resume.');
+      error.code = 'AI_JOB_PENDING';
+      error.jobId = jobId;
+      throw error;
+    }
+    const controller = new AbortController();
+    const onAbort = () => controller.abort();
+    options.signal?.addEventListener('abort', onAbort, { once: true });
+    const requestTimer = setTimeout(() => controller.abort(), 15000);
+    let response;
+    let nextJob;
+    try {
+      response = await fetch(`${API_URL}/ai/jobs/${jobId}`, { headers: authHeaders(), signal: controller.signal });
+      if (response.ok) nextJob = await response.json();
+    } catch (error) {
+      if (options.signal?.aborted) throw aborted();
+      response = undefined;
+      connectionFailures += 1;
+    } finally {
+      clearTimeout(requestTimer);
+      options.signal?.removeEventListener('abort', onAbort);
+    }
+    if (!response || response.status === 429 || response.status >= 500) {
+      connectionFailures += response ? 1 : 0;
+      options.onProgress?.({ ...job, connection_state: 'reconnecting' });
+      await waitForPoll(Math.min(10000, 1000 * 2 ** Math.min(connectionFailures, 3)), options.signal);
+      continue;
+    }
     if (!response.ok) {
-      const usageLimit = await getUsageLimitFromResponse(response);
-      if (usageLimit) throw createUsageLimitError(usageLimit);
-      const errorText = await response.text();
-      throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+      if (response.status === 404) forgetJob(jobId);
+      throw new Error(`Could not check AI job (${response.status}). Your pending job has not been resubmitted.`);
     }
-    job = await response.json();
-    if (typeof options.onProgress === 'function') {
-      options.onProgress(job);
-    }
-    if (job.status === 'queued' || job.status === 'running' || job.status === 'retrying') {
-      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+    job = nextJob;
+    connectionFailures = 0;
+    options.onProgress?.(job);
+    if (ACTIVE_JOB_STATUSES.has(job.status)) {
+      await waitForPoll(options.pollIntervalMs || DEFAULT_POLL_INTERVAL_MS, options.signal);
     }
   }
 
+  forgetJob(jobId);
   if (job.status !== 'completed') {
-    throw new Error(job.error || 'AI job failed');
+    const error = new Error(job.error || (job.status === 'cancelled' ? 'AI job cancelled' : 'AI job failed'));
+    error.jobId = jobId;
+    throw error;
   }
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('brainwave:token-usage-refresh'));
+  const result = job.result || {};
+  if (result.error || result.attachment_error || result.success === false || ['error', 'multimodal_error', 'provider_quota_fallback'].includes(result.query_type)) {
+    throw new Error(result.error || result.attachment_error || 'AI generation failed');
   }
-  return job.result || {};
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('brainwave:token-usage-refresh'));
+  return result;
 }
 
 export async function createAIJob(payload) {
@@ -63,13 +146,15 @@ export async function createAIJob(payload) {
     const errorText = await response.text();
     throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
   }
-  return response.json();
+  const job = await response.json();
+  rememberJob(job, payload.chat_session_id || null);
+  return job;
 }
 
 export async function queueChatCompletion(payload, options = {}) {
   const job = await createAIJob({
     job_type: 'chat_completion',
-    use_semantic_cache: true,
+    use_semantic_cache: false,
     cache_scope: 'user',
     ...payload,
   });
@@ -95,6 +180,7 @@ export async function queueLegacyAIEndpoint(path, options = {}) {
     throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
   }
   const job = await response.json();
+  rememberJob(job, options.formBody?.chat_id || options.jsonBody?.chat_id || null);
   const result = await pollAIJob(job.id, options);
   return result.route_result || result;
 }
@@ -113,6 +199,7 @@ export async function queuedAIJsonFetch(path, fetchOptions = {}, queueOptions = 
     method,
     bodyType: 'json',
     jsonBody: body,
+    signal: fetchOptions.signal,
     ...queueOptions,
   });
   return new Response(JSON.stringify(result), {
@@ -177,6 +264,7 @@ export async function queueLegacyAIFileEndpoint(path, formBody = {}, files = [],
     throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
   }
   const job = await response.json();
+  rememberJob(job, formBody.chat_id || null);
   const result = await pollAIJob(job.id, options);
   return result.route_result || result;
 }

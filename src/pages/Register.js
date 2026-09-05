@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { signInWithPopup } from 'firebase/auth';
 import axios from 'axios';
 import { Eye, EyeOff } from 'lucide-react';
@@ -28,6 +28,7 @@ function Register() {
   const [verificationStep, setVerificationStep] = useState('form');
   const [registrationOtp, setRegistrationOtp] = useState('');
   const [registrationStatus, setRegistrationStatus] = useState('');
+  const [legalAccepted, setLegalAccepted] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -43,6 +44,10 @@ function Register() {
   };
 
   const handleGoogleSignIn = async () => {
+    if (!legalAccepted) {
+      alert('Please agree to the Terms and acknowledge the Privacy Policy before continuing.');
+      return;
+    }
     setGoogleLoading(true);
     try {
       const result = await signInWithPopup(auth, googleProvider);
@@ -88,6 +93,11 @@ function Register() {
     if (!formData.firstName || !formData.lastName || !formData.email || !formData.phoneNumber || !formData.username ||
         !formData.password || !formData.confirmPassword) {
       alert('Please fill in all fields');
+      return;
+    }
+
+    if (!legalAccepted) {
+      alert('Please agree to the Terms and acknowledge the Privacy Policy.');
       return;
     }
 
@@ -250,7 +260,7 @@ function Register() {
                 <button
                   className="lg-google-btn"
                   onClick={handleGoogleSignIn}
-                  disabled={disabled}
+                  disabled={disabled || !legalAccepted}
                 >
                   {googleLoading ? (
                     <>
@@ -398,7 +408,11 @@ function Register() {
                       </button>
                     </div>
                   </div>
-                  <button type="submit" className="lg-submit" disabled={disabled}>
+                  <label className="lg-legal-consent">
+                    <input type="checkbox" checked={legalAccepted} onChange={(e) => setLegalAccepted(e.target.checked)} disabled={disabled} required />
+                    <span>I agree to the <Link to="/terms-and-conditions" target="_blank" rel="noreferrer">Terms and Conditions</Link> and acknowledge the <Link to="/privacy-policy" target="_blank" rel="noreferrer">Privacy Policy</Link>. I confirm that I am 18 or older, or that my parent or lawful guardian has reviewed and accepted them.</span>
+                  </label>
+                  <button type="submit" className="lg-submit" disabled={disabled || !legalAccepted}>
                     {loading ? 'Sending OTP...' : 'Create Account'}
                   </button>
                 </form>
@@ -456,6 +470,11 @@ function Register() {
               Already have an account?
               <span className="lg-link" onClick={() => navigate('/login')}>Sign in</span>
             </div>
+            <nav className="lg-legal-links" aria-label="Legal">
+              <Link to="/terms-and-conditions">Terms</Link>
+              <Link to="/privacy-policy">Privacy</Link>
+              <Link to="/contact">Contact</Link>
+            </nav>
           </div>
         </div>
       </div>

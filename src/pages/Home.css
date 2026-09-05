@@ -184,6 +184,16 @@
 
 .cb-nav-right button:hover { color: var(--cb-fg); transform: translateY(-1px); }
 
+.cb-legal-footer {
+  position: fixed; z-index: 20; left: 28px; right: 28px; bottom: 12px;
+  display: flex; justify-content: space-between; gap: 18px;
+  color: #969196; font-size: 0.65rem; pointer-events: none;
+}
+.cb-legal-footer nav { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 15px; }
+.cb-legal-footer a { color: #aaa3a0; text-decoration: none; pointer-events: auto; }
+.cb-legal-footer a:hover { color: var(--cb-accent); }
+.cb-legal-footer a:focus-visible { outline: 2px solid var(--cb-accent); outline-offset: 3px; }
+
 /* ---------- intro overlay ---------- */
 
 .cb-intro {
@@ -959,4 +969,6 @@
   .cb-founders-row { flex-direction: column; gap: 26px; }
   .cb-table-hd, .cb-table-row { grid-template-columns: 1fr 1fr 1.2fr; font-size: 0.75rem; }
   .cb-modal-arrow { display: none; }
+  .cb-legal-footer { position: relative; left: auto; right: auto; bottom: auto; padding: 12px 18px 24px; flex-direction: column; align-items: center; text-align: center; }
+  .cb-legal-footer nav { justify-content: center; }
 }
