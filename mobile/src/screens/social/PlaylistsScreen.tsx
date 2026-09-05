@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
-  RefreshControl, Alert, Modal,
+  RefreshControl, Alert, Modal, ActivityIndicator,
   KeyboardAvoidingView, Platform, Switch,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../../services/auth';
@@ -55,6 +56,7 @@ async function authHeaders() {
 export default function PlaylistsScreen({ user, onBack }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
+  const insets = useSafeAreaInsets();
   const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
   const m = useMemo(() => createModalStyles(selectedTheme), [selectedTheme]);
   const [fontsLoaded] = useFonts({ Inter_900Black, Inter_400Regular, Inter_600SemiBold, Inter_700Bold });
@@ -272,50 +274,58 @@ export default function PlaylistsScreen({ user, onBack }: Props) {
           <View style={m.root}>
             <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFillObject} />
             <GeoBackground />
-            <View style={m.header}>
-              <Text style={m.title}>new playlist</Text>
+            <View style={[m.header, { paddingTop: insets.top + 14 }]}>
+              <Text style={m.createTitle}>new playlist</Text>
               <HapticTouchable onPress={() => setShowCreate(false)} haptic="light">
                 <Ionicons name="close" size={22} color={selectedTheme.accent} />
               </HapticTouchable>
             </View>
-            <ScrollView contentContainerStyle={m.body} showsVerticalScrollIndicator={false}>
-              <Text style={m.label}>title</Text>
-              <TextInput style={m.input} value={newTitle} onChangeText={setNewTitle} placeholder="playlist title..." placeholderTextColor={DIM} />
+            <ScrollView contentContainerStyle={m.createBody} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <View style={m.formGroup}>
+                <Text style={m.fieldLabel}>title</Text>
+                <TextInput style={m.input} value={newTitle} onChangeText={setNewTitle} placeholder="playlist title..." placeholderTextColor={DIM} />
 
-              <Text style={m.label}>description</Text>
-              <TextInput style={[m.input, { height: 80 }]} value={newDesc} onChangeText={setNewDesc} placeholder="what's this about..." placeholderTextColor={DIM} multiline />
+                <Text style={m.fieldLabel}>description</Text>
+                <TextInput style={[m.input, m.inputMultiline]} value={newDesc} onChangeText={setNewDesc} placeholder="what's this about..." placeholderTextColor={DIM} multiline textAlignVertical="top" />
 
-              <Text style={m.label}>category</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={m.chips}>
-                {CATEGORIES.map(c => (
-                  <HapticTouchable key={c} style={[m.chip, newCat === c && m.chipActive]} onPress={() => setNewCat(c === newCat ? '' : c)} haptic="selection">
-                    <Text style={[m.chipText, newCat === c && m.chipTextActive]}>{c}</Text>
-                  </HapticTouchable>
-                ))}
-              </ScrollView>
+                <Text style={m.fieldLabel}>category</Text>
+                <TextInput style={m.input} value={newCat} onChangeText={setNewCat} placeholder="e.g. Mathematics, Study skills..." placeholderTextColor={DIM} autoCapitalize="words" />
+                <View style={m.optionRow}>
+                  {CATEGORIES.map(c => (
+                    <HapticTouchable key={c} style={[m.optionPill, newCat === c && m.optionPillActive]} onPress={() => setNewCat(c === newCat ? '' : c)} haptic="selection">
+                      <Text style={[m.optionPillText, newCat === c && m.optionPillTextActive]}>{c}</Text>
+                    </HapticTouchable>
+                  ))}
+                </View>
 
-              <Text style={m.label}>difficulty</Text>
-              <View style={m.diffRow}>
-                {DIFFICULTIES.map(d => (
-                  <HapticTouchable key={d} style={[m.diffBtn, newDiff === d && m.diffBtnActive]} onPress={() => setNewDiff(d)} haptic="selection">
-                    <Text style={[m.diffText, newDiff === d && { color: DIFF_COLOR[d] }]}>{d}</Text>
-                  </HapticTouchable>
-                ))}
+                <Text style={m.fieldLabel}>difficulty</Text>
+                <View style={m.optionRow}>
+                  {DIFFICULTIES.map(d => (
+                    <HapticTouchable key={d} style={[m.optionPill, newDiff === d && m.optionPillActive]} onPress={() => setNewDiff(d)} haptic="selection">
+                      <Text style={[m.optionPillText, newDiff === d && m.optionPillTextActive]}>{d}</Text>
+                    </HapticTouchable>
+                  ))}
+                </View>
+
+                <View style={m.toggleRow}>
+                  <Text style={m.fieldLabel}>public</Text>
+                  <Switch
+                    value={newPublic}
+                    onValueChange={setNewPublic}
+                    trackColor={{ true: switchTrackOn, false: switchTrackOff }}
+                    thumbColor={newPublic ? switchThumbOn : switchThumbOff}
+                    ios_backgroundColor={switchTrackOff}
+                  />
+                </View>
               </View>
 
-              <View style={m.toggleRow}>
-                <Text style={m.label}>public</Text>
-                <Switch
-                  value={newPublic}
-                  onValueChange={setNewPublic}
-                  trackColor={{ true: switchTrackOn, false: switchTrackOff }}
-                  thumbColor={newPublic ? switchThumbOn : switchThumbOff}
-                  ios_backgroundColor={switchTrackOff}
-                />
-              </View>
-
-              <HapticTouchable style={m.submit} onPress={doCreate} haptic="medium" disabled={creating}>
-                {creating ? <PulseCubes color={ink} size={9} /> : <Text style={m.submitText}>create playlist</Text>}
+              <HapticTouchable style={[m.createSubmitBtn, creating && m.createSubmitBtnDisabled]} onPress={doCreate} haptic="medium" disabled={creating}>
+                {creating ? <ActivityIndicator color={ink} size="small" /> : (
+                  <View style={m.createSubmitRow}>
+                    <Text style={m.createSubmitText}>create playlist</Text>
+                    <Ionicons name="chevron-forward" size={14} color={ink} />
+                  </View>
+                )}
               </HapticTouchable>
             </ScrollView>
           </View>
@@ -514,8 +524,8 @@ function createModalStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'
     root: { flex: 1, paddingTop: 20 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingBottom: 20 },
     title: { fontFamily: 'Inter_900Black', fontSize: 24, color: ACCENT_HOVER },
-    body: { paddingHorizontal: 24, gap: 6, paddingBottom: 60 },
-    label: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: DIM, letterSpacing: 1, marginTop: 10 },
+    body: { paddingHorizontal: 24, gap: 16, paddingBottom: 60 },
+    label: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: DIM, letterSpacing: 1, marginTop: 10, textTransform: 'uppercase' },
     input: { backgroundColor: SURFACE_ALT, borderRadius: 12, borderWidth: 1, borderColor: BORDER, paddingHorizontal: 14, paddingVertical: 12, fontFamily: 'Inter_400Regular', fontSize: 14, color: ACCENT_HOVER, marginTop: 4 },
     chips: { gap: 8, paddingVertical: 6, flexDirection: 'row' },
     chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 6 },
@@ -524,10 +534,29 @@ function createModalStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'
     chipText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: DIM },
     chipTextActive: { color: ACCENT_HOVER },
     diffRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
-    diffBtn: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE_ALT },
+    diffBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: BORDER, backgroundColor: SURFACE_ALT },
     diffBtnActive: { borderColor: rgbaFromHex(ACCENT, 0.34), backgroundColor: rgbaFromHex(ACCENT, 0.14) },
-    diffText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: DIM },
+    diffText: { fontFamily: 'Inter_700Bold', fontSize: 11, color: DIM, textTransform: 'uppercase', letterSpacing: 0.4 },
     toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 },
+
+    // Create-playlist form -- same flat, no-boxes language as the flashcards
+    // create screen: plain field labels straight on the page background, pill
+    // option rows, one full-width submit button. No section cards, no icons.
+    createTitle: { fontFamily: 'Inter_700Bold', fontSize: 18, color: ACCENT_HOVER, letterSpacing: -0.2 },
+    createBody: { paddingHorizontal: 24, paddingBottom: 60 },
+    formGroup: { gap: 7 },
+    fieldLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: DIM, textTransform: 'uppercase', letterSpacing: 1, marginTop: 7 },
+    optionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
+    optionPill: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 9, backgroundColor: rgbaFromHex(SURFACE_ALT, 0.8), borderWidth: 1, borderColor: BORDER },
+    optionPillActive: { backgroundColor: ACCENT, borderColor: ACCENT_HOVER },
+    optionPillText: { fontFamily: 'Inter_700Bold', fontSize: 9.5, color: ACCENT_HOVER, textTransform: 'uppercase', letterSpacing: 1.6 },
+    optionPillTextActive: { color: theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary },
+    inputMultiline: { minHeight: 70 },
+    createSubmitBtn: { marginTop: 20, backgroundColor: ACCENT, borderRadius: 12, paddingVertical: 13, alignItems: 'center', justifyContent: 'center', boxShadow: cbTileShadow(0.1), ...cbTileBorder(0.24) },
+    createSubmitBtnDisabled: { opacity: 0.7 },
+    createSubmitRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    createSubmitText: { fontFamily: 'Inter_900Black', fontSize: 13, letterSpacing: 0.4, textTransform: 'uppercase', color: theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary },
+
     clearBtn: { alignItems: 'center', marginTop: 18 },
     clearText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: theme.danger, letterSpacing: 0.6, textTransform: 'uppercase' },
     submit: { marginTop: 16, height: 52, borderRadius: 14, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center' },

@@ -59,8 +59,15 @@ _auth_user_lookup_locks_guard = Lock()
 
 GEMINI_API_KEY = os.getenv("GOOGLE_GENERATIVE_AI_KEY") or os.getenv("GEMINI_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GEMINI_MODEL = "gemini-2.0-flash"
+# "gemini-2.0-flash" was retired by Google (404s on every call as of 2026-09) --
+# "gemini-flash-latest" is Google's rolling alias to the current stable Flash
+# model, which avoids re-breaking every time a pinned snapshot is retired.
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
 GROQ_MODEL = "openai/gpt-oss-120b"
+# meta-llama/llama-4-scout-17b-16e-instruct was decommissioned by Groq (404s as
+# of 2026-09) and Groq currently has no vision-capable model on this account's
+# plan -- Gemini is the working vision provider. Keep this overridable so a
+# future Groq vision model can be enabled via env without a code change.
 GROQ_VISION_MODEL = os.getenv(
     "GROQ_VISION_MODEL",
     "meta-llama/llama-4-scout-17b-16e-instruct",

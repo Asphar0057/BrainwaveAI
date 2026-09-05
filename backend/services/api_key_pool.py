@@ -45,7 +45,7 @@ class ApiKeyPoolExhausted(Exception):
 
 
 class ApiKeyPool:
-    def __init__(self, provider: str, keys: Iterable[str], daily_limit: int = 10000):
+    def __init__(self, provider: str, keys: Iterable[str], daily_limit: int = 1_000_000):
         self.provider = provider
         self.entries = [
             ApiKeyEntry(
@@ -243,7 +243,19 @@ class ApiKeyPool:
                 },
             )
 
-    def mark_exhausted(self, lease: ApiKeyLease, cooldown_seconds: int = 86400) -> None:
+    # Called whenever a provider response merely LOOKS quota/rate-limit-shaped
+    # (see UnifiedAIClient._is_quota_error's "429"/"quota"/"rate limit" string
+    # match) -- that heuristic can't tell a genuine full-day quota exhaustion
+    # apart from a transient per-minute rate-limit burst. A 24h cooldown here
+    # used to mean ANY single rate-limit blip locked out the only configured
+    # key (there's just one Gemini key in production) for the rest of the
+    # day, even though the provider itself had already recovered within
+    # seconds -- reproduced live 2026-09-04: this table showed exhausted_until
+    # ~24h out while a direct call to the same Gemini key succeeded normally.
+    # The daily token-budget check (used_tokens vs daily_limit, reset at UTC
+    # midnight via usage_day) is the real, correctly-scoped guard against
+    # genuine daily exhaustion; this cooldown only needs to ride out a burst.
+    def mark_exhausted(self, lease: ApiKeyLease, cooldown_seconds: int = 120) -> None:
         if not lease:
             return
         exhausted_until = (
@@ -274,7 +286,13 @@ class ApiKeyPool:
 def build_key_pool(
     provider: str,
     env_names: Iterable[str],
-    default_daily_limit: int = 10000,
+    # A single vision request costs roughly 3,000-6,000 tokens (image + Gemini's
+    # internal "thinking" + answer), so a low cap here throttles real production
+    # traffic, not just abuse. 1,000,000/day/key supports ~150-300 image
+    # analyses/day/key plus ordinary text-chat traffic; override per-provider
+    # via GEMINI_DAILY_TOKEN_LIMIT / GROQ_DAILY_TOKEN_LIMIT / etc, or globally
+    # via AI_KEY_DAILY_TOKEN_LIMIT (see _get_daily_limit).
+    default_daily_limit: int = 1_000_000,
 ) -> ApiKeyPool:
     keys: list[str] = []
     for env_name in env_names:

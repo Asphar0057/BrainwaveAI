@@ -534,6 +534,303 @@ export async function deleteQuestionSet(questionSetId: number, userId: string) {
   return res.json();
 }
 
+// ── Question Bank: PDF sources + AI generation ──────────────────────────
+export type QBDocument = {
+  id: number;
+  filename: string;
+  document_type?: string;
+  created_at?: string;
+  analysis?: { document_type?: string; main_topics?: string[]; [key: string]: unknown } | null;
+};
+
+export type DifficultyMix = { easy: number; medium: number; hard: number };
+
+export type PreviewQuestion = {
+  question_text: string;
+  question_type?: string;
+  options?: string[];
+  correct_answer?: string;
+  explanation?: string;
+  difficulty?: string;
+  topic?: string;
+  quality_score?: number;
+  bloom_level?: string;
+  is_potential_duplicate?: boolean;
+};
+
+export type PreviewStats = {
+  total: number;
+  average_quality_score?: number;
+  bloom_distribution?: Record<string, number>;
+  potential_duplicates?: number;
+  weak_topics?: string[];
+  strong_topics?: string[];
+  adaptive?: boolean;
+  personalized?: boolean;
+};
+
+export async function getQuestionBankDocuments(userId: string) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/qb/get_uploaded_documents?user_id=${encodeURIComponent(userId)}`, { headers });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to load documents');
+  }
+  return res.json() as Promise<{ documents: QBDocument[] }>;
+}
+
+export async function uploadQuestionBankPdf(userId: string, file: { uri: string; name: string; mimeType?: string | null }) {
+  const headers = await authHeaders();
+  const body = new FormData();
+  body.append('file', { uri: file.uri, name: file.name, type: file.mimeType || 'application/pdf' } as unknown as Blob);
+  const res = await fetch(`${API_URL}/qb/upload_pdf?user_id=${encodeURIComponent(userId)}`, {
+    method: 'POST',
+    headers,
+    body,
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to upload PDF');
+  }
+  return res.json() as Promise<{ status: string; document_id: number; filename: string; analysis: Record<string, unknown> }>;
+}
+
+export async function deleteQuestionBankDocument(userId: string, documentId: number) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/qb/delete_document/${documentId}?user_id=${encodeURIComponent(userId)}`, { method: 'DELETE', headers });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to delete document');
+  }
+  return res.json();
+}
+
+type PdfGenerationResult = { status: string; success?: boolean; question_set_id?: number; question_count?: number; title?: string };
+
+export async function generateQuestionsFromPdf(params: {
+  userId: string;
+  sourceId: number;
+  questionCount?: number;
+  difficultyMix?: DifficultyMix;
+  questionTypes?: string[];
+  topics?: string[] | null;
+  title?: string | null;
+  adaptiveDifficulty?: boolean;
+}) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/qb/generate_from_pdf`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_id: params.userId,
+      source_type: 'pdf',
+      source_id: params.sourceId,
+      question_count: params.questionCount ?? 10,
+      difficulty_mix: params.difficultyMix ?? { easy: 3, medium: 5, hard: 2 },
+      question_types: params.questionTypes ?? ['multiple_choice', 'true_false', 'short_answer'],
+      topics: params.topics ?? null,
+      title: params.title ?? null,
+      adaptive_difficulty: Boolean(params.adaptiveDifficulty),
+    }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to generate questions');
+  }
+  return res.json() as Promise<PdfGenerationResult>;
+}
+
+export async function generateQuestionsFromCustomContent(params: {
+  userId: string;
+  content: string;
+  title?: string | null;
+  questionCount?: number;
+  difficultyMix?: DifficultyMix;
+  questionTypes?: string[];
+  customPrompt?: string | null;
+}) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/qb/generate_from_pdf`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_id: params.userId,
+      source_type: 'custom',
+      content: params.content,
+      title: params.title || 'Custom Question Set',
+      question_count: params.questionCount ?? 10,
+      difficulty_mix: params.difficultyMix ?? { easy: 3, medium: 5, hard: 2 },
+      question_types: params.questionTypes ?? ['multiple_choice', 'true_false', 'short_answer'],
+      custom_prompt: params.customPrompt ?? null,
+    }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to generate questions');
+  }
+  return res.json() as Promise<PdfGenerationResult>;
+}
+
+export async function generateQuestionsFromMultiplePdfs(params: {
+  userId: string;
+  sourceIds: number[];
+  questionCount?: number;
+  difficultyMix?: DifficultyMix;
+  questionTypes?: string[];
+  title?: string | null;
+}) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/qb/generate_from_multiple_pdfs`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_id: params.userId,
+      source_ids: params.sourceIds,
+      question_count: params.questionCount ?? 10,
+      difficulty_mix: params.difficultyMix ?? { easy: 3, medium: 5, hard: 2 },
+      title: params.title ?? null,
+      question_types: params.questionTypes ?? ['multiple_choice', 'true_false', 'short_answer'],
+    }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to generate questions');
+  }
+  return res.json() as Promise<PdfGenerationResult>;
+}
+
+export async function smartGenerateQuestions(params: {
+  userId: string;
+  sourceIds: number[];
+  questionCount?: number;
+  difficultyMix?: DifficultyMix;
+  title?: string | null;
+  questionTypes?: string[];
+  customPrompt?: string | null;
+  referenceDocumentId?: number | null;
+  contentDocumentIds?: number[] | null;
+}) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/qb/smart_generate`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_id: params.userId,
+      source_ids: params.sourceIds,
+      question_count: params.questionCount ?? 10,
+      difficulty_mix: params.difficultyMix ?? { easy: 3, medium: 5, hard: 2 },
+      title: params.title ?? null,
+      question_types: params.questionTypes ?? ['multiple_choice', 'true_false', 'short_answer'],
+      custom_prompt: params.customPrompt ?? null,
+      reference_document_id: params.referenceDocumentId ?? null,
+      content_document_ids: params.contentDocumentIds ?? null,
+    }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to generate questions');
+  }
+  return res.json() as Promise<PdfGenerationResult>;
+}
+
+export async function generateRelatedQuestionsFromPdf(params: {
+  userId: string;
+  sourceIds: number[];
+  questionCount?: number;
+  difficultyMix?: DifficultyMix;
+  questionTypes?: string[];
+  title?: string | null;
+}) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/qb/generate_related_from_pdf`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_id: params.userId,
+      source_ids: params.sourceIds,
+      question_count: params.questionCount ?? 10,
+      difficulty_mix: params.difficultyMix ?? { easy: 3, medium: 5, hard: 2 },
+      question_types: params.questionTypes ?? ['multiple_choice', 'true_false', 'short_answer'],
+      title: params.title ?? null,
+    }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to generate related questions');
+  }
+  return res.json() as Promise<PdfGenerationResult & { questions?: PreviewQuestion[]; personalization?: { weak_topics?: string[]; strong_topics?: string[] } }>;
+}
+
+export async function generateAdaptiveQuestions(userId: string, documentIds: number[], questionCount = 10) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/qb/generate_adaptive`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId, document_ids: documentIds, question_count: questionCount }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to generate adaptive questions');
+  }
+  return res.json() as Promise<{
+    status: string;
+    questions: PreviewQuestion[];
+    weakness_analysis?: { recommendations?: { focus_topics?: string[] }; weak_topics?: Array<{ topic?: string }> };
+  }>;
+}
+
+export async function previewGenerateQuestions(params: {
+  userId: string;
+  sourceIds: number[];
+  questionCount?: number;
+  difficultyMix?: DifficultyMix;
+  questionTypes?: string[];
+  topics?: string[] | null;
+  customPrompt?: string | null;
+  referenceDocumentId?: number | null;
+  contentDocumentIds?: number[] | null;
+  sessionId?: string | null;
+}) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/qb/preview_generate`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_id: params.userId,
+      source_ids: params.sourceIds,
+      question_count: params.questionCount ?? 10,
+      difficulty_mix: params.difficultyMix ?? { easy: 3, medium: 5, hard: 2 },
+      question_types: params.questionTypes ?? ['multiple_choice', 'true_false', 'short_answer'],
+      topics: params.topics ?? null,
+      custom_prompt: params.customPrompt ?? null,
+      reference_document_id: params.referenceDocumentId ?? null,
+      content_document_ids: params.contentDocumentIds ?? null,
+      session_id: params.sessionId ?? null,
+    }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to preview generate');
+  }
+  return res.json() as Promise<{ status: string; questions: PreviewQuestion[]; stats: PreviewStats }>;
+}
+
+export async function regenerateQuestionPreview(userId: string, question: PreviewQuestion, feedback: string, documentId?: number | null) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/qb/regenerate_question`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId, question, feedback, document_id: documentId ?? null }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to regenerate question');
+  }
+  return res.json() as Promise<{ status: string; regenerated: PreviewQuestion }>;
+}
+
+export async function savePreviewedQuestions(userId: string, questions: PreviewQuestion[], title: string, description = '', sourceType = 'preview') {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/qb/save_previewed_questions`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId, questions, title, description, source_type: sourceType }),
+  });
+  if (!res.ok) {
+    await readApiError(res, 'Failed to save questions');
+  }
+  return res.json() as Promise<{ status: string; question_set_id: number; question_count: number; title: string }>;
+}
+
 // ── Knowledge Maps / Roadmaps ─────────────────────────────────────────
 export type KnowledgeRoadmap = {
   id: number;

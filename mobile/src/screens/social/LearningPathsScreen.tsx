@@ -74,7 +74,12 @@ type LearningPath = {
 };
 
 type NavTarget = 'notes' | 'flashcards';
-type Props = { user: AuthUser; onBack: () => void; onNavigate?: (screen: NavTarget) => void };
+// When rendered inline inside SocialScreen's tab page, the surrounding PagerView
+// container already applies the device's top safe-area inset -- this component's own
+// SafeAreaView(edges:['top']) would then stack a second copy on top of it, pushing the
+// header well below where every other page's header sits. `embedded` lets the caller say
+// "the top inset is already handled for you", so this screen doesn't add it a second time.
+type Props = { user: AuthUser; onBack: () => void; onNavigate?: (screen: NavTarget) => void; embedded?: boolean };
 
 async function authHeaders(json = false) {
   const token = await getToken();
@@ -91,11 +96,12 @@ function nodeStatus(node: LearningNode): NodeStatus {
   return node.progress?.status ?? 'locked';
 }
 
-export default function LearningPathsScreen({ onBack, onNavigate }: Props) {
+export default function LearningPathsScreen({ onBack, onNavigate, embedded = false }: Props) {
   const { selectedTheme } = useAppTheme();
   const layout = useResponsiveLayout();
   const insets = useSafeAreaInsets();
-  const s = useMemo(() => createStyles(selectedTheme, layout, insets.top), [selectedTheme, layout, insets.top]);
+  const topInset = embedded ? 0 : insets.top;
+  const s = useMemo(() => createStyles(selectedTheme, layout, topInset), [selectedTheme, layout, topInset]);
   const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, Inter_900Black });
   const [paths, setPaths] = useState<LearningPath[]>([]);
   const [loading, setLoading] = useState(true);
@@ -322,7 +328,7 @@ export default function LearningPathsScreen({ onBack, onNavigate }: Props) {
   }
 
   return (
-    <SafeAreaView style={s.root} edges={['top']}>
+    <SafeAreaView style={s.root} edges={embedded ? [] : ['top']}>
       <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} style={StyleSheet.absoluteFillObject} />
       <GeoBackground />
       <View style={s.libraryScreen}>
@@ -451,9 +457,16 @@ function CreatePathModal({ visible, topic, difficulty, length, goals, generating
           <TextInput style={styles.topicInput} value={topic} onChangeText={onTopic} placeholder="e.g. Backend system design" placeholderTextColor={theme.textSecondary} autoFocus multiline />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestionRow}>{SUGGESTED_TOPICS.map((item) => <HapticTouchable key={item} style={styles.suggestionChip} onPress={() => onTopic(item)} haptic="selection"><Text style={styles.suggestionText}>{item}</Text></HapticTouchable>)}</ScrollView>
           <Text style={styles.formLabel}>DIFFICULTY</Text>
-          <View style={styles.optionRow}>{DIFFICULTIES.map((item) => <HapticTouchable key={item} style={[styles.optionBtn, difficulty === item && styles.optionBtnActive]} onPress={() => onDifficulty(item)} haptic="selection"><Text style={[styles.optionText, difficulty === item && styles.optionTextActive]}>{item.toUpperCase()}</Text></HapticTouchable>)}</View>
+          <View style={styles.optionRow}>{DIFFICULTIES.map((item) => <HapticTouchable key={item} style={[styles.optionPill, difficulty === item && styles.optionPillActive]} onPress={() => onDifficulty(item)} haptic="selection"><Text style={[styles.optionPillText, difficulty === item && styles.optionPillTextActive]}>{item.toUpperCase()}</Text></HapticTouchable>)}</View>
           <Text style={styles.formLabel}>PATH LENGTH</Text>
-          <View style={styles.optionRow}>{LENGTHS.map((item) => <HapticTouchable key={item} style={[styles.optionBtn, length === item && styles.optionBtnActive]} onPress={() => onLength(item)} haptic="selection"><Text style={[styles.optionText, length === item && styles.optionTextActive]}>{item.toUpperCase()}</Text><Text style={[styles.optionHint, length === item && { color: ink }]}>{item === 'short' ? '3–5' : item === 'medium' ? '6–9' : '10+'} steps</Text></HapticTouchable>)}</View>
+          <View style={styles.optionRow}>{LENGTHS.map((item) => {
+            const stepsLabel = item === 'short' ? '3–5' : item === 'medium' ? '6–9' : '10+';
+            return (
+              <HapticTouchable key={item} style={[styles.optionPill, length === item && styles.optionPillActive]} onPress={() => onLength(item)} haptic="selection">
+                <Text style={[styles.optionPillText, length === item && styles.optionPillTextActive]}>{item.toUpperCase()} · {stepsLabel}</Text>
+              </HapticTouchable>
+            );
+          })}</View>
           <Text style={styles.formLabel}>PERSONAL GOALS · OPTIONAL</Text>
           <TextInput style={styles.goalsInput} value={goals} onChangeText={onGoals} placeholder={'Build practical projects\nUnderstand the fundamentals'} placeholderTextColor={theme.textSecondary} multiline textAlignVertical="top" />
           <HapticTouchable style={styles.startBtn} onPress={onGenerate} disabled={generating} haptic="medium">{generating ? <><ActivityIndicator color={ink} /><Text style={styles.startBtnText}>BUILDING YOUR ROUTE…</Text></> : <><Ionicons name="sparkles" size={17} color={ink} /><Text style={styles.startBtnText}>GENERATE LEARNING PATH</Text></>}</HapticTouchable>
@@ -559,11 +572,15 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     moduleStatusCurrent: { backgroundColor: theme.accent },
     moduleStatusText: { fontFamily: 'Inter_900Black', color: theme.textSecondary, fontSize: 9.5, letterSpacing: 0.6 },
     modalRoot: { flex: 1, backgroundColor: theme.bgPrimary },
-    sheetHandle: { width: 42, height: 5, borderRadius: 3, backgroundColor: rgbaFromHex(theme.textSecondary, 0.28), alignSelf: 'center', marginTop: 9 },
-    sheetHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 18, paddingBottom: 11 },
+    // presentationStyle="pageSheet" is iOS-only -- on iOS the sheet already presents
+    // below the status bar with its own gap, so a small fixed marginTop is enough. On
+    // Android the same Modal goes full-screen edge-to-edge, so without adding the
+    // device's own top inset here the handle/header sit flush under the status bar.
+    sheetHandle: { width: 42, height: 5, borderRadius: 3, backgroundColor: rgbaFromHex(theme.textSecondary, 0.28), alignSelf: 'center', marginTop: Platform.OS === 'android' ? topInset + 9 : 9 },
+    sheetHeader: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 18, paddingBottom: 11 },
     sheetTitle: { fontFamily: 'Inter_900Black', color: theme.accentHover, fontSize: 24, lineHeight: 29, marginTop: 3 },
     sheetClose: { width: 39, height: 39, borderRadius: 13, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.84), alignItems: 'center', justifyContent: 'center' },
-    sheetScroll: { paddingHorizontal: 18, paddingBottom: 32, gap: 12 },
+    sheetScroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 32, gap: 12 },
     sheetDescription: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 12, lineHeight: 19 },
     nodeInfoRow: { flexDirection: 'row', gap: 7 },
     nodeInfoPill: { minHeight: 31, borderRadius: 10, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surfaceAlt, 0.7), flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9 },
@@ -579,22 +596,23 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     outlineTitle: { fontFamily: 'Inter_700Bold', color: theme.textPrimary, fontSize: 11 },
     outlineText: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 9.5, lineHeight: 15, marginTop: 3 },
     takeawayText: { fontFamily: 'Inter_400Regular', color: theme.textPrimary, fontSize: 11, lineHeight: 17 },
-    sheetFooter: { padding: 15, paddingBottom: Math.max(15, topInset ? 15 : 25), borderTopWidth: 1, borderTopColor: border },
+    sheetFooter: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', padding: 15, paddingBottom: Math.max(15, topInset ? 15 : 25), borderTopWidth: 1, borderTopColor: border },
     startBtn: { minHeight: 49, borderRadius: 14, backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 14 },
     startBtnText: { fontFamily: 'Inter_900Black', color: ink, fontSize: 9, letterSpacing: 0.9 },
     createSub: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 10.5, lineHeight: 16, marginTop: 5 },
-    createScroll: { paddingHorizontal: 18, paddingBottom: 50, gap: 10 },
+    createScroll: { width: '100%', maxWidth: layout.contentMaxWidth, alignSelf: 'center', paddingHorizontal: 18, paddingBottom: 50, gap: 10 },
     formLabel: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 10, letterSpacing: 1.2, marginTop: 4 },
     topicInput: { minHeight: 76, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.91), padding: 13, color: theme.textPrimary, fontFamily: 'Inter_700Bold', fontSize: 14, textAlignVertical: 'top' },
     suggestionRow: { gap: 7 },
     suggestionChip: { height: 34, borderRadius: 11, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surfaceAlt, 0.7), alignItems: 'center', justifyContent: 'center', paddingHorizontal: 11 },
     suggestionText: { fontFamily: 'Inter_600SemiBold', color: theme.textPrimary, fontSize: 9 },
-    optionRow: { flexDirection: 'row', gap: 7 },
-    optionBtn: { flex: 1, minHeight: 48, borderRadius: 13, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.78), alignItems: 'center', justifyContent: 'center', gap: 3 },
-    optionBtnActive: { backgroundColor: theme.accent, borderColor: theme.accentHover },
-    optionText: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 10, letterSpacing: 0.5 },
-    optionTextActive: { color: ink },
-    optionHint: { fontFamily: 'Inter_400Regular', color: theme.textSecondary, fontSize: 9.5 },
+    // Same flat wrap-pill language as the flashcards create form -- auto-width chips,
+    // not equal-width boxes.
+    optionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
+    optionPill: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 9, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.8) },
+    optionPillActive: { backgroundColor: theme.accent, borderColor: theme.accentHover },
+    optionPillText: { fontFamily: 'Inter_700Bold', color: theme.textSecondary, fontSize: 9.5, textTransform: 'uppercase', letterSpacing: 1.2 },
+    optionPillTextActive: { color: ink },
     goalsInput: { minHeight: 100, borderRadius: 16, borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.91), padding: 13, color: theme.textPrimary, fontFamily: 'Inter_400Regular', fontSize: 11, lineHeight: 17 },
     iconColor: { color: theme.accentHover },
   });

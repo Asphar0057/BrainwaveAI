@@ -1756,7 +1756,10 @@ async def ask_with_files(
                         ai_client.generate_with_images,
                         enriched_question,
                         image_payloads,
-                        2000,
+                        # Modern Gemini vision models spend a chunk of maxOutputTokens on
+                        # internal "thinking" before writing the visible answer, so a
+                        # detailed image analysis needs real headroom to avoid truncation.
+                        4000,
                         0.7,
                     )
                     or ""
