@@ -8,14 +8,18 @@ const PublicFlashcardView = () => {
   const [setData, setSetData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [missing, setMissing] = useState(false);
+  const [retry, setRetry] = useState(0);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
 
   useEffect(() => {
     const fetchSet = async () => {
+      setLoading(true); setError(null); setMissing(false);
       try {
         const response = await fetch(`${API_URL}/public/flashcards/${token}`);
         if (response.status === 404) {
+          setMissing(true);
           setError('This flashcard set link is invalid or no longer available.');
           return;
         }
@@ -31,7 +35,7 @@ const PublicFlashcardView = () => {
       }
     };
     fetchSet();
-  }, [token]);
+  }, [token, retry]);
 
   const cards = setData?.flashcards || [];
   const currentCard = cards[currentIndex];
@@ -58,9 +62,10 @@ const PublicFlashcardView = () => {
   if (error) {
     return (
       <div className="pfv-page pfv-center">
-        <h2>Link Not Found</h2>
-        <p>{error}</p>
-        <Link className="pfv-home-link" to="/">Go to Brainwave</Link>
+        <h2>{missing ? "Link not found" : "Could not load shared content"}</h2>
+        <p role="alert">{error}</p>
+        {!missing && <button type="button" onClick={() => setRetry(n => n + 1)}>Try again</button>}
+        <Link className="pfv-home-link" to="/">Go to Cerbyl</Link>
       </div>
     );
   }
@@ -79,13 +84,13 @@ const PublicFlashcardView = () => {
         ) : (
           <>
             <div className="pfv-counter">CARD {currentIndex + 1} OF {cards.length}</div>
-            <div className={`pfv-card ${isFlipped ? 'pfv-flipped' : ''}`} onClick={() => setIsFlipped((f) => !f)} role="button" tabIndex={0} aria-label="Flip flashcard" onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsFlipped((f) => !f); } }}>
+            <div className={`pfv-card ${isFlipped ? 'pfv-flipped' : ''}`} onClick={() => setIsFlipped((f) => !f)} role="button" tabIndex={0} aria-label={`${isFlipped ? "Answer" : "Question"}: ${isFlipped ? currentCard.answer : currentCard.question}. Activate to ${isFlipped ? "show question" : "reveal answer"}.`} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsFlipped((f) => !f); } }}>
               <div className="pfv-card-inner">
-                <div className="pfv-card-face pfv-card-front">
+                <div className="pfv-card-face pfv-card-front" aria-hidden={isFlipped}>
                   <span className="pfv-card-label">Question</span>
                   <p>{currentCard.question}</p>
                 </div>
-                <div className="pfv-card-face pfv-card-back">
+                <div className="pfv-card-face pfv-card-back" aria-hidden={!isFlipped}>
                   <span className="pfv-card-label">Answer</span>
                   <p>{currentCard.answer}</p>
                 </div>
@@ -105,7 +110,7 @@ const PublicFlashcardView = () => {
         )}
 
         <div className="pfv-footer">
-          <Link className="pfv-home-link" to="/">Powered by Brainwave</Link>
+          <Link className="pfv-home-link" to="/">Powered by Cerbyl</Link>
         </div>
       </div>
     </div>

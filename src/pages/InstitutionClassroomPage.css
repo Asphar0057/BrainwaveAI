@@ -173,3 +173,10 @@
   .icp-notification-list article button { grid-column: 2; justify-self: start; }
   .icp-editor > div { grid-template-columns: 1fr; }
 }
+
+/* Operational text remains readable at every viewport. */
+.icp-root :is(input, textarea, select) { font-size: 16px; }
+.icp-root :is(label, p, small) { font-size: max(0.875rem, 14px); }
+
+.icp-editor :is(input,select,textarea) { font-size: 16px; }
+.icp-root .icp-assignment-meta { font-size: 14px; }

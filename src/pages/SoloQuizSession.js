@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, Trophy, CheckCircle, XCircle, Loader, Lightbulb, RefreshCw, AlertCircle, ChevronLeft, ChevronRight, ArrowLeft, Play } from 'lucide-react';
 import SocialHubChrome from '../components/SocialHubChrome';
@@ -16,7 +16,17 @@ const SoloQuizSession = () => {
   const [quizData, setQuizData] = useState(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
-  const [userAnswers, setUserAnswers] = useState({});
+  const [userAnswers, setUserAnswersState] = useState({});
+  const answersRef = useRef({});
+  const submittingRef = useRef(false);
+  const feedbackTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(feedbackTimerRef.current), []);
+  const setUserAnswers = value => {
+    const next = typeof value === 'function' ? value(answersRef.current) : value;
+    answersRef.current = next;
+    setUserAnswersState(next);
+  };
+  const attemptKey = `cerbyl.quizAttempt:${username}`;
   const [score, setScore] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [timeElapsed, setTimeElapsed] = useState(0);
@@ -36,7 +46,12 @@ const SoloQuizSession = () => {
   useEffect(() => {
     const storedData = sessionStorage.getItem('quizData');
     if (storedData) {
-      const data = JSON.parse(storedData);
+      let data;
+      try { data = JSON.parse(storedData); } catch { navigate('/solo-quiz'); return; }
+      let saved;
+      try { saved = JSON.parse(sessionStorage.getItem(attemptKey) || 'null'); } catch {}
+      if (saved?.signature !== storedData) saved = null;
+      const beganAt = saved?.startTime || Date.now();
       const normalizedQuestions = normalizeQuestions(data.questions || []);
       setQuizData(data);
       setQuestions(normalizedQuestions);
@@ -44,13 +59,14 @@ const SoloQuizSession = () => {
       setTimingMode(data.timingMode || 'timed');
       
       
-      if (data.timingMode === 'timed') {
-        setTimeRemaining((data.questions?.length || 10) * 60); 
+      if ((data.timingMode || 'timed') === 'timed') {
+        setTimeRemaining(Math.max(0, (data.questions?.length || 10) * 60 - Math.floor((Date.now() - beganAt) / 1000)));
       } else if (data.timingMode === 'stopwatch') {
         setTimeElapsed(0);
       }
       
-      setStartTime(Date.now());
+      setStartTime(beganAt);
+      if (saved) { setUserAnswers(saved.answers || {}); setCurrentQuestionIndex(saved.index || 0); setSelectedAnswer(saved.selected ?? null); setScore(saved.score || 0); setTimeElapsed(Math.floor((Date.now() - beganAt) / 1000)); }
       setLoading(false);
     } else {
       navigate('/solo-quiz');
@@ -63,20 +79,29 @@ const SoloQuizSession = () => {
 
     if (timingMode === 'timed' && timeRemaining > 0) {
       const timer = setTimeout(() => {
-        setTimeRemaining(prev => prev - 1);
+        setTimeRemaining(Math.max(0, questions.length * 60 - Math.floor((Date.now() - startTime) / 1000)));
       }, 1000);
       return () => clearTimeout(timer);
     } else if (timingMode === 'timed' && timeRemaining === 0 && questions.length > 0) {
       handleSubmitQuiz();
     } else if (timingMode === 'stopwatch') {
       const timer = setTimeout(() => {
-        setTimeElapsed(prev => prev + 1);
+        setTimeElapsed(Math.floor((Date.now() - startTime) / 1000));
       }, 1000);
       return () => clearTimeout(timer);
     }
   }, [timeRemaining, timeElapsed, showResult, loading, grading, questions.length, timingMode]);
 
+  useEffect(() => {
+    if (loading || !quizData || (showResult && !completionWarning)) return;
+    sessionStorage.setItem(attemptKey, JSON.stringify({ signature: JSON.stringify(quizData), answers: userAnswers, index: currentQuestionIndex, selected: selectedAnswer, startTime, score }));
+  }, [loading, quizData, userAnswers, currentQuestionIndex, selectedAnswer, startTime, score, showResult, completionWarning, attemptKey]);
+
   const handleAnswerSelect = (answerIndex) => {
+    if (showInstantFeedback || submittingRef.current) return;
+    const question = questions[currentQuestionIndex];
+    const value = question.question_type === 'multiple_choice' ? String.fromCharCode(65 + answerIndex) : question.question_type === 'true_false' ? (answerIndex === 0 ? 'true' : 'false') : String(answerIndex);
+    setUserAnswers(previous => ({ ...previous, [String(question.id ?? currentQuestionIndex)]: value }));
     
     if (quizMode === 'sequential-instant') {
       const currentQuestion = questions[currentQuestionIndex];
@@ -112,7 +137,7 @@ const SoloQuizSession = () => {
       }
       
       
-      setTimeout(() => {
+      feedbackTimerRef.current = setTimeout(() => {
         setShowInstantFeedback(false);
         if (currentQuestionIndex < questions.length - 1) {
           setCurrentQuestionIndex(prev => prev + 1);
@@ -257,6 +282,9 @@ const SoloQuizSession = () => {
   };
 
   const handleSubmitQuiz = async () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    const submittedAnswers = { ...answersRef.current };
     setGrading(true);
     const timeTaken = Math.round((Date.now() - startTime) / 1000);
 
@@ -265,12 +293,13 @@ const SoloQuizSession = () => {
       const gradeResponse = await quizAgentService.gradeQuiz({
         userId: username,
         questions,
-        answers: userAnswers,
+        answers: submittedAnswers,
         timeTakenSeconds: timeTaken
       });
 
       setResults(gradeResponse);
       setCompletionWarning(gradeResponse.completion_saved === false);
+      if (gradeResponse.completion_saved !== false) { sessionStorage.removeItem(attemptKey); sessionStorage.removeItem('quizData'); }
 
 
       let performanceAnalysis = null;
@@ -292,10 +321,10 @@ const SoloQuizSession = () => {
       const reviewData = {
         questions,
         results: gradeResponse.results || [],
-        score: gradeResponse.correct_answers || score,
+        score: gradeResponse.correct_answers ?? score,
         total_questions: gradeResponse.total_questions || questions.length,
-        correct_answers: gradeResponse.correct_answers || score,
-        percentage: gradeResponse.percentage || Math.round((score / questions.length) * 100),
+        correct_answers: gradeResponse.correct_answers ?? score,
+        percentage: gradeResponse.percentage ?? Math.round((score / questions.length) * 100),
         time_taken: timeTaken,
         topic: quizData?.topic || 'Quiz',
         difficulty: quizData?.difficulty || 'medium',
@@ -306,10 +335,11 @@ const SoloQuizSession = () => {
       setShowResult(true);
     } catch (error) {
       console.error('Quiz grading error:', error);
+      setCompletionWarning(true);
       
       const localResults = questions.map((q, idx) => {
         const questionId = String(q.id ?? idx);
-        const userAnswer = userAnswers[questionId] || '';
+        const userAnswer = submittedAnswers[questionId] || '';
         const correctAnswer = String(q.correct_answer || '');
         const isCorrect = userAnswer.toLowerCase() === correctAnswer.toLowerCase() || 
                          userAnswer.toLowerCase() === correctAnswer.toLowerCase().charAt(0);
@@ -347,7 +377,7 @@ const SoloQuizSession = () => {
       setShowResult(true);
     } finally {
       setGrading(false);
-      sessionStorage.removeItem('quizData');
+      submittingRef.current = false;
     }
   };
 
@@ -415,8 +445,8 @@ const SoloQuizSession = () => {
   }
 
   if (showResult) {
-    const percentage = results?.percentage || Math.round((score / questions.length) * 100);
-    const correctCount = results?.correct_answers || score;
+    const percentage = results?.percentage ?? Math.round((score / questions.length) * 100);
+    const correctCount = results?.correct_answers ?? score;
 
     return renderSoloChrome(
       <main className="solo-result-main battle-result-page detailed">
@@ -428,7 +458,7 @@ const SoloQuizSession = () => {
 
           {completionWarning && (
             <div className="battle-submit-error" role="alert">
-              <span>Your score was calculated but couldn't be saved to your account (connection issue). Points and progress from this quiz were not recorded.</span>
+              <span>Your score was calculated but couldn't be saved to your account (connection issue). Points and progress from this quiz were not recorded. Your answers are retained.</span><button type="button" onClick={handleSubmitQuiz}>Retry saving result</button>
             </div>
           )}
 
@@ -543,10 +573,10 @@ const SoloQuizSession = () => {
               const reviewData = {
                 questions,
                 results: results?.results || [],
-                score: results?.correct_answers || score,
+                score: results?.correct_answers ?? score,
                 total_questions: results?.total_questions || questions.length,
-                correct_answers: results?.correct_answers || score,
-                percentage: results?.percentage || percentage,
+                correct_answers: results?.correct_answers ?? score,
+                percentage: results?.percentage ?? percentage,
                 time_taken: Math.round((Date.now() - startTime) / 1000),
                 topic: quizData?.topic || 'Quiz',
                 difficulty: quizData?.difficulty || 'medium',

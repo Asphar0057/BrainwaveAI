@@ -1,3 +1,4 @@
+import useAccountDraft from '../hooks/useAccountDraft';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -53,6 +54,8 @@ const formatToday = () => new Intl.DateTimeFormat('en-IN', {
 function useDialogFocus(onClose) {
   const dialogRef = useRef(null);
   const returnFocusRef = useRef(document.activeElement);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -61,7 +64,7 @@ function useDialogFocus(onClose) {
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        onClose();
+        closeRef.current();
         return;
       }
       if (event.key !== 'Tab' || !dialog) return;
@@ -82,14 +85,14 @@ function useDialogFocus(onClose) {
       document.removeEventListener('keydown', handleKeyDown);
       returnFocusRef.current?.focus?.();
     };
-  }, [onClose]);
+  }, []);
 
   return dialogRef;
 }
 
 export function SubmissionDialog({ assignment, onClose, onSubmitted }) {
-  const dialogRef = useDialogFocus(onClose);
-  const [content, setContent] = useState(assignment.content_text || '');
+  const dialogRef = useDialogFocus(() => { if (!status.saving && (!attachmentFile || window.confirm('The selected file is not saved yet. Close this draft?'))) onClose(); });
+  const [content, setContent, clearContentDraft] = useAccountDraft(`submission:${assignment.id}`, assignment.content_text || '');
   const [attachmentUrl, setAttachmentUrl] = useState(assignment.attachment_url || '');
   const [attachmentFile, setAttachmentFile] = useState(null);
   const [status, setStatus] = useState({ saving: false, error: '' });
@@ -125,6 +128,7 @@ export function SubmissionDialog({ assignment, onClose, onSubmitted }) {
           attachment_url: resolvedAttachment,
         }),
       });
+      clearContentDraft();
       onSubmitted();
     } catch (error) {
       setStatus({ saving: false, error: error.message });
@@ -142,6 +146,7 @@ export function SubmissionDialog({ assignment, onClose, onSubmitted }) {
           attachment_url: resolvedAttachment,
         }),
       });
+      clearContentDraft();
       onSubmitted();
     } catch (error) {
       setStatus({ saving: false, error: error.message });
@@ -149,7 +154,7 @@ export function SubmissionDialog({ assignment, onClose, onSubmitted }) {
   };
 
   return (
-    <div className="ci-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div className="ci-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !status.saving && (!attachmentFile || window.confirm('The selected file is not saved yet. Close this draft?')) && onClose()}>
       <section ref={dialogRef} className="ci-modal ci-modal--submission" role="dialog" aria-modal="true" aria-labelledby="submission-dialog-title">
         <div className="ci-tile-texture" />
         <header>
@@ -157,7 +162,7 @@ export function SubmissionDialog({ assignment, onClose, onSubmitted }) {
             <span>{assignment.course_code} · DUE {formatDate(assignment.due_at)}</span>
             <h2 id="submission-dialog-title">{assignment.title}</h2>
           </div>
-          <button type="button" aria-label="Close submission" onClick={onClose}><X size={18} /></button>
+          <button type="button" aria-label="Close submission" onClick={() => { if (!status.saving && (!attachmentFile || window.confirm('The selected file is not saved yet. Close this draft?'))) onClose(); }}><X size={18} /></button>
         </header>
         <form onSubmit={submit}>
           <div className="ci-assignment-brief">
@@ -196,7 +201,7 @@ export function SubmissionDialog({ assignment, onClose, onSubmitted }) {
           )}
           {status.error && <p className="ci-form-error" role="alert">{status.error}</p>}
           <footer>
-            <button className="ci-action" type="button" onClick={onClose}>Cancel</button>
+            <button className="ci-action" type="button" onClick={() => { if (!status.saving && (!attachmentFile || window.confirm('The selected file is not saved yet. Close this draft?'))) onClose(); }}>Cancel</button>
             {!wasSubmitted && (
               <button className="ci-action" type="button" onClick={saveDraft} disabled={status.saving}>
                 {status.saving ? 'Saving…' : 'Save draft'}
@@ -272,8 +277,16 @@ function StudentDashboard() {
     navigate('/login', { replace: true });
   };
 
-  const openStudentTool = (label, route) => {
-    navigate(route);
+  const openStudentTool = async (label, route) => {
+    if (label !== 'Course Tutor') { navigate(route); return; }
+    if (!selectedSectionId) { navigate('/student/classes'); return; }
+    try {
+      const section = await apiRequest(`/institution/sections/${selectedSectionId}`);
+      const materials = section.materials || [];
+      const courseScope = { sectionId: selectedSectionId, label: `${section.course_code} · ${section.course_title}`, materials };
+      const conversationContext = `Course: ${courseScope.label}. Section: ${section.name}. Published course material references: ${materials.map(item => `${item.title} (${item.source_url || 'classroom file'})`).join('; ') || 'None available'}. These are references only; do not claim to have read material contents that were not supplied. Ask the student to provide the relevant material before source-specific answers.`;
+      navigate(route, { state: { courseScope, conversationContext } });
+    } catch { window.alert('Course context could not be loaded. Try opening Course Tutor again.'); }
   };
 
   if (state.status === 'loading') {
@@ -388,7 +401,7 @@ function StudentDashboard() {
                     openStudentTool(searchResults[0].label, searchResults[0].route);
                   }
                 }}
-                placeholder="Search classes, assignments, practice, course tools..."
+                placeholder="Find a study tool"
                 aria-label="Search student tools"
               />
               {showSearch && query && (

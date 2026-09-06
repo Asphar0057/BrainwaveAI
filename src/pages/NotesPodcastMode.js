@@ -1,3 +1,4 @@
+import ToolNavigation from '../components/ToolNavigation';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircle, Loader2 } from 'lucide-react';
@@ -126,10 +127,7 @@ const NotesPodcastMode = () => {
   return (
     <div className="npm-page">
       <div className="shc-topbar">
-        <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-        <div className="shc-topbar-right">
-          <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-        </div>
+        <ToolNavigation />
       </div>
       <PodcastStudio
         results={podcastResults}

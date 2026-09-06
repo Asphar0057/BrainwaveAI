@@ -18,7 +18,7 @@ router = APIRouter(prefix="/api", tags=["friends"])
 
 @router.get("/search_users")
 async def search_users(
-    query: str = Query(..., min_length=1),
+    query: str = Query("", max_length=100),
     username: str = Depends(verify_token),
     db: Session = Depends(get_db)
 ):
@@ -33,7 +33,7 @@ async def search_users(
                 models.User.id != current_user.id,
                 (models.User.username.ilike(search_pattern) | models.User.email.ilike(search_pattern))
             )
-        ).limit(20).all()
+        ).order_by(models.User.username.asc()).limit(20).all()
 
         user_ids = [user.id for user in users]
 

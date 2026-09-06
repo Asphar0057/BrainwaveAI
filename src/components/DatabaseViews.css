@@ -463,3 +463,5 @@
   color: var(--text-secondary);
   line-height: 1.5;
 }
+.table-cell-title .note-title-link { display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 0; padding: 6px 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.table-cell-title .note-title-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

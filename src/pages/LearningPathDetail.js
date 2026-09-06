@@ -35,11 +35,14 @@ import {
   Search as SearchIcon,
   Star as StarIcon,
 } from 'lucide-react';
+import { API_URL, getAuthToken } from '../config';
 import learningPathService from '../services/learningPathService';
 import MathRenderer from '../components/MathRenderer';
 import SocialHubChrome from '../components/SocialHubChrome';
 import { sanitizeUrl } from '../utils/sanitize';
+import LearningPathActivity from '../components/LearningPathActivity';
 import './LearningPathDetail.css';
+import './LearningPathTheme.css';
 
 const safeIcon = (Icon) => Icon || (() => null);
 
@@ -101,11 +104,15 @@ const LearningPathDetail = () => {
   const [coreSectionIndex, setCoreSectionIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [activeActivity, setActiveActivity] = useState(null);
+  const [activityError, setActivityError] = useState('');
   
   
   const [userNote, setUserNote] = useState('');
   const [noteLoading, setNoteLoading] = useState(false);
   const [noteSaved, setNoteSaved] = useState(false);
+  const [noteReady, setNoteReady] = useState(false);
+  const noteDrafts = useRef({});
   
   
   const [showCompletionQuiz, setShowCompletionQuiz] = useState(false);
@@ -116,11 +123,19 @@ const LearningPathDetail = () => {
   const [quizScore, setQuizScore] = useState(0);
   
   
-  const [difficultyView, setDifficultyView] = useState('intermediate');
+  const [difficultySelection, setDifficultySelection] = useState(null);
+  const difficultyView = difficultySelection && difficultySelection.nodeId === selectedNode?.id
+    ? difficultySelection.level : selectedNode?.progress?.difficulty_view || path?.difficulty || 'intermediate';
+  const [lessonLoading, setLessonLoading] = useState(false);
+  const [lessonError, setLessonError] = useState('');
+  const [lessonRetry, setLessonRetry] = useState(0);
+  const currentLesson = selectedNode?.[`${difficultyView}_content`];
+  const lessonSections = currentLesson?.version === 1 ? currentLesson.core_sections || [] : [];
   const [resourceRatings, setResourceRatings] = useState({});
   const [completedResources, setCompletedResources] = useState([]);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [sessionActive, setSessionActive] = useState(false);
+  const [timeLoading, setTimeLoading] = useState(false);
   const [sessionSeconds, setSessionSeconds] = useState(0);
   const [sessionLoggedMinutes, setSessionLoggedMinutes] = useState(null);
   const [timeSpentMinutes, setTimeSpentMinutes] = useState(0);
@@ -174,7 +189,11 @@ const LearningPathDetail = () => {
 
   useEffect(() => {
     if (selectedNode) {
-      loadNodeNote();
+      setActiveActivity(null);
+      setActivityError('');
+      setNoteSaved(false);
+      setCoreSectionIndex(0);
+
       setSessionActive(false);
       setSessionSeconds(0);
       setSessionLoggedMinutes(null);
@@ -182,7 +201,7 @@ const LearningPathDetail = () => {
       setTimeSpentMinutes(initialTime || 0);
       
       if (selectedNode.progress) {
-        setDifficultyView(selectedNode.progress.difficulty_view || 'intermediate');
+
         setResourceRatings(selectedNode.progress.resource_ratings || {});
         setCompletedResources(selectedNode.progress.resources_completed || []);
       }
@@ -191,18 +210,23 @@ const LearningPathDetail = () => {
       setResourceMessage('');
       setResourceSearchQuery(`${selectedNode.title} ${path?.topic_prompt || ''}`.trim());
     }
-  }, [selectedNode, path?.topic_prompt]);
+  }, [selectedNode?.id, path?.topic_prompt]);
 
-  const loadNodeNote = async () => {
-    if (!selectedNode) return;
-    
-    try {
-      const response = await learningPathService.getNodeNote(pathId, selectedNode.id);
-      setUserNote(response.content || '');
-    } catch (error) {
-      console.error('Error loading note:', error);
-    }
-  };
+  useEffect(() => {
+    if (!selectedNode?.id) return undefined;
+    let cancelled = false;
+    const key = `${pathId}:${selectedNode.id}`;
+    setNoteReady(false);
+    setUserNote('');
+    learningPathService.getNodeNote(pathId, selectedNode.id).then(response => {
+      if (cancelled) return;
+      setUserNote(noteDrafts.current[key] ?? response.content ?? '');
+      setNoteReady(true);
+    }).catch(() => {
+      if (!cancelled) setActivityError('Could not load saved notes. Reload the page to retry.');
+    });
+    return () => { cancelled = true; };
+  }, [pathId, selectedNode?.id]);
 
   useEffect(() => {
     if (!sessionActive) return;
@@ -312,7 +336,8 @@ const LearningPathDetail = () => {
   };
 
   const logTimeSpent = async (minutes) => {
-    if (!selectedNode || minutes <= 0) return;
+    if (!selectedNode || minutes <= 0 || timeLoading) return false;
+    setTimeLoading(true);
     try {
       const response = await learningPathService.updateTimeSpent(pathId, selectedNode.id, minutes);
       if (response?.total_time_spent !== undefined) {
@@ -321,23 +346,26 @@ const LearningPathDetail = () => {
         setTimeSpentMinutes((prev) => prev + minutes);
       }
       setSessionLoggedMinutes(minutes);
+      return true;
     } catch (error) {
+      setActivityError('Time could not be saved. Please try again.');
       console.error('Error logging time spent:', error);
+      return false;
+    } finally {
+      setTimeLoading(false);
     }
   };
 
   const handleSessionToggle = async () => {
     if (!sessionActive) {
       setSessionLoggedMinutes(null);
-      setSessionSeconds(0);
       setSessionActive(true);
       return;
     }
 
     setSessionActive(false);
     const minutes = Math.max(1, Math.round(sessionSeconds / 60));
-    await logTimeSpent(minutes);
-    setSessionSeconds(0);
+    if (await logTimeSpent(minutes)) setSessionSeconds(0);
   };
 
   const handleSaveNote = async () => {
@@ -346,6 +374,7 @@ const LearningPathDetail = () => {
     try {
       setNoteLoading(true);
       await learningPathService.saveNodeNote(pathId, selectedNode.id, userNote);
+      if (userNote.trim()) await recordActivityCompletion('notes', { word_count: userNote.trim().split(/\s+/).length });
       setNoteSaved(true);
       setTimeout(() => setNoteSaved(false), 2000);
     } catch (error) {
@@ -365,11 +394,11 @@ const LearningPathDetail = () => {
       
       
       const activeNode = response.path.nodes?.find(
-        n => n.progress.status === 'unlocked' || n.progress.status === 'in_progress'
+        n => n.id === selectedNode?.id
+      ) || response.path.nodes?.find(
+        n => n.progress?.status === 'in_progress' || n.progress?.status === 'unlocked'
       );
-      if (activeNode) {
-        setSelectedNode(activeNode);
-      }
+      setSelectedNode(activeNode || response.path.nodes?.[0] || null);
     } catch (error) {
       console.error('Error loading path:', error);
       alert('Failed to load learning path');
@@ -516,16 +545,34 @@ const LearningPathDetail = () => {
     setCoreSectionIndex(0);
   }, [selectedNode?.id]);
 
-  const handleDifficultyChange = async (newDifficulty) => {
-    if (!selectedNode) return;
-    
-    try {
-      await learningPathService.updateDifficultyView(pathId, selectedNode.id, newDifficulty);
-      setDifficultyView(newDifficulty);
-    } catch (error) {
-      console.error('Error updating difficulty view:', error);
-    }
+  const handleDifficultyChange = (level) => {
+    if (!selectedNode || lessonLoading) return;
+    setDifficultySelection({ nodeId: selectedNode.id, level });
+    setCoreSectionIndex(0);
+    setActiveActivity(null);
   };
+
+  useEffect(() => {
+    if (!selectedNode?.id || workspaceSection !== 'learn' || learnSection !== 'content') return undefined;
+    let cancelled = false;
+    const nodeId = selectedNode.id;
+    setLessonLoading(true);
+    setLessonError('');
+    learningPathService.updateDifficultyView(pathId, nodeId, difficultyView).then(response => {
+      if (cancelled) return;
+      if (!response.lesson?.core_sections?.length) throw new Error('The lesson was incomplete. Please retry.');
+      const update = node => node.id === nodeId ? { ...node,
+        [`${difficultyView}_content`]: response.lesson,
+        progress: { ...node.progress, difficulty_view: difficultyView },
+      } : node;
+      setSelectedNode(update);
+      setNodes(current => current.map(update));
+      setCoreSectionIndex(0);
+    }).catch(error => {
+      if (!cancelled) setLessonError(error.message || 'Could not prepare this lesson. Please retry.');
+    }).finally(() => { if (!cancelled) setLessonLoading(false); });
+    return () => { cancelled = true; };
+  }, [pathId, selectedNode?.id, difficultyView, workspaceSection, learnSection, lessonRetry]);
 
   const handleResourceRate = async (resourceId, rating) => {
     if (!selectedNode) return;
@@ -534,6 +581,7 @@ const LearningPathDetail = () => {
       await learningPathService.rateResource(pathId, selectedNode.id, resourceId, rating);
       setResourceRatings({ ...resourceRatings, [resourceId]: rating });
     } catch (error) {
+      setActivityError('Rating could not be saved. Please try again.');
       console.error('Error rating resource:', error);
     }
   };
@@ -545,6 +593,7 @@ const LearningPathDetail = () => {
       await learningPathService.markResourceCompleted(pathId, selectedNode.id, resourceId, timeSpent);
       setCompletedResources((prev) => Array.from(new Set([...prev, resourceId])));
     } catch (error) {
+      setActivityError('Resource progress could not be saved. Please try again.');
       console.error('Error marking resource completed:', error);
     }
   };
@@ -626,10 +675,10 @@ const LearningPathDetail = () => {
       });
       
       
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const userName = localStorage.getItem('username');
       
-      const createNoteResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/create_note`, {
+      const createNoteResponse = await fetch(`${API_URL}/create_note`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -645,6 +694,7 @@ const LearningPathDetail = () => {
       if (createNoteResponse.ok) {
         const newNote = await createNoteResponse.json();
         const noteId = newNote.id || newNote.note_id;
+        if (!noteId) throw new Error('The server did not return a note ID');
         
         
         navigate(`/notes/editor/${noteId}`);
@@ -702,105 +752,35 @@ const LearningPathDetail = () => {
     }
   };
 
-  const handleActivityClick = async (activity) => {
-    if (!selectedNode || actionLoading) return;
+  const recordActivityCompletion = async (type, metadata = {}) => {
+    await learningPathService.updateNodeProgress(pathId, selectedNode.id, type, true, metadata);
+    const update = node => node.id === selectedNode.id ? {
+      ...node, progress: { ...node.progress, evidence: {
+        ...node.progress?.evidence, [type]: { completed: true, metadata },
+      } },
+    } : node;
+    setSelectedNode(update);
+    setNodes(current => current.map(update));
+  };
 
+  const handleActivityClick = async (activity) => {
+    if (!selectedNode || actionLoading || selectedNode.progress?.status === 'locked') return;
+    setActivityError('');
+    setActiveActivity(null);
+    if (activity.type === 'notes') {
+      setWorkspaceSection('notes');
+      window.requestAnimationFrame(() => document.querySelector('.lpd-notes-textarea')?.focus());
+      return;
+    }
     try {
       setActionLoading(true);
-
-      const count = activity.count || activity.question_count || null;
       const response = await learningPathService.generateNodeContent(
-        pathId,
-        selectedNode.id,
-        activity.type,
-        count
+        pathId, selectedNode.id, activity.type, activity.count || activity.question_count || null
       );
-
-      if (response.error) {
-        alert('Failed to generate content: ' + response.error);
-        return;
-      }
-
-      
-      await learningPathService.updateNodeProgress(
-        pathId,
-        selectedNode.id,
-        activity.type,
-        false, 
-        { started_at: new Date().toISOString() }
-      );
-
-      
-      await loadPathDetails();
-
-      
-      switch (activity.type) {
-        case 'notes':
-          
-          const token = localStorage.getItem('token');
-          const userName = localStorage.getItem('username');
-          
-          const createNoteResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/create_note`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              user_id: userName,
-              title: `${path.title} - ${selectedNode.title}`,
-              content: response.content
-            })
-          });
-
-          if (createNoteResponse.ok) {
-            const newNote = await createNoteResponse.json();
-            const noteId = newNote.id || newNote.note_id;
-            navigate(`/notes/editor/${noteId}`);
-          } else {
-            throw new Error('Failed to create note');
-          }
-          break;
-
-        case 'flashcards':
-          navigate('/flashcards', {
-            state: {
-              generatedFlashcards: {
-                title: `${path.title} - ${selectedNode.title}`,
-                cards: response.flashcards,
-                fromLearningPath: true
-              }
-            }
-          });
-          break;
-
-        case 'quiz':
-          navigate('/question-bank', {
-            state: {
-              generatedQuestions: {
-                title: `${path.title} - ${selectedNode.title}`,
-                questions: response.questions,
-                fromLearningPath: true
-              }
-            }
-          });
-          break;
-
-        case 'chat':
-          navigate('/ai-chat', {
-            state: {
-              initialMessage: `${response.prompt}\n\n[Context: Learning Path "${path.title}" - Node "${selectedNode.title}"]`
-            }
-          });
-          break;
-
-        default:
-          alert('Unknown activity type');
-      }
-
+      if (response.error) throw new Error(response.error);
+      setActiveActivity({ ...activity, data: response });
     } catch (error) {
-      console.error('Error generating content:', error);
-      alert('Failed to generate content: ' + error.message);
+      setActivityError(error.message || 'Could not open activity. Please try again.');
     } finally {
       setActionLoading(false);
     }
@@ -851,7 +831,7 @@ const LearningPathDetail = () => {
       question_count: 6,
     },
     chat: {
-      description: 'Ask follow-up questions and edge cases.',
+      description: 'Apply this lesson to an example and record your reasoning.',
     },
   };
 
@@ -866,7 +846,7 @@ const LearningPathDetail = () => {
       description: planItem.description || fallback.description || 'Start this learning activity.',
       count,
       completed,
-      label: type.toUpperCase(),
+      label: type === 'chat' ? 'REFLECTION' : type.toUpperCase(),
     };
   });
 
@@ -1015,7 +995,7 @@ const LearningPathDetail = () => {
 
   const nextActivity = selectedNode?.content_plan?.find(
     (activity) => !selectedNode.progress?.evidence?.[activity.type]?.completed
-  ) || selectedNode?.content_plan?.[0];
+  );
 
   const nextActivityLabel = nextActivity?.type
     ? nextActivity.type.replace(/_/g, ' ').toUpperCase()
@@ -1082,7 +1062,7 @@ const LearningPathDetail = () => {
         <div className="lpd-loading-overlay">
           <div className="lpd-loading-content">
             <Loader className="lpd-spinner" size={40} />
-            <p>Generating content…</p>
+            <p>Preparing your lesson…</p>
           </div>
         </div>
       )}
@@ -1112,7 +1092,15 @@ const LearningPathDetail = () => {
         )}
       >
       <div className="lpd-main-wrap" ref={workspaceScrollRef}>
-        <div className="cb-tile-texture lpd-page-texture" aria-hidden />
+        <div className="cb-tile-texture lpd-page-texture" aria-hidden="true" />
+
+        {activityError && <p className="lpd-feedback" role="alert">{activityError}</p>}
+        {activeActivity && <LearningPathActivity
+          key={`${selectedNode.id}-${activeActivity.type}`}
+          activity={activeActivity} node={selectedNode}
+          onComplete={metadata => recordActivityCompletion(activeActivity.type, metadata)}
+          onClose={() => setActiveActivity(null)}
+        />}
         {/* Hero header */}
         <div className="lpd-hero">
           <div className="lpd-hero-left">
@@ -1136,7 +1124,7 @@ const LearningPathDetail = () => {
             <>
               <div className="lpd-details-head">
                 <div className="lpd-details-info">
-                  <h2>{selectedNode.title.toUpperCase()}</h2>
+                  <h2>{selectedNode.title}</h2>
                   <p>{selectedNode.description}</p>
                 </div>
                 <div className="lpd-status-badge">
@@ -1148,7 +1136,7 @@ const LearningPathDetail = () => {
               <nav className="lpd-workspace-tabs" aria-label="Node workspace sections" role="tablist">
                 {[
                   { id: 'overview', label: 'Overview', icon: <Map size={16} />, meta: `${completedActivityCount}/${plannedActivityCount || 0}` },
-                  { id: 'learn', label: 'Learn', icon: <BookOpen size={16} />, meta: selectedNode.core_sections?.length || 0 },
+                  { id: 'learn', label: 'Learn', icon: <BookOpen size={16} />, meta: lessonSections?.length || 0 },
                   { id: 'resources', label: 'Resources', icon: <Globe2 size={16} />, meta: resourceCatalog.length },
                   { id: 'notes', label: 'Notes', icon: <FileText size={16} />, meta: userNote.trim() ? 'Saved' : 'Draft' },
                 ].map((section) => (
@@ -1216,7 +1204,7 @@ const LearningPathDetail = () => {
                     <strong>{remainingMinutes} min left</strong>
                   </div>
                   <div className="lpd-focus-actions">
-                    <button className="lpd-focus-btn" onClick={handleSessionToggle}>
+                    <button className="lpd-focus-btn" disabled={timeLoading} onClick={handleSessionToggle}>
                       {sessionActive ? (
                         <>
                           <Pause size={14} />
@@ -1229,8 +1217,8 @@ const LearningPathDetail = () => {
                         </>
                       )}
                     </button>
-                    <button className="lpd-focus-btn lpd-focus-secondary" onClick={() => logTimeSpent(5)}>
-                      +5 min
+                    <button className="lpd-focus-btn lpd-focus-secondary" disabled={timeLoading} onClick={() => logTimeSpent(5)}>
+                      Log 5 min
                     </button>
                   </div>
                   <div className="lpd-overview-foot">
@@ -1400,7 +1388,7 @@ const LearningPathDetail = () => {
               <section id="lpd-panel-learn" className="lpd-section-panel lpd-section-panel--learn" aria-labelledby="lpd-tab-learn" role="tabpanel">
               <nav className="lpd-learn-subnav" aria-label="Learning material sections" role="tablist">
                 {[
-                  { id: 'content', label: 'Core lesson', meta: selectedNode.core_sections?.length || 0 },
+                  { id: 'content', label: 'Core lesson', meta: lessonSections?.length || 0 },
                   { id: 'connections', label: 'Connections', meta: 'Map' },
                   { id: 'practice', label: 'Practice', meta: selectedNode.content_plan?.length || 0 },
                 ].map((section) => (
@@ -1439,6 +1427,7 @@ const LearningPathDetail = () => {
                   <button
                     className={`lpd-difficulty-btn ${difficultyView === 'beginner' ? 'active' : ''}`}
                     aria-pressed={difficultyView === 'beginner'}
+                    disabled={lessonLoading}
                     onClick={() => handleDifficultyChange('beginner')}
                   >
                     Beginner
@@ -1446,6 +1435,7 @@ const LearningPathDetail = () => {
                   <button
                     className={`lpd-difficulty-btn ${difficultyView === 'intermediate' ? 'active' : ''}`}
                     aria-pressed={difficultyView === 'intermediate'}
+                    disabled={lessonLoading}
                     onClick={() => handleDifficultyChange('intermediate')}
                   >
                     Intermediate
@@ -1453,6 +1443,7 @@ const LearningPathDetail = () => {
                   <button
                     className={`lpd-difficulty-btn ${difficultyView === 'advanced' ? 'active' : ''}`}
                     aria-pressed={difficultyView === 'advanced'}
+                    disabled={lessonLoading}
                     onClick={() => handleDifficultyChange('advanced')}
                   >
                     Advanced
@@ -1460,10 +1451,12 @@ const LearningPathDetail = () => {
                 </div>
               </div>
 
-              {selectedNode.core_sections && selectedNode.core_sections.length > 0 && (
+              {lessonLoading && <p role="status" className="lpd-feedback">Preparing your {difficultyView} lesson with worked examples…</p>}
+              {lessonError && <div className="lpd-feedback" role="alert"><p>{lessonError}</p><button type="button" className="lpd-focus-btn" onClick={() => setLessonRetry(value => value + 1)}>Retry lesson</button></div>}
+              {!lessonLoading && !lessonError && lessonSections.length > 0 && (
                 <div className="lpd-lesson-stage">
                   <nav className="lpd-lesson-index" aria-label="Core lesson index">
-                    {selectedNode.core_sections.map((section, idx) => (
+                    {lessonSections.map((section, idx) => (
                       <button
                         type="button"
                         key={`${section.title}-${idx}`}
@@ -1478,26 +1471,34 @@ const LearningPathDetail = () => {
                   </nav>
                   <article className="lpd-lesson-canvas">
                     <header>
-                      <span>Lesson {coreSectionIndex + 1} of {selectedNode.core_sections.length}</span>
-                      <h3>{selectedNode.core_sections[coreSectionIndex]?.title}</h3>
+                      <span>Lesson {coreSectionIndex + 1} of {lessonSections.length}</span>
+                      <h3>{lessonSections[coreSectionIndex]?.title}</h3>
                     </header>
                     <div className="lpd-lesson-scroll">
-                      <MathRenderer content={selectedNode.core_sections[coreSectionIndex]?.content} className="lpd-section-text" />
-                      {selectedNode.core_sections[coreSectionIndex]?.example && (
+                      <MathRenderer content={lessonSections[coreSectionIndex]?.content} className="lpd-section-text" />
+                      {lessonSections[coreSectionIndex]?.example && (
                         <div className="lpd-section-example">
-                          <strong>Example:</strong> {selectedNode.core_sections[coreSectionIndex].example}
+                          <strong>Worked example</strong><MathRenderer content={lessonSections[coreSectionIndex].example} />
                         </div>
                       )}
-                      {selectedNode.core_sections[coreSectionIndex]?.visual_description && (
+                      {lessonSections[coreSectionIndex]?.practice && <div className="lpd-section-example">
+                        <strong>Try it yourself</strong>
+                        <MathRenderer content={lessonSections[coreSectionIndex].practice} />
+                        <details key={`${selectedNode.id}-${difficultyView}-${coreSectionIndex}`}>
+                          <summary>Show worked solution</summary>
+                          <MathRenderer content={lessonSections[coreSectionIndex].solution} />
+                        </details>
+                      </div>}
+                      {lessonSections[coreSectionIndex]?.visual_description && (
                         <div className="lpd-section-visual">
                           <ImageIcon size={14} />
-                          <span>{selectedNode.core_sections[coreSectionIndex].visual_description}</span>
+                          <span>{lessonSections[coreSectionIndex].visual_description}</span>
                         </div>
                       )}
-                      {selectedNode.core_sections[coreSectionIndex]?.practice_question && (
+                      {lessonSections[coreSectionIndex]?.practice_question && (
                         <div className="lpd-section-practice">
                           <Target size={14} />
-                          <span><strong>Quick Check:</strong> {selectedNode.core_sections[coreSectionIndex].practice_question}</span>
+                          <span><strong>Quick Check:</strong> {lessonSections[coreSectionIndex].practice_question}</span>
                         </div>
                       )}
                     </div>
@@ -1505,7 +1506,7 @@ const LearningPathDetail = () => {
                       <button type="button" disabled={coreSectionIndex === 0} onClick={() => setCoreSectionIndex((value) => Math.max(0, value - 1))}>
                         <ChevronLeft size={14} /> Previous
                       </button>
-                      <button type="button" disabled={coreSectionIndex === selectedNode.core_sections.length - 1} onClick={() => setCoreSectionIndex((value) => Math.min(selectedNode.core_sections.length - 1, value + 1))}>
+                      <button type="button" disabled={coreSectionIndex === lessonSections.length - 1} onClick={() => setCoreSectionIndex((value) => Math.min(lessonSections.length - 1, value + 1))}>
                         Next <ChevronRight size={14} />
                       </button>
                     </footer>
@@ -1577,14 +1578,14 @@ const LearningPathDetail = () => {
                 </div>
               )}
 
-              {selectedNode.summary && selectedNode.summary.length > 0 && (
+              {currentLesson?.summary?.length > 0 && (
                 <div className="lpd-block lpd-summary-block">
                   <h3 className="lpd-block-title">
                     <CheckCircle size={16} />
                     KEY TAKEAWAYS
                   </h3>
                   <ul className="lpd-summary-list">
-                    {selectedNode.summary.map((item, idx) => (
+                    {currentLesson.summary.map((item, idx) => (
                       <li key={idx}>
                         <CheckCircle size={12} />
                         <MathRenderer content={item} />
@@ -1649,7 +1650,7 @@ const LearningPathDetail = () => {
                           {getActivityIcon(activity.type)}
                         </div>
                         <div className="lpd-activity-info">
-                          <h4>{activity.type.toUpperCase()}</h4>
+                          <h4>{activity.type === 'chat' ? 'REFLECTION' : activity.type.toUpperCase()}</h4>
                           <p>{activity.description}</p>
                           {(activity.count || activity.question_count) && (
                             <span className="lpd-activity-count">
@@ -1680,17 +1681,20 @@ const LearningPathDetail = () => {
                   MY NOTES
                 </h3>
                 <div className="lpd-notes-section">
-                  <textarea
+                  <p>{activityMap.notes?.description || `Record what you learned about ${selectedNode.title}.`}</p>
+                  <label htmlFor="lpd-node-note">Your lesson notes</label>
+                  <textarea id="lpd-node-note"
                     className="lpd-notes-textarea"
                     placeholder="Write your notes, reflections, or key takeaways here..."
                     value={userNote}
-                    onChange={(e) => setUserNote(e.target.value)}
+                    disabled={!noteReady}
+                    onChange={(e) => { setUserNote(e.target.value); noteDrafts.current[`${pathId}:${selectedNode.id}`] = e.target.value; setNoteSaved(false); }}
                     rows={6}
                   />
                   <button
                     className="lpd-btn lpd-btn-save-note"
                     onClick={handleSaveNote}
-                    disabled={noteLoading}
+                    disabled={noteLoading || !noteReady || !userNote.trim()}
                   >
                     {noteLoading ? (
                       <>

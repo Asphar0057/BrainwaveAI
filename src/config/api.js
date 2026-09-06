@@ -1,3 +1,4 @@
+import { rememberReturnPath } from '../utils/returnPath';
 import { createUsageLimitError, getUsageLimitFromResponse } from '../utils/usageLimit';
 import { clearBackendSession } from '../utils/backendSession';
 
@@ -20,6 +21,7 @@ export const apiRequest = async (endpoint, options = {}) => {
   });
 
   if (response.status === 401) {
+    rememberReturnPath(window.location.pathname + window.location.search + window.location.hash);
     clearBackendSession();
     window.location.href = '/login';
     throw new Error('Session expired. Please login again.');

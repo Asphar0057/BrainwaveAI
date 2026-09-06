@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { readLibraryState, writeLibraryState } from '../utils/libraryState';
+import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
-  Plus, Search, Filter, FileText, Layout, Settings, ArrowLeft, MessageSquare, LayoutDashboard, LogOut, Menu} from 'lucide-react';
+  Plus, Search, Filter, FileText, Layout, Settings, ArrowLeft, MessageSquare, LayoutDashboard, LogOut, Menu, ChevronRight, Headphones, PenTool} from 'lucide-react';
 import './NotesDashboard.css';
 import '../components/NotesSidebarSystem.css';
 import '../components/SocialHubChrome.css';
@@ -29,7 +30,10 @@ const NotesDashboard = () => {
   const navigate = useNavigate();
   const [notes, setNotes] = useState([]);
   const [folders, setFolders] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(() => readLibraryState('notes').searchTerm || '');
+  const libraryMainRef = useRef(null);
+  const restoredScrollRef = useRef(false);
+  useEffect(() => { writeLibraryState('notes', { searchTerm }); }, [searchTerm]);
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [selectedFont, setSelectedFont] = useState('Inter');
@@ -40,6 +44,13 @@ const NotesDashboard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => (
     typeof window !== 'undefined' ? window.innerWidth <= 768 : false
   ));
+
+  useLayoutEffect(() => {
+    if (!loading && !loadError && libraryMainRef.current && !restoredScrollRef.current) {
+      libraryMainRef.current.scrollTop = readLibraryState('notes').mainScrollTop || 0;
+      restoredScrollRef.current = true;
+    }
+  }, [loading, loadError]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -234,10 +245,13 @@ const NotesDashboard = () => {
     <div className="notes-dashboard" style={{ fontFamily: selectedFont }}>
       <NotesLineField />
       <div className="shc-topbar">
-        <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-        <div className="shc-topbar-right">
-          <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-        </div>
+        <nav className="ndb-breadcrumbs" aria-label="Breadcrumb">
+          <Link to="/dashboard-cerbyl"><LayoutDashboard size={16} />Dashboard</Link>
+          <ChevronRight size={14} aria-hidden="true" />
+          <Link to="/notes">Notes</Link>
+          <ChevronRight size={14} aria-hidden="true" />
+          <span aria-current="page">My notes</span>
+        </nav>
       </div>
       <div className="ndb-qb-body">
         <button
@@ -267,6 +281,8 @@ const NotesDashboard = () => {
                 <button className="ndb-qb-strip-btn" data-tip="New Note" onClick={handleCreateNote} disabled={creatingNote} type="button">
                   <Plus size={18} />
                 </button>
+                <Link className="ndb-qb-strip-btn" data-tip="My notes" aria-label="My notes" aria-current="page" to="/notes/dashboard"><FileText size={18} /></Link>
+                <Link className="ndb-qb-strip-btn" data-tip="Overview" aria-label="Notes overview" to="/notes"><LayoutDashboard size={18} /></Link>
                 <button className="ndb-qb-strip-btn" data-tip="Templates" onClick={() => { setSidebarCollapsed(false); setShowTemplates(true); }} type="button">
                   <Layout size={18} />
                 </button>
@@ -299,7 +315,7 @@ const NotesDashboard = () => {
               <div className="ndb-qb-side-brand">
                 <div className="ndb-qb-brand-wrap">
                   <div className="ndb-qb-brand">cerbyl</div>
-                  <div className="ndb-qb-current-title">Notes Dashboard</div>
+                  <div className="ndb-qb-current-title">Notes workspace</div>
                 </div>
                 <button
                   className="ndb-qb-side-close-btn"
@@ -312,15 +328,19 @@ const NotesDashboard = () => {
                 </button>
               </div>
 
-              <button className="ndb-qb-new-btn" onClick={handleCreateNote} disabled={creatingNote} type="button">
-                <Plus size={16} />
-                <span>{creatingNote ? 'Creating…' : 'New Note'}</span>
-              </button>
-
               <div className="notes-standard-scroll">
               <div className="ndb-qb-side-block">
                 <div className="ndb-qb-side-label">Workspace</div>
-                <nav className="ndb-qb-view-nav" aria-label="Notes quick actions">
+                <nav className="ndb-qb-view-nav" aria-label="Notes workspace">
+                  <Link className="ndb-qb-view-link" to="/notes"><LayoutDashboard size={16} /><span>Overview</span></Link>
+                  <Link className="ndb-qb-view-link" to="/notes/dashboard" aria-current="page"><FileText size={16} /><span>My notes</span><span className="ndb-nav-count">{notes.length}</span></Link>
+                  <Link className="ndb-qb-view-link" to="/notes/ai-media/my-notes"><Headphones size={16} /><span>Media notes</span></Link>
+                  <Link className="ndb-qb-view-link" to="/canvas"><PenTool size={16} /><span>Canvases</span></Link>
+                </nav>
+              </div>
+              <div className="ndb-qb-side-block">
+                <div className="ndb-qb-side-label">Library tools</div>
+                <nav className="ndb-qb-view-nav" aria-label="Library tools">
                   <button className="ndb-qb-view-link" onClick={() => setShowTemplates(true)} type="button">
                     <Layout size={16} />
                     <span>Templates</span>
@@ -329,25 +349,12 @@ const NotesDashboard = () => {
               </div>
 
               <div className="ndb-qb-side-block">
-                <div className="ndb-qb-side-label">Search & Filter</div>
+                <div className="ndb-qb-side-label">Preferences</div>
                 <nav className="ndb-qb-view-nav" aria-label="Notes search and filter">
-                  <div className="ndb-qb-side-search">
-                    <Search size={16} className="ndb-qb-side-search-icon" />
-                    <input
-                      type="text"
-                      placeholder="Search notes..."
-                      aria-label="Search notes"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-                  <button className="ndb-qb-view-link" onClick={() => setShowAdvancedSearch(true)} type="button">
-                    <Filter size={16} />
-                    <span>Advanced Search</span>
-                  </button>
                   <div className="ndb-qb-side-font">
                     <Settings size={16} />
                     <select
+                      aria-label="Library font"
                       className="ndb-qb-font-selector"
                       value={selectedFont}
                       onChange={(e) => handleFontChange(e.target.value)}
@@ -419,7 +426,22 @@ const NotesDashboard = () => {
             )}
           </aside>
 
-          <main className="ndb-qb-main">
+          <main className="ndb-qb-main" ref={libraryMainRef} onScroll={(event) => { if (restoredScrollRef.current) writeLibraryState('notes', { mainScrollTop: event.currentTarget.scrollTop }); }}>
+            <header className="ndb-library-header">
+              <div><h1>My notes</h1><p>{loading ? 'Loading your library…' : `${notes.length} notes · ${thisWeekCount} updated this week`}</p></div>
+              <button className="ndb-qb-new-btn" onClick={handleCreateNote} disabled={creatingNote} type="button"><Plus size={17} /><span>{creatingNote ? 'Creating…' : 'New note'}</span></button>
+            </header>
+            <div className="ndb-library-search">                  <div className="ndb-qb-side-search">
+                    <Search size={16} className="ndb-qb-side-search-icon" />
+                    <input
+                      type="text"
+                      placeholder="Search notes..."
+                      aria-label="Search notes"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+<button className="ndb-filter-btn" aria-label="Advanced search" type="button" onClick={() => setShowAdvancedSearch(true)}><Filter size={16} /><span>Advanced search</span></button></div>
       <div className="dashboard-content">
         {loading ? (
           <div className="empty-dashboard" aria-live="polite">
@@ -436,6 +458,7 @@ const NotesDashboard = () => {
           </div>
         ) : filteredNotes.length > 0 ? (
           <DatabaseViews
+            persistenceKey="notes"
             notes={filteredNotes}
             folders={folders}
             onSelectNote={handleSelectNote}

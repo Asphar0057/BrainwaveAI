@@ -1,3 +1,4 @@
+import { consumeReturnPath } from '../utils/returnPath';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -66,6 +67,8 @@ function Login() {
     try {
       const accountSession = await fetchAccountSession({ force: true });
       if (!accountIsStillActive()) return;
+      const returnTo = consumeReturnPath();
+      if (returnTo) { window.location.replace(returnTo); return; }
 
       if (accountSession.role === 'student' || accountSession.role === 'educator') {
         window.location.replace(accountSession.landing_route);
@@ -291,7 +294,7 @@ function Login() {
           <div className="lg-bg-vignette" />
         </div>
 
-        <span className="lg-back-link" onClick={() => navigate('/')}>Back</span>
+        <Link className="lg-back-link" to="/">Back</Link>
 
         <div className="lg-card">
           <div className="lg-card-texture" aria-hidden>
@@ -361,7 +364,7 @@ function Login() {
                     className="lg-eye-btn"
                     onClick={() => setShowPassword(v => !v)}
                     disabled={loading || googleLoading}
-                    tabIndex={-1}
+                    tabIndex={0}
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -441,7 +444,7 @@ function Login() {
                           className="lg-eye-btn"
                           onClick={() => setShowResetNewPassword(v => !v)}
                           disabled={resetLoading}
-                          tabIndex={-1}
+                          tabIndex={0}
                           aria-label={showResetNewPassword ? 'Hide password' : 'Show password'}
                         >
                           {showResetNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -466,7 +469,7 @@ function Login() {
                           className="lg-eye-btn"
                           onClick={() => setShowResetConfirmPassword(v => !v)}
                           disabled={resetLoading}
-                          tabIndex={-1}
+                          tabIndex={0}
                           aria-label={showResetConfirmPassword ? 'Hide password' : 'Show password'}
                         >
                           {showResetConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -485,7 +488,7 @@ function Login() {
 
             <div className="lg-footer">
               Don't have an account?
-              <span className="lg-link" onClick={() => navigate('/register')}>Create one</span>
+              <Link className="lg-link" to="/register">Create one</Link>
             </div>
             <nav className="lg-legal-links" aria-label="Legal">
               <Link to="/terms-and-conditions">Terms</Link>

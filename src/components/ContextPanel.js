@@ -135,7 +135,7 @@ const ContextPanel = ({
               <div className="cp-hs-toggle-label">
                 <Sparkles size={15} />
                 <div>
-                  <div className="cp-toggle-title">HS Mode</div>
+                  <div className="cp-toggle-title">Curriculum mode</div>
                   <div className="cp-toggle-sub">
                     {hsMode ? 'Curriculum context active' : 'Off — no curriculum context'}
                   </div>
@@ -144,7 +144,7 @@ const ContextPanel = ({
               <button
                 className={`cp-toggle-btn ${hsMode ? 'on' : 'off'}`}
                 onClick={() => onHsModeToggle && onHsModeToggle(!hsMode)}
-                aria-label="Toggle HS Mode"
+                aria-label="Toggle Curriculum mode"
               >
                 <span className="cp-toggle-thumb" />
               </button>
@@ -169,7 +169,7 @@ const ContextPanel = ({
                 <span className="cp-active-ctx-label">{contextLabel}</span>
               </div>
             ) : (
-              <p className="cp-empty-msg">No context set. Go to Context Hub to pick a curriculum and subject.</p>
+              <p className="cp-empty-msg">No curriculum selected. Document sources below are handled separately.</p>
             )}
           </div>
 
@@ -271,7 +271,7 @@ const ContextPanel = ({
           <div className="cp-section cp-sel-instructions">
             <p>
               <strong>Select specific books/docs</strong> above to restrict AI context to only those sources.
-              When nothing is selected, all available context is used.
+              No document selection means all available documents may be used. Select documents to restrict sources for this chat.
             </p>
           </div>
 

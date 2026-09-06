@@ -1,0 +1,560 @@
+{
+  "date": "2026-09-06",
+  "verdict": "Not ready for unrestricted production launch",
+  "coverage": "Project-wide source and representative-browser review; not exhaustive end-to-end certification",
+  "issues": [
+    {
+      "id": "UX-01",
+      "priority": "P1",
+      "title": "Quiz submission omits the current selection",
+      "locations": [
+        "src/pages/SoloQuizSession.js:126",
+        "src/pages/SoloQuizSession.js:252"
+      ],
+      "finding": "Standard mode records an answer only on Next, while Submit grades the existing answer map. The final selected answer can be submitted as unanswered; sequential completion also reads state immediately after updating it.",
+      "acceptance": "Commit selections immediately and pass an explicit answer snapshot to grading. Verify first/last questions, question jumps, all modes and timeout submission.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-02",
+      "priority": "P1",
+      "title": "Notes can lose the last 1.5 seconds of typing",
+      "locations": [
+        "src/pages/NotesRedesign.js:1628",
+        "src/pages/NotesRedesign.js:2128"
+      ],
+      "finding": "Switching notes replaces the editor snapshot; effect cleanup cancels the pending autosave. No content recovery buffer or navigation guard protects that edit.",
+      "acceptance": "Persist local drafts immediately and flush the outgoing note before switching. Type, leave within 1.5 seconds, return and confirm the exact text survives.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-03",
+      "priority": "P1",
+      "title": "Publishing one grade destroys other draft feedback",
+      "locations": [
+        "src/pages/EducatorDashboard.js:276",
+        "src/pages/EducatorDashboard.js:294"
+      ],
+      "finding": "Saving one student reloads the submission list and reconstructs the entire drafts map. Unsaved scores and feedback in other rows are overwritten.",
+      "acceptance": "Update the saved row only and preserve dirty drafts by student. Draft two rows, publish one, and confirm the other is untouched.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-04",
+      "priority": "P1",
+      "title": "Assignment deadline editing shifts local time",
+      "locations": [
+        "src/pages/InstitutionClassroomPage.js:386"
+      ],
+      "finding": "datetime-local displays a sliced UTC value, then converts edits from local time to UTC. An edit can jump by the user's time-zone offset on the next render.",
+      "acceptance": "Convert UTC to local for display; serialize only at save. Label the time zone and round-trip existing and edited deadlines outside UTC.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-05",
+      "priority": "P1",
+      "title": "Profile autosave silently drops changes",
+      "locations": [
+        "src/pages/ProfileNew.js:367",
+        "src/pages/ProfileNew.js:724",
+        "src/pages/ProfileNew.js:763"
+      ],
+      "finding": "Leaving before the three-second debounce cancels saving. A second save returns while another request is active without queuing the latest snapshot. Saving/error state values are discarded, despite the visible autosave promise.",
+      "acceptance": "Show Saving/Saved/Failed, serialize dirty snapshots and retain drafts on departure. Verify rapid edits, slow saves, rejection and navigation within three seconds.",
+      "evidence": "Source + live autosave promise"
+    },
+    {
+      "id": "UX-06",
+      "priority": "P1",
+      "title": "AI replies can appear in the wrong conversation",
+      "locations": [
+        "src/pages/AIChat.js:1457",
+        "src/pages/AIChat.js:1691",
+        "mobile/src/screens/AIChatScreen.tsx:559"
+      ],
+      "finding": "Users can switch chats while sending; the old request appends its reply to the messages array currently displayed. Mobile has the same unguarded completion pattern.",
+      "acceptance": "Bind every request and completion to the originating chat; preserve separate drafts. Send in A, switch to B, and verify A's reply never enters B.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-07",
+      "priority": "P1",
+      "title": "Canvas work is shared across accounts on the same browser",
+      "locations": [
+        "src/pages/CanvasHub.js:10",
+        "src/pages/CanvasHub.js:27",
+        "src/utils/backendSession.js:4"
+      ],
+      "finding": "Canvases are stored only under the global cerbyl_canvases key, loaded for any signed-in user, and not cleared by session cleanup. Another account on the same browser can see the previous account's canvases. No cloud-sync or local-only status is shown.",
+      "acceptance": "Scope storage by account and provide explicit local/synced status plus recovery/export. Verify account switching and storage quota failure without exposing or losing drawings.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-08",
+      "priority": "P1",
+      "title": "Expanded mobile sidebar makes content unusable",
+      "locations": [
+        "src/components/SocialHubChrome.css:850",
+        "src/components/SocialHubChrome.js:368"
+      ],
+      "finding": "At 375px, expanding Notes navigation retains a 280px sidebar inside the content grid. The live main area becomes a clipped strip of about 57px. Shared-shell screens inherit the geometry.",
+      "acceptance": "Use an overlay drawer on narrow screens and restore focus on close. Verify 320, 375 and 390px, including expanded navigation and all primary actions.",
+      "evidence": "Live + source"
+    },
+    {
+      "id": "UX-09",
+      "priority": "P1",
+      "title": "Authentication and Social Hub navigation exclude keyboard users",
+      "locations": [
+        "src/pages/Login.js:294",
+        "src/pages/Login.js:488",
+        "src/pages/Register.js:245",
+        "src/pages/Social.js:476",
+        "src/pages/Social.js:568"
+      ],
+      "finding": "Back/Create one/Sign in use clickable spans; Social Hub cards and leaderboard entry use clickable divs without keyboard semantics. Browser accessibility output exposes the social destinations only as text.",
+      "acceptance": "Use real links/buttons and expose meaningful names. Complete login↔registration and every Social Hub destination using Tab and Enter only.",
+      "evidence": "Live accessibility tree + source"
+    },
+    {
+      "id": "UX-10",
+      "priority": "P1",
+      "title": "Web flashcard review failures look like success or inactivity",
+      "locations": [
+        "src/pages/Flashcards.js:577",
+        "src/pages/Flashcards.js:629",
+        "src/pages/Flashcards.js:4187"
+      ],
+      "finding": "A failed due-card request leaves zero counts and displays 'You're all caught up'. Failed grade submission has no visible error or pending guard, so users can repeat taps without knowing whether progress saved.",
+      "acceptance": "Separate loading/error/empty/saved states, show Retry and prevent duplicate grading. Test HTTP failures and disconnected saves without falsely completing a queue.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-11",
+      "priority": "P1",
+      "title": "Mobile review results count grades that never saved",
+      "locations": [
+        "mobile/src/screens/SpacedRepetitionScreen.tsx:106",
+        "mobile/src/screens/FlashcardsScreen.tsx:798"
+      ],
+      "finding": "After persistence errors, native review still advances and increments completed totals. The displayed session result diverges from the scheduling record.",
+      "acceptance": "Queue unsynced grades durably or retain the card with Retry. Reopen after a failed save and reconcile the session exactly once.",
+      "evidence": "Source; native runtime untested"
+    },
+    {
+      "id": "UX-12",
+      "priority": "P1",
+      "title": "Mobile note Back treats a pending save as successful",
+      "locations": [
+        "mobile/src/screens/notes/NoteEditorScreen.tsx:300",
+        "mobile/src/screens/notes/NoteEditorScreen.tsx:336"
+      ],
+      "finding": "save() returns true while another save is still pending; Back uses that return value to leave. A subsequent failure can occur after the editor has closed.",
+      "acceptance": "Await the active save promise or retain a recoverable draft. Tap Done then Back during a delayed failing request and verify no work disappears.",
+      "evidence": "Source; native runtime untested"
+    },
+    {
+      "id": "UX-13",
+      "priority": "P1",
+      "title": "Classroom drafts disappear on accidental dismissal",
+      "locations": [
+        "src/pages/StudentDashboard.js:64",
+        "src/pages/StudentDashboard.js:93",
+        "src/pages/EducatorDashboard.js:88"
+      ],
+      "finding": "Submission, assignment and announcement text lives in component state; backdrop/Escape/Close can dismiss immediately. Manual student draft saving does not protect unsaved composition.",
+      "acceptance": "Autosave drafts and protect dirty dismissal. Verify Escape, backdrop, navigation and close during submission for both student and educator writing.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-14",
+      "priority": "P1",
+      "title": "Challenge countdown includes AI generation time",
+      "locations": [
+        "src/pages/ChallengeSession.js:33",
+        "src/pages/ChallengeSession.js:54"
+      ],
+      "finding": "The timer starts when challenge details arrive, before awaited question generation. Slow generation consumes time before learners can answer.",
+      "acceptance": "Start a server-consistent deadline only after questions are ready and the attempt starts. Delaying generation must not reduce answering time.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-15",
+      "priority": "P1",
+      "title": "Quiz average misrepresents performance",
+      "locations": [
+        "backend/routes/analytics.py:1052",
+        "backend/routes/analytics.py:1063",
+        "src/pages/Analytics.js:667"
+      ],
+      "finding": "The backend averages raw score counts, and the UI labels that value as a percentage; individual rows separately divide by total. Live Quiz History showed avg 4% beside results of 50%, 42%, 83%, 0%, 50% and 100%.",
+      "acceptance": "Normalize scores and document whether the aggregate is weighted. Check mixed quiz lengths and score/percentage payloads against a calculated expected result.",
+      "evidence": "Live + source"
+    },
+    {
+      "id": "UX-16",
+      "priority": "P1",
+      "title": "Quiz interruption loses answers and hides failed completion",
+      "locations": [
+        "src/pages/SoloQuizSession.js:37",
+        "src/pages/SoloQuizSession.js:307"
+      ],
+      "finding": "Refresh restores quiz setup but not answers/index/deadline. Failed remote grading shows local results without the completion warning, then removes quizData.",
+      "acceptance": "Checkpoint attempts and show 'result not synced' when needed. Refresh midway, retry grading and verify an attempt is restored and recorded once.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-17",
+      "priority": "P1",
+      "title": "Dashboard avatar dialog leaves focus behind the modal",
+      "locations": [
+        "src/pages/DashboardCerbyl.js:1579",
+        "src/pages/DashboardCerbyl.js:2446"
+      ],
+      "finding": "The dialog has Escape and ARIA attributes but no initial focus, focus containment or return-focus behavior. Background controls remain reachable.",
+      "acceptance": "Reuse the project's stronger dialog focus implementation. Keyboard focus must enter, remain inside and return to the opener.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-18",
+      "priority": "P2",
+      "title": "Authentication loses the user's intended destination",
+      "locations": [
+        "src/components/ProtectedRoute.js:55",
+        "src/components/RoleProtectedRoute.js:23",
+        "src/config/api.js:26"
+      ],
+      "finding": "Login redirects do not preserve the requested page. Any role lookup error redirects to login, so a service outage can resemble sign-out; the live workspace fallback exposed 'Failed to fetch' and test-account instructions.",
+      "acceptance": "Preserve a validated internal return path and distinguish expired credentials from service failure. Retry in place; return to the original task after reauthentication.",
+      "evidence": "Live outage state + source"
+    },
+    {
+      "id": "UX-19",
+      "priority": "P2",
+      "title": "Saved notes revert to 'Unsaved' without a new edit",
+      "locations": [
+        "src/pages/NotesRedesign.js:2080",
+        "src/pages/NotesRedesign.js:3273"
+      ],
+      "finding": "The Saved flag is cleared after two seconds and reused to decide whether the editor says Unsaved. The label is not derived from actual snapshot equality.",
+      "acceptance": "Keep saved/dirty state tied to content snapshots. After a successful save, wait without editing: the status must remain Saved.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-20",
+      "priority": "P2",
+      "title": "Collections conflate failed loading with an empty library",
+      "locations": [
+        "src/pages/NotesHub.js:61",
+        "src/pages/NotesHub.js:205",
+        "src/pages/KnowledgeMap.js:562",
+        "src/pages/SlideExplorer.js:124",
+        "src/pages/AIMediaNotes.js:419"
+      ],
+      "finding": "Notes can show an error plus 'Create first note'; map/slide/media collection failures leave empty-looking lists. Existing work appears absent during outages.",
+      "acceptance": "Render distinct failed, genuinely empty and filtered-empty states with Retry. Existing cached items must be labeled stale rather than silently replaced with emptiness.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-21",
+      "priority": "P2",
+      "title": "Challenge HTTP errors can leave permanent loading",
+      "locations": [
+        "src/pages/ChallengeSession.js:45",
+        "src/pages/ChallengeSession.js:200",
+        "src/pages/Challenges.js:52"
+      ],
+      "finding": "Normal non-OK responses are ignored in load/create/join/progress paths. The loader can stay active or an action can appear inert.",
+      "acceptance": "Handle non-OK outcomes and clear pending state in all paths. Test 403, 404 and 500 for load, join and completion.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-22",
+      "priority": "P2",
+      "title": "Media regeneration discards the previous result before success",
+      "locations": [
+        "src/pages/AudioVideoNotes.js:145"
+      ],
+      "finding": "Regenerate clears generatedNotes before requesting replacement content. If generation fails, the existing unsaved result is gone.",
+      "acceptance": "Keep the previous output until the replacement succeeds and permit restoration. A failed regeneration must retain copy/save access to the original.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-23",
+      "priority": "P2",
+      "title": "Saving existing media notes depends on another AI job",
+      "locations": [
+        "src/pages/AIMediaNotes.js:235",
+        "src/pages/AIMediaNotes.js:250",
+        "src/pages/AIMediaNotes.js:272"
+      ],
+      "finding": "Save awaits AI title generation in the same try block before persisting already-generated notes. A title job rejection blocks saving; no save guard prevents repeated attempts.",
+      "acceptance": "Save with a fallback filename even if title generation fails; make the save pending and idempotent. Verify AI unavailability does not prevent saving existing text.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-24",
+      "priority": "P2",
+      "title": "Media progress is a synthetic percentage",
+      "locations": [
+        "src/pages/AudioVideoNotes.js:74"
+      ],
+      "finding": "The UI adds 10% every half second until 90%, independent of job progress, while the task can wait up to five minutes. It communicates near-completion without evidence.",
+      "acceptance": "Show real queued/uploading/transcribing/generating stages, or an honest indeterminate state. Expose cancellation/recovery where supported.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-25",
+      "priority": "P2",
+      "title": "Dashboard duplicates navigation and hides the next study task",
+      "locations": [
+        "src/pages/DashboardCerbyl.js:1864",
+        "src/pages/DashboardCerbyl.js:1930",
+        "src/pages/DashboardCerbyl.js:2235"
+      ],
+      "finding": "The module strip repeats the same 12 buttons three times in the accessibility tree, alongside sidebar and feature cards. At 390px, account metrics/context links take most of the first viewport before study actions.",
+      "acceptance": "Give one primary continue-study action, a static browse area and one accessible copy of each destination. Verify a keyboard user does not traverse repeated marquee links.",
+      "evidence": "Live + source; design judgment"
+    },
+    {
+      "id": "UX-26",
+      "priority": "P2",
+      "title": "AI source scope is difficult to predict",
+      "locations": [
+        "src/components/ContextPanel.js:138",
+        "src/components/ContextPanel.js:172",
+        "src/components/ContextPanel.js:274",
+        "src/pages/ContextHubWorkspace.js:651"
+      ],
+      "finding": "Live tutor context showed 'No context set' while also explaining that no selection uses all available context. ContextHub called an empty deck 'No active context' and disabled actions. HS Mode, Deck, stack and chunks add terminology without clarifying scope.",
+      "acceptance": "Show the exact effective source scope next to the composer and use consistent empty-selection behavior across tools. Explain curriculum mode in plain language.",
+      "evidence": "Live + source; copy/interaction inconsistency"
+    },
+    {
+      "id": "UX-27",
+      "priority": "P2",
+      "title": "Course tutor handoff does not carry course scope",
+      "locations": [
+        "src/pages/StudentDashboard.js:29",
+        "src/pages/StudentDashboard.js:273"
+      ],
+      "finding": "'Ask with context' sends students to generic /ai-chat without section, assignment or approved-material identity in the handoff.",
+      "acceptance": "Carry and display course/assignment context through the tutor entry. Verify the destination shows the intended class and material scope; separately validate backend AI policy.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-28",
+      "priority": "P2",
+      "title": "Institutional search promises content but searches tool names",
+      "locations": [
+        "src/pages/StudentDashboard.js:262",
+        "src/pages/StudentDashboard.js:391",
+        "src/pages/EducatorDashboard.js:408"
+      ],
+      "finding": "Search copy includes classes and assignments, but filtering operates on static tool definitions. Searching for a real assignment or student cannot fulfill the stated promise.",
+      "acceptance": "Search actual records or rename the field 'Find a tool'. Verify known class, assignment and learner names return appropriate results.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-29",
+      "priority": "P2",
+      "title": "Educator evidence actions do not open the named learner's evidence",
+      "locations": [
+        "src/pages/EducatorDashboard.js:457",
+        "src/pages/EducatorDashboard.js:691"
+      ],
+      "finding": "A button promises course evidence for a named student but only selects a section and scrolls to its leaderboard.",
+      "acceptance": "Open a learner-specific evidence view with contributing work and the next intervention action. The selected student's identity must persist through the handoff.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-30",
+      "priority": "P2",
+      "title": "Class switching can show stale conversations under a new class",
+      "locations": [
+        "src/pages/InstitutionClassroomPage.js:78",
+        "src/pages/InstitutionClassroomPage.js:332"
+      ],
+      "finding": "Section changes do not establish a new loading state before fetching. Previous conversation/recipient data can remain while the new class loads; assignments can show no matches before data arrives.",
+      "acceptance": "Key resource state and requests by section, discard stale responses and replace old content during switching. Test rapid class changes with delayed responses.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-31",
+      "priority": "P2",
+      "title": "Long note previews become enormous accessible button names",
+      "locations": [
+        "src/pages/NotesHub.js:209"
+      ],
+      "finding": "Recent-note rows embed the entire plain-text note in a button. The live accessibility tree contained thousands of words for a single note even though the visual preview is clamped.",
+      "acceptance": "Give the link a concise title-based accessible name and a bounded preview. Verify screen-reader navigation announces title, type and useful metadata without reading the whole note.",
+      "evidence": "Live accessibility tree + source"
+    },
+    {
+      "id": "UX-32",
+      "priority": "P2",
+      "title": "Small controls and metadata undermine mobile usability",
+      "locations": [
+        "src/pages/InstitutionClassroomPage.css:80",
+        "src/pages/InstitutionClassroomPage.css:87",
+        "src/pages/ContextHubWorkspace.css:327",
+        "src/pages/ContextHubWorkspace.css:470"
+      ],
+      "finding": "Classroom fields use 11px text and metadata 8–10px; source removal hit areas are 22×22px and folder actions 25×28px. Breakpoints retain these sizes.",
+      "acceptance": "Increase operational text and touch hit areas, then check 320/375px, zoom and long names. This is a usability finding, not a measured standards-conformance verdict.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-33",
+      "priority": "P2",
+      "title": "Global loading and some context actions are unnamed",
+      "locations": [
+        "src/components/LoadingSpinner.js:5",
+        "src/pages/ContextHubWorkspace.js:651",
+        "src/pages/ContextHubWorkspace.js:836"
+      ],
+      "finding": "The full-screen route spinner has no accessible status text; create-folder and error-dismiss icon controls lack accessible names.",
+      "acceptance": "Announce concise loading status and name icon actions. Verify loading and recovery are understandable without sight.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-34",
+      "priority": "P2",
+      "title": "Chat and shared-link failures masquerade as absent content",
+      "locations": [
+        "src/pages/AIChat.js:1286",
+        "mobile/src/screens/AIChatScreen.tsx:320",
+        "src/pages/PublicChatView.js:48",
+        "src/pages/PublicFlashcardView.js:61"
+      ],
+      "finding": "Failed chat-history requests clear messages, resembling an empty conversation. Public pages label network failures 'Link Not Found' with no retry in place.",
+      "acceptance": "Separate unavailable, missing, forbidden and genuinely empty content. Preserve history or show a scoped error with Retry.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-35",
+      "priority": "P2",
+      "title": "Analytics can label stale data as the newly selected period",
+      "locations": [
+        "src/pages/Analytics.js:98",
+        "src/pages/Analytics.js:111",
+        "src/pages/Analytics.js:120"
+      ],
+      "finding": "Changing the range preserves old data if requests fail, while the new period is selected. ML/deep-stat failures are swallowed and can leave indefinite loaders.",
+      "acceptance": "Track period-keyed loading/error/stale state per panel. With a failing range fetch, old data must retain its original label and offer Retry.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-36",
+      "priority": "P2",
+      "title": "Mobile optimistic actions fail without rollback",
+      "locations": [
+        "mobile/src/screens/CalendarScreen.tsx:195",
+        "mobile/src/screens/SharedWithMeScreen.tsx:138",
+        "mobile/src/screens/SettingsScreen.tsx:52"
+      ],
+      "finding": "Reminder completion/deletion, shared-access removal and notification preference changes update the UI first, then silently ignore persistence failure.",
+      "acceptance": "Rollback or durably queue failed changes and show status. Verify failed actions cannot appear permanently committed.",
+      "evidence": "Source; native runtime untested"
+    },
+    {
+      "id": "UX-37",
+      "priority": "P2",
+      "title": "Billing preview changes the displayed current billing cycle",
+      "locations": [
+        "src/pages/ProfileNew.js:461",
+        "src/pages/ProfileNew.js:683",
+        "src/pages/ProfileNew.js:1254"
+      ],
+      "finding": "The same local billingCycle drives both plan preview and the 'Current plan' label. Choosing Yearly can relabel the current subscription without saving, while the same-plan guard prevents committing that cycle change.",
+      "acceptance": "Separate persisted subscription state from preview controls. The current plan must not change until confirmed server success; support an explicit cycle change if offered.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-38",
+      "priority": "P1",
+      "title": "Native mobile has no institutional workspace routing",
+      "locations": [
+        "mobile/App.tsx:37",
+        "mobile/App.tsx:66",
+        "mobile/src/services/auth.ts:5",
+        "mobile/src/navigation/TabNavigator.tsx:54"
+      ],
+      "finding": "All authenticated accounts enter learner onboarding/navigation; the reviewed auth model has no role. Student/educator classroom flows are unavailable through this navigation.",
+      "acceptance": "Fetch authoritative role and provide the correct workspace or an explicit web handoff. Release gate applies if institutional use is promised on native mobile; otherwise declare that scope clearly.",
+      "evidence": "Source; conditional release scope"
+    },
+    {
+      "id": "UX-39",
+      "priority": "P2",
+      "title": "Mobile help and privacy entries are dead ends",
+      "locations": [
+        "mobile/src/screens/SettingsScreen.tsx:64",
+        "mobile/src/screens/SettingsScreen.tsx:247"
+      ],
+      "finding": "Visible Help Center and Privacy & Security rows invoke 'Not available yet' alerts.",
+      "acceptance": "Open supported help/privacy destinations, or communicate availability before interaction. A user must reach useful help from settings.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-40",
+      "priority": "P2",
+      "title": "Rate-limit administration hides request failures",
+      "locations": [
+        "src/pages/AdminRateLimits.js:145",
+        "src/pages/AdminRateLimits.js:178"
+      ],
+      "finding": "Child loaders swallow exceptions and ignore non-OK responses, preventing the outer error UI from showing them. Operators can see empty or stale controls during an outage/forbidden response.",
+      "acceptance": "Propagate typed failures and render forbidden/unavailable/stale states per section. Verify a failed load cannot look like valid empty configuration.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-41",
+      "priority": "P2",
+      "title": "Playlist open/delete actions can silently do nothing",
+      "locations": [
+        "src/pages/PlaylistDetailPage.js:279",
+        "src/pages/PlaylistDetailPage.js:321",
+        "src/pages/PlaylistsPage.js:143"
+      ],
+      "finding": "Failed item opening and deletion handlers only act on response.ok and silence catches, leaving no usable action feedback.",
+      "acceptance": "Use per-item pending/error state and Retry. Verify opening and deletion errors retain context and explain the next action.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-42",
+      "priority": "P2",
+      "title": "Friend discovery labels a letter-filtered list as nearby",
+      "locations": [
+        "src/pages/FriendsDashboard.js:129",
+        "src/pages/FriendsDashboard.js:442",
+        "src/pages/FriendsDashboard.js:584"
+      ],
+      "finding": "Empty-query discovery requests search_users?query=a, then calls that arbitrary subset 'learners nearby'. It does not represent proximity or a full directory.",
+      "acceptance": "Use a discover endpoint or label the actual search behavior accurately. Verify empty-query discovery does not exclude people solely because their name lacks a.",
+      "evidence": "Source"
+    },
+    {
+      "id": "UX-43",
+      "priority": "P2",
+      "title": "Landing page makes visitors discover the product proposition",
+      "locations": [
+        "src/pages/Home.js:1"
+      ],
+      "finding": "The first viewport presents Team, Problem, Architecture, Features, Why Cerbyl and Competition, plus 'Learning unified', without explaining a learner outcome. It resembles a company presentation more than a clear start to a study task.",
+      "acceptance": "State who the product helps, what task it improves and what Get Started does; retain the existing brand. Test first-time comprehension without opening the tiles.",
+      "evidence": "Live; design judgment"
+    },
+    {
+      "id": "UX-44",
+      "priority": "P2",
+      "title": "Unknown URLs redirect silently to the marketing home",
+      "locations": [
+        "src/App.js:396"
+      ],
+      "finding": "The wildcard route navigates to /, erasing the failed destination and giving no explanation. Broken internal/shared links can look like an unexpected exit from the workspace.",
+      "acceptance": "Show a not-found page with Back and a role-aware workspace action. Keep useful URL context and verify malformed/stale links.",
+      "evidence": "Source"
+    }
+  ]
+}

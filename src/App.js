@@ -1,3 +1,5 @@
+import './components/ToolNavigation.css';
+import NotFound from './pages/NotFound';
 import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -393,7 +395,7 @@ function App() {
                   <Route path="/vault" element={<Navigate to="/contexthub" replace />} />
                   <Route path="/canvas" element={<ProtectedRoute><CanvasHub /></ProtectedRoute>} />
                   <Route path="/home" element={<Navigate to="/dashboard-cerbyl" replace />} />
-                  <Route path="*" element={<Navigate to="/" replace />} />
+                  <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
             </ErrorBoundary>

@@ -1,3 +1,4 @@
+import ToolNavigation from '../components/ToolNavigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -350,10 +351,7 @@ const ContextFileAnalysis = () => {
   return (
     <div className="cfp-root">
       <div className="shc-topbar">
-        <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-        <div className="shc-topbar-right">
-          <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-        </div>
+        <ToolNavigation />
       </div>
       <BgFx />
       <div className="cfp-inner">

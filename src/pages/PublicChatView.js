@@ -10,12 +10,16 @@ const PublicChatView = () => {
   const [chatData, setChatData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [missing, setMissing] = useState(false);
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     const fetchChat = async () => {
+      setLoading(true); setError(null); setMissing(false);
       try {
         const response = await fetch(`${API_URL}/public/chat/${token}`);
         if (response.status === 404) {
+          setMissing(true);
           setError('This chat link is invalid or no longer available.');
           return;
         }
@@ -31,7 +35,7 @@ const PublicChatView = () => {
       }
     };
     fetchChat();
-  }, [token]);
+  }, [token, retry]);
 
   if (loading) {
     return (
@@ -45,9 +49,10 @@ const PublicChatView = () => {
   if (error) {
     return (
       <div className="pcv-page pcv-center">
-        <h2>Link Not Found</h2>
-        <p>{error}</p>
-        <Link className="pcv-home-link" to="/">Go to Brainwave</Link>
+        <h2>{missing ? "Link not found" : "Could not load shared content"}</h2>
+        <p role="alert">{error}</p>
+        {!missing && <button type="button" onClick={() => setRetry(n => n + 1)}>Try again</button>}
+        <Link className="pcv-home-link" to="/">Go to Cerbyl</Link>
       </div>
     );
   }
@@ -71,7 +76,7 @@ const PublicChatView = () => {
                   <div className="pcv-message-content">{msg.user_message}</div>
                 </div>
                 <div className="pcv-message pcv-message-ai">
-                  <span className="pcv-message-label">Brainwave</span>
+                  <span className="pcv-message-label">Cerbyl</span>
                   <div
                     className="pcv-message-content"
                     dangerouslySetInnerHTML={{ __html: sanitizeHtml(marked.parse(msg.ai_response || '')) }}
@@ -83,7 +88,7 @@ const PublicChatView = () => {
         )}
 
         <div className="pcv-footer">
-          <Link className="pcv-home-link" to="/">Powered by Brainwave</Link>
+          <Link className="pcv-home-link" to="/">Powered by Cerbyl</Link>
         </div>
       </div>
     </div>

@@ -247,7 +247,7 @@ class LearningPathService {
   
   async generateNodeContent(pathId, nodeId, activityType, count = null) {
     try {
-      const response = await queuedAIJsonFetch(`/learning-paths/${pathId}/nodes/${nodeId}/generate-content`, {
+      const response = await fetch(`${this.baseUrl}/${pathId}/nodes/${nodeId}/generate-content`, {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify({
@@ -318,7 +318,8 @@ class LearningPathService {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update difficulty view');
+        const error = await response.json();
+        throw new Error(error.detail || 'Could not prepare this difficulty level. Please retry.');
       }
 
       return await response.json();

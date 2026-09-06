@@ -1,3 +1,4 @@
+import ToolNavigation from '../components/ToolNavigation';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -658,7 +659,7 @@ const MyNotes = () => {
     <div className="my-notes-page-full">
       <NotesLineField />
       <div className="mn-qb-topbar">
-        <div className="mn-qb-tagline">Learning Unified</div>
+        <ToolNavigation />
         <div className="mn-qb-topbar-right">
           <div className="mn-qb-context-control">
             <ContextSelector hsMode={hsMode} docCount={userDocCount} onOpen={() => setContextPanelOpen(true)} />

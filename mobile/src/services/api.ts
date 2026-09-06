@@ -3000,3 +3000,13 @@ export async function updateChallengeProgress(payload: {
   if (!res.ok) await readApiError(res, 'Failed to submit challenge progress');
   return res.json();
 }
+
+export async function getAccountSession(): Promise<{ role: 'learner' | 'student' | 'educator' }> {
+  const response = await fetch(`${API_URL}/institution/session`, { headers: await authHeaders() });
+  if (response.status === 404) {
+    const me = await getMe();
+    return { role: me.account_role || 'learner' };
+  }
+  if (!response.ok) await readApiError(response, 'Could not open your workspace. Please try again.');
+  return response.json();
+}

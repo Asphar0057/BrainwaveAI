@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Switch, Alert, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Switch, Alert, Linking, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Inter_900Black, Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../services/auth';
-import { getComprehensiveProfile, updateComprehensiveProfile } from '../services/api';
+import { WEB_URL, getComprehensiveProfile, updateComprehensiveProfile } from '../services/api';
 import HapticTouchable from '../components/HapticTouchable';
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
@@ -50,12 +50,12 @@ export default function SettingsScreen({ user, onBack }: Props) {
   }, [loadNotificationPref]);
 
   const handlePushToggle = async (value: boolean) => {
-    setPushEnabled(value);
     triggerHaptic('selection');
     try {
       await updateComprehensiveProfile(user.username, { notificationsEnabled: value });
+      setPushEnabled(value);
     } catch {
-      // silenced -- non-critical preference sync
+      Alert.alert('Preference not saved', 'Your notification preference is unchanged. Please try again.');
     }
   };
 
@@ -67,7 +67,7 @@ export default function SettingsScreen({ user, onBack }: Props) {
   ];
 
   const handleComingSoon = (label: string) => {
-    Alert.alert('Not available yet', `${label} is not available on mobile yet.`);
+    void Linking.openURL(`${WEB_URL}/${label === 'Privacy & Security' ? 'privacy-policy' : 'contact'}`).catch(() => Alert.alert('Could not open page', 'Please try again.'));
   };
 
   const darkThemes = themes.filter((theme) => theme.mode === 'dark');

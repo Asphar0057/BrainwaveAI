@@ -1,3 +1,5 @@
+import ToolNavigation from '../components/ToolNavigation';
+import { toLocalDateTime } from '../utils/dateInput';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -53,6 +55,7 @@ function InstitutionClassroomPage({ role, view }) {
   const [messageStatus, setMessageStatus] = useState({ saving: false, error: '', message: '' });
   const [editDraft, setEditDraft] = useState(null);
   const [editStatus, setEditStatus] = useState({ saving: false, error: '' });
+  const resourceVersion = useRef(0);
   const editorRef = useRef(null);
   const editorReturnFocusRef = useRef(null);
   const editOpen = Boolean(editDraft);
@@ -71,6 +74,9 @@ function InstitutionClassroomPage({ role, view }) {
 
   const loadResource = async () => {
     if (dashboard.status !== 'ready') return;
+    const version = ++resourceVersion.current;
+    const apply = value => { if (version === resourceVersion.current) setResource(value); };
+    setResource({status: 'loading', data: null, error: ''});
     let endpoint = null;
     if (view === 'assignments' && isEducator) endpoint = '/institution/educator/assignments?include_archived=true';
     if (view === 'gradebook' && selectedSectionId) endpoint = `/institution/educator/sections/${selectedSectionId}/gradebook`;
@@ -82,26 +88,26 @@ function InstitutionClassroomPage({ role, view }) {
           apiRequest(endpoint),
           apiRequest(`/institution/sections/${selectedSectionId}`),
         ]);
-        setResource({ status: 'ready', data: { ...messages, section }, error: '' });
+        apply({ status: 'ready', data: { ...messages, section }, error: '' });
       } catch (error) {
-        setResource({ status: 'error', data: null, error: error.message });
+        apply({ status: 'error', data: null, error: error.message });
       }
       return;
     }
     if (!endpoint) {
-      setResource({ status: 'ready', data: null, error: '' });
+      apply({ status: 'ready', data: null, error: '' });
       return;
     }
-    setResource((current) => ({ ...current, status: 'loading', error: '' }));
+    apply((current) => ({ ...current, status: 'loading', error: '' }));
     try {
-      setResource({ status: 'ready', data: await apiRequest(endpoint), error: '' });
+      apply({ status: 'ready', data: await apiRequest(endpoint), error: '' });
     } catch (error) {
-      setResource({ status: 'error', data: null, error: error.message });
+      apply({ status: 'error', data: null, error: error.message });
     }
   };
 
   useEffect(() => { loadDashboard(); }, [role]);
-  useEffect(() => { loadResource(); }, [view, selectedSectionId, dashboard.status]);
+  useEffect(() => { loadResource(); return () => { resourceVersion.current += 1; }; }, [view, selectedSectionId, dashboard.status]);
   useEffect(() => {
     setMessageForm((current) => ({ ...current, recipient_id: '' }));
   }, [selectedSectionId]);
@@ -213,6 +219,7 @@ function InstitutionClassroomPage({ role, view }) {
 
   const sendMessage = async (event) => {
     event.preventDefault();
+    if (resource.status !== 'ready' || messageStatus.saving) return;
     setMessageStatus({ saving: true, error: '', message: '' });
     try {
       await apiRequest('/institution/messages', {
@@ -253,7 +260,7 @@ function InstitutionClassroomPage({ role, view }) {
   return (
     <div className={`icp-root icp-root--${role}`}>
       <header className="icp-topbar">
-        <button type="button" onClick={() => navigate(homeRoute)}><ArrowLeft size={15} /> Dashboard</button>
+        <ToolNavigation />
         <div><strong>cerbyl</strong><span>{isEducator ? 'educator' : 'student'}</span></div>
         <button type="button" onClick={() => navigate('/profile')}>{userName}</button>
       </header>
@@ -264,7 +271,7 @@ function InstitutionClassroomPage({ role, view }) {
           ? [['classes', GraduationCap], ['assignments', ClipboardList], ['gradebook', BookOpenCheck], ['messages', MessageCircle], ['notifications', Bell]]
           : [['classes', GraduationCap], ['assignments', ClipboardList], ['messages', MessageCircle], ['notifications', Bell]]
         ).map(([item, Icon]) => (
-          <button className={view === item ? 'is-active' : ''} type="button" key={item} onClick={() => navigate(`/${role}/${item}`)}>
+          <button aria-current={view === item ? 'page' : undefined} className={view === item ? 'is-active' : ''} type="button" key={item} onClick={() => navigate(`/${role}/${item}`)}>
             <Icon size={15} /><span>{VIEW_COPY[item][0]}</span><ChevronRight size={13} />
           </button>
         ))}
@@ -276,7 +283,7 @@ function InstitutionClassroomPage({ role, view }) {
           <div><span>{isEducator ? 'TEACHING OPERATIONS' : 'STUDENT CLASSROOM'}</span><h1>{title}<em>.</em></h1><p>{description}</p></div>
           <button type="button" onClick={refresh}><RefreshCw size={14} /> Refresh</button>
         </section>
-        {resource.status === 'error' && <div className="icp-error" role="alert">{resource.error}</div>}
+        {resource.status === 'error' && <div className="icp-error" role="alert">{resource.error}<button onClick={loadResource}>Retry</button></div>}
 
         {sections.length > 1 && ['gradebook', 'messages'].includes(view) && (
           <div className="icp-section-switcher">
@@ -349,8 +356,9 @@ function InstitutionClassroomPage({ role, view }) {
           <div className="icp-message-layout">
             <section className="icp-inbox">
               <div><Inbox size={15} /><strong>Conversation history</strong></div>
+              {resource.status === 'loading' && <p role="status">Loading this class’s messages…</p>}
               {(resource.data?.messages || []).map((message) => <article className={message.is_mine ? 'is-mine' : ''} key={message.id}><span>{message.course_code} · {message.is_mine ? `To ${message.recipient.display_name}` : `From ${message.sender.display_name}`}</span><h3>{message.subject}</h3><p>{message.body}</p><small>{formatDate(message.created_at)}</small></article>)}
-              {!resource.data?.messages?.length && <div className="icp-empty">No private messages in this class yet.</div>}
+              {resource.status === 'ready' && !resource.data?.messages?.length && <div className="icp-empty">No private messages in this class yet.</div>}
             </section>
             <form className="icp-compose" onSubmit={sendMessage}>
               <span>NEW PRIVATE MESSAGE</span><h2>Write with context.</h2>
@@ -358,7 +366,7 @@ function InstitutionClassroomPage({ role, view }) {
               <label>Subject<input minLength={3} maxLength={180} required value={messageForm.subject} onChange={(event) => setMessageForm({ ...messageForm, subject: event.target.value })} /></label>
               <label>Message<textarea rows={7} minLength={3} maxLength={5000} required value={messageForm.body} onChange={(event) => setMessageForm({ ...messageForm, body: event.target.value })} /></label>
               {messageStatus.error && <p role="alert">{messageStatus.error}</p>}{messageStatus.message && <p role="status">{messageStatus.message}</p>}
-              <button className="icp-primary" disabled={messageStatus.saving} type="submit"><Send size={14} /> {messageStatus.saving ? 'Sending…' : 'Send privately'}</button>
+              <button className="icp-primary" disabled={messageStatus.saving || resource.status !== 'ready'} type="submit"><Send size={14} /> {messageStatus.saving ? 'Sending…' : 'Send privately'}</button>
             </form>
           </div>
         )}
@@ -383,8 +391,8 @@ function InstitutionClassroomPage({ role, view }) {
             <label>Title<input value={editDraft.title} onChange={(event) => setEditDraft({ ...editDraft, title: event.target.value })} /></label>
             <label>Instructions<textarea rows={4} value={editDraft.description || ''} onChange={(event) => setEditDraft({ ...editDraft, description: event.target.value })} /></label>
             <label>Rubric<textarea rows={4} value={editDraft.rubric_text || ''} onChange={(event) => setEditDraft({ ...editDraft, rubric_text: event.target.value })} /></label>
-            <label>Due date<input type="datetime-local" value={editDraft.due_at ? editDraft.due_at.slice(0, 16) : ''} onChange={(event) => setEditDraft({ ...editDraft, due_at: event.target.value ? new Date(event.target.value).toISOString() : null })} /></label>
-            <label>Available from<input type="datetime-local" value={editDraft.start_at ? editDraft.start_at.slice(0, 16) : ''} onChange={(event) => setEditDraft({ ...editDraft, start_at: event.target.value ? new Date(event.target.value).toISOString() : null })} /></label>
+            <label>Due date ({Intl.DateTimeFormat().resolvedOptions().timeZone})<input type="datetime-local" value={editDraft.due_at ? toLocalDateTime(editDraft.due_at) : ''} onChange={(event) => setEditDraft({ ...editDraft, due_at: event.target.value ? new Date(event.target.value).toISOString() : null })} /></label>
+            <label>Available from ({Intl.DateTimeFormat().resolvedOptions().timeZone})<input type="datetime-local" value={editDraft.start_at ? toLocalDateTime(editDraft.start_at) : ''} onChange={(event) => setEditDraft({ ...editDraft, start_at: event.target.value ? new Date(event.target.value).toISOString() : null })} /></label>
             <div><label>Points<input type="number" value={editDraft.points_possible} onChange={(event) => setEditDraft({ ...editDraft, points_possible: event.target.value })} /></label><label>Minutes<input type="number" min="5" max="600" value={editDraft.estimated_minutes} onChange={(event) => setEditDraft({ ...editDraft, estimated_minutes: event.target.value })} /></label><label>Weight %<input type="number" value={editDraft.weight_percent || 0} onChange={(event) => setEditDraft({ ...editDraft, weight_percent: event.target.value })} /></label></div>
             <div><label>Attempts<input type="number" min="1" max="20" value={editDraft.max_attempts || 1} onChange={(event) => setEditDraft({ ...editDraft, max_attempts: event.target.value })} /></label><label className="icp-checkbox"><input type="checkbox" checked={editDraft.allow_resubmission} onChange={(event) => setEditDraft({ ...editDraft, allow_resubmission: event.target.checked })} />Allow resubmission</label></div>
             <div><label>Type<select value={editDraft.assignment_type} onChange={(event) => setEditDraft({ ...editDraft, assignment_type: event.target.value })}><option value="practice">Practice</option><option value="quiz">Quiz</option><option value="problem_set">Problem set</option><option value="reflection">Reflection</option><option value="writing">Writing</option></select></label><label>Status<select value={editDraft.published_status} onChange={(event) => setEditDraft({ ...editDraft, published_status: event.target.value })}><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></select></label><label>AI policy<select value={editDraft.ai_policy} onChange={(event) => setEditDraft({ ...editDraft, ai_policy: event.target.value })}><option value="guided">Guided</option><option value="open">Open</option><option value="restricted">Restricted</option></select></label></div>

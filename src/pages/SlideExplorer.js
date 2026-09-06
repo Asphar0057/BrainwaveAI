@@ -122,18 +122,21 @@ const SlideExplorer = () => {
     setSidebarCollapsed(nextCollapsed);
   }, []);
 
+  const [libraryError, setLibraryError] = useState('');
   const fetchUploadedSlides = useCallback(async () => {
     try {
       setLoading(true);
+      setLibraryError('');
       const response = await fetch(`${API_URL}/get_uploaded_slides?user_id=${userId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (!response.ok) throw new Error('Library unavailable. Your saved work has not been removed.');
       if (response.ok) {
         const data = await response.json();
         setUploadedSlides(data.slides || []);
       }
     } catch (error) {
-      // silenced
+      setLibraryError('Library unavailable. Your saved work has not been removed.');
     } finally {
       setLoading(false);
     }
@@ -680,7 +683,7 @@ const SlideExplorer = () => {
           ) : (
             loading ? (
               <div className="se-loading" role="status"><div className="se-pulse-loader"><div className="se-pulse-sq" /><div className="se-pulse-sq" /><div className="se-pulse-sq" /></div><span>Arranging your slide library…</span></div>
-            ) : uploadedSlides.length === 0 ? (
+            ) : libraryError ? (<div role="alert"><p>{libraryError}</p><button onClick={fetchUploadedSlides}>Retry library</button></div>) : uploadedSlides.length === 0 ? (
               <div className="se-empty-state">
                 <div className="se-empty-icon-wrap"><Layers3 size={26} /></div>
                 <span>Library ready</span>

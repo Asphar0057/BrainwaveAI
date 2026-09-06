@@ -60,8 +60,7 @@ describe('SoloQuiz', () => {
 
     it('renders the quiz generator tab by default', async () => {
       await renderSoloQuiz();
-      const genTabText = screen.queryByText(/generator/i) || screen.queryByText(/generate/i);
-      expect(genTabText || true).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Generator' })).toHaveAttribute('aria-current', 'page');
     });
 
     it('renders subject input field', async () => {

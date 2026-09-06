@@ -24,6 +24,7 @@ import learningPathService from '../services/learningPathService';
 import { API_URL } from '../config';
 import SocialHubChrome from '../components/SocialHubChrome';
 import './LearningPaths.css';
+import './LearningPathTheme.css';
 
 const FALLBACK_TOPICS = [
   'System design for AI products',

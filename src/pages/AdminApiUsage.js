@@ -1,3 +1,4 @@
+import ToolNavigation from '../components/ToolNavigation';
 import { useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, RefreshCw, Shield, Zap } from 'lucide-react';
 import { API_URL } from '../config';
@@ -53,6 +54,7 @@ const AdminApiUsage = () => {
 
   return (
     <div className="api-usage-page">
+      <div style={{marginBottom: 16}}><ToolNavigation /></div>
       <header className="api-usage-header">
         <div>
           <div className="api-usage-kicker"><Shield size={15} /> Admin only</div>

@@ -69,7 +69,8 @@ describe('ContextHubWorkspace', () => {
     expect(container.querySelector('.cxh-main')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Collapse Social Hub sidebar/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Social Hub' })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Dashboard' })).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Dashboard' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Back to Dashboard' })).toHaveAttribute('href', '/dashboard-cerbyl');
   });
 
   it('normalizes stale deck storage and passes exact source ids to outputs', async () => {

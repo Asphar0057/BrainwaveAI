@@ -1,5 +1,8 @@
+import ToolNavigation from './ToolNavigation';
+import { getToolNavigation, isActiveToolPath } from '../utils/toolNavigation';
+import useModalFocus from '../hooks/useModalFocus';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, LayoutGrid, Users } from 'lucide-react';
 import './SocialHubChrome.css';
 import GeometricGrid from './GeometricGrid';
@@ -234,6 +237,13 @@ const SocialHubChrome = ({
   children,
 }) => {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const toolLabel = getToolNavigation(pathname).label || brandKicker;
+  const currentSections = sideSections.map(section => ({ ...section, items: section.items.map(item => ({
+    ...item,
+    active: item.active ?? (item.path ? isActiveToolPath(pathname, item.path) : item.label.toLowerCase() === toolLabel.toLowerCase()),
+  })) }));
+  const activeLabel = currentSections.flatMap(section => section.items).find(item => item.active && item.pressed === undefined)?.label;
   const [internalCollapsed, setInternalCollapsed] = useState(false);
   const collapsed = controlledCollapsed ?? internalCollapsed;
   const setCollapsed = useCallback((nextValue) => {
@@ -256,6 +266,10 @@ const SocialHubChrome = ({
     media.addEventListener?.('change', syncToViewport);
     return () => media.removeEventListener?.('change', syncToViewport);
   }, [controlledCollapsed === undefined, onCollapsedChange]);
+  const [narrow, setNarrow] = useState(() => window.innerWidth <= 720);
+  useEffect(() => { const media = window.matchMedia('(max-width: 720px)'); const update = () => setNarrow(media.matches); media.addEventListener?.('change', update); return () => media.removeEventListener?.('change', update); }, []);
+  const drawerOpen = narrow && !collapsed && !noSidebar;
+  const drawerRef = useModalFocus(drawerOpen, () => setCollapsed(true));
   const activeSurfaceRef = useRef(null);
   const shellRef = useRef(null);
 
@@ -348,8 +362,8 @@ const SocialHubChrome = ({
         </div>
 
         <div className="shc-topbar">
-          <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-          {topbarAction && (
+          <ToolNavigation toolLabel={brandKicker} currentLabel={activeLabel} />
+          {topbarAction && topbarAction.path !== '/dashboard-cerbyl' && topbarAction.path !== getToolNavigation(pathname).parentPath && (
             <div className="shc-topbar-right">
               <button className="shc-top-btn" type="button" onClick={() => navigate(topbarAction.path)}>
                 {topbarAction.label}
@@ -360,7 +374,7 @@ const SocialHubChrome = ({
 
       <div className={`shc-body ${noSidebar ? 'shc-body--no-sidebar' : collapsed ? 'shc-body--collapsed' : ''}`}>
         {!noSidebar && (
-          <aside className={`shc-sidebar ${collapsed ? 'shc-sidebar--collapsed' : ''}`}>
+          <aside ref={drawerRef} onClick={event => { if (drawerOpen && event.target.closest('button,a') && !event.target.closest('.shc-collapse-btn')) setCollapsed(true); }} role={drawerOpen ? "dialog" : undefined} aria-modal={drawerOpen ? "true" : undefined} aria-label={drawerOpen ? "Workspace navigation" : undefined} className={`shc-sidebar ${collapsed ? 'shc-sidebar--collapsed' : ''}`}>
             <div className="cb-tile-texture" aria-hidden />
 
             {collapsed ? (
@@ -392,7 +406,7 @@ const SocialHubChrome = ({
 
                 {collapsedLeadItems.length > 0 && <div className="shc-strip-rule" />}
 
-                {sideSections.flatMap(s => s.items).map(item => (
+                {currentSections.flatMap(s => s.items).map(item => (
                   <StripBtn
                     key={item.label}
                     icon={item.icon}
@@ -420,7 +434,7 @@ const SocialHubChrome = ({
                 ))}
 
                 {footerItems.map(fi => (
-                  <StripBtn key={fi.label} icon={fi.icon} label={fi.label} onClick={() => navigate(fi.path)} />
+                  <StripBtn key={fi.label} icon={fi.icon} label={fi.label} active={isActiveToolPath(pathname, fi.path)} onClick={() => navigate(fi.path)} />
                 ))}
               </div>
             ) : (
@@ -447,7 +461,7 @@ const SocialHubChrome = ({
                 )}
 
                 <div className="shc-side-sections">
-                  {sideSections.map(section => (
+                  {currentSections.map(section => (
                     <div key={section.label} className="shc-side-block">
                       <div className="shc-side-label">{section.label}</div>
                       <nav className="shc-view-nav">
@@ -489,6 +503,7 @@ const SocialHubChrome = ({
                       <button
                         key={fi.label}
                         className="shc-footer-action"
+                        aria-current={isActiveToolPath(pathname, fi.path) ? 'page' : undefined}
                         type="button"
                         onClick={() => navigate(fi.path)}
                       >
@@ -503,7 +518,8 @@ const SocialHubChrome = ({
           </aside>
         )}
 
-        <main className="shc-main">
+        {drawerOpen && <button type="button" className="shc-drawer-backdrop" tabIndex={-1} aria-label="Close navigation" onClick={() => setCollapsed(true)} />}
+        <main className="shc-main" inert={drawerOpen ? "" : undefined}>
           <div className="cb-tile-texture" aria-hidden />
           {children}
         </main>

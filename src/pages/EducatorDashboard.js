@@ -1,3 +1,4 @@
+import useAccountDraft from '../hooks/useAccountDraft';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -48,6 +49,8 @@ const formatToday = () => new Intl.DateTimeFormat('en-IN', {
 function useDialogFocus(onClose) {
   const dialogRef = useRef(null);
   const returnFocusRef = useRef(document.activeElement);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -56,7 +59,7 @@ function useDialogFocus(onClose) {
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        onClose();
+        closeRef.current();
         return;
       }
       if (event.key !== 'Tab' || !dialog) return;
@@ -77,14 +80,46 @@ function useDialogFocus(onClose) {
       document.removeEventListener('keydown', handleKeyDown);
       returnFocusRef.current?.focus?.();
     };
-  }, [onClose]);
+  }, []);
 
   return dialogRef;
 }
 
-export function AssignmentDialog({ sections, onClose, onCreated }) {
+function LearnerEvidenceDialog({ student, sectionId, onClose, onReview }) {
   const dialogRef = useDialogFocus(onClose);
-  const [form, setForm] = useState({
+  const [state, setState] = useState({ loading: true, rows: [], error: '' });
+  const load = async () => {
+    setState(current => ({ ...current, loading: true, error: '' }));
+    try {
+      const section = await apiRequest(`/institution/sections/${sectionId}`);
+      const groups = await Promise.all((section.assignments || []).map(async assignment => {
+        const result = await apiRequest(`/institution/educator/assignments/${assignment.id || assignment.assignment_id}/submissions`);
+        const submission = result.submissions.find(row => row.student.id === student.student_id);
+        return { assignment, submission };
+      }));
+      setState({ loading: false, rows: groups, error: '' });
+    } catch { setState(current => ({ ...current, loading: false, error: 'Student work could not be loaded.' })); }
+  };
+  useEffect(() => { load(); }, [student.student_id, sectionId]);
+  return <div className="ci-modal-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}>
+    <section ref={dialogRef} className="ci-modal ci-modal--review" role="dialog" aria-modal="true" aria-labelledby="learner-evidence-title">
+      <header><div><h2 id="learner-evidence-title">{student.student_name}</h2><p>{student.course_code} · {student.signal}</p></div><button onClick={onClose} aria-label="Close learner evidence"><X size={18}/></button></header>
+      <p>Mastery {student.mastery_percent}% · Progress {student.progress_percent}%</p>
+      <p>Last active: {student.last_active_at ? new Date(student.last_active_at).toLocaleString() : 'No activity recorded'}</p>
+      {state.loading && <p role="status">Loading this learner’s work…</p>}
+      {state.error && <p role="alert">{state.error} <button onClick={load}>Retry</button></p>}
+      {!state.loading && !state.error && (state.rows.length ? state.rows.map(({ assignment, submission }) => <article key={assignment.id || assignment.assignment_id}>
+        <h3>{assignment.title}</h3><p>{submission?.status?.replaceAll('_', ' ') || 'Not submitted'}{submission?.score != null ? ` · ${submission.score}/${assignment.points_possible}` : ''}</p>
+        <p>{submission?.content_text || 'No written response.'}</p><p>{submission?.feedback || 'No feedback recorded.'}</p>
+        <button className="ci-action" onClick={() => onReview({ ...assignment, assignment_id: assignment.id || assignment.assignment_id, student_id: student.student_id })}>Review work and give feedback</button>
+      </article>) : <p>No published assignments in this class.</p>)}
+    </section>
+  </div>;
+}
+
+export function AssignmentDialog({ sections, onClose, onCreated }) {
+  const dialogRef = useDialogFocus(() => { if (!status.saving) onClose(); });
+  const [form, setForm, clearFormDraft] = useAccountDraft('assignment', {
     section_id: sections[0]?.section_id || '',
     title: '',
     description: '',
@@ -119,6 +154,7 @@ export function AssignmentDialog({ sections, onClose, onCreated }) {
           start_at: form.start_at ? new Date(form.start_at).toISOString() : null,
         }),
       });
+      clearFormDraft();
       onCreated();
     } catch (error) {
       setStatus({ saving: false, error: error.message });
@@ -126,12 +162,12 @@ export function AssignmentDialog({ sections, onClose, onCreated }) {
   };
 
   return (
-    <div className="ci-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div className="ci-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !status.saving && onClose()}>
       <section ref={dialogRef} className="ci-modal" role="dialog" aria-modal="true" aria-labelledby="assignment-dialog-title">
         <div className="ci-tile-texture" />
         <header>
           <div><span>CREATE FOR A CLASS</span><h2 id="assignment-dialog-title">New assignment.</h2></div>
-          <button type="button" aria-label="Close" onClick={onClose}><X size={18} /></button>
+          <button type="button" aria-label="Close" onClick={() => { if (!status.saving) onClose(); }}><X size={18} /></button>
         </header>
         <form onSubmit={submit}>
           <label>Class
@@ -200,7 +236,7 @@ export function AssignmentDialog({ sections, onClose, onCreated }) {
           </div>
           {status.error && <p className="ci-form-error" role="alert">{status.error}</p>}
           <footer>
-            <button className="ci-action" type="button" onClick={onClose}>Cancel</button>
+            <button className="ci-action" type="button" onClick={() => { if (!status.saving) onClose(); }}>Cancel</button>
             <button className="ci-action ci-action--primary" type="submit" disabled={status.saving || !sections.length}>
               {status.saving ? 'Saving…' : form.status === 'draft' ? 'Save draft' : 'Publish assignment'} <ArrowUpRight size={15} />
             </button>
@@ -212,8 +248,8 @@ export function AssignmentDialog({ sections, onClose, onCreated }) {
 }
 
 function AnnouncementDialog({ sections, onClose, onCreated }) {
-  const dialogRef = useDialogFocus(onClose);
-  const [form, setForm] = useState({
+  const dialogRef = useDialogFocus(() => { if (!status.saving) onClose(); });
+  const [form, setForm, clearFormDraft] = useAccountDraft('announcement', {
     section_id: sections[0]?.section_id || '',
     title: '',
     body: '',
@@ -228,6 +264,7 @@ function AnnouncementDialog({ sections, onClose, onCreated }) {
         method: 'POST',
         body: JSON.stringify({ ...form, section_id: Number(form.section_id) }),
       });
+      clearFormDraft();
       onCreated();
     } catch (error) {
       setStatus({ saving: false, error: error.message });
@@ -235,12 +272,12 @@ function AnnouncementDialog({ sections, onClose, onCreated }) {
   };
 
   return (
-    <div className="ci-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div className="ci-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !status.saving && onClose()}>
       <section ref={dialogRef} className="ci-modal" role="dialog" aria-modal="true" aria-labelledby="announcement-dialog-title">
         <div className="ci-tile-texture" />
         <header>
           <div><span>PUBLISH TO ENROLLED STUDENTS</span><h2 id="announcement-dialog-title">Class announcement.</h2></div>
-          <button type="button" aria-label="Close announcement" onClick={onClose}><X size={18} /></button>
+          <button type="button" aria-label="Close announcement" onClick={() => { if (!status.saving) onClose(); }}><X size={18} /></button>
         </header>
         <form onSubmit={submit}>
           <label>Class
@@ -256,7 +293,7 @@ function AnnouncementDialog({ sections, onClose, onCreated }) {
           </label>
           {status.error && <p className="ci-form-error" role="alert">{status.error}</p>}
           <footer>
-            <button className="ci-action" type="button" onClick={onClose}>Cancel</button>
+            <button className="ci-action" type="button" onClick={() => { if (!status.saving) onClose(); }}>Cancel</button>
             <button className="ci-action ci-action--primary" type="submit" disabled={status.saving || !sections.length}>
               {status.saving ? 'Publishing…' : 'Publish to class'} <ArrowUpRight size={15} />
             </button>
@@ -270,7 +307,7 @@ function AnnouncementDialog({ sections, onClose, onCreated }) {
 export function ReviewDialog({ assignment, onClose, onChanged }) {
   const dialogRef = useDialogFocus(onClose);
   const [state, setState] = useState({ status: 'loading', data: null, error: '' });
-  const [drafts, setDrafts] = useState({});
+  const [drafts, setDrafts] = useAccountDraft(`grades:${assignment.assignment_id}`, {});
   const [savingId, setSavingId] = useState(null);
 
   const load = async () => {
@@ -278,10 +315,7 @@ export function ReviewDialog({ assignment, onClose, onChanged }) {
     try {
       const data = await apiRequest(`/institution/educator/assignments/${assignment.assignment_id}/submissions`);
       setState({ status: 'ready', data, error: '' });
-      setDrafts(Object.fromEntries(data.submissions.map((row) => [
-        row.student.id,
-        { score: row.score ?? '', feedback: row.feedback || '' },
-      ])));
+
     } catch (error) {
       setState({ status: 'error', data: null, error: error.message });
     }
@@ -292,14 +326,16 @@ export function ReviewDialog({ assignment, onClose, onChanged }) {
   }, [assignment.assignment_id]);
 
   const saveGrade = async (row) => {
-    const draft = drafts[row.student.id];
+    const draft = drafts[row.student.id] || { score: row.score ?? '', feedback: row.feedback || '' };
+    if (savingId) return;
     setSavingId(row.submission_id);
     try {
       await apiRequest(`/institution/educator/submissions/${row.submission_id}/grade`, {
         method: 'PATCH',
         body: JSON.stringify({ score: Number(draft.score), feedback: draft.feedback }),
       });
-      await load();
+      setState(current => ({ ...current, data: { ...current.data, submissions: current.data.submissions.map(item => item.submission_id === row.submission_id ? { ...item, score: Number(draft.score), feedback: draft.feedback, status: 'graded' } : item) }, error: '' }));
+      setDrafts(current => { const next = { ...current }; if (JSON.stringify(next[row.student.id]) === JSON.stringify(draft)) delete next[row.student.id]; return next; });
       onChanged();
     } catch (error) {
       setState((current) => ({ ...current, error: error.message }));
@@ -329,8 +365,8 @@ export function ReviewDialog({ assignment, onClose, onChanged }) {
         {state.status === 'error' && !state.data && <div className="ci-inline-state ci-inline-state--error">{state.error}</div>}
         {state.data && (
           <div className="ci-review-list">
-            {state.data.submissions.map((row) => {
-              const draft = drafts[row.student.id] || { score: '', feedback: '' };
+            {state.data.submissions.filter(row => !assignment.student_id || row.student.id === assignment.student_id).map((row) => {
+              const draft = drafts[row.student.id] || { score: row.score ?? '', feedback: row.feedback || '' };
               const canGrade = Boolean(row.submission_id) && ['submitted', 'graded'].includes(row.status);
               return (
                 <article key={row.student.id}>
@@ -379,6 +415,7 @@ function EducatorDashboard() {
   const [query, setQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [selectedSectionId, setSelectedSectionId] = useState(null);
+  const [evidenceStudent, setEvidenceStudent] = useState(null);
   const [classWorkspaceId, setClassWorkspaceId] = useState(null);
   const [leaderboard, setLeaderboard] = useState({ status: 'idle', data: null, error: '' });
 
@@ -465,9 +502,7 @@ function EducatorDashboard() {
   const focusStudentSignal = (student) => {
     const section = classHealth.find((item) => item.course_code === student.course_code);
     if (section) setSelectedSectionId(section.section_id);
-    window.requestAnimationFrame(() => {
-      document.getElementById('educator-leaderboard')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
+    if (section) setEvidenceStudent({ ...student, sectionId: section.section_id });
   };
 
   if (state.status === 'loading') {
@@ -583,7 +618,7 @@ function EducatorDashboard() {
                     openEducatorTool(searchResults[0].label);
                   }
                 }}
-                placeholder="Search classes, students, assignments, teaching tools..."
+                placeholder="Find a teaching tool"
                 aria-label="Search educator tools"
               />
               {showSearch && query && (
@@ -731,6 +766,7 @@ function EducatorDashboard() {
         </main>
       </div>
 
+      {evidenceStudent && <LearnerEvidenceDialog student={evidenceStudent} sectionId={evidenceStudent.sectionId} onClose={() => setEvidenceStudent(null)} onReview={assignment => { setEvidenceStudent(null); setReviewAssignment(assignment); }} />}
       {dialogOpen && (
         <AssignmentDialog
           sections={classHealth}

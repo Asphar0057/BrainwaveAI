@@ -965,3 +965,54 @@
   position: relative;
   z-index: 1;
 }
+
+/* Library navigation and task header share the same content alignment. */
+.notes-dashboard .shc-topbar { padding: 12px 24px; min-height: 68px; }
+.ndb-breadcrumbs { display: flex; align-items: center; gap: 12px; min-width: 0; font-size: 13px; }
+.ndb-breadcrumbs a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--text-secondary); text-decoration: none; }
+.ndb-breadcrumbs a:hover { color: var(--accent); }
+.ndb-breadcrumbs > svg { color: var(--text-secondary); flex-shrink: 0; }
+.ndb-breadcrumbs [aria-current] { color: var(--accent); font-weight: 600; white-space: nowrap; }
+.notes-dashboard .ndb-qb-body { padding: 0 24px 20px !important; }
+.notes-dashboard .ndb-qb-view-link { text-decoration: none; min-height: 44px; box-sizing: border-box; }
+.notes-dashboard .ndb-qb-view-link[aria-current="page"],
+.notes-dashboard .ndb-qb-strip-btn[aria-current="page"] { background: color-mix(in srgb, var(--accent) 16%, var(--bg-secondary)); border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); color: var(--accent); font-weight: 700; }
+.ndb-nav-count { margin-left: auto; font-size: 12px; font-variant-numeric: tabular-nums; }
+.notes-dashboard .ndb-library-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 0 22px; flex-shrink: 0; }
+.ndb-library-header h1 { margin: 0; font-size: 30px; line-height: 1.2; letter-spacing: -0.03em; }
+.ndb-library-header p { margin: 8px 0 0; font-size: 13px; color: var(--text-secondary); }
+.notes-dashboard .ndb-library-header .ndb-qb-new-btn { width: auto; min-height: 44px; padding: 10px 18px; margin: 0; text-transform: none; letter-spacing: 0; flex-shrink: 0; }
+.ndb-library-search { display: flex; align-items: center; gap: 12px; padding-bottom: 20px; }
+.notes-dashboard .ndb-library-search .ndb-qb-side-search { flex: 1; max-width: 480px; margin: 0; }
+.notes-dashboard .ndb-library-search input { min-height: 44px; }
+.ndb-filter-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; background: var(--bg-secondary); color: var(--text-primary); font: inherit; font-size: 13px; cursor: pointer; }
+.ndb-filter-btn:hover { border-color: var(--accent); }
+.notes-dashboard .dashboard-content { border: 1px solid var(--border); border-radius: 12px; min-height: 0; }
+.notes-dashboard .view-selector { background: var(--bg-secondary); padding: 12px 16px; }
+.notes-dashboard .view-btn { min-height: 40px; border-radius: 6px; }
+.notes-dashboard .view-btn.active { color: var(--bg); }
+.notes-dashboard .view-content { padding: 0; }
+.notes-dashboard .table-cell-folder { background: transparent !important; color: var(--text-secondary); font-size: 12px; }
+.notes-dashboard :is(a, button, input, select):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 768px) {
+  .notes-dashboard .shc-topbar { padding: 8px 12px 8px 64px; }
+  .ndb-breadcrumbs { gap: 6px; font-size: 12px; }
+  .ndb-breadcrumbs a { gap: 4px; }
+  .ndb-breadcrumbs a svg { display: none; }
+  .notes-dashboard .ndb-qb-body { padding: 0 14px 14px !important; }
+  .notes-dashboard .ndb-library-header { padding: 14px 0 20px; gap: 10px; }
+  .ndb-library-header h1 { font-size: 26px; }
+  .ndb-library-header p { font-size: 12px; }
+  .notes-dashboard .ndb-library-header .ndb-qb-new-btn { padding: 10px 12px; }
+  .ndb-library-search { gap: 8px; }
+  .ndb-filter-btn span { display: none; }
+  .ndb-filter-btn { width: 44px; flex-shrink: 0; }
+}
+.notes-dashboard .ndb-library-header .ndb-qb-new-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent); color: var(--bg); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.notes-dashboard .ndb-library-header .ndb-qb-new-btn:hover { filter: brightness(1.08); }
+.notes-dashboard .ndb-library-header .ndb-qb-new-btn:disabled { opacity: .6; cursor: wait; }
+.notes-dashboard .ndb-qb-main { padding: 0 20px 20px; box-sizing: border-box; }
+@media (max-width: 768px) { .notes-dashboard .ndb-qb-main { padding: 0; } }
+@media (max-width: 768px) {
+  .notes-dashboard .ndb-qb-sidebar.notes-sidebar-system { max-height: none; }
+}

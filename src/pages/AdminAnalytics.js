@@ -1,3 +1,4 @@
+import ToolNavigation from '../components/ToolNavigation';
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -768,11 +769,7 @@ const AdminAnalytics = () => {
   return (
     <div className="admin-analytics">
       <div className="aa-topbar">
-        <span>LEARNING, <b>UNIFIED</b></span>
-        <button type="button" onClick={() => navigate('/dashboard-cerbyl')}>
-          <ArrowLeft size={14} />
-          Dashboard
-        </button>
+        <ToolNavigation />
       </div>
       <div className="aa-hero">
         <div>

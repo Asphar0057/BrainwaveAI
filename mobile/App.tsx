@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View } from 'react-native';
+import { View, Text, Button, Linking } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -8,8 +8,8 @@ import SplashScreen from './src/screens/SplashScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import OnboardingQuizScreen from './src/screens/OnboardingQuizScreen';
 import TabNavigator from './src/navigation/TabNavigator';
-import { restoreSession, AuthUser } from './src/services/auth';
-import { checkProfileQuiz } from './src/services/api';
+import { restoreSession, signOut, AuthUser } from './src/services/auth';
+import { checkProfileQuiz, getAccountSession, WEB_URL } from './src/services/api';
 import { useSessionTracking } from './src/hooks/useSessionTracking';
 import { ThemeProvider, useAppTheme } from './src/contexts/ThemeContext';
 import { PulseCubesLoader } from './src/components/PulseCubes';
@@ -19,6 +19,9 @@ function AppContent() {
   const [user, setUser]       = useState<AuthUser | null>(null);
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
   const { selectedTheme } = useAppTheme();
+  const [role, setRole] = useState<string | null>(null);
+  const [workspaceError, setWorkspaceError] = useState('');
+  const [workspaceRetry, setWorkspaceRetry] = useState(0);
 
   useEffect(() => {
     restoreSession().then(u => setUser(u)).catch(() => setUser(null));
@@ -34,11 +37,16 @@ function AppContent() {
       return;
     }
     let cancelled = false;
-    checkProfileQuiz(user.username)
-      .then(status => { if (!cancelled) setNeedsOnboarding(!status.completed); })
-      .catch(() => { if (!cancelled) setNeedsOnboarding(false); });
+    setRole(null); setWorkspaceError(''); setNeedsOnboarding(null);
+    getAccountSession().then(async session => {
+      if (cancelled) return;
+      setRole(session.role);
+      if (session.role !== 'learner') { setNeedsOnboarding(false); return; }
+      const status = await checkProfileQuiz(user.username);
+      if (!cancelled) setNeedsOnboarding(!status.completed);
+    }).catch(() => { if (!cancelled) setWorkspaceError('Your workspace could not be loaded. Check your connection and try again.'); });
     return () => { cancelled = true; };
-  }, [user?.username]);
+  }, [user?.username, workspaceRetry]);
 
   useSessionTracking(user);
 
@@ -56,6 +64,15 @@ function AppContent() {
       <StatusBar style={selectedTheme.isLight ? 'dark' : 'light'} />
       {!user ? (
         <LoginScreen onLogin={u => setUser(u)} />
+      ) : workspaceError ? (
+        <View style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: selectedTheme.bgPrimary }}><Text style={{ color: selectedTheme.textPrimary }}>{workspaceError}</Text><Button title="Try again" onPress={() => setWorkspaceRetry(n => n + 1)} /><Button title="Sign out" onPress={() => { void signOut().then(() => setUser(null)); }} /></View>
+      ) : role && role !== 'learner' ? (
+        <View style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: selectedTheme.bgPrimary }}>
+          <Text accessibilityRole="header" style={{ fontSize: 24, color: selectedTheme.textPrimary }}>{role === 'educator' ? 'Educator workspace' : 'Student workspace'}</Text>
+          <Text style={{ fontSize: 16, color: selectedTheme.textPrimary, marginVertical: 20 }}>Classes, assignments and feedback are available in your web workspace. Sign in there with the same account to continue.</Text>
+          <Button title="Open classroom workspace" onPress={() => { void Linking.openURL(`${WEB_URL}/${role}`).catch(() => setWorkspaceError('Could not open your browser. Please try again.')); }} />
+          <Button title="Sign out" onPress={() => { void signOut().then(() => setUser(null)); }} />
+        </View>
       ) : needsOnboarding === null ? (
         <View style={{ flex: 1, backgroundColor: selectedTheme.bgPrimary }}>
           <PulseCubesLoader color={selectedTheme.accentHover} />

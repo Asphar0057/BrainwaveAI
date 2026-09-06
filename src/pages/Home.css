@@ -972,3 +972,12 @@
   .cb-legal-footer { position: relative; left: auto; right: auto; bottom: auto; padding: 12px 18px 24px; flex-direction: column; align-items: center; text-align: center; }
   .cb-legal-footer nav { justify-content: center; }
 }
+
+.cb-tile-mark { gap: 12px; padding: 24px; }
+.cb-tile-mark .cb-mark-logo { width: clamp(64px, 7vw, 100px); }
+.cb-tile-mark .cb-mark-word { font-size: clamp(2rem, 4vw, 3.2rem); }
+.cb-mark-promise, .cb-mark-description, .cb-mark-start { position: relative; z-index: 2; text-align: center; margin: 0; }
+.cb-mark-promise { font-size: clamp(20px, 2vw, 30px); line-height: 1.2; max-width: 22ch; }
+.cb-mark-description { font-size: 14px; line-height: 1.5; max-width: 42ch; color: var(--cb-fg-dim); }
+.cb-mark-start { min-height: 44px; padding: 10px 18px; border: 1px solid var(--cb-accent); background: var(--cb-accent); color: #171717; font: inherit; font-weight: 700; cursor: pointer; }
+@media(max-width: 720px) { .cb-tile-mark { min-height: 380px; } }

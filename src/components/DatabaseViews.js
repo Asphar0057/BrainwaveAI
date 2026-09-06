@@ -1,11 +1,23 @@
-import { useState } from 'react';
+import { readLibraryState, writeLibraryState } from '../utils/libraryState';
+import { useState, useRef, useLayoutEffect, useEffect } from 'react';
 import { Table, Columns, Calendar as CalendarIcon, Grid, Clock, Folder } from 'lucide-react';
 import './DatabaseViews.css';
 
-const DatabaseViews = ({ notes, folders, onSelectNote }) => {
-  const [viewMode, setViewMode] = useState('table');
-  const [sortBy, setSortBy] = useState('updated_at');
-  const [sortOrder, setSortOrder] = useState('desc');
+const DatabaseViews = ({ notes, folders, onSelectNote, persistenceKey }) => {
+  const [initialState] = useState(() => persistenceKey ? readLibraryState(persistenceKey) : {});
+  const [viewMode, setViewMode] = useState(['table', 'kanban'].includes(initialState.viewMode) ? initialState.viewMode : 'table');
+  const [sortBy, setSortBy] = useState(['title', 'updated_at', 'created_at'].includes(initialState.sortBy) ? initialState.sortBy : 'updated_at');
+  const [sortOrder, setSortOrder] = useState(initialState.sortOrder === 'asc' ? 'asc' : 'desc');
+  const contentRef = useRef(null);
+  useLayoutEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTop = initialState.scrollTop || 0;
+      contentRef.current.scrollLeft = initialState.scrollLeft || 0;
+    }
+  }, [initialState]);
+  useEffect(() => {
+    if (persistenceKey) writeLibraryState(persistenceKey, { viewMode, sortBy, sortOrder });
+  }, [persistenceKey, viewMode, sortBy, sortOrder]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const sortedNotes = [...notes].sort((a, b) => {
@@ -65,7 +77,7 @@ const DatabaseViews = ({ notes, folders, onSelectNote }) => {
       <tbody>
         {sortedNotes.map(note => (
           <tr key={note.id} onClick={() => onSelectNote(note)}>
-            <td className="table-cell-title">{note.title}</td>
+            <td className="table-cell-title"><button className="note-title-link" type="button" onClick={(event) => { event.stopPropagation(); onSelectNote(note); }}>{note.title || 'Untitled note'}</button></td>
             <td className="table-cell-preview">{getPreview(note.content)}</td>
             <td className="table-cell-date">
               {new Date(note.updated_at).toLocaleDateString()}
@@ -318,6 +330,7 @@ const DatabaseViews = ({ notes, folders, onSelectNote }) => {
       <div className="view-selector">
         <button
           className={`view-btn ${viewMode === 'table' ? 'active' : ''}`}
+          aria-pressed={viewMode === 'table'}
           onClick={() => setViewMode('table')}
         >
           <Table size={16} />
@@ -325,6 +338,7 @@ const DatabaseViews = ({ notes, folders, onSelectNote }) => {
         </button>
         <button
           className={`view-btn ${viewMode === 'kanban' ? 'active' : ''}`}
+          aria-pressed={viewMode === 'kanban'}
           onClick={() => setViewMode('kanban')}
         >
           <Columns size={16} />
@@ -332,7 +346,9 @@ const DatabaseViews = ({ notes, folders, onSelectNote }) => {
         </button>
       </div>
 
-      <div className="view-content">
+      <div className="view-content" ref={contentRef} onScroll={(event) => {
+        if (persistenceKey) writeLibraryState(persistenceKey, { scrollTop: event.currentTarget.scrollTop, scrollLeft: event.currentTarget.scrollLeft });
+      }}>
         {viewMode === 'table' && renderTableView()}
         {viewMode === 'kanban' && renderKanbanView()}
       </div>

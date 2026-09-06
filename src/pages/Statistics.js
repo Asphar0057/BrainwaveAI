@@ -1,3 +1,4 @@
+import ToolNavigation from '../components/ToolNavigation';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader, TrendingUp, BookOpen, Target, Clock, RefreshCw, Play, BarChart3 } from 'lucide-react';
@@ -114,10 +115,7 @@ const Statistics = () => {
   return (
     <div className="st-page">
       <div className="shc-topbar">
-        <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-        <div className="shc-topbar-right">
-          <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-        </div>
+        <ToolNavigation />
       </div>
       <div className="st-back-bar">
         <button className="st-back-btn" onClick={() => navigate('/learning-review')}>

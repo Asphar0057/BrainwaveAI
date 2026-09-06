@@ -1,10 +1,13 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import ContextFileAnalysis from '../../pages/ContextFileAnalysis';
 import contextService from '../../services/contextService';
 
 const mockNavigate = jest.fn();
 
 jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useLocation: () => ({ pathname: '/contexthub/file/doc-1' }),
   useNavigate: () => mockNavigate,
   useParams: () => ({ docId: 'doc-1' }),
 }));
@@ -38,7 +41,7 @@ describe('ContextFileAnalysis', () => {
   });
 
   it('shows indexed analysis and safely renders malformed dates', async () => {
-    render(<ContextFileAnalysis />);
+    render(<MemoryRouter><ContextFileAnalysis /></MemoryRouter>);
     expect(await screen.findByText('Cell biology.pdf')).toBeInTheDocument();
     expect(screen.getByText('What this source covers')).toBeInTheDocument();
     expect(screen.getByText('A grounded overview of cellular structure and transport.')).toBeInTheDocument();
@@ -48,7 +51,7 @@ describe('ContextFileAnalysis', () => {
 
   it('opens a single-source action without destroying the existing deck', async () => {
     localStorage.setItem('ctx_selected_doc_ids', JSON.stringify(['existing-1', 'existing-2']));
-    render(<ContextFileAnalysis />);
+    render(<MemoryRouter><ContextFileAnalysis /></MemoryRouter>);
     fireEvent.click(await screen.findByRole('button', { name: 'Open Chat' }));
     expect(JSON.parse(localStorage.getItem('ctx_selected_doc_ids'))).toEqual(['existing-1', 'existing-2']);
     expect(mockNavigate).toHaveBeenCalledWith('/ai-chat', expect.objectContaining({
@@ -58,7 +61,7 @@ describe('ContextFileAnalysis', () => {
 
   it('reports a full deck inline instead of interrupting with an alert', async () => {
     localStorage.setItem('ctx_selected_doc_ids', JSON.stringify(Array.from({ length: 8 }, (_, index) => `doc-${index + 2}`)));
-    render(<ContextFileAnalysis />);
+    render(<MemoryRouter><ContextFileAnalysis /></MemoryRouter>);
     fireEvent.click(await screen.findByRole('button', { name: 'Add to Context Deck' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Context Deck is full');
     expect(JSON.parse(localStorage.getItem('ctx_selected_doc_ids'))).toHaveLength(8);
@@ -66,7 +69,7 @@ describe('ContextFileAnalysis', () => {
 
   it('offers retry when the file is missing', async () => {
     contextService.listDocuments.mockResolvedValueOnce({ user_docs: [] }).mockResolvedValueOnce({ user_docs: [doc] });
-    render(<ContextFileAnalysis />);
+    render(<MemoryRouter><ContextFileAnalysis /></MemoryRouter>);
     fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(screen.getByText('Cell biology.pdf')).toBeInTheDocument());
   });

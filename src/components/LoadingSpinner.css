@@ -53,3 +53,5 @@
     opacity: 1;
   }
 }
+
+@media (prefers-reduced-motion: reduce) { .loading-spinner-cube { animation: none !important; } }

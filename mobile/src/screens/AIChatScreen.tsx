@@ -180,6 +180,7 @@ export default function AIChatScreen({ user }: Props) {
   const [loading, setLoading] = useState(false);
   const [attachment, setAttachment] = useState<ChatAttachment | null>(null);
   const [chatId, setChatId] = useState<number | undefined>();
+  const conversationVersionRef = useRef(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
@@ -318,6 +319,7 @@ export default function AIChatScreen({ user }: Props) {
   ), [enableEdgeSwipe, openSidebar]);
 
   const loadSession = useCallback(async (session: Session) => {
+    const version = ++conversationVersionRef.current;
     closeSidebar();
     setLoading(true);
     setMessages([]);
@@ -331,11 +333,11 @@ export default function AIChatScreen({ user }: Props) {
           role: message.type === 'user' ? 'user' : 'ai',
           text: message.content,
         }));
-      setMessages(converted);
+      if (version === conversationVersionRef.current) setMessages(converted);
     } catch {
-      setMessages([]);
+      if (version === conversationVersionRef.current) Alert.alert('Conversation unavailable', 'Your messages have not been deleted.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Retry', onPress: () => { void loadSession(session); } }]);
     } finally {
-      setLoading(false);
+      if (version === conversationVersionRef.current) setLoading(false);
     }
   }, [closeSidebar]);
 
@@ -530,6 +532,7 @@ export default function AIChatScreen({ user }: Props) {
   };
 
   const send = async (text: string = input) => {
+    const version = conversationVersionRef.current;
     const trimmed = text.trim();
     const currentAttachment = attachment;
     if ((!trimmed && !currentAttachment) || loading) return;
@@ -551,11 +554,13 @@ export default function AIChatScreen({ user }: Props) {
       if (!currentChatId) {
         const session = await createChatSession(user.username, questionText.slice(0, 60));
         currentChatId = session.id;
+        if (version !== conversationVersionRef.current) return;
         setChatId(currentChatId);
       }
       const data = currentAttachment
         ? await askAIWithFile(user.username, questionText, currentAttachment, currentChatId, hsMode, selectedDocIds)
         : await askAI(user.username, questionText, currentChatId, hsMode, selectedDocIds);
+      if (version !== conversationVersionRef.current) return;
       setMessages((current) => [
         ...current,
         {
@@ -567,18 +572,21 @@ export default function AIChatScreen({ user }: Props) {
       ]);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Something went wrong. Please try again.';
+      if (version !== conversationVersionRef.current) return;
       setMessages((current) => [
         ...current,
         { id: String(Date.now() + 1), role: 'ai', text: message },
       ]);
     } finally {
-      setLoading(false);
+      if (version === conversationVersionRef.current) setLoading(false);
     }
   };
 
   const newChat = () => {
     setMessages([]);
+    conversationVersionRef.current += 1;
     setChatId(undefined);
+    setInput(''); setAttachment(null); setLoading(false);
   };
 
   const pickAttachment = async () => {

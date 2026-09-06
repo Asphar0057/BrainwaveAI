@@ -1,3 +1,4 @@
+import ToolNavigation from '../components/ToolNavigation';
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Clock, Target, Trophy, CheckCircle, XCircle, Loader, TrendingUp , Menu} from 'lucide-react';
@@ -12,6 +13,7 @@ const ChallengeSession = () => {
   const { challengeId } = useParams();
   const token = localStorage.getItem('token');
   
+  const [requestError, setRequestError] = useState('');
   const [challenge, setChallenge] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -31,6 +33,7 @@ const ChallengeSession = () => {
   }, [challengeId]);
 
   useEffect(() => {
+    if (loading || generatingQuestions || isSubmitting || requestError || showResult) return;
     if (timeRemaining > 0 && !showResult) {
       const timer = setTimeout(() => {
         setTimeRemaining(prev => prev - 1);
@@ -39,14 +42,16 @@ const ChallengeSession = () => {
     } else if (timeRemaining === 0 && questions.length > 0) {
       handleTimeUp();
     }
-  }, [timeRemaining, showResult]);
+  }, [timeRemaining, showResult, loading, generatingQuestions, isSubmitting, requestError]);
 
   const loadChallenge = async () => {
+    setRequestError(''); setLoading(true);
     try {
       const response = await fetch(`${API_URL}/challenge/${challengeId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
+      if (!response.ok) throw new Error('The challenge request failed. Please try again.');
       if (response.ok) {
         const data = await response.json();
         setChallenge(data.challenge);
@@ -62,8 +67,8 @@ const ChallengeSession = () => {
         }
       }
     } catch (error) {
-            alert('Failed to load challenge');
-      navigate('/challenges');
+            setRequestError('Could not load this challenge. Please try again.');
+      setLoading(false);
     }
   };
 
@@ -90,6 +95,7 @@ const ChallengeSession = () => {
         })
       });
 
+      if (!response.ok) throw new Error('The challenge request failed. Please try again.');
       if (response.ok) {
         const data = await response.json();
         setQuestions(data.questions);
@@ -97,8 +103,7 @@ const ChallengeSession = () => {
         throw new Error('Failed to generate questions');
       }
     } catch (error) {
-            alert('Failed to generate questions. Please try again.');
-      navigate('/challenges');
+            setRequestError('Questions could not be prepared. Please try again.');
     } finally {
       setGeneratingQuestions(false);
       setLoading(false);
@@ -198,11 +203,12 @@ const ChallengeSession = () => {
         })
       });
 
+      if (!response.ok) throw new Error('The challenge request failed. Please try again.');
       if (response.ok) {
         setShowResult(true);
       }
     } catch (error) {
-            alert('Failed to submit results');
+            setRequestError('Your result was not saved. Your answers are still available here.');
     } finally {
       setIsSubmitting(false);
     }
@@ -231,6 +237,7 @@ const ChallengeSession = () => {
     }
   };
 
+  if (requestError) return <main className="challenge-session-loading"><h2>Challenge interrupted</h2><p role="alert">{requestError}</p><button type="button" onClick={() => { setRequestError(''); if (questions.length) submitChallenge(answeredQuestions); else loadChallenge(); }}>Try again</button><button type="button" onClick={() => navigate('/challenges')}>Back to challenges</button></main>;
   if (loading || generatingQuestions) {
     return (
       <div className="challenge-session-loading">
@@ -289,10 +296,7 @@ const ChallengeSession = () => {
   return (
     <div className="challenge-session-page">
       <div className="shc-topbar">
-        <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-        <div className="shc-topbar-right">
-          <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-        </div>
+        <ToolNavigation />
       </div>
       <div className="session-header">
         <div className="session-info">

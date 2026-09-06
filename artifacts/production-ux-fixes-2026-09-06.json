@@ -1,0 +1,373 @@
+{
+  "date": "2026-09-06",
+  "scope": "Implementation follow-up to the 44-item production UX review",
+  "issues": [
+    {
+      "id": "UX-01",
+      "priority": "P1",
+      "title": "Quiz submission omits the current selection",
+      "implementation": "implemented",
+      "change": "Commit selections immediately; submit one immutable answer snapshot.",
+      "verification": "New quiz regressions: final selection and delayed sequential submission."
+    },
+    {
+      "id": "UX-02",
+      "priority": "P1",
+      "title": "Notes can lose the last 1.5 seconds of typing",
+      "implementation": "implemented",
+      "change": "Keep account-scoped note recovery buffers; serialize saves and ignore outgoing-note UI updates.",
+      "verification": "New note remount recovery regression; existing Notes suite."
+    },
+    {
+      "id": "UX-03",
+      "priority": "P1",
+      "title": "Publishing one grade destroys other draft feedback",
+      "implementation": "implemented",
+      "change": "Keep only changed grade drafts and update the saved student row without reloading other drafts.",
+      "verification": "New two-student grade regression."
+    },
+    {
+      "id": "UX-04",
+      "priority": "P1",
+      "title": "Assignment deadline editing shifts local time",
+      "implementation": "implemented",
+      "change": "Convert UTC deadlines to local input values and label the displayed time zone.",
+      "verification": "New date round-trip regression."
+    },
+    {
+      "id": "UX-05",
+      "priority": "P1",
+      "title": "Profile autosave silently drops changes",
+      "implementation": "implemented",
+      "change": "Persist profile recovery drafts, queue the latest pending edit, and expose saving/error/retry state.",
+      "verification": "New deferred-request profile regression; profile suite and browser."
+    },
+    {
+      "id": "UX-06",
+      "priority": "P1",
+      "title": "AI replies can appear in the wrong conversation",
+      "implementation": "implemented",
+      "change": "Guard web and native chat responses by conversation version; reset switching state.",
+      "verification": "Source review, native type check, web build."
+    },
+    {
+      "id": "UX-07",
+      "priority": "P1",
+      "title": "Canvas work is shared across accounts on the same browser",
+      "implementation": "implemented",
+      "change": "Scope canvases to the account; expose browser-only storage, PNG export and Add to Notes recovery; surface quota failures.",
+      "verification": "Canvas browser smoke check; account-scoped storage regression. See legacy-data limitation."
+    },
+    {
+      "id": "UX-08",
+      "priority": "P1",
+      "title": "Expanded mobile sidebar makes content unusable",
+      "implementation": "implemented",
+      "change": "Use a narrow-screen overlay drawer with focus containment, background inert state and Escape dismissal.",
+      "verification": "375px Notes: drawer 280px, content 285px, no document overflow, Escape verified."
+    },
+    {
+      "id": "UX-09",
+      "priority": "P1",
+      "title": "Authentication and Social Hub navigation exclude keyboard users",
+      "implementation": "implemented",
+      "change": "Make auth navigation actual links and social cards keyboard reachable; include password controls in tab order.",
+      "verification": "Source and web lint/build."
+    },
+    {
+      "id": "UX-10",
+      "priority": "P1",
+      "title": "Web flashcard review failures look like success or inactivity",
+      "implementation": "implemented",
+      "change": "Advance spaced reviews only after persistence succeeds; disable pending grades and offer queue retry.",
+      "verification": "Flashcards suite; browser queue load."
+    },
+    {
+      "id": "UX-11",
+      "priority": "P1",
+      "title": "Mobile review results count grades that never saved",
+      "implementation": "implemented",
+      "change": "Keep native spaced/MCQ review on the current card when persistence fails.",
+      "verification": "Native type check and source review; device runtime pending."
+    },
+    {
+      "id": "UX-12",
+      "priority": "P1",
+      "title": "Mobile note Back treats a pending save as successful",
+      "implementation": "implemented",
+      "change": "Return an unsuccessful save result while native note persistence is already pending, preventing premature Back navigation.",
+      "verification": "Native type check and source review; device runtime pending."
+    },
+    {
+      "id": "UX-13",
+      "priority": "P1",
+      "title": "Classroom drafts disappear on accidental dismissal",
+      "implementation": "implemented",
+      "change": "Persist assignment, announcement and submission text drafts; prevent dismissal during saves and protect unsaved file attachments.",
+      "verification": "New assignment remount and stable-focus regression; classroom tests."
+    },
+    {
+      "id": "UX-14",
+      "priority": "P1",
+      "title": "Challenge countdown includes AI generation time",
+      "implementation": "implemented",
+      "change": "Start challenge countdown only after loading/generation ends; pause it during errors and submission.",
+      "verification": "Source review and build."
+    },
+    {
+      "id": "UX-15",
+      "priority": "P1",
+      "title": "Quiz average misrepresents performance",
+      "implementation": "implemented",
+      "change": "Normalize historical quiz scores to percentages before averaging; preserve zero results.",
+      "verification": "Two backend regressions for mixed quiz lengths, zero and invalid values."
+    },
+    {
+      "id": "UX-16",
+      "priority": "P1",
+      "title": "Quiz interruption loses answers and hides failed completion",
+      "implementation": "implemented",
+      "change": "Checkpoint quiz answers, position and original start time; retain failed attempts and retry saving.",
+      "verification": "New remount and failed-save quiz regressions."
+    },
+    {
+      "id": "UX-17",
+      "priority": "P1",
+      "title": "Dashboard avatar dialog leaves focus behind the modal",
+      "implementation": "implemented",
+      "change": "Add initial focus, Tab containment, Escape and return focus to the dashboard avatar dialog.",
+      "verification": "Live: close button initially focused, Shift+Tab wraps to Custom, Escape returns to Edit profile picture."
+    },
+    {
+      "id": "UX-18",
+      "priority": "P2",
+      "title": "Authentication loses the user's intended destination",
+      "implementation": "implemented",
+      "change": "Retain safe internal return paths through authentication; add actionable workspace retry states.",
+      "verification": "New safe-return-path regression; existing auth/workspace suites."
+    },
+    {
+      "id": "UX-19",
+      "priority": "P2",
+      "title": "Saved notes revert to 'Unsaved' without a new edit",
+      "implementation": "implemented",
+      "change": "Derive Saved/Unsaved from the current note snapshot against the last confirmed save.",
+      "verification": "Note recovery test; source review."
+    },
+    {
+      "id": "UX-20",
+      "priority": "P2",
+      "title": "Collections conflate failed loading with an empty library",
+      "implementation": "implemented",
+      "change": "Separate failed libraries from empty libraries and expose Retry in Notes, maps, slides, media and review queues.",
+      "verification": "Existing collection suites; browser Notes, slides and maps checks."
+    },
+    {
+      "id": "UX-21",
+      "priority": "P2",
+      "title": "Challenge HTTP errors can leave permanent loading",
+      "implementation": "implemented",
+      "change": "Handle challenge non-OK load/create/join/progress responses, expose retry, and guard duplicate actions.",
+      "verification": "Source review and build; live account mutation not exercised."
+    },
+    {
+      "id": "UX-22",
+      "priority": "P2",
+      "title": "Media regeneration discards the previous result before success",
+      "implementation": "implemented",
+      "change": "Keep generated media notes visible while a replacement is being generated.",
+      "verification": "Source review and build."
+    },
+    {
+      "id": "UX-23",
+      "priority": "P2",
+      "title": "Saving existing media notes depends on another AI job",
+      "implementation": "implemented",
+      "change": "Save already generated media notes directly using a deterministic title; guard duplicate saves.",
+      "verification": "Source review and build."
+    },
+    {
+      "id": "UX-24",
+      "priority": "P2",
+      "title": "Media progress is a synthetic percentage",
+      "implementation": "implemented",
+      "change": "Replace fabricated generation percentages with honest progress text.",
+      "verification": "Source review and build."
+    },
+    {
+      "id": "UX-25",
+      "priority": "P2",
+      "title": "Dashboard duplicates navigation and hides the next study task",
+      "implementation": "implemented",
+      "change": "Show a primary study-library action first on mobile and one static copy of the 12 module destinations.",
+      "verification": "Live 375px: CTA at y147 below 143px header, height85px; 12 module buttons; no overflow."
+    },
+    {
+      "id": "UX-26",
+      "priority": "P2",
+      "title": "AI source scope is difficult to predict",
+      "implementation": "implemented",
+      "change": "Clarify curriculum mode, document selection semantics and material references; replace chunk jargon with passages.",
+      "verification": "Context browser and source review."
+    },
+    {
+      "id": "UX-27",
+      "priority": "P2",
+      "title": "Course tutor handoff does not carry course scope",
+      "implementation": "implemented",
+      "change": "Carry selected section and published material reference identity into Course Tutor; display and persist scope per chat.",
+      "verification": "Source review/build. Material bodies are not automatically ingested; see limits."
+    },
+    {
+      "id": "UX-28",
+      "priority": "P2",
+      "title": "Institutional search promises content but searches tool names",
+      "implementation": "implemented",
+      "change": "Describe institutional search as finding teaching/study tools.",
+      "verification": "Source review and build."
+    },
+    {
+      "id": "UX-29",
+      "priority": "P2",
+      "title": "Educator evidence actions do not open the named learner's evidence",
+      "implementation": "implemented",
+      "change": "Open the named learner\u2019s signal, activity and assignment evidence; keep learner identity when opening grade review.",
+      "verification": "Classroom grade regression; source review. Live institutional account pending."
+    },
+    {
+      "id": "UX-30",
+      "priority": "P2",
+      "title": "Class switching can show stale conversations under a new class",
+      "implementation": "implemented",
+      "change": "Clear class resources while switching and ignore outdated responses; disable sends until recipient data is ready.",
+      "verification": "Source review/build. Live institutional account pending."
+    },
+    {
+      "id": "UX-31",
+      "priority": "P2",
+      "title": "Long note previews become enormous accessible button names",
+      "implementation": "implemented",
+      "change": "Give recent note and media buttons concise Open-title names; shorten previews and remove HTML markup.",
+      "verification": "Notes browser accessibility snapshot."
+    },
+    {
+      "id": "UX-32",
+      "priority": "P2",
+      "title": "Small controls and metadata undermine mobile usability",
+      "implementation": "implemented",
+      "change": "Increase classroom form text and operational metadata; expand mobile source/folder hit targets.",
+      "verification": "375px source workspace reflow; source review. Native touch/zoom acceptance remains device-dependent."
+    },
+    {
+      "id": "UX-33",
+      "priority": "P2",
+      "title": "Global loading and some context actions are unnamed",
+      "implementation": "implemented",
+      "change": "Name route loading status and respect reduced-motion preference for the shared loader.",
+      "verification": "Source review/build."
+    },
+    {
+      "id": "UX-34",
+      "priority": "P2",
+      "title": "Chat and shared-link failures masquerade as absent content",
+      "implementation": "implemented",
+      "change": "Show history load failures with retry; distinguish missing public links from service outages and correct branding.",
+      "verification": "New 500-to-404 public recovery regression; live invalid shared link."
+    },
+    {
+      "id": "UX-35",
+      "priority": "P2",
+      "title": "Analytics can label stale data as the newly selected period",
+      "implementation": "implemented",
+      "change": "Surface analytics failures with retry and stale-data notice; prevent previous-range responses replacing current-range results.",
+      "verification": "Analytics suite and desktop browser."
+    },
+    {
+      "id": "UX-36",
+      "priority": "P2",
+      "title": "Mobile optimistic actions fail without rollback",
+      "implementation": "implemented",
+      "change": "Apply native calendar, shared-item and settings state only after server success; show actionable failures.",
+      "verification": "Native type check/source review; device runtime pending."
+    },
+    {
+      "id": "UX-37",
+      "priority": "P2",
+      "title": "Billing preview changes the displayed current billing cycle",
+      "implementation": "implemented",
+      "change": "Separate subscription price preview from the persisted billing cycle; require plan selection before updating it.",
+      "verification": "Profile billing regression and browser profile rendering."
+    },
+    {
+      "id": "UX-38",
+      "priority": "P1",
+      "title": "Native mobile has no institutional workspace routing",
+      "implementation": "implemented",
+      "change": "Resolve authoritative native account role before onboarding; provide an explicit classroom web handoff for institutional accounts.",
+      "verification": "Native type check/source review; role/device runtime pending."
+    },
+    {
+      "id": "UX-39",
+      "priority": "P2",
+      "title": "Mobile help and privacy entries are dead ends",
+      "implementation": "implemented",
+      "change": "Connect native Help and Privacy actions to the actual web destinations and report browser-opening failures.",
+      "verification": "Native type check and verified matching web route definitions."
+    },
+    {
+      "id": "UX-40",
+      "priority": "P2",
+      "title": "Rate-limit administration hides request failures",
+      "implementation": "implemented",
+      "change": "Expose failed monitoring requests with a stale-data warning and Refresh recovery.",
+      "verification": "Source review/build; live admin account not exercised."
+    },
+    {
+      "id": "UX-41",
+      "priority": "P2",
+      "title": "Playlist open/delete actions can silently do nothing",
+      "implementation": "implemented",
+      "change": "Report playlist delete/view failures while retaining the current collection.",
+      "verification": "Playlist suite and source review."
+    },
+    {
+      "id": "UX-42",
+      "priority": "P2",
+      "title": "Friend discovery labels a letter-filtered list as nearby",
+      "implementation": "implemented",
+      "change": "Fetch an unfiltered first page of suggested learners instead of searching for the letter a.",
+      "verification": "Backend compile, frontend build and source review."
+    },
+    {
+      "id": "UX-43",
+      "priority": "P2",
+      "title": "Landing page makes visitors discover the product proposition",
+      "implementation": "implemented",
+      "change": "Add a learner-focused proposition and Start learning action to the landing page.",
+      "verification": "Desktop visual check and 375px reflow with no overflow."
+    },
+    {
+      "id": "UX-44",
+      "priority": "P2",
+      "title": "Unknown URLs redirect silently to the marketing home",
+      "implementation": "implemented",
+      "change": "Render a real Page not found view with back/workspace recovery for unknown routes.",
+      "verification": "Live desktop/mobile missing-route check."
+    }
+  ],
+  "automated_checks": {
+    "web_tests": "278 tests passed across 36 suites, CI=true, --watchAll=false --runInBand",
+    "production_build": "Passed, CI=true",
+    "native_types": "Passed, tsc --noEmit",
+    "backend": "2 quiz normalization tests passed; changed Python modules compile",
+    "eslint": "0 errors; 2 existing unreachable-code warnings",
+    "diff_check": "Passed"
+  },
+  "limitations": [
+    "Native iOS/Android device or simulator runtime was not exercised.",
+    "Institutional and admin browser workflows were not exercised with role-specific accounts. Classroom drafts/grading were tested with mocked API responses.",
+    "Course Tutor carries section identity and published material references, not automatic material-body ingestion or a new backend AI-policy enforcement layer.",
+    "Unowned legacy cerbyl_canvases data is retained untouched; it is not assigned to a new account automatically. An ownership-aware migration is needed if deployed browsers contain that legacy data.",
+    "The static detector is not a clean pass: 749 advisory/design-pattern findings remain, largely incumbent fonts, geometry, sidebars and transitions. It is not an accessibility or production certification."
+  ]
+}

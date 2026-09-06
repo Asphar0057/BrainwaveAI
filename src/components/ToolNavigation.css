@@ -1,0 +1,20 @@
+.tool-navigation { display: flex; align-items: center; gap: 12px; min-width: 0; max-width: 100%; font-family: inherit; font-size: 13px; line-height: 1.4; }
+.tool-navigation-back { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; min-height: 44px; padding: 8px 12px; box-sizing: border-box; border: 1px solid color-mix(in srgb, var(--accent, #d8b38d) 28%, transparent); border-radius: 10px; color: var(--text-primary, #eee); text-decoration: none; background: color-mix(in srgb, var(--accent, #d8b38d) 5%, transparent); font-weight: 600; transition: border-color 160ms ease, background-color 160ms ease; }
+.tool-navigation-back:hover { border-color: var(--accent, #d8b38d); background: color-mix(in srgb, var(--accent, #d8b38d) 12%, transparent); }
+.tool-navigation-back:focus-visible { outline: 2px solid var(--accent, #d8b38d); outline-offset: 3px; }
+.tool-navigation-divider { flex-shrink: 0; color: var(--accent, #d8b38d); }
+.tool-navigation-current { min-width: 0; display: flex; flex-direction: column; gap: 2px; color: var(--accent, #d8b38d); }
+.tool-navigation-current strong, .tool-navigation-section { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tool-navigation-section { color: var(--text-primary, #eee); font-size: 12px; }
+.shc-shell .shc-view-link[aria-current="page"] { border-color: var(--accent, #d8b38d); background: color-mix(in srgb, var(--accent, #d8b38d) 16%, transparent); color: var(--text-primary, #eee); font-weight: 700; box-shadow: inset 3px 0 0 var(--accent, #d8b38d); }
+.shc-shell .shc-strip-btn[aria-current="page"] { border-color: var(--accent, #d8b38d); color: var(--accent, #d8b38d); background: color-mix(in srgb, var(--accent, #d8b38d) 20%, transparent); box-shadow: inset 3px 0 0 var(--accent, #d8b38d); }
+.shc-shell .shc-footer-action[aria-current="page"], .icp-nav [aria-current="page"] { color: var(--accent, #d8b38d); font-weight: 700; box-shadow: inset 3px 0 0 var(--accent, #d8b38d); }
+@media (max-width: 720px) {
+  .tool-navigation { gap: 7px; width: 100%; }
+  .tool-navigation-back { padding: 8px 9px; }
+  .tool-navigation-current { flex: 1; }
+  .ac-qb-topbar-left { min-width: 0; flex: 1; }
+  .ac-qb-topbar { flex-wrap: wrap; }
+  .ac-qb-topbar-right { margin-left: auto; }
+}
+.ac-qb-sidebar .ac-session-item[aria-current="page"] { border-color: var(--accent, #d8b38d); background: color-mix(in srgb, var(--accent, #d8b38d) 16%, transparent); box-shadow: inset 3px 0 0 var(--accent, #d8b38d); }

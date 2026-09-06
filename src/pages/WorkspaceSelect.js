@@ -19,7 +19,7 @@ function WorkspaceSelect() {
         { replace: true }
       );
     } catch (requestError) {
-      setError(requestError.message || 'Could not load your account workspace.');
+      setError('We could not reach your account workspace. Check your connection and try again.');
     }
   };
 
@@ -36,7 +36,7 @@ function WorkspaceSelect() {
 
       <header className="ws-header">
         <div className="ws-wordmark">cerbyl</div>
-        <div className="ws-test-chip"><ShieldCheck size={13} /> Role-secured access</div>
+        <div className="ws-test-chip"><ShieldCheck size={13} /> Your workspace</div>
       </header>
 
       <section className="ws-intro ws-routing" aria-labelledby="workspace-title">
@@ -55,7 +55,7 @@ function WorkspaceSelect() {
       </section>
 
       <footer className="ws-footer">
-        Your workspace cannot be changed from the browser. Sign in with another test account to test another role.
+        Your account determines which workspace opens.
       </footer>
     </main>
   );

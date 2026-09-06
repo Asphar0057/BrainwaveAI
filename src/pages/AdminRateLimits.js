@@ -1,3 +1,4 @@
+import ToolNavigation from '../components/ToolNavigation';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -145,8 +146,9 @@ const AdminRateLimits = () => {
   const loadStats = useCallback(async () => {
     try {
       const r = await fetch(`${API_URL}/admin/rate-limits/stats?window=${statsWindow}`, { headers });
-      if (r.ok) setStats(await r.json());
-    } catch (e) { /* silenced */ }
+      if (!r.ok) throw new Error('Statistics unavailable');
+      setStats(await r.json());
+    } catch (e) { setError('Monitoring data could not be refreshed. Displayed data may be stale. Use Refresh to retry.'); }
   }, [statsWindow, token]);
 
   const loadRecent = useCallback(async () => {
@@ -156,19 +158,21 @@ const AdminRateLimits = () => {
     if (feedFilter.user)  qs.set('user', feedFilter.user);
     try {
       const r = await fetch(`${API_URL}/admin/rate-limits/recent?${qs}`, { headers });
+      if (!r.ok) throw new Error('Request feed unavailable');
       if (r.ok) {
         const d = await r.json();
         setRecent(d.requests || []);
       }
-    } catch (e) { /* silenced */ }
+    } catch (e) { setError('Monitoring data could not be refreshed. Displayed data may be stale. Use Refresh to retry.'); }
   }, [feedFilter, token]);
 
   const loadLive = useCallback(async () => {
     setLiveLoading(true);
     try {
       const r = await fetch(`${API_URL}/admin/rate-limits/live`, { headers });
-      if (r.ok) setLive(await r.json());
-    } catch (e) { /* silenced */ }
+      if (!r.ok) throw new Error('Live quotas unavailable');
+      setLive(await r.json());
+    } catch (e) { setError('Monitoring data could not be refreshed. Displayed data may be stale. Use Refresh to retry.'); }
     setLiveLoading(false);
   }, [token]);
 
@@ -261,6 +265,7 @@ const AdminRateLimits = () => {
 
   return (
     <div className="arl-root">
+      <div style={{marginBottom: 16}}><ToolNavigation /></div>
       <header className="arl-header">
         <div className="arl-header-left">
           <div className="arl-kicker"><Shield size={13} /> Admin · Rate Limits</div>

@@ -1,3 +1,4 @@
+import ToolNavigation from '../components/ToolNavigation';
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -285,10 +286,11 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
+      if (!response.ok) throw new Error('This action could not be completed. Please try again.');
       if (response.ok) {
         fetchPlaylistDetails();
       }
-    } catch (error) { /* silenced */ }
+    } catch (error) { setActionError(error.message || 'This action could not be completed. Please try again.'); }
   };
 
   const handleDeletePlaylist = async () => {
@@ -303,10 +305,11 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
+      if (!response.ok) throw new Error('This action could not be completed. Please try again.');
       if (response.ok) {
         navigate('/playlists');
       }
-    } catch (error) { /* silenced */ } finally {
+    } catch (error) { setActionError(error.message || 'This action could not be completed. Please try again.'); } finally {
       setDeleteLoading(false);
     }
   };
@@ -334,13 +337,14 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
             { headers: { 'Authorization': `Bearer ${token}` } }
           );
 
-          if (response.ok) {
+          if (!response.ok) throw new Error('This action could not be completed. Please try again.');
+      if (response.ok) {
             const data = await response.json();
             setItemContent(data);
             setViewingItem(item);
             setShowViewModal(true);
           }
-        } catch (error) { /* silenced */ }
+        } catch (error) { setActionError(error.message || 'This action could not be completed. Please try again.'); }
       }
     } else if (item.url) {
       window.open(item.url, '_blank', 'noopener,noreferrer');
@@ -373,10 +377,7 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
     return (
       <div className="detail-loading playlist-detail-page">
         <div className="shc-topbar">
-          <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-          <div className="shc-topbar-right">
-            <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-          </div>
+          <ToolNavigation />
         </div>
         <div className="loading-spinner"></div>
       </div>
@@ -387,10 +388,7 @@ Help me summarize the key concepts, recommend an order, and suggest a study plan
     return (
       <div className="detail-error playlist-detail-page">
         <div className="shc-topbar">
-          <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-          <div className="shc-topbar-right">
-            <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-          </div>
+          <ToolNavigation />
         </div>
         <h2 role={pageError ? 'alert' : undefined}>{pageError || 'Playlist not found'}</h2>
         {pageError && <button type="button" onClick={fetchPlaylistDetails} className="error-back-btn">Try again</button>}

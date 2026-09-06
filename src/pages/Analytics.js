@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Download, Zap, BookOpen, MessageSquare,
@@ -78,6 +78,10 @@ const Analytics = () => {
   const [timeRange, setTimeRange] = useState('month');
   const [activeTab, setActiveTab] = useState('overview');
   const [chartHover, setChartHover] = useState(null);
+  const [loadError, setLoadError] = useState('');
+  const [panelError, setPanelError] = useState('');
+  const [retry, setRetry] = useState(0);
+  const coreVersion = useRef(0);
 
   const u = localStorage.getItem('username') || '';
   const [gamStats, setGamStats] = useState(() => readCache(`gam_${u}`) || {});
@@ -103,41 +107,53 @@ const Analytics = () => {
       if (h) { setHistoricalData(h.history || []); setPeriodStats({ totalPoints: h.total_points || 0, totalActivities: h.total_activities || 0, groupBy: h.group_by || 'day' }); }
       if (b) setBreakdown(b.breakdown || {});
     }
+    if (!hasCached) { setHistoricalData([]); setBreakdown({}); setPeriodStats({totalPoints: 0, totalActivities: 0, groupBy: 'day'}); }
     loadCore(hasCached);
-  }, [timeRange]);
+    return () => { coreVersion.current += 1; };
+  }, [timeRange, retry]);
 
   useEffect(() => {
-    if (activeTab === 'ml') {
-      if (!mlStats) fetchJson(`${API_URL}/get_ml_analytics?user_id=${userName}`).then(d => setMlStats(d)).catch(() => {});
-      if (!contextSessions.length) fetchJson(`${API_URL}/get_context_sessions?user_id=${userName}`).then(d => setContextSessions(d.sessions || [])).catch(() => {});
-    } else if (activeTab === 'deep') {
-      if (!chatDetails) fetchJson(`${API_URL}/get_chat_details?user_id=${userName}`).then(d => setChatDetails(d)).catch(() => {});
-      if (!flashDetails) fetchJson(`${API_URL}/get_flashcard_details?user_id=${userName}`).then(d => setFlashDetails(d)).catch(() => {});
-    }
-  }, [activeTab]);
+    let current = true;
+    setPanelError('');
+    const requests = activeTab === 'ml'
+      ? [[`get_ml_analytics`, setMlStats], [`get_context_sessions`, d => setContextSessions(d.sessions || [])]]
+      : activeTab === 'deep' ? [[`get_chat_details`, setChatDetails], [`get_flashcard_details`, setFlashDetails]] : [];
+    Promise.all(requests.map(([endpoint, apply]) => fetchJson(`${API_URL}/${endpoint}?user_id=${userName}`).then(d => { if (current) apply(d); })))
+      .catch(() => { if (current) setPanelError('Some insights could not be loaded. Retry to refresh this panel.'); });
+    return () => { current = false; };
+  }, [activeTab, userName, retry]);
 
   const loadCore = async (silent = false) => {
+    const version = ++coreVersion.current;
+    setLoadError('');
     if (!silent) setLoading(true);
-    await Promise.allSettled([
+    const results = await Promise.allSettled([
       fetchJson(`${API_URL}/get_gamification_stats?user_id=${userName}`).then(d => {
+        if (version !== coreVersion.current) return;
         setGamStats(d); writeCache(`gam_${userName}`, d);
       }),
       fetchJson(`${API_URL}/get_analytics_history?user_id=${userName}&period=${timeRange}&tz=${encodeURIComponent(CLIENT_TIMEZONE)}`).then(d => {
+        if (version !== coreVersion.current) return;
         setHistoricalData(d.history || []);
         setPeriodStats({ totalPoints: d.total_points || 0, totalActivities: d.total_activities || 0, groupBy: d.group_by || 'day' });
         writeCache(`hist_${timeRange}_${userName}`, d);
         writeCache(`core_${timeRange}_${userName}`, true);
       }),
       fetchJson(`${API_URL}/get_weekly_progress?user_id=${userName}`).then(d => {
+        if (version !== coreVersion.current) return;
         setWeeklyData(d); writeCache(`weekly_${userName}`, d);
       }),
       fetchJson(`${API_URL}/get_activity_breakdown?user_id=${userName}&period=${timeRange}`).then(d => {
+        if (version !== coreVersion.current) return;
         setBreakdown(d.breakdown || {}); writeCache(`bkdn_${timeRange}_${userName}`, d);
       }),
       fetchJson(`${API_URL}/get_quiz_performance?user_id=${userName}`).then(d => {
+        if (version !== coreVersion.current) return;
         setQuizPerf(d); writeCache(`quiz_${userName}`, d);
       }),
     ]);
+    if (version !== coreVersion.current) return;
+    if (results.some(result => result.status === 'rejected')) setLoadError('Some analytics could not be refreshed. Available values may be from the last successful update.');
     setLoading(false);
   };
 
@@ -345,6 +361,7 @@ const Analytics = () => {
       <div className="an-bg" aria-hidden="true" />
       <SocialHubChrome brandKicker="Analytics" sideSections={sidebarSections} sidebarLead={sidebarLead} sidebarTail={sidebarTail}>
       <main className="an-main">
+        {(loadError || panelError) && <div role="alert"><p>{loadError || panelError}</p><button onClick={() => setRetry(value => value + 1)}>Retry analytics</button></div>}
         <header className="an-hero">
           <span className="an-hero-kicker">Learning intelligence</span>
           <h1>See the shape of your learning.</h1>
@@ -670,7 +687,7 @@ const Analytics = () => {
                   {quizHistory.length === 0 ? (
                     <div className="an-empty-state">No quizzes taken yet</div>
                   ) : quizHistory.slice(-10).map((q, i) => {
-                    const sc = q.total > 0 ? (q.score / q.total) * 100 : q.score;
+                    const sc = q.percentage ?? (q.total > 0 ? (q.score / q.total) * 100 : q.score);
                     const col = sc >= 80 ? '#10b981' : sc >= 60 ? '#f59e0b' : '#ef4444';
                     return (
                       <div key={i} className="an-quiz-item">
@@ -787,7 +804,7 @@ const Analytics = () => {
                     </div>
                   )}
                 </>
-              ) : <div className="an-spinner"><div className="an-spin"/><span>Loading...</span></div>}
+              ) : <div className="an-spinner"><div className="an-spin"/><span>{panelError ? 'Insights unavailable. Use Retry analytics above.' : 'Loading insights…'}</span></div>}
             </div>
 
             {}
@@ -839,7 +856,7 @@ const Analytics = () => {
                     </div>
                   )}
                 </>
-              ) : <div className="an-spinner"><div className="an-spin"/><span>Loading...</span></div>}
+              ) : <div className="an-spinner"><div className="an-spin"/><span>{panelError ? 'Insights unavailable. Use Retry analytics above.' : 'Loading insights…'}</span></div>}
             </div>
           </div>
         )}
@@ -996,7 +1013,7 @@ const Analytics = () => {
                 </div>
               </>
             ) : (
-              <div className="an-spinner an-spinner--lg"><div className="an-spin"/><span>Loading ML insights...</span></div>
+              <div className="an-spinner an-spinner--lg"><div className="an-spin"/><span>{panelError ? 'Insights unavailable. Use Retry analytics above.' : 'Loading ML insights…'}</span></div>
             )}
           </div>
         )}

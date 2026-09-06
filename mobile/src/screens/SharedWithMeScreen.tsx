@@ -136,11 +136,11 @@ export default function SharedWithMeScreen({ user, onBack }: Props) {
         text: 'Remove',
         style: 'destructive',
         onPress: async () => {
-          setItems((current) => current.filter((i) => i.id !== item.id));
           try {
             await removeSharedAccess(item.id);
+            setItems((current) => current.filter((i) => i.id !== item.id));
           } catch {
-            // silenced
+            Alert.alert('Could not remove access', 'Nothing was removed. Please try again.');
           }
         },
       },

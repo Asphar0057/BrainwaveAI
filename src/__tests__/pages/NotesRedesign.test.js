@@ -17,6 +17,7 @@ const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: () => mockNavigate,
+  useBlocker: () => ({ state: 'unblocked' }),
   useParams: () => ({}),
   useLocation: () => ({ pathname: '/notes', search: '' }),
 }));
@@ -133,6 +134,44 @@ describe('NotesRedesign', () => {
   afterEach(() => clearLocalStorage());
 
   
+  it('restores a note title after leaving before the autosave debounce', async () => {
+    setupLocalStorage();
+    global.fetch = buildFetchMock({ ...FETCH_ROUTES, get_notes: MOCK_NOTES.notes });
+    const first = await renderNotes();
+    const title = await screen.findByPlaceholderText('Untitled Note');
+    fireEvent.change(title, { target: { value: 'Recovered work in progress' } });
+    first.unmount();
+    await renderNotes();
+    expect(await screen.findByPlaceholderText('Untitled Note')).toHaveValue('Recovered work in progress');
+  });
+
+  it('warns during pending and failed saves, then clears the warning after a successful retry', async () => {
+    setupLocalStorage();
+    const baseFetch = buildFetchMock({ ...FETCH_ROUTES, get_notes: MOCK_NOTES.notes });
+    let finishSave;
+    global.fetch = jest.fn((url, options) => String(url).includes('/update_note')
+      ? new Promise(resolve => { finishSave = resolve; }) : baseFetch(url, options));
+    await renderNotes();
+    const title = await screen.findByPlaceholderText('Untitled Note');
+    const blocked = () => {
+      const event = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    expect(blocked()).toBe(false);
+    fireEvent.change(title, { target: { value: 'Pending draft' } });
+    expect(blocked()).toBe(true);
+    await waitFor(() => expect(finishSave).toBeDefined(), { timeout: 2500 });
+    expect(blocked()).toBe(true);
+    await act(async () => { finishSave({ ok: false, status: 500 }); });
+    expect(blocked()).toBe(true);
+    finishSave = undefined;
+    fireEvent.change(title, { target: { value: 'Retry draft' } });
+    await waitFor(() => expect(finishSave).toBeDefined(), { timeout: 2500 });
+    await act(async () => { finishSave({ ok: true }); });
+    expect(blocked()).toBe(false);
+  });
+
   describe('Authentication', () => {
     it('redirects to /login when no token', async () => {
       await renderNotes();

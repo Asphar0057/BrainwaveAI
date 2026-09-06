@@ -476,6 +476,7 @@ const Social = () => {
             <div
               className="bento-card leaderboard-hero-card"
               onClick={() => navigate('/leaderboards')}
+              role="link" tabIndex={0} onKeyDown={(event) => { if (event.key === 'Enter') navigate('/leaderboards'); }}
               onMouseMove={handleTileMove}
               onMouseLeave={handleTileLeave}
             >
@@ -569,6 +570,8 @@ const Social = () => {
                   key={card.id}
                   className={`bento-card ${card.size} ${card.className}`}
                   onClick={card.onClick}
+                  role="link" tabIndex={0}
+                  onKeyDown={(event) => { if (event.key === "Enter") card.onClick?.(); }}
                   onMouseMove={handleTileMove}
                   onMouseLeave={handleTileLeave}
                   style={{ cursor: card.onClick ? 'pointer' : 'default' }}

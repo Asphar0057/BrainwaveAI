@@ -179,6 +179,32 @@ describe('ProfileNew billing cycle regression', () => {
     localStorage.clear();
   });
 
+  it('flushes the latest profile draft after an earlier request completes', async () => {
+    const fallback = global.fetch;
+    let finishFirst;
+    const saved = [];
+    global.fetch = jest.fn((url, options) => {
+      if (url.includes('/update_comprehensive_profile')) {
+        saved.push(JSON.parse(options.body));
+        if (saved.length === 1) return new Promise(resolve => { finishFirst = resolve; });
+      }
+      return fallback(url, options);
+    });
+    const view = await renderProfileNew();
+    jest.useFakeTimers();
+    fireEvent.change(screen.getByRole('textbox', { name: 'First name' }), { target: { value: 'First edit' } });
+    await act(async () => { jest.advanceTimersByTime(3000); });
+    expect(saved).toHaveLength(1);
+    fireEvent.change(screen.getByRole('textbox', { name: 'First name' }), { target: { value: 'Latest edit' } });
+    await act(async () => { jest.advanceTimersByTime(3000); });
+    expect(saved).toHaveLength(1);
+    await act(async () => { finishFirst({ ok: true, json: async () => ({}) }); });
+    expect(saved).toHaveLength(2);
+    expect(saved[1].firstName).toBe('Latest edit');
+    view.unmount();
+    jest.useRealTimers();
+  });
+
   it('updates plan prices correctly when switching monthly/yearly and back', async () => {
     await renderProfileNew();
 

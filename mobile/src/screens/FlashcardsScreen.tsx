@@ -795,8 +795,13 @@ function QuizView({
 
   const card = cards[idx];
 
-  const selectOption = (option: McqOption) => {
-    if (selectedId) return;
+  const answerPendingRef = useRef(false);
+  const selectOption = async (option: McqOption) => {
+    if (selectedId || answerPendingRef.current) return;
+    answerPendingRef.current = true;
+    try { if (card?.id) await onAnswer(card.id, option.isCorrect); }
+    catch { Alert.alert('Review not saved', 'Please try again. This answer has not been counted.'); return; }
+    finally { answerPendingRef.current = false; }
     setSelectedId(option.id);
     triggerHaptic(option.isCorrect ? 'success' : 'warning');
     setStats((current) => ({
@@ -810,9 +815,7 @@ function QuizView({
       correctAnswer: card.answer,
       isCorrect: option.isCorrect,
     });
-    if (card?.id) {
-      void onAnswer(card.id, option.isCorrect).catch(() => {});
-    }
+
   };
 
   const next = () => {

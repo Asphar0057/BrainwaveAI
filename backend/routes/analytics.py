@@ -1,3 +1,4 @@
+from services.quiz_metrics import quiz_percentage
 import ast
 import json
 import logging
@@ -1049,18 +1050,25 @@ def get_quiz_performance(user_id: str = Query(...), limit: int = Query(30), db: 
                     meta = ast.literal_eval(t.activity_metadata)
             except Exception:
                 pass
+            if not isinstance(meta, dict):
+                meta = {}
             score = meta.get("score", meta.get("percentage", meta.get("correct", 0)))
             total = meta.get("total", meta.get("num_questions", meta.get("total_questions", 0)))
+            try:
+                raw_score, raw_total = float(score or 0), int(total or 0)
+            except (TypeError, ValueError):
+                raw_score, raw_total = 0, 0
             results.append({
                 "date": t.created_at.date().isoformat(),
-                "score": float(score) if score else 0,
-                "total": int(total) if total else 0,
+                "score": raw_score,
+                "percentage": quiz_percentage(meta),
+                "total": raw_total,
                 "topic": str(meta.get("topic", meta.get("subject", "General")))[:40],
                 "points": t.points_earned,
                 "type": t.activity_type
             })
 
-        avg_score = sum(r["score"] for r in results) / len(results) if results else 0
+        avg_score = sum(r["percentage"] for r in results) / len(results) if results else 0
         result = {
             "quiz_history": list(reversed(results)),
             "total_quizzes": len(results),

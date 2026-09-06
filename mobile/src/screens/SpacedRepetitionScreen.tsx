@@ -110,7 +110,9 @@ export default function SpacedRepetitionScreen({ user, onBack }: Props) {
     try {
       await srReviewFlashcard(user.username, card.id, g);
     } catch {
-      // silenced -- keep the session moving even if a single grade write fails
+      Alert.alert('Review not saved', 'Check your connection and try this grade again. Your place has been kept.');
+      setSubmitting(false);
+      return;
     }
     setSessionStats((prev) => ({ ...prev, [g]: prev[g] + 1 }));
     setFlipped(false);

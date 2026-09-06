@@ -1,5 +1,5 @@
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import App from './App';
 import './index.css';
 import { installFetchInterceptor } from './utils/fetchInterceptor';
@@ -13,13 +13,8 @@ if (typeof window !== 'undefined') {
 
 const container = document.getElementById('root');
 const root = ReactDOM.createRoot(container);
-root.render(
-  <BrowserRouter
-    future={{
-      v7_startTransition: true,
-      v7_relativeSplatPath: true
-    }}
-  >
-    <App />
-  </BrowserRouter>
-);
+// Data-router navigation blockers protect pending note edits, including browser Back.
+const router = createBrowserRouter([{ path: '*', element: <App /> }], {
+  future: { v7_relativeSplatPath: true }
+});
+root.render(<RouterProvider router={router} future={{ v7_startTransition: true }} />);

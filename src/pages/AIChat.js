@@ -1,3 +1,4 @@
+import ToolNavigation from '../components/ToolNavigation';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
@@ -691,6 +692,7 @@ const AIChat = ({ sharedMode = false }) => {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [conversationContext, setConversationContext] = useState(() => location.state?.conversationContext || '');
+  const [courseScope, setCourseScope] = useState(() => location.state?.courseScope || null);
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(() => (
     typeof window === 'undefined' ? true : window.innerWidth > 720
@@ -868,6 +870,8 @@ const AIChat = ({ sharedMode = false }) => {
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
   const isLoadingRef = useRef(false);
+  const conversationVersionRef = useRef(0);
+  const [historyError, setHistoryError] = useState('');
   const justSentMessageRef = useRef(false);
   const initialHandoffRef = useRef('');
   const chatLoadRequestRef = useRef(0);
@@ -1244,6 +1248,7 @@ const AIChat = ({ sharedMode = false }) => {
     const requestId = chatLoadRequestRef.current + 1;
     chatLoadRequestRef.current = requestId;
     isLoadingRef.current = true;
+    setHistoryError('');
 
     try {
       const token = localStorage.getItem('token');
@@ -1285,7 +1290,7 @@ const AIChat = ({ sharedMode = false }) => {
         }, 100);
       } else {
         if (chatLoadRequestRef.current === requestId) {
-          setMessages([]);
+          setHistoryError('Could not load this conversation. Your messages have not been deleted.');
         }
       }
     } catch (error) {
@@ -1293,7 +1298,7 @@ const AIChat = ({ sharedMode = false }) => {
         return;
       }
       if (chatLoadRequestRef.current === requestId) {
-        setMessages([]);
+        setHistoryError('Could not load this conversation. Your messages have not been deleted.');
       }
     } finally {
       if (chatLoadRequestRef.current === requestId) {
@@ -1303,7 +1308,8 @@ const AIChat = ({ sharedMode = false }) => {
     }
   };
 
-  const createNewChat = async () => {
+  const createNewChat = async (options) => {
+    if (options?.fromSend !== true) conversationVersionRef.current += 1;
     if (!userName) {
       console.error('❌ createNewChat: No userName');
       return null;
@@ -1434,6 +1440,7 @@ const AIChat = ({ sharedMode = false }) => {
       setMessages([]);
       setInputMessage('');
       setConversationContext('');
+      setCourseScope(null);
       clearAllFiles();
       setSelectedFolder(null);
       setSearchQuery('');
@@ -1455,6 +1462,9 @@ const AIChat = ({ sharedMode = false }) => {
   };
 
   const selectChat = (chatSessionId, chatUid) => {
+    conversationVersionRef.current += 1;
+    setHistoryError('');
+    setLoading(false);
     if (chatLoadAbortRef.current) {
       chatLoadAbortRef.current.abort();
       chatLoadAbortRef.current = null;
@@ -1462,6 +1472,7 @@ const AIChat = ({ sharedMode = false }) => {
     chatLoadRequestRef.current += 1;
     setMessages([]);
     setConversationContext(sessionStorage.getItem(`ai_chat_context:${chatUid || chatSessionId}`) || '');
+    try { setCourseScope(JSON.parse(sessionStorage.getItem(`ai_chat_course:${chatUid || chatSessionId}`) || 'null')); } catch { setCourseScope(null); }
     setIsChatSwitching(true);
     clearAllFiles();
     isLoadingRef.current = false;
@@ -1472,6 +1483,7 @@ const AIChat = ({ sharedMode = false }) => {
 
   
   const sendMessage = async (overrideMessage = null) => {
+    const requestVersion = conversationVersionRef.current;
     const useOverride = typeof overrideMessage === 'string';
     const draftMessage = useOverride ? overrideMessage : inputMessage;
     const sanitizedMessage = (draftMessage || '').trim();
@@ -1511,7 +1523,8 @@ const AIChat = ({ sharedMode = false }) => {
     }
     
     if (!currentChatId) {
-      await createNewChat();
+      await createNewChat({ fromSend: true });
+      if (requestVersion !== conversationVersionRef.current) return;
       const { id: newId, uid: newUid } = _newChatRef.current;
 
       if (!newId) {
@@ -1522,6 +1535,10 @@ const AIChat = ({ sharedMode = false }) => {
       }
       currentChatId = newId;
       isNewChat = true;
+      for (const key of [newId, newUid].filter(Boolean)) {
+        if (conversationContext) sessionStorage.setItem(`ai_chat_context:${key}`, conversationContext);
+        if (courseScope) sessionStorage.setItem(`ai_chat_course:${key}`, JSON.stringify(courseScope));
+      }
 
       const pendingContextIds = loadContextSelection(null);
       if (pendingContextIds.length > 0) {
@@ -1662,6 +1679,7 @@ const AIChat = ({ sharedMode = false }) => {
         contextLabel: chatActionContext.label,
       });
 
+      if (requestVersion !== conversationVersionRef.current) return;
       const aiMessage = {
         id: `ai_${Date.now()}`,
         type: 'ai',
@@ -1720,6 +1738,7 @@ const AIChat = ({ sharedMode = false }) => {
 
     } catch (error) {
       console.error('Error in sendMessage:', error);
+      if (requestVersion !== conversationVersionRef.current) return;
       const usageLimit = getUsageLimitFromError(error);
       const errorText = error?.message || 'The request could not be completed.';
       const isAttachmentError = /(?:received|process|analy[sz]e).*(?:image|attachment)|(?:image|attachment).*(?:received|process|analy[sz]e)/i.test(errorText);
@@ -1736,7 +1755,7 @@ const AIChat = ({ sharedMode = false }) => {
       };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
-      setLoading(false);
+      if (requestVersion === conversationVersionRef.current) setLoading(false);
     }
   };
 
@@ -2724,6 +2743,7 @@ const AIChat = ({ sharedMode = false }) => {
   useEffect(() => {
     if (!chatId || location.state?.conversationContext) return;
     setConversationContext(sessionStorage.getItem(`ai_chat_context:${chatId}`) || '');
+    try { setCourseScope(JSON.parse(sessionStorage.getItem(`ai_chat_course:${chatId}`) || 'null')); } catch { setCourseScope(null); }
   }, [chatId, location.state?.conversationContext]);
 
   // Handle initialMessage from SearchHub or other sources
@@ -2744,9 +2764,11 @@ const AIChat = ({ sharedMode = false }) => {
       setInputMessage(initialMsg);
       
       // Wait for component to be ready, then send
+      const requestVersion = ++conversationVersionRef.current;
       const timer = setTimeout(async () => {
         // Create a new chat session first
-        const newChatId = await createNewChat();
+        const newChatId = await createNewChat({ fromSend: true });
+        if (requestVersion !== conversationVersionRef.current) return;
         
         if (!newChatId) {
           initialHandoffRef.current = '';
@@ -2834,6 +2856,7 @@ const AIChat = ({ sharedMode = false }) => {
           const tutorContract = parseTutorResponseContract(data.answer || '');
           const aiAnswerContent = tutorContract?.answer || stripTutorOptionMarkers(data.answer);
 
+          if (requestVersion !== conversationVersionRef.current) return;
           // Add AI response to UI
           const aiMessage = {
             id: `ai_${Date.now()}`,
@@ -2856,6 +2879,7 @@ const AIChat = ({ sharedMode = false }) => {
           await loadChatSessions();
           
         } catch (error) {
+          if (requestVersion !== conversationVersionRef.current) return;
           const usageLimit = getUsageLimitFromError(error);
           const errorMessage = {
             id: `error_${Date.now()}`,
@@ -2868,7 +2892,7 @@ const AIChat = ({ sharedMode = false }) => {
           };
           setMessages(prev => [...prev, errorMessage]);
         } finally {
-          setLoading(false);
+          if (requestVersion === conversationVersionRef.current) setLoading(false);
         }
         
         // Clear the location state
@@ -3060,7 +3084,7 @@ const AIChat = ({ sharedMode = false }) => {
           >
             {Icons.menu}
           </button>
-          <div className="ac-qb-tagline"><span>LEARNING,</span> UNIFIED</div>
+          <ToolNavigation toolLabel="AI Chat" />
         </div>
         <div className="ac-qb-topbar-right">
           <button
@@ -3244,6 +3268,7 @@ const AIChat = ({ sharedMode = false }) => {
                         } ${
                           draggedChatId && draggedChatId !== session.id ? 'drag-source-dimmed' : ''
                         }`}
+                        aria-current={activeChatId === session.id ? 'page' : undefined}
                         onClick={() => selectChat(session.id, session.uid)}
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectChat(session.id, session.uid); } }}
                         role="button"
@@ -3399,6 +3424,8 @@ const AIChat = ({ sharedMode = false }) => {
 
         {/* Main Content */}
         <main className={`ac-main ${messages.length === 0 && !isChatSwitching ? 'empty-state' : ''}`}>
+          {courseScope && <aside aria-label="Course context" style={{padding: '12px 20px'}}><strong>{courseScope.label}</strong><p>{courseScope.materials.length} published material references. Attach material content for source-specific answers.</p><details><summary>Course materials</summary><ul>{courseScope.materials.map(item => <li key={item.id}>{item.title}</li>)}</ul></details></aside>}
+          {historyError && <div role="alert"><p>{historyError}</p><button type="button" onClick={() => loadChatMessages(activeChatId)}>Retry loading conversation</button></div>}
           <div className="cb-tile-texture" aria-hidden />
           {/* Persistent vector background */}
           <svg className="ac-hero-bg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">

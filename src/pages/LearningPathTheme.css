@@ -1,0 +1,54 @@
+/* Learning routes inherit the same tokens and tile material as SocialHubChrome. */
+:is(.lp-page, .lpd-shell).with-social-chrome {
+  --lp-accent: var(--accent);
+  --lp-ink: var(--text-primary);
+  --lp-muted: var(--text-secondary);
+  --lp-bg: var(--bg-primary);
+  --lp-surface: var(--bg-secondary);
+  --lp-surface-raised: var(--bg-secondary);
+  --lpd-route-accent: var(--accent);
+  --lpd-route-line: color-mix(in srgb, var(--accent) 14%, transparent);
+  --lpd-route-line-strong: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.lpd-shell.with-social-chrome .shc-main > .cb-tile-texture { display: none; }
+.lpd-shell .lpd-hero-title { font-size: clamp(26px, 3vw, 42px); line-height: 1.15; letter-spacing: -.03em; }
+.lpd-shell .lpd-details-info h2 { font-size: clamp(20px, 2vw, 28px); line-height: 1.25; text-transform: none; letter-spacing: -.02em; }
+.lpd-shell .lpd-hero { padding-bottom: 24px; }
+.lpd-shell .lpd-overview-card h4 { font-size: 24px; }
+.lpd-shell :is(.lpd-overview-card, .lpd-toolkit-card, .lpd-resource-card, .lpd-block, .lpd-activity, .lpd-actions, .lpd-hero-pills, .lpd-workspace-tabs) {
+  background: var(--bg-secondary);
+  border-color: var(--lpd-route-line);
+  color: var(--text-primary);
+  box-shadow: none;
+}
+.lpd-shell :is(.lpd-overview-card, .lpd-toolkit-card, .lpd-resource-card)::after { background: none; }
+.lpd-shell :is(.lpd-overview-card p, .lpd-details-info p, .lpd-hero-desc) { color: var(--text-secondary); font-size: 14px; line-height: 1.6; }
+.lpd-shell .lpd-actions { position: static; }
+.lpd-shell :is(button, textarea, input, a):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.lpd-shell button:disabled { cursor: not-allowed; opacity: .5; }
+.lpd-activity-workspace { margin-bottom: 28px; padding: 24px; background: var(--bg-secondary); border: 1px solid var(--lpd-route-line); border-radius: 14px; scroll-margin-top: 20px; }
+.lpd-activity-workspace header { display: flex; justify-content: space-between; align-items: start; gap: 20px; }
+.lpd-activity-workspace h2 { margin: 8px 0 16px; font-size: 24px; }
+.lpd-activity-workspace p { line-height: 1.6; }
+.lpd-activity-workspace header span { color: var(--text-secondary); }
+.lpd-activity-workspace button { padding: 12px 16px; border-radius: 8px; border: 1px solid var(--lpd-route-line-strong); background: var(--bg-primary); color: var(--text-primary); cursor: pointer; }
+.lpd-activity-workspace button:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 12%, var(--bg-primary)); }
+.lpd-practice-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.lpd-activity-workspace fieldset { border: 0; padding: 20px 0; margin: 0; border-bottom: 1px solid var(--lpd-route-line); }
+.lpd-activity-workspace legend { font-weight: 600; }
+.lpd-activity-workspace label { display: flex; align-items: start; gap: 12px; padding: 10px 0; line-height: 1.5; }
+.lpd-activity-workspace input { accent-color: var(--accent); margin-top: 5px; }
+.lpd-activity-workspace textarea { width: 100%; box-sizing: border-box; margin: 8px 0 16px; padding: 16px; color: var(--text-primary); background: var(--bg-primary); border: 1px solid var(--lpd-route-line); border-radius: 8px; font: inherit; resize: vertical; }
+.lpd-feedback { color: var(--text-primary); background: var(--bg-secondary); padding: 16px; border: 1px solid var(--accent); border-radius: 8px; }
+[data-theme-mode="light"] :is(.lp-page, .lpd-shell).with-social-chrome { background: var(--bg-primary); }
+@media (max-width: 720px) { .lpd-activity-workspace { padding: 16px; } .lpd-activity-workspace header { flex-direction: column; } }
+.lp-page.with-social-chrome .lp-main { background: transparent; box-shadow: none; }
+.lp-page.with-social-chrome .lp-main::after { display: none; }
+:is(.lp-page, .lpd-shell) :is(.lp-side-primary, .lpd-side-primary, .lpd-overview-btn, .lpd-btn-start, .lpd-btn-complete) { background: var(--accent); color: var(--bg-primary); }
+
+/* Keep all workspace rows within the same left and right content gutters. */
+.lpd-shell.with-social-chrome :is(.lpd-main, .lpd-details, .lpd-section-panel, .lpd-actions) {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}

@@ -152,13 +152,14 @@ const PlaylistsPage = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
+      if (!response.ok) throw new Error('This action could not be completed. Please try again.');
       if (response.ok) {
         setPlaylists(prev => prev.filter(item => item.id !== playlist.id));
         if (sharePlaylist?.id === playlist.id) {
           setSharePlaylist(null);
         }
       }
-    } catch (error) { /* silenced */ } finally {
+    } catch (error) { window.alert(error.message || 'The playlist could not be deleted. Please try again.'); } finally {
       setDeletingPlaylistId(null);
     }
   };

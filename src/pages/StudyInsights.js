@@ -1,3 +1,4 @@
+import ToolNavigation from '../components/ToolNavigation';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './StudyInsights.css';
@@ -123,10 +124,7 @@ const StudyInsights = () => {
     return (
       <div className="si-page">
         <div className="shc-topbar">
-          <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-          <div className="shc-topbar-right">
-            <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-          </div>
+          <ToolNavigation />
         </div>
         <div className="si-loading">
           <span className="si-loading-text">ANALYZING YOUR STUDY DATA</span>
@@ -144,10 +142,7 @@ const StudyInsights = () => {
     return (
       <div className="si-page">
         <div className="shc-topbar">
-          <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-          <div className="shc-topbar-right">
-            <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-          </div>
+          <ToolNavigation />
         </div>
         <div className="si-error">
           <p>Unable to load insights</p>
@@ -170,10 +165,7 @@ const StudyInsights = () => {
   return (
     <div className="si-page">
       <div className="shc-topbar">
-        <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-        <div className="shc-topbar-right">
-          <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-        </div>
+        <ToolNavigation />
       </div>
       <div className="si-qb-body">
         <div className={`si-qb-shell ${sidebarCollapsed ? 'si-qb-shell--collapsed' : ''}`}>

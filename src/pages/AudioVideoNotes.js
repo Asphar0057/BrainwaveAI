@@ -1,3 +1,4 @@
+import ToolNavigation from '../components/ToolNavigation';
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload, Youtube, FileText, Save, Copy, RefreshCw, Mic, Loader, ArrowLeft, MessageSquare, LayoutDashboard, LogOut, Headphones, FolderOpen, Menu } from 'lucide-react';
@@ -71,9 +72,7 @@ const AudioVideoNotes = () => {
         formData.append('youtube_url', youtubeUrl);
       }
 
-      progressInterval = setInterval(() => {
-        setGenerationProgress(prev => Math.min(prev + 10, 90));
-      }, 500);
+
 
       const response = uploadedFile
         ? new Response(JSON.stringify(await queueLegacyAIFileEndpoint(
@@ -143,7 +142,6 @@ const AudioVideoNotes = () => {
   };
 
   const regenerateNotes = () => {
-    setGeneratedNotes('');
     generateNotesFromMedia();
   };
 
@@ -168,10 +166,7 @@ const AudioVideoNotes = () => {
   return (
     <div className="audio-video-notes-page">
       <div className="shc-topbar">
-        <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-        <div className="shc-topbar-right">
-          <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-        </div>
+        <ToolNavigation />
       </div>
       <div className="avn-qb-body">
         <button
@@ -374,7 +369,7 @@ const AudioVideoNotes = () => {
 
           {isGenerating && (
             <div className="progress-bar">
-              <div className="progress-fill" style={{ width: `${generationProgress}%` }} />
+              <p role="status">Processing your source. Longer recordings can take several minutes. Keep this page open; your previous notes remain available.</p>
             </div>
           )}
         </div>

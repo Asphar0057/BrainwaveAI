@@ -53,6 +53,8 @@ function ClassWorkspaceDialog({
 }) {
   const dialogRef = useRef(null);
   const returnFocusRef = useRef(document.activeElement);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   const [activeTab, setActiveTab] = useState('overview');
   const [state, setState] = useState({ status: 'loading', data: null, error: '' });
   const [attendanceDate, setAttendanceDate] = useState(todayValue());
@@ -83,7 +85,7 @@ function ClassWorkspaceDialog({
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        onClose();
+        closeRef.current();
         return;
       }
       if (event.key !== 'Tab' || !dialog) return;
@@ -104,7 +106,7 @@ function ClassWorkspaceDialog({
       document.removeEventListener('keydown', handleKeyDown);
       returnFocusRef.current?.focus?.();
     };
-  }, [onClose]);
+  }, []);
 
   const selectedAttendance = useMemo(() => {
     const existing = state.data?.attendance?.records || [];

@@ -194,11 +194,12 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
 
   const toggleReminderComplete = async (reminder: Reminder) => {
     triggerHaptic('light');
-    setReminders((cur) => cur.map((r) => (r.id === reminder.id ? { ...r, is_completed: !r.is_completed } : r)));
     try {
       await updateReminder(reminder.id, { isCompleted: !reminder.is_completed });
+    setReminders((cur) => cur.map((r) => (r.id === reminder.id ? { ...r, is_completed: !r.is_completed } : r)));
+
     } catch {
-      // silenced -- optimistic update stays
+      Alert.alert('Reminder not updated', 'Your reminder is unchanged. Please try again.');
     }
   };
 
@@ -209,11 +210,11 @@ export default function CalendarScreen({ user, onBack, onNavigate }: Props) {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          setReminders((cur) => cur.filter((r) => r.id !== reminder.id));
           try {
             await deleteReminder(reminder.id);
+            setReminders((cur) => cur.filter((r) => r.id !== reminder.id));
           } catch {
-            // silenced
+            Alert.alert('Reminder not deleted', 'Please try again.');
           }
         },
       },

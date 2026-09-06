@@ -2370,3 +2370,7 @@ button.ci-focus-panel {
     transition: none;
   }
 }
+/* Classroom actions and form text must stay readable on compact screens. */
+.ci-root :is(input, textarea, select), .ci-modal :is(input, textarea, select) { font-size: 16px; }
+.ci-modal :is(label, p, small), .ci-root :is(.ci-feature-list-row small, .ci-ranking-note, .ci-student-row small, .ci-grade-fields label) { font-size: 14px; line-height: 1.5; }
+.ci-modal :is(button, input, select) { min-height: 44px; }

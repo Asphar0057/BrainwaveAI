@@ -93,6 +93,9 @@ const AIMediaNotes = () => {
   const [showImportExport, setShowImportExport] = useState(false);
 
   
+  const [savingNotes, setSavingNotes] = useState(false);
+  const saveNotesBusyRef = useRef(false);
+  const [historyError, setHistoryError] = useState('');
   const [results, setResults] = useState(null);
   const [activeTab, setActiveTab] = useState('notes');
   const [podcastSettingsOpen, setPodcastSettingsOpen] = useState(false);
@@ -232,41 +235,17 @@ const AIMediaNotes = () => {
   };
 
   const saveNotes = async () => {
+    if (saveNotesBusyRef.current) return;
     if (!results?.notes?.content) {
       alert('No notes to save');
       return;
     }
 
+    saveNotesBusyRef.current = true; setSavingNotes(true);
     try {
       const token = localStorage.getItem('token');
       
-      const titlePayload = {
-        transcript: asText(results.transcript).substring(0, 1000),
-        key_concepts: results.analysis?.key_concepts || [],
-        summary: results.analysis?.summary || ''
-      };
-      const titleResponse = USE_AI_JOB_QUEUE
-        ? await queueLegacyAIEndpoint('/api/media/generate-title', { jsonBody: titlePayload })
-        : await fetch(`${API_URL}/media/generate-title`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(titlePayload)
-          });
-
-      let titleData = {};
-      if (USE_AI_JOB_QUEUE) {
-        titleData = titleResponse || {};
-      } else if (titleResponse.ok) {
-        titleData = await titleResponse.json();
-      }
-
-      let smartTitle = results.filename || 'Media Notes';
-      if (titleData?.title) {
-        smartTitle = titleData.title;
-      }
+      const smartTitle = results.filename || 'Media Notes';
 
       const response = await fetch(`${API_URL}/media/save-notes`, {
         method: 'POST',
@@ -295,8 +274,8 @@ const AIMediaNotes = () => {
       navigate(`/notes/editor/${data.note_id}`);
 
     } catch (error) {
-            alert('Failed to save notes');
-    }
+            alert('Failed to save notes. Your generated notes are still here. Please try again.');
+    } finally { saveNotesBusyRef.current = false; setSavingNotes(false); }
   };
 
   const saveFlashcards = async () => {
@@ -424,6 +403,7 @@ const AIMediaNotes = () => {
   }, [activeTab]);
 
   const fetchHistory = async () => {
+    setHistoryError('');
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/media/history?user_id=${encodeURIComponent(userName)}&limit=100`, {
@@ -437,7 +417,7 @@ const AIMediaNotes = () => {
         throw new Error(`Failed to load history: ${response.status}`);
       }
     } catch (error) {
-      console.error('Media history load error:', error);
+      setHistoryError('Your media library could not be loaded. Please try again.');
   }
   };
 
@@ -585,7 +565,7 @@ const AIMediaNotes = () => {
   const mediaSidebarTail = (
     <div className="amn-side-history">
       <span className="amn-side-history-label">Recent sources</span>
-      {history.length > 0 ? (
+      {historyError ? <div role="alert"><p>{historyError}</p><button type="button" onClick={fetchHistory}>Retry media library</button></div> : history.length > 0 ? (
         <div className="amn-side-history-list">
           {history.slice(0, 4).map((item, idx) => (
             <div className={`amn-side-history-row ${activeNoteId === item.id ? 'is-active' : ''}`} key={item.id || idx}>
@@ -775,7 +755,7 @@ const AIMediaNotes = () => {
               <div className="amn-qb-side-block amn-qb-side-block--grow">
                 <div className="amn-qb-side-label">History</div>
                 <div className="amn-qb-history-list">
-                  {history.length > 0 ? (
+                  {historyError ? <div role="alert"><p>{historyError}</p><button type="button" onClick={fetchHistory}>Retry media library</button></div> : history.length > 0 ? (
                     history.slice(0, 10).map((item, idx) => (
                       <div
                         key={idx}
@@ -832,12 +812,13 @@ const AIMediaNotes = () => {
                   <button type="button" className="amn-library-new" onClick={startNewUpload}><Upload size={15} />Add source</button>
                 </div>
 
-                {history.length > 0 ? (
+                {historyError ? <div role="alert"><p>{historyError}</p><button type="button" onClick={fetchHistory}>Retry media library</button></div> : history.length > 0 ? (
                   <div className="amn-library-grid">
                     {history.map((item, idx) => (
                       <div
                         key={item.id || idx}
                         className="amn-library-card"
+                        aria-label={`Open ${item.title || 'media notes'}`}
                         role="button"
                         tabIndex={0}
                         onClick={() => navigate(`/notes/ai-media/${item.id}`)}
@@ -852,7 +833,7 @@ const AIMediaNotes = () => {
                         <div>
                           <span className="amn-library-kind">Study edition</span>
                           <h3 className="amn-library-card-title">{item.title}</h3>
-                          {item.preview && <p className="amn-library-card-preview">{item.preview}</p>}
+                          {item.preview && <p className="amn-library-card-preview">{String(item.preview).replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim().slice(0, 180)}</p>}
                         </div>
                         <div className="amn-library-card-footer">
                           <span className="amn-library-card-date">{formatDate(item.created_at)}</span>
@@ -1201,7 +1182,7 @@ const AIMediaNotes = () => {
                         <Copy size={14} />
                         <span>Copy</span>
                       </button>
-                      <button onClick={saveNotes} className="mn-tab-action-btn mn-tab-action-primary">
+                      <button disabled={savingNotes} onClick={saveNotes} className="mn-tab-action-btn mn-tab-action-primary">
                         <Save size={14} />
                         <span>Save to Notes</span>
                       </button>

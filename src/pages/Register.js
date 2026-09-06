@@ -242,7 +242,7 @@ function Register() {
           <div className="lg-bg-vignette" />
         </div>
 
-        <span className="lg-back-link" onClick={() => navigate('/')}>Back</span>
+        <Link className="lg-back-link" to="/">Back</Link>
 
         <div className="lg-card lg-card-register">
           <div className="lg-card-texture" aria-hidden>
@@ -375,7 +375,7 @@ function Register() {
                         className="lg-eye-btn"
                         onClick={() => setShowPassword(v => !v)}
                         disabled={disabled}
-                        tabIndex={-1}
+                        tabIndex={0}
                         aria-label={showPassword ? 'Hide password' : 'Show password'}
                       >
                         {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -401,7 +401,7 @@ function Register() {
                         className="lg-eye-btn"
                         onClick={() => setShowConfirmPassword(v => !v)}
                         disabled={disabled}
-                        tabIndex={-1}
+                        tabIndex={0}
                         aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                       >
                         {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -468,7 +468,7 @@ function Register() {
 
             <div className="lg-footer">
               Already have an account?
-              <span className="lg-link" onClick={() => navigate('/login')}>Sign in</span>
+              <Link className="lg-link" to="/login">Sign in</Link>
             </div>
             <nav className="lg-legal-links" aria-label="Legal">
               <Link to="/terms-and-conditions">Terms</Link>

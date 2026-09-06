@@ -36,6 +36,7 @@ function NotesHub() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
+  const [reload, setReload] = useState(0);
   const userName = localStorage.getItem('username');
 
   useEffect(() => {
@@ -43,6 +44,7 @@ function NotesHub() {
     document.documentElement.style.overflow = 'hidden';
 
     const loadRecentNotes = async () => {
+      setLoading(true); setError('');
       if (!userName) {
         setLoading(false);
         return;
@@ -70,7 +72,7 @@ function NotesHub() {
       document.body.style.overflow = '';
       document.documentElement.style.overflow = '';
     };
-  }, [userName]);
+  }, [userName, reload]);
 
   const createNote = async () => {
     if (creating) return;
@@ -101,9 +103,10 @@ function NotesHub() {
 
   const totalLabel = useMemo(() => {
     if (loading) return 'Syncing library';
+    if (error) return 'Library unavailable';
     if (recentNotes.length === 0) return 'A clean slate';
     return `${recentNotes.length} recent ${recentNotes.length === 1 ? 'note' : 'notes'}`;
-  }, [loading, recentNotes.length]);
+  }, [loading, recentNotes.length, error]);
 
   const sidebarLead = (
     <button className="nh-side-create" type="button" onClick={createNote} disabled={creating}>
@@ -205,12 +208,12 @@ function NotesHub() {
               <div className="nh-recent-list">
                 {loading ? (
                   <div className="nh-loading"><Loader2 className="nh-spin" size={20} />Finding your latest work…</div>
-                ) : recentNotes.length > 0 ? recentNotes.map((note, index) => (
-                  <button className="nh-note-row" type="button" key={note.id} onClick={() => navigate(`/notes/editor/${note.id}`)}>
+                ) : error ? <div role="alert"><p>{error}</p><button type="button" onClick={() => setReload(n => n + 1)}>Retry loading notes</button></div> : recentNotes.length > 0 ? recentNotes.map((note, index) => (
+                  <button className="nh-note-row" type="button" key={note.id} aria-label={`Open ${note.title || "Untitled note"}`} onClick={() => navigate(`/notes/editor/${note.id}`)}>
                     <span className="nh-note-index">{String(index + 1).padStart(2, '0')}</span>
                     <span className="nh-note-body">
                       <strong>{note.title || 'Untitled note'}</strong>
-                      <small>{plainText(note.content) || 'Empty note — ready for your first thought.'}</small>
+                      <small>{plainText(note.content).slice(0, 180) || 'Empty note — ready for your first thought.'}</small>
                     </span>
                     <span className="nh-note-date"><Clock3 size={13} />{formatRelativeDate(note.updated_at || note.created_at)}</span>
                     <ArrowUpRight className="nh-note-arrow" size={16} />

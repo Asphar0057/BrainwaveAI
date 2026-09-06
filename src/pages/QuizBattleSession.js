@@ -1,7 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Clock, Target, Trophy, CheckCircle, XCircle, Loader, ArrowLeft, Play, Swords } from 'lucide-react';
-import './QuizBattleSession.css';
 import './BattleQuizFlow.css';
 import SocialHubChrome from '../components/SocialHubChrome';
 import { API_URL } from '../config';
@@ -10,6 +9,7 @@ import useSharedWebSocket from '../hooks/useSharedWebSocket';
 import gamificationService from '../services/gamificationService';
 import { extractQuestionText, normalizeQuestions } from '../utils/quizQuestionUtils';
 import MathRenderer from '../components/MathRenderer';
+import './QuizBattleSession.css';
 import { formatBattleMode, getQuestionTimeLimit, shouldEndRun } from '../utils/battleRules';
 
 const QuizBattleSession = () => {

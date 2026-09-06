@@ -1,3 +1,4 @@
+import ToolNavigation from '../components/ToolNavigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -790,10 +791,7 @@ const XPRoadmap = () => {
     return (
       <div className="xpv-loading">
         <div className="shc-topbar">
-          <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-          <div className="shc-topbar-right">
-            <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-          </div>
+          <ToolNavigation />
         </div>
         <div className="xpv-loader-core" aria-hidden="true">
           <span className="xpv-loader-ring xpv-loader-ring--outer" />
@@ -815,10 +813,7 @@ const XPRoadmap = () => {
       </div>
 
       <div className="shc-topbar">
-        <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-        <div className="shc-topbar-right">
-          <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-        </div>
+        <ToolNavigation />
       </div>
 
       {levelWave && <div className="xpv-level-wave" aria-hidden="true" />}

@@ -1030,3 +1030,10 @@
     animation-iteration-count: 1 !important;
   }
 }
+
+@media (max-width: 720px) {
+  .shc-body:not(.shc-body--collapsed):not(.shc-body--no-sidebar) { grid-template-columns: 52px minmax(0, 1fr); }
+  .shc-body:not(.shc-body--collapsed):not(.shc-body--no-sidebar) > .shc-sidebar { position: fixed; inset: 12px auto 12px 12px; width: min(280px, calc(100vw - 24px)); z-index: 1301; background: var(--bg-primary, #171717); }
+  .shc-body:not(.shc-body--collapsed):not(.shc-body--no-sidebar) > .shc-main { grid-column: 2; }
+  .shc-drawer-backdrop { position: fixed; inset: 0; z-index: 1300; background: rgb(0 0 0 / 60%); border: 0; border-radius: 0; }
+}

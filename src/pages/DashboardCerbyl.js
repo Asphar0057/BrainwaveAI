@@ -1,3 +1,4 @@
+import useModalFocus from '../hooks/useModalFocus';
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowUpRight, Plus, ChevronLeft, ChevronRight, FileText, Mic, Library, Search, Pencil, X, Check, User, Bell, Sparkles, Trash2, LogOut } from 'lucide-react';
@@ -572,6 +573,7 @@ const DashboardCerbyl = () => {
     return () => clearInterval(t);
   }, []);
 
+
   useEffect(() => {
     const marquee = moduleMarqueeRef.current;
     const track = moduleTrackRef.current;
@@ -601,12 +603,15 @@ const DashboardCerbyl = () => {
     resizeObserver.observe(marquee);
     resizeObserver.observe(track);
 
+    const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
     const animateModules = (now) => {
       const previous = moduleLastFrameRef.current || now;
       const elapsed = Math.min(now - previous, 40);
       moduleLastFrameRef.current = now;
 
       if (
+        !motionPreference.matches &&
+        !marquee.contains(document.activeElement) &&
         moduleSegmentWidthRef.current > 0 &&
         !moduleHoverPausedRef.current &&
         !moduleDragRef.current.active &&
@@ -633,6 +638,7 @@ const DashboardCerbyl = () => {
       resizeObserver.disconnect();
     };
   }, []);
+
 
   useEffect(() => {
     if (!userName) return;
@@ -1462,6 +1468,7 @@ const DashboardCerbyl = () => {
   };
 
   const closePfpModal = () => setIsPfpModalOpen(false);
+  const avatarDialogRef = useModalFocus(isPfpModalOpen, closePfpModal);
 
   const saveProfile = (nextProfile) => {
     let baseProfile = {};
@@ -1941,6 +1948,9 @@ const DashboardCerbyl = () => {
                   <span className="cb-period">.</span>
                 )}
               </h1>
+              <button type="button" className="cb-continue-study" onClick={() => navigate('/notes/dashboard')}>
+                <Library size={16} aria-hidden="true" />Continue studying<ArrowUpRight size={16} aria-hidden="true" />
+              </button>
             </div>
 
             <div className="cb-feature-search" ref={featureSearchRef}>
@@ -2219,7 +2229,7 @@ const DashboardCerbyl = () => {
           {}
           <section className="cb-strip">
             <div className="cb-strip-eyebrow">
-              ALL MODULES — HOVER TO PAUSE · DRAG TO BROWSE
+              EXPLORE STUDY TOOLS · HOVER TO PAUSE · DRAG TO BROWSE
             </div>
             <div
               ref={moduleMarqueeRef}
@@ -2236,6 +2246,16 @@ const DashboardCerbyl = () => {
                   <button
                     key={`${m.num}-${i}`}
                     className="cb-mod"
+                    data-copy={i < MODULES.length || i >= MODULES.length * 2 ? 'true' : undefined}
+                    aria-hidden={i < MODULES.length || i >= MODULES.length * 2 ? true : undefined}
+                    tabIndex={i >= MODULES.length && i < MODULES.length * 2 ? 0 : -1}
+                    onFocus={(event) => {
+                      if (!event.currentTarget.matches(':focus-visible')) return;
+                      const card = moduleTrackRef.current?.children[i];
+                      if (!card || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+                      moduleOffsetRef.current = card.offsetLeft - 24;
+                      renderModuleOffset();
+                    }}
                     draggable={false}
                     onClick={(event) => openModule(event, m.route)}
                     onMouseMove={handleTileMove}
@@ -2444,7 +2464,7 @@ const DashboardCerbyl = () => {
 
       {isPfpModalOpen && (
         <div className="cb-pfp-modal-overlay" onClick={closePfpModal}>
-          <section className="cb-pfp-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Select profile picture">
+          <section ref={avatarDialogRef} className="cb-pfp-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Select profile picture">
             <div className="cb-pfp-modal-head">
               <div>
                 <div className="cb-pfp-modal-kicker">PROFILE PERSONALIZATION</div>

@@ -1,3 +1,4 @@
+import { rememberReturnPath } from '../utils/returnPath';
 import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import LoadingSpinner from './LoadingSpinner';
@@ -52,6 +53,7 @@ const ProtectedRoute = ({ children }) => {
   }
 
   if (authState !== 'authenticated') {
+    rememberReturnPath(window.location.pathname + window.location.search + window.location.hash);
     return <Navigate to="/login" replace />;
   }
 

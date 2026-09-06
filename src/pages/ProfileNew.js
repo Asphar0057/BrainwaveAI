@@ -1,3 +1,4 @@
+import { readDraft, writeDraft, clearDraft } from '../utils/draftStorage';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { X, Check, Pencil, Award, BarChart3, Crown, Rocket, ShieldCheck, LogOut, Trash2, User, CreditCard, Target, Settings, BookOpen, Sparkles, Plus, Gauge, ArrowUpRight, Bell, Eye, Fingerprint } from 'lucide-react';
@@ -364,9 +365,9 @@ const ProfileNew = () => {
   const [profileData, setProfileData] = useState(() => toProfileFormData(cachedProfile, userName));
   const [quizAnswers, setQuizAnswers] = useState({});
   const [dataLoaded, setDataLoaded] = useState(false);
-  const [, setAutoSaving] = useState(false);
-  const [, setLastSaved] = useState(null);
-  const [, setProfileSaveError] = useState('');
+  const [autoSaving, setAutoSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState(null);
+  const [profileSaveError, setProfileSaveError] = useState('');
   const [deleteStep, setDeleteStep] = useState('password');
   const [deleteForm, setDeleteForm] = useState({ password: '', otp: '' });
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -374,6 +375,9 @@ const ProfileNew = () => {
   const lastSavedRef = useRef(null);
   const saveTimerRef = useRef(null);
   const isSavingRef = useRef(false);
+  const queuedProfileRef = useRef(null);
+  const latestProfileRef = useRef(profileData);
+  latestProfileRef.current = profileData;
   const [subscriptionData, setSubscriptionData] = useState({
     loading: false,
     saving: false,
@@ -458,11 +462,13 @@ const ProfileNew = () => {
     return () => clearTimeout(timer);
   }, [dataLoaded, location.search, profileExperience.showPaymentInformation, scrollToSection]);
 
-  const activeBillingCycle = subscriptionData.billingCycle === 'yearly' ? 'yearly' : 'monthly';
+  const [previewBillingCycle, setPreviewBillingCycle] = useState(null);
+  const currentBillingCycle = subscriptionData.billingCycle === 'yearly' ? 'yearly' : 'monthly';
+  const activeBillingCycle = previewBillingCycle || currentBillingCycle;
   const billingLabel = activeBillingCycle === 'yearly' ? '/yr' : '/mo';
   const currentPlanId = String(subscriptionData.currentPlanId || 'starter').trim().toLowerCase();
   const currentPlan = subscriptionData.plans.find(p => String(p.id || '').trim().toLowerCase() === currentPlanId) || PLAN_FALLBACKS[currentPlanId] || null;
-  const currentPlanPrice = currentPlan ? getPlanPrice(currentPlan, activeBillingCycle) : 0;
+  const currentPlanPrice = currentPlan ? getPlanPrice(currentPlan, currentBillingCycle) : 0;
   const currentPlanYearlySavingsPct = currentPlan ? getYearlySavingsPct(currentPlan) : 0;
   const currentPlanYearlySavingsUsd = currentPlan ? getYearlySavingsUsd(currentPlan) : 0;
   const currentPlanYearlyEquivalentMonthly = currentPlan ? getYearlyEquivalentMonthly(currentPlan) : 0;
@@ -631,8 +637,8 @@ const ProfileNew = () => {
   };
 
   const handleSelectPlan = async (planId) => {
-    if (!userName || !planId || subscriptionData.saving || planId === subscriptionData.currentPlanId) return;
-    const currentBillingCycle = subscriptionData.billingCycle || 'monthly';
+    if (!userName || !planId || subscriptionData.saving || (planId === subscriptionData.currentPlanId && activeBillingCycle === currentBillingCycle)) return;
+    const chosenBillingCycle = activeBillingCycle;
     setSubscriptionData(prev => ({
       ...prev,
       saving: true,
@@ -647,7 +653,7 @@ const ProfileNew = () => {
         body: JSON.stringify({
           user_id: userName,
           tier: planId,
-          billingCycle: currentBillingCycle,
+          billingCycle: chosenBillingCycle,
           subscriptionStatus: 'active'
         })
       });
@@ -680,14 +686,7 @@ const ProfileNew = () => {
     }
   };
 
-  const handleBillingCycleChange = (nextCycle) => {
-    if (!userName || !nextCycle || subscriptionData.saving || nextCycle === subscriptionData.billingCycle) return;
-    setSubscriptionData(prev => ({
-      ...prev,
-      billingCycle: nextCycle,
-      error: null
-    }));
-  };
+  const handleBillingCycleChange = nextCycle => { if (!subscriptionData.saving) setPreviewBillingCycle(nextCycle); };
 
   const loadProfile = async () => {
     try {
@@ -697,7 +696,7 @@ const ProfileNew = () => {
       if (resp.ok) {
         const data = await resp.json();
         const newData = toProfileFormData(data, userName);
-        setProfileData(newData);
+        setProfileData(readDraft('profile', newData));
         lastSavedRef.current = JSON.stringify(newData);
         if (data.quizResponses) {
           try { setQuizAnswers(typeof data.quizResponses === 'string' ? JSON.parse(data.quizResponses) : data.quizResponses); }
@@ -722,7 +721,7 @@ const ProfileNew = () => {
   };
 
   const autoSave = useCallback(async (data) => {
-    if (isSavingRef.current) return;
+    if (isSavingRef.current) { queuedProfileRef.current = data; return; }
     const snapshot = JSON.stringify(data);
     if (snapshot === lastSavedRef.current) return;
     isSavingRef.current = true;
@@ -748,6 +747,7 @@ const ProfileNew = () => {
         lastSavedRef.current = savedSnapshot;
         setLastSaved(new Date().toLocaleTimeString());
         setProfileSaveError('');
+        if (JSON.stringify(latestProfileRef.current) === snapshot) clearDraft('profile');
         localStorage.setItem('userProfile', savedSnapshot);
       } else {
         const errorData = await resp.json().catch(() => ({}));
@@ -758,6 +758,9 @@ const ProfileNew = () => {
     }
     isSavingRef.current = false;
     setAutoSaving(false);
+    const queued = queuedProfileRef.current;
+    queuedProfileRef.current = null;
+    if (queued) void autoSave(queued);
   }, [token, userName]);
 
   useEffect(() => {
@@ -765,6 +768,7 @@ const ProfileNew = () => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     const snapshot = JSON.stringify(profileData);
     if (snapshot === lastSavedRef.current) return;
+    if (!writeDraft('profile', profileData)) setProfileSaveError('Recovery draft unavailable. Keep this page open until changes are saved.');
     saveTimerRef.current = setTimeout(() => autoSave(profileData), 3000);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   }, [profileData, dataLoaded]);
@@ -1114,7 +1118,8 @@ const ProfileNew = () => {
                       <span><Fingerprint size={15} /> Identity</span>
                       <h2>The details Cerbyl uses.</h2>
                     </div>
-                    <small>Autosaves after changes</small>
+                    <small role="status">{autoSaving ? 'Saving changes…' : profileSaveError ? 'Changes not saved' : JSON.stringify(profileData) !== lastSavedRef.current ? 'Changes saved on this device; syncing…' : lastSaved ? 'All changes saved' : 'Autosaves after changes'}</small>
+                    {profileSaveError && <div role="alert">{profileSaveError} <button type="button" onClick={() => autoSave(profileData)}>Retry saving</button></div>}
                   </div>
                   <div className="pnw-form-grid">
                     <label>
@@ -1252,7 +1257,7 @@ const ProfileNew = () => {
                   <div className="pnw-plan-controls">
                     <div>
                       <span>Current plan</span>
-                      <strong>{currentPlan?.name || 'Starter'} at {formatUsd(currentPlanPrice)}{billingLabel}</strong>
+                      <strong>{currentPlan?.name || 'Starter'} at {formatUsd(currentPlanPrice)}{currentBillingCycle === 'yearly' ? '/yr' : '/mo'}</strong>
                     </div>
                     <div className="pnw-billing-switch" role="group" aria-label="Billing cycle">
                       <button type="button" className={activeBillingCycle === 'monthly' ? 'is-active' : ''} onClick={() => handleBillingCycleChange('monthly')} disabled={subscriptionData.saving}>Monthly</button>
@@ -1364,8 +1369,8 @@ const ProfileNew = () => {
                         <ul>
                           {previewFeatureLines.map((feature) => <li key={feature}><Check size={14} /><span>{feature}</span></li>)}
                         </ul>
-                        <button type="button" onClick={() => handleSelectPlan(previewPlan.id)} disabled={previewPlanIsCurrent || subscriptionData.saving}>
-                          <span>{previewPlanIsCurrent ? 'Current plan active' : subscriptionData.saveAction === 'plan' ? 'Switching plan' : `Activate ${previewPlan.name}`}</span>
+                        <button type="button" onClick={() => handleSelectPlan(previewPlan.id)} disabled={(previewPlanIsCurrent && activeBillingCycle === currentBillingCycle) || subscriptionData.saving}>
+                          <span>{previewPlanIsCurrent && activeBillingCycle === currentBillingCycle ? 'Current plan active' : subscriptionData.saveAction === 'plan' ? 'Switching plan' : `Activate ${previewPlan.name}`}</span>
                           {!previewPlanIsCurrent && <ArrowUpRight size={16} />}
                         </button>
                         <small className="pnw-decision-footnote">Previewing a plan does not change your subscription.</small>

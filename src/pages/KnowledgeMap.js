@@ -559,18 +559,21 @@ const createRoadmapFromChat = async () => {
     }
   }, [activeMapId]);
 
+  const [libraryError, setLibraryError] = useState('');
   const fetchRoadmaps = async () => {
     try {
       setLoading(true);
+      setLibraryError('');
       const response = await fetch(`${API_URL}/get_user_roadmaps?user_id=${userId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (!response.ok) throw new Error('Library unavailable. Your saved work has not been removed.');
       if (response.ok) {
         const data = await response.json();
         setRoadmaps(data.roadmaps || []);
       } else {
               }
-    } catch (error) { /* silenced */ } finally {
+    } catch (error) { setLibraryError('Library unavailable. Your saved work has not been removed.'); } finally {
       setLoading(false);
     }
   };
@@ -2130,7 +2133,7 @@ ${answeringComprehensionCheck ? `- The student is answering this previous compre
                   {contextMapStatus.startsWith('Building') && <Loader size={32} className="kr-spinner" />}
                   <p>{contextMapStatus}</p>
                 </div>
-              ) : loading && roadmaps.length === 0 ? (
+              ) : libraryError ? (<div role="alert"><p>{libraryError}</p><button onClick={fetchRoadmaps}>Retry library</button></div>) : loading && roadmaps.length === 0 ? (
                 <div className="kr-loading">
                   <Loader size={32} className="kr-spinner" />
                   <p>Loading knowledge maps...</p>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Target, Users, TrendingUp, Zap, Trophy, Plus, X } from 'lucide-react';
 import './Challenges.css';
@@ -10,6 +10,10 @@ const Challenges = () => {
   const token = localStorage.getItem('token');
   const [challenges, setChallenges] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [actionPending, setActionPending] = useState(false);
+  const actionRef = useRef(false);
+  const loadVersion = useRef(0);
   const [filterType, setFilterType] = useState('active');
   const [showCreateModal, setShowCreateModal] = useState(false);
   
@@ -27,18 +31,20 @@ const Challenges = () => {
   }, [filterType]);
 
   const fetchChallenges = async () => {
-    setLoading(true);
+    const version = ++loadVersion.current;
+    setLoading(true); setLoadError('');
     try {
       const response = await fetch(
         `${API_URL}/challenges?filter_type=${filterType}`,
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
+      if (!response.ok) throw new Error('Challenges could not be loaded.');
       if (response.ok) {
         const data = await response.json();
-        setChallenges(data.challenges);
+        if (version === loadVersion.current) setChallenges(data.challenges);
       }
-    } catch (error) { /* silenced */ } finally {
-      setLoading(false);
+    } catch (error) { if (version === loadVersion.current) setLoadError('Challenges could not be loaded.'); } finally {
+      if (version === loadVersion.current) setLoading(false);
     }
   };
 
@@ -49,6 +55,8 @@ const Challenges = () => {
       return;
     }
 
+    if (actionRef.current) return;
+    actionRef.current = true; setActionPending(true);
     try {
       const response = await fetch(`${API_URL}/create_challenge`, {
         method: 'POST',
@@ -67,15 +75,18 @@ const Challenges = () => {
         })
       });
 
+      if (!response.ok) throw new Error('Could not update this challenge. Please try again.');
       if (response.ok) {
         setShowCreateModal(false);
         resetForm();
         fetchChallenges();
       }
-    } catch (error) { /* silenced */ }
+    } catch (error) { alert(error.message || "Could not update this challenge. Please try again."); } finally { actionRef.current = false; setActionPending(false); }
   };
 
   const handleJoinChallenge = async (challengeId) => {
+    if (actionRef.current) return;
+    actionRef.current = true; setActionPending(true);
     try {
       const response = await fetch(`${API_URL}/join_challenge`, {
         method: 'POST',
@@ -86,10 +97,11 @@ const Challenges = () => {
         body: JSON.stringify({ challenge_id: challengeId })
       });
 
+      if (!response.ok) throw new Error('Could not update this challenge. Please try again.');
       if (response.ok) {
         fetchChallenges();
       }
-    } catch (error) { /* silenced */ }
+    } catch (error) { alert(error.message || "Could not update this challenge. Please try again."); } finally { actionRef.current = false; setActionPending(false); }
   };
 
   const resetForm = () => {
@@ -194,7 +206,7 @@ const Challenges = () => {
           </button>
         </div>
 
-        {loading ? (
+        {loadError ? (<div role="alert"><p>{loadError}</p><button onClick={fetchChallenges}>Retry challenges</button></div>) : loading ? (
           <div className="loading-text">Loading challenges...</div>
         ) : challenges.length === 0 ? (
           <div className="empty-challenges">
@@ -278,7 +290,7 @@ const Challenges = () => {
                     ) : challenge.status === 'active' ? (
                       <button 
                         className="challenge-btn join"
-                        onClick={() => handleJoinChallenge(challenge.id)}
+                        disabled={actionPending} onClick={() => handleJoinChallenge(challenge.id)}
                       >
                         Join Challenge
                       </button>
@@ -380,7 +392,7 @@ const Challenges = () => {
                 />
               </div>
 
-              <button type="submit" className="submit-challenge-btn">
+              <button type="submit" disabled={actionPending} className="submit-challenge-btn">
                 <Plus size={16} />
                 <span>Create Challenge</span>
               </button>

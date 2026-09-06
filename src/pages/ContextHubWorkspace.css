@@ -652,3 +652,9 @@
   .cxh-source-row:hover, .cxh-output-rack button:hover,
   .cxh-source-row.is-selected, .cxh-slot--filled, .cxh-view-stage { transform: none; clip-path: none; }
 }
+
+@media (max-width: 720px) {
+  .cxh-slot--filled > button, .cxh-folder-entry > div button { min-width: 44px; min-height: 44px; }
+  .cxh-folder-entry > button { min-height: 54px; padding-right: 96px; }
+  .cxh-folder-entry > div { opacity: 1; }
+}

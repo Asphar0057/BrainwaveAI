@@ -17,6 +17,12 @@ import models
 from database import SessionLocal
 from deps import get_current_user, get_db, unified_ai
 from services.youtube_api_service import youtube_service
+from services.learning_path_lessons import generate_lesson, valid_lesson, LEVELS
+from types import SimpleNamespace
+from activity_context import clear_activity_context, set_activity_context
+from services.learning_path_activities import (
+    _build_flashcards, _build_completion_quiz, _build_question_bank_quiz, _build_chat_prompt,
+)
 from graphs.learningpath_graph import (
     create_learningpath_graph,
     get_learningpath_graph,
@@ -536,124 +542,6 @@ def _build_notes(node, topic: str) -> str:
 
     return "\n".join(lines).strip()
 
-def _build_flashcards(node, topic: str, count: int, difficulty: str) -> list[dict]:
-    summary_items = node.summary or []
-    if not isinstance(summary_items, list):
-        summary_items = [str(summary_items)]
-    objectives = node.objectives or []
-    if not isinstance(objectives, list):
-        objectives = [str(objectives)]
-    sections = _normalize_core_sections(
-        node.core_sections,
-        node_title=_normalize_node_title(node.title, topic),
-        topic=topic,
-        objectives=objectives,
-        prerequisites=node.prerequisites if isinstance(node.prerequisites, list) else [],
-        keywords=node.keywords if isinstance(node.keywords, list) else [],
-        applications=node.real_world_applications if isinstance(node.real_world_applications, list) else [],
-        difficulty=difficulty,
-    )
-    section_prompts = [section.get("title") for section in sections if isinstance(section, dict) and section.get("title")]
-    prompts = section_prompts + summary_items + objectives
-    if not prompts:
-        prompts = [f"Define {node.title}", f"Why is {node.title} important?"]
-
-    cards = []
-    for idx in range(min(count, max(len(prompts), 4))):
-        prompt = prompts[idx % len(prompts)]
-        cards.append(
-            {
-                "question": prompt,
-                "answer": f"How {node.title} supports {topic}.",
-                "difficulty": difficulty,
-            }
-        )
-    return cards
-
-def _build_completion_quiz(node, topic: str, count: int, difficulty: str) -> list[dict]:
-    summary_items = node.summary or []
-    if not isinstance(summary_items, list):
-        summary_items = [str(summary_items)]
-    sections = _normalize_core_sections(
-        node.core_sections,
-        node_title=_normalize_node_title(node.title, topic),
-        topic=topic,
-        objectives=node.objectives if isinstance(node.objectives, list) else [],
-        prerequisites=node.prerequisites if isinstance(node.prerequisites, list) else [],
-        keywords=node.keywords if isinstance(node.keywords, list) else [],
-        applications=node.real_world_applications if isinstance(node.real_world_applications, list) else [],
-        difficulty=difficulty,
-    )
-    section_topics = [section.get("title") for section in sections if isinstance(section, dict) and section.get("title")]
-    base = section_topics + summary_items if (section_topics or summary_items) else [f"{node.title} concept"]
-
-    questions = []
-    for idx in range(min(count, 10)):
-        stem = base[idx % len(base)]
-        options = [
-            f"Apply {stem} without considering its context",
-            f"Apply {stem} with evidence and clear reasoning",
-            f"Avoid examining the details of {stem}",
-            f"Skip validation before using {stem}",
-        ]
-        questions.append(
-            {
-                "question": f"What is the best way to apply {stem.lower()}?",
-                "options": options,
-                "correct_answer": 1,
-                "difficulty": difficulty,
-                "explanation": "Strong answers connect concepts with evidence and outcomes.",
-            }
-        )
-    return questions
-
-def _build_question_bank_quiz(node, topic: str, count: int, difficulty: str) -> list[dict]:
-    summary_items = node.summary or []
-    if not isinstance(summary_items, list):
-        summary_items = [str(summary_items)]
-    sections = _normalize_core_sections(
-        node.core_sections,
-        node_title=_normalize_node_title(node.title, topic),
-        topic=topic,
-        objectives=node.objectives if isinstance(node.objectives, list) else [],
-        prerequisites=node.prerequisites if isinstance(node.prerequisites, list) else [],
-        keywords=node.keywords if isinstance(node.keywords, list) else [],
-        applications=node.real_world_applications if isinstance(node.real_world_applications, list) else [],
-        difficulty=difficulty,
-    )
-    section_topics = [section.get("title") for section in sections if isinstance(section, dict) and section.get("title")]
-    base = section_topics + summary_items if (section_topics or summary_items) else [f"{node.title} concept"]
-
-    questions = []
-    for idx in range(min(count, 8)):
-        stem = base[idx % len(base)]
-        correct = f"{stem} applied with clear reasoning"
-        options = [
-            correct,
-            f"{stem} without verification",
-            f"{stem} with missing assumptions",
-            f"{stem} ignoring constraints",
-        ]
-        questions.append(
-            {
-                "id": f"lp-q-{node.id}-{idx}",
-                "question_text": f"Which option best reflects {stem.lower()}?",
-                "question_type": "multiple_choice",
-                "options": options,
-                "correct_answer": correct,
-                "difficulty": difficulty,
-                "topic": topic,
-                "explanation": "The best answer is the one that includes reasoning and constraints.",
-            }
-        )
-    return questions
-
-def _build_chat_prompt(node, topic: str) -> str:
-    return (
-        f"Let's explore {node.title} within {topic}.\n"
-        "Please explain the key ideas, walk through a practical example, and highlight common pitfalls."
-    )
-
 def _write_chroma_path(user_id: int, path, nodes: list):
     try:
         from tutor import chroma_store
@@ -1049,7 +937,8 @@ async def get_completion_quiz(
     if not path:
         raise HTTPException(status_code=404, detail="Path not found")
 
-    questions = _build_completion_quiz(node, path.topic_prompt, 10, path.difficulty)
+    lesson_node, difficulty = await _activity_lesson_node(node, path, user, db)
+    questions = _build_completion_quiz(lesson_node, path.topic_prompt, 10, difficulty)
     return {"questions": questions}
 
 @router.post("/{path_id}/nodes/{node_id}/complete")
@@ -1247,7 +1136,7 @@ async def evaluate_node(
     if not node_progress:
         raise HTTPException(status_code=404, detail="Node progress not found")
 
-    evidence = node_progress.evidence or {}
+    evidence = dict(node_progress.evidence or {})
     missing = []
     if node.content_plan:
         for activity in node.content_plan:
@@ -1276,7 +1165,7 @@ async def update_node_progress(
     if not node_progress:
         raise HTTPException(status_code=404, detail="Node progress not found")
 
-    evidence = node_progress.evidence or {}
+    evidence = dict(node_progress.evidence or {})
     evidence[request.activity_type] = {
         "completed": request.completed,
         "metadata": request.metadata,
@@ -1380,12 +1269,13 @@ async def generate_node_content(
 
     if activity_type == "notes":
         return {"content": _build_notes(node, path.topic_prompt)}
+    lesson_node, difficulty = await _activity_lesson_node(node, path, user, db)
     if activity_type == "flashcards":
-        return {"flashcards": _build_flashcards(node, path.topic_prompt, count, path.difficulty)}
+        return {"flashcards": _build_flashcards(lesson_node, path.topic_prompt, count, difficulty)}
     if activity_type == "quiz":
-        return {"questions": _build_question_bank_quiz(node, path.topic_prompt, count, path.difficulty)}
+        return {"questions": _build_question_bank_quiz(lesson_node, path.topic_prompt, count, difficulty)}
     if activity_type == "chat":
-        return {"prompt": _build_chat_prompt(node, path.topic_prompt)}
+        return {"prompt": _build_chat_prompt(lesson_node, path.topic_prompt)}
 
     raise HTTPException(status_code=400, detail="Unsupported activity type")
 
@@ -1461,6 +1351,40 @@ async def save_node_note(
         "updated_at": note.updated_at.isoformat() if note.updated_at else None,
     }
 
+async def _ensure_node_lesson(node, path, difficulty, db):
+    if difficulty not in LEVELS:
+        raise HTTPException(status_code=422, detail="Choose beginner, intermediate, or advanced")
+    field = f"{difficulty}_content"
+    cached = getattr(node, field, None)
+    if valid_lesson(cached, difficulty):
+        return cached
+    activity_token = set_activity_context({
+        "user_id": str(path.user_id), "tool_name": "learning_path_ai", "action": "lesson",
+        "endpoint": f"/api/learning-paths/{path.id}/nodes/{node.id}/difficulty-view", "method": "POST",
+    })
+    try:
+        lesson = await asyncio.to_thread(generate_lesson, unified_ai, node, path, difficulty)
+    except Exception:
+        logger.exception("Could not prepare learning node lesson")
+        raise HTTPException(status_code=503, detail="Could not prepare this lesson. Please retry.")
+    finally:
+        clear_activity_context(activity_token)
+    setattr(node, field, lesson)
+    db.commit()
+    return lesson
+
+
+async def _activity_lesson_node(node, path, user, db):
+    progress = db.query(models.LearningNodeProgress).filter(
+        models.LearningNodeProgress.node_id == node.id,
+        models.LearningNodeProgress.user_id == user.id,
+    ).first()
+    difficulty = (progress.difficulty_view if progress else None) or path.difficulty or "intermediate"
+    lesson = await _ensure_node_lesson(node, path, difficulty, db)
+    return SimpleNamespace(id=node.id, title=node.title, core_sections=lesson['core_sections'],
+                           summary=lesson.get('summary', [])), difficulty
+
+
 @router.post("/{path_id}/nodes/{node_id}/difficulty-view")
 async def update_difficulty_view(
     path_id: str,
@@ -1469,21 +1393,24 @@ async def update_difficulty_view(
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    node_progress = (
-        db.query(models.LearningNodeProgress)
-        .filter(
-            models.LearningNodeProgress.node_id == node_id,
-            models.LearningNodeProgress.user_id == user.id,
-        )
-        .first()
-    )
-    if not node_progress:
+    path = db.query(models.LearningPath).filter(
+        models.LearningPath.id == path_id, models.LearningPath.user_id == user.id,
+    ).first()
+    node = db.query(models.LearningPathNode).filter(
+        models.LearningPathNode.id == node_id, models.LearningPathNode.path_id == path_id,
+    ).first()
+    if not path or not node:
+        raise HTTPException(status_code=404, detail="Learning node not found")
+    progress = db.query(models.LearningNodeProgress).filter(
+        models.LearningNodeProgress.node_id == node_id,
+        models.LearningNodeProgress.user_id == user.id,
+    ).first()
+    if not progress:
         raise HTTPException(status_code=404, detail="Node progress not found")
-
-    node_progress.difficulty_view = request.difficulty_view
+    lesson = await _ensure_node_lesson(node, path, request.difficulty_view, db)
+    progress.difficulty_view = request.difficulty_view
     db.commit()
-
-    return {"success": True, "difficulty_view": request.difficulty_view}
+    return {"success": True, "difficulty_view": request.difficulty_view, "lesson": lesson}
 
 @router.post("/{path_id}/nodes/{node_id}/resources/add")
 async def add_node_resource(
@@ -1800,7 +1727,8 @@ async def export_to_flashcards(
     if not path:
         raise HTTPException(status_code=404, detail="Path not found")
 
-    flashcards = _build_flashcards(node, path.topic_prompt, 15, path.difficulty)
+    lesson_node, difficulty = await _activity_lesson_node(node, path, user, db)
+    flashcards = _build_flashcards(lesson_node, path.topic_prompt, 15, difficulty)
 
     return {
         "success": True,

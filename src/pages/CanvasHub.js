@@ -1,3 +1,4 @@
+import ToolNavigation from '../components/ToolNavigation';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2, FileText, X, Edit2, Check, LayoutDashboard, StickyNote, PenTool, ArrowUpRight } from 'lucide-react';
@@ -7,7 +8,7 @@ import { API_URL } from '../config';
 import './CanvasHub.css';
 import '../components/SocialHubChrome.css';
 
-const STORAGE_KEY = 'cerbyl_canvases';
+const STORAGE_KEY = () => `cerbyl_canvases:${localStorage.getItem('username') || 'signed-out'}`;
 
 const encodePayload = (value) => {
   if (!value) return '';
@@ -27,15 +28,15 @@ const CanvasHub = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) { navigate('/login'); return; }
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(STORAGE_KEY());
     if (stored) {
       try { setCanvases(JSON.parse(stored)); } catch {}
     }
   }, [navigate]);
 
   const saveToStorage = (list) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-    setCanvases(list);
+    try { localStorage.setItem(STORAGE_KEY(), JSON.stringify(list)); setCanvases(list); }
+    catch { window.alert('Your browser could not save this canvas. Keep this page open and export your work before clearing storage.'); throw new Error('Canvas storage unavailable'); }
   };
 
   const createCanvas = () => {
@@ -98,11 +99,12 @@ const CanvasHub = () => {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ user_id: userName, title: canvas.name, content }),
       });
+      if (!res.ok) throw new Error('Could not add canvas to notes');
       if (res.ok) {
         const data = await res.json();
         navigate(`/notes/editor/${data.id}`);
       }
-    } catch {}
+    } catch { window.alert('Could not add this canvas to Notes. Your canvas is still saved on this device. Please try again.'); }
     setAddingToNotes(null);
   };
 
@@ -121,16 +123,13 @@ const CanvasHub = () => {
   return (
     <div className="ch-root">
       <div className="shc-topbar">
-        <div className="shc-tagline"><span>LEARNING,</span> UNIFIED</div>
-        <div className="shc-topbar-right">
-          <button className="shc-top-btn" type="button" onClick={() => navigate('/dashboard-cerbyl')}>Dashboard</button>
-        </div>
+        <ToolNavigation />
       </div>
       <div className="ch-shell">
         <aside className="ch-sidebar">
           <div className="ch-brand">
             <strong>cerbyl</strong>
-            <span>CANVAS</span>
+            <span>CANVAS · SAVED ON THIS DEVICE</span>
           </div>
           <button className="ch-new-btn ch-new-btn-wide" onClick={() => setShowNewModal(true)}>
             <Plus size={16} />
@@ -138,7 +137,7 @@ const CanvasHub = () => {
           </button>
           <div className="ch-side-group">
             <span className="ch-side-label">Workspace</span>
-            <button className="ch-side-link active" type="button">
+            <button className="ch-side-link active" aria-current="page" type="button">
               <PenTool size={17} />
               <span>My canvases</span>
               <small>{canvases.length}</small>
@@ -164,7 +163,7 @@ const CanvasHub = () => {
             <div>
               <span className="ch-eyebrow">Visual workspace</span>
               <h2 className="ch-page-title">Think beyond the page.</h2>
-              <p className="ch-page-subtitle">Map a concept, diagram a process, or make a rough idea visible.</p>
+              <p className="ch-page-subtitle">Saved only in this browser for your account. Export an image from the canvas toolbar, or add it to Notes to save it to your account.</p>
             </div>
             <span className="ch-count">{String(canvases.length).padStart(2, '0')} saved</span>
           </div>

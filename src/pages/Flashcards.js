@@ -203,11 +203,16 @@ const Flashcards = () => {
   
   const [reviewCards, setReviewCards] = useState({ total_cards: 0, sets: [] });
   const [loadingReviewCards, setLoadingReviewCards] = useState(false);
+  const [reviewError, setReviewError] = useState('');
   const [loadingRandomCards, setLoadingRandomCards] = useState(false);
 
   
   const [dueCards, setDueCards] = useState({ due_count: 0, new_count: 0, review_count: 0, learning_count: 0, relearning_count: 0, cards: [] });
   const [srStudyMode, setSrStudyMode] = useState(false);
+  const [dueStatus, setDueStatus] = useState('loading');
+  const [srError, setSrError] = useState('');
+  const [srSaving, setSrSaving] = useState(false);
+  const srSavingRef = useRef(false);
   const [srCurrentCard, setSrCurrentCard] = useState(0);
   const [srFlipped, setSrFlipped] = useState(false);
   const [srSessionStats, setSrSessionStats] = useState({ again: 0, hard: 0, good: 0, easy: 0 });
@@ -553,11 +558,13 @@ const Flashcards = () => {
   const loadReviewCards = useCallback(async () => {
     if (!userName) return;
     setLoadingReviewCards(true);
+    setReviewError('');
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/get_flashcards_for_review?user_id=${encodeURIComponent(userName)}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (!response.ok) throw new Error('Review queue unavailable');
       if (response.ok) {
         const data = await response.json();
         
@@ -567,7 +574,7 @@ const Flashcards = () => {
         });
       }
     } catch (error) {
-            setReviewCards({ total_cards: 0, sets: [] });
+            setReviewError('Your review cards could not be loaded.');
     }
     setLoadingReviewCards(false);
   }, [userName]);
@@ -576,17 +583,20 @@ const Flashcards = () => {
 
   const loadDueCards = useCallback(async () => {
     if (!userName) return;
+    setDueStatus('loading');
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/flashcards/due?user_id=${userName}&limit=100`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (!response.ok) throw new Error('Could not load due cards');
       if (response.ok) {
         const data = await response.json();
         setDueCards(data);
+        setDueStatus('ready');
       }
     } catch (error) {
-      console.error('Failed to load due cards:', error);
+      setDueStatus('error');
     }
   }, [userName]);
 
@@ -627,10 +637,12 @@ const Flashcards = () => {
   };
 
   const handleSrReview = async (grade) => {
+    if (srSavingRef.current) return;
     const cards = dueCards.cards;
     if (!cards || cards.length === 0) return;
     const card = cards[srCurrentCard];
 
+    srSavingRef.current = true; setSrSaving(true); setSrError('');
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/flashcards/sr_review`, {
@@ -639,6 +651,7 @@ const Flashcards = () => {
         body: JSON.stringify({ user_id: userName, card_id: card.id, grade })
       });
 
+      if (!response.ok) throw new Error('Could not save your review');
       if (response.ok) {
         setSrSessionStats(prev => ({ ...prev, [grade]: prev[grade] + 1 }));
 
@@ -650,8 +663,8 @@ const Flashcards = () => {
         }
       }
     } catch (error) {
-      console.error('SR review failed:', error);
-    }
+      setSrError('Your review was not saved. Check your connection, then choose the grade again.');
+    } finally { srSavingRef.current = false; setSrSaving(false); }
   };
 
   const startSrStudy = () => {
@@ -2925,21 +2938,23 @@ const Flashcards = () => {
               )}
             </div>
 
+            {srError && <p role="alert">{srError}</p>}
+            {srSaving && <p role="status">Saving review…</p>}
             {srFlipped && card && (
               <div className="fc-sr-grade-buttons">
-                <button className="fc-sr-grade fc-sr-again" onClick={() => handleSrReview('again')}>
+                <button className="fc-sr-grade fc-sr-again" disabled={srSaving} onClick={() => handleSrReview('again')}>
                   <span className="fc-sr-grade-interval">{card.interval_preview?.again || '1m'}</span>
                   <span className="fc-sr-grade-label">Again</span>
                 </button>
-                <button className="fc-sr-grade fc-sr-hard" onClick={() => handleSrReview('hard')}>
+                <button className="fc-sr-grade fc-sr-hard" disabled={srSaving} onClick={() => handleSrReview('hard')}>
                   <span className="fc-sr-grade-interval">{card.interval_preview?.hard || '6m'}</span>
                   <span className="fc-sr-grade-label">Hard</span>
                 </button>
-                <button className="fc-sr-grade fc-sr-good" onClick={() => handleSrReview('good')}>
+                <button className="fc-sr-grade fc-sr-good" disabled={srSaving} onClick={() => handleSrReview('good')}>
                   <span className="fc-sr-grade-interval">{card.interval_preview?.good || '1d'}</span>
                   <span className="fc-sr-grade-label">Good</span>
                 </button>
-                <button className="fc-sr-grade fc-sr-easy" onClick={() => handleSrReview('easy')}>
+                <button className="fc-sr-grade fc-sr-easy" disabled={srSaving} onClick={() => handleSrReview('easy')}>
                   <span className="fc-sr-grade-interval">{card.interval_preview?.easy || '4d'}</span>
                   <span className="fc-sr-grade-label">Easy</span>
                 </button>
@@ -3893,7 +3908,7 @@ const Flashcards = () => {
           {activePanel === 'review' && (
             <>
               <div className="fc-content">
-                {loadingReviewCards ? (
+                {reviewError ? (<div role="alert"><p>{reviewError}</p><button onClick={loadReviewCards}>Retry review cards</button></div>) : loadingReviewCards ? (
                   <div className="fc-loading">
                     <div className="fc-pulse-loader">
                       <div className="fc-pulse-square fc-pulse-1"></div>
@@ -4177,14 +4192,16 @@ const Flashcards = () => {
                   <span className="fc-sr-label">Relearning</span>
                 </div>
 
-                {dueCards.due_count > 0 && (
+                {dueStatus === 'ready' && dueCards.due_count > 0 && (
                   <button className="fc-btn fc-btn-primary fc-sr-start-btn-inline" onClick={startSrStudy}>
                     {FC_ICONS.bolt} Start Review ({dueCards.due_count})
                   </button>
                 )}
               </div>
 
-              {dueCards.due_count === 0 && (
+              {dueStatus === 'loading' && <p role="status">Loading your review queue…</p>}
+              {dueStatus === 'error' && <div role="alert"><p>Your review queue is unavailable. No completion status could be checked.</p><button type="button" onClick={loadDueCards}>Retry review queue</button></div>}
+              {dueStatus === 'ready' && dueCards.due_count === 0 && (
                 <div className="fc-sr-empty">
                   <div className="fc-sr-empty-icon">{FC_ICONS.check}</div>
                   <h3>You're all caught up!</h3>

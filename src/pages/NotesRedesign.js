@@ -1,3 +1,5 @@
+import useUnsavedChanges from '../hooks/useUnsavedChanges';
+import { readDraft, writeDraft, clearDraft } from '../utils/draftStorage';
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ReactQuill, { Quill } from "react-quill-new";
@@ -581,7 +583,15 @@ const NotesRedesign = ({ sharedMode = false }) => {
   const saveTimeout = useRef(null);
   const notesRef = useRef([]);
   const lastSavedSnapshotRef = useRef('');
+  const noteSaveChainRef = useRef(Promise.resolve());
+  const activeNoteIdRef = useRef(null);
+  activeNoteIdRef.current = selectedNote?.id;
   const aiInputRef = useRef(null);
+  const hasUnsavedEdits = Boolean(selectedNote && !selectedNote.is_deleted &&
+    (!isSharedContent || canEdit) &&
+    buildSaveSnapshot(selectedNote.id, noteTitle, noteContent, canvasData) !== lastSavedSnapshotRef.current);
+  const confirmNoteSwitch = useUnsavedChanges(hasUnsavedEdits);
+
 
   
   const [popup, setPopup] = useState({ isOpen: false, title: "", message: "" });
@@ -712,6 +722,8 @@ const NotesRedesign = ({ sharedMode = false }) => {
           data.canvas_data || ''
         );
         setSaveError(false);
+        const recovered = (data.permission === 'edit' || data.is_owner) ? readDraft(`note:${data.content_id}`, null) : null;
+        if (recovered) { data.title = recovered.title; data.canvas_data = recovered.canvas_data; }
 
         setSelectedNote({
           id: data.content_id,
@@ -720,11 +732,11 @@ const NotesRedesign = ({ sharedMode = false }) => {
           updated_at: data.updated_at
         });
         setNoteTitle(data.title || 'Untitled Note');
-        setNoteContent(normalizedContent);
+        setNoteContent(recovered ? normalizeNoteContent(recovered.content || '') : normalizedContent);
         setCanvasData(data.canvas_data || "");
         setCanvasBlockId(null);
         setPendingFocusBlockId(null);
-        setNoteBlocks(sharedBlocks);
+        setNoteBlocks(recovered ? htmlToBlocks(normalizeNoteContent(recovered.content || '')) : sharedBlocks);
       } else {
         throw new Error('Failed to load shared note');
       }
@@ -1625,13 +1637,17 @@ const NotesRedesign = ({ sharedMode = false }) => {
     return { text, html, blocks, useBlocks };
   };
 
-  const selectNote = (n) => {
+  const selectNote = (serverNote) => {
+    if (selectedNote && selectedNote.id !== serverNote.id && !confirmNoteSwitch()) return;
+
+    const recovered = readDraft(`note:${serverNote.id}`, null);
+    const n = recovered ? { ...serverNote, ...recovered } : serverNote;
     const normalizedContent = normalizeNoteContent(n.content || '');
     lastSavedSnapshotRef.current = buildSaveSnapshot(
       n.id,
-      n.title || 'Untitled Note',
-      normalizedContent,
-      n.canvas_data || ''
+      serverNote.title || 'Untitled Note',
+      normalizeNoteContent(serverNote.content || ''),
+      serverNote.canvas_data || ''
     );
     setSaveError(false);
     setSelectedNote(n);
@@ -2011,12 +2027,12 @@ const NotesRedesign = ({ sharedMode = false }) => {
     const saveSnapshot = buildSaveSnapshot(targetNoteId, noteTitle, noteContent, canvasData);
     if (saveSnapshot === lastSavedSnapshotRef.current) return;
 
-    
+    const performSave = async () => {
     if (isSharedContent) {
       if (!canEdit) return;
       
-      setSaving(true);
-      setSaveError(false);
+      if (activeNoteIdRef.current === targetNoteId) setSaving(true);
+      if (activeNoteIdRef.current === targetNoteId) setSaveError(false);
       try {
         const token = localStorage.getItem('token');
         const res = await fetch(`${API_URL}/update_shared_note/${targetNoteId}`, {
@@ -2033,18 +2049,20 @@ const NotesRedesign = ({ sharedMode = false }) => {
         });
 
         if (res.ok) {
-          lastSavedSnapshotRef.current = saveSnapshot;
-          setSaving(false);
-          setSaveError(false);
-          setAutoSaved(true);
+          if (activeNoteIdRef.current === targetNoteId) lastSavedSnapshotRef.current = saveSnapshot;
+          const buffered = readDraft(`note:${targetNoteId}`, null);
+          if (buffered && buildSaveSnapshot(targetNoteId, buffered.title, buffered.content, buffered.canvas_data) === saveSnapshot) clearDraft(`note:${targetNoteId}`);
+          if (activeNoteIdRef.current === targetNoteId) setSaving(false);
+          if (activeNoteIdRef.current === targetNoteId) setSaveError(false);
+          if (activeNoteIdRef.current === targetNoteId) setAutoSaved(true);
           setTimeout(() => setAutoSaved(false), 2000);
         } else {
           throw new Error(`Save failed: ${res.status}`);
         }
       } catch (error) {
-        setSaving(false);
-        setAutoSaved(false);
-        setSaveError(true);
+        if (activeNoteIdRef.current === targetNoteId) setSaving(false);
+        if (activeNoteIdRef.current === targetNoteId) setAutoSaved(false);
+        if (activeNoteIdRef.current === targetNoteId) setSaveError(true);
         console.warn('Shared note autosave failed:', error);
       }
     } else {
@@ -2054,8 +2072,8 @@ const NotesRedesign = ({ sharedMode = false }) => {
       
       if (selectedNote.is_deleted || noteStillExists.is_deleted) return;
       
-      setSaving(true);
-      setSaveError(false);
+      if (activeNoteIdRef.current === targetNoteId) setSaving(true);
+      if (activeNoteIdRef.current === targetNoteId) setSaveError(false);
       
       try {
         const token = localStorage.getItem("token");
@@ -2074,10 +2092,12 @@ const NotesRedesign = ({ sharedMode = false }) => {
         });
         
         if (res.ok) {
-          lastSavedSnapshotRef.current = saveSnapshot;
-          setSaving(false);
-          setSaveError(false);
-          setAutoSaved(true);
+          if (activeNoteIdRef.current === targetNoteId) lastSavedSnapshotRef.current = saveSnapshot;
+          const buffered = readDraft(`note:${targetNoteId}`, null);
+          if (buffered && buildSaveSnapshot(targetNoteId, buffered.title, buffered.content, buffered.canvas_data) === saveSnapshot) clearDraft(`note:${targetNoteId}`);
+          if (activeNoteIdRef.current === targetNoteId) setSaving(false);
+          if (activeNoteIdRef.current === targetNoteId) setSaveError(false);
+          if (activeNoteIdRef.current === targetNoteId) setAutoSaved(true);
           setTimeout(() => setAutoSaved(false), 2000);
 
           setNotes((prev) =>
@@ -2090,25 +2110,20 @@ const NotesRedesign = ({ sharedMode = false }) => {
               ? { ...prev, title: noteTitle, content: noteContent, canvas_data: canvasData }
               : prev
           ));
-        } else if (res.status === 400) {
-          setSaving(false);
-          
-          setNotes(prev => prev.filter(n => n.id !== targetNoteId));
-          setSelectedNote(null);
-          setNoteTitle("");
-          setNoteContent("");
-          
-          showPopup("Note Deleted", "This note has been moved to trash");
         } else {
           throw new Error(`Save failed: ${res.status}`);
         }
       } catch (error) {
-        setSaving(false);
-        setAutoSaved(false);
-        setSaveError(true);
+        if (activeNoteIdRef.current === targetNoteId) setSaving(false);
+        if (activeNoteIdRef.current === targetNoteId) setAutoSaved(false);
+        if (activeNoteIdRef.current === targetNoteId) setSaveError(true);
         console.warn('Note autosave failed:', error);
       }
     }
+    };
+    const pending = noteSaveChainRef.current.catch(() => {}).then(performSave);
+    noteSaveChainRef.current = pending;
+    return pending;
   }, [selectedNote, noteTitle, noteContent, canvasData, isSharedContent, canEdit]);
 
   
@@ -2122,6 +2137,9 @@ const NotesRedesign = ({ sharedMode = false }) => {
       ? buildSaveSnapshot(selectedNote.id, noteTitle, noteContent, canvasData)
       : '';
     const hasUnsavedChanges = currentSnapshot !== lastSavedSnapshotRef.current;
+    if (selectedNote && hasUnsavedChanges && (isSharedContent ? canEdit : !selectedNote.is_deleted)) {
+      if (!writeDraft(`note:${selectedNote.id}`, { title: noteTitle, content: noteContent, canvas_data: canvasData })) setSaveError(true);
+    }
 
     if (selectedNote && hasUnsavedChanges && (isSharedContent ? canEdit : !selectedNote.is_deleted)) {
       setAutoSaved(false);
@@ -3272,7 +3290,7 @@ const NotesRedesign = ({ sharedMode = false }) => {
               </div>
               <div className={`nr-document-status ${saveError ? 'is-error' : saving ? 'is-saving' : autoSaved ? 'is-saved' : 'is-unsaved'}`}>
                 <span aria-hidden="true" />
-                {saveError ? 'Save interrupted' : saving ? 'Saving' : autoSaved ? 'Saved' : 'Unsaved'}
+                {saveError ? 'Save interrupted' : saving ? 'Saving' : buildSaveSnapshot(selectedNote?.id, noteTitle, noteContent, canvasData) === lastSavedSnapshotRef.current ? 'Saved' : 'Unsaved'}
               </div>
             </div>
 

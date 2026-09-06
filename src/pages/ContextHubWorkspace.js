@@ -491,7 +491,7 @@ function ContextHubWorkspace() {
           <small>
             {curriculum ? 'Curriculum' : (doc.folder_name || 'Your library')}
             {doc.subject ? ` · ${pretty(doc.subject)}` : ''}
-            {doc.chunk_count ? ` · ${doc.chunk_count} chunks` : ''}
+            {doc.chunk_count ? ` · ${doc.chunk_count} passages` : ''}
           </small>
         </span>
         <span className="cxh-source-action">{selected ? 'Remove' : !sourceReady ? (doc.status === 'failed' ? 'Index failed' : 'Indexing') : deckFull ? 'Stack full' : 'Add to stack'}</span>
@@ -602,7 +602,7 @@ function ContextHubWorkspace() {
                   <FileText size={14} />
                   <span>
                     <strong>{docName(doc)}</strong>
-                    <small>{doc.subject ? pretty(doc.subject) : 'General'}{doc.chunk_count ? ` · ${doc.chunk_count} chunks` : ''}</small>
+                    <small>{doc.subject ? pretty(doc.subject) : 'General'}{doc.chunk_count ? ` · ${doc.chunk_count} passages` : ''}</small>
                   </span>
                 </button>
               )) : (
@@ -613,7 +613,7 @@ function ContextHubWorkspace() {
         )}
         <div className="cxh-stack-summary">
           <span className={deckDocs.length ? 'ready' : ''} />
-          <div><strong>{deckDocs.length ? 'Context ready' : 'No active context'}</strong><small>{deckChunks} searchable chunks</small></div>
+          <div><strong>{deckDocs.length ? 'Context ready' : 'No active context'}</strong><small>{deckChunks} searchable passages</small></div>
           {deckDocs.length > 0 && <button type="button" onClick={() => updateDeck([])}>Clear</button>}
         </div>
         <div className="cxh-output-rack">
@@ -648,7 +648,7 @@ function ContextHubWorkspace() {
           <label htmlFor="cxh-folder-name">New folder</label>
           <div>
             <input id="cxh-folder-name" value={newFolder} maxLength={255} onChange={(event) => setNewFolder(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && createFolder()} placeholder="Folder name" />
-            <button type="button" onClick={createFolder} disabled={!newFolder.trim() || folderBusy}>{folderBusy ? <Loader2 className="cxh-spin" /> : <Plus />}</button>
+            <button type="button" onClick={createFolder} aria-label="Create folder" disabled={!newFolder.trim() || folderBusy}>{folderBusy ? <Loader2 className="cxh-spin" /> : <Plus />}</button>
           </div>
           <select aria-label="Parent folder" value={newFolderParent} onChange={(event) => setNewFolderParent(event.target.value)}>
             <option value="">At library root</option>
@@ -715,7 +715,7 @@ function ContextHubWorkspace() {
                 </button>
                 <button type="button" className="cxh-doc-main" onClick={() => navigate(`/contexthub/file/${encodeURIComponent(id)}`)}>
                   <FileText size={18} />
-                  <span><strong>{docName(doc)}</strong><small>{pretty(doc.subject)}{doc.chunk_count ? ` · ${doc.chunk_count} chunks` : ''}{doc.file_size ? ` · ${formatBytes(doc.file_size)}` : ''}{progressMap[id]?.mastered_topics != null ? ` · ${Array.isArray(progressMap[id].mastered_topics) ? progressMap[id].mastered_topics.length : Number(progressMap[id].mastered_topics) || 0} mastered` : ''}</small></span>
+                  <span><strong>{docName(doc)}</strong><small>{pretty(doc.subject)}{doc.chunk_count ? ` · ${doc.chunk_count} passages` : ''}{doc.file_size ? ` · ${formatBytes(doc.file_size)}` : ''}{progressMap[id]?.mastered_topics != null ? ` · ${Array.isArray(progressMap[id].mastered_topics) ? progressMap[id].mastered_topics.length : Number(progressMap[id].mastered_topics) || 0} mastered` : ''}</small></span>
                   <ChevronRight size={14} />
                 </button>
                 <select aria-label={`Move ${docName(doc)} to folder`} value={doc.folder_id == null ? '' : String(doc.folder_id)} onChange={(event) => moveDocument(id, event.target.value)} disabled={rowBusy === id}>
@@ -828,12 +828,12 @@ function ContextHubWorkspace() {
             </div>
             <div className="cxh-main-meta">
               <span><strong>{userDocs.length}</strong> documents</span>
-              <span><strong>{deckChunks}</strong> active chunks</span>
+              <span><strong>{deckChunks}</strong> searchable passages</span>
               <button type="button" onClick={loadWorkspace} aria-label="Refresh Context Hub"><RefreshCw size={15} /></button>
             </div>
           </header>
 
-          {error && <div className="cxh-error-banner" role="alert"><span>{error}</span><button type="button" onClick={() => setError('')}><X size={14} /></button></div>}
+          {error && <div className="cxh-error-banner" role="alert"><span>{error}</span><button type="button" onClick={() => setError('')} aria-label="Dismiss error"><X size={14} /></button></div>}
           <div className="cxh-view-stage" key={view}>
             {view === 'desk' && renderDesk()}
             {view === 'library' && renderLibrary()}

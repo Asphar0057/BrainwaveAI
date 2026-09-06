@@ -1,3 +1,4 @@
+import { rememberReturnPath } from '../utils/returnPath';
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Eye, Edit3, User, Clock, MessageSquare, FileText, Lock } from 'lucide-react';
@@ -19,6 +20,7 @@ const SharedItemViewer = () => {
 
   useEffect(() => {
     if (!token) {
+      rememberReturnPath(window.location.pathname);
       navigate('/login');
       return;
     }

@@ -10,6 +10,7 @@ export type AuthUser = {
   last_name?: string;
   created_at?: string;
   google_user?: boolean;
+  account_role?: 'learner' | 'student' | 'educator';
 };
 
 export async function signIn(username: string, password: string): Promise<AuthUser> {

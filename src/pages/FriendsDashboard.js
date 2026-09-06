@@ -129,7 +129,7 @@ const FriendsDashboard = () => {
     try {
       setLoading(true);
       const [res, statsMap] = await Promise.all([
-        fetch(`${API_URL}/search_users?query=a`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${API_URL}/search_users?query=`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetchLeaderboardStats(),
       ]);
       if (res.ok) {
@@ -581,7 +581,7 @@ const FriendsDashboard = () => {
                 </div>
                 <div className="fd-result-count">
                   <strong>{displayedUsers.length}</strong>
-                  <span>{searchQuery.length >= 2 ? 'matches' : 'learners nearby'}</span>
+                  <span>{searchQuery.length >= 2 ? 'matches' : 'learners to connect with'}</span>
                 </div>
               </div>
 

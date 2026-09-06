@@ -297,7 +297,7 @@ export default function NoteEditorScreen({
   };
 
   const save = async () => {
-    if (saving) return true;
+    if (saving) return false;
     setSaving(true);
     const mergedContent = buildNoteContentFromBlocks(buildBlocks());
     try {
