@@ -18,6 +18,10 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 credentials.json
+credentials.release.json
+credentials.*.json
+credentials.*.bak
+*-INFO-DO-NOT-COMMIT.txt
 
 # Metro
 .metro-health-check*
