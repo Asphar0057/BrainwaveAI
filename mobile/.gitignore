@@ -31,7 +31,8 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# local env files (never let local/dev overrides leak into an EAS build archive)
+.env
 .env*.local
 
 # typescript
