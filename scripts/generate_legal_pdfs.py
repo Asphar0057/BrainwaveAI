@@ -88,7 +88,7 @@ DOCS = {
         "Use the address that matches your request so it reaches the right queue. Never email passwords, OTPs or complete card details.",
         [
             ("Contact channels", ["Customer support: support@cerbyl.com - account access, product help, safety and technical issues.", "Billing: billing@cerbyl.com - payments, receipts, cancellation and refunds.", "Privacy: privacy@cerbyl.com - data access, correction, deletion, consent and privacy questions.", "Grievances: grievance@cerbyl.com - formal consumer and unresolved service complaints."]),
-            ("Grievance redressal", ["Grievance Officer: Not yet designated. This document must be updated before paid launch.", "Customer care telephone: Not yet published. This document must be updated before paid launch.", "We aim to acknowledge a grievance within 48 hours and resolve it within one month from receipt. Complex matters may require additional information, but we will keep you informed."]),
+            ("Grievance redressal", ["Grievance Officer: Parthav Elangovan.", "Customer care telephone: +1 214-940-4508.", "We aim to acknowledge a grievance within 48 hours and resolve it within one month from receipt. Complex matters may require additional information, but we will keep you informed."]),
             ("Registered office", [f"{COMPANY}\n{ADDRESS}"]),
         ],
     ),
