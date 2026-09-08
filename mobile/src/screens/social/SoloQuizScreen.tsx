@@ -214,22 +214,29 @@ export default function SoloQuizScreen({ user, onBack }: Props) {
           style={{ marginRight: 12 }}
           haptic="selection"
         >
-          <Ionicons name={stage === 'session' ? 'close' : 'chevron-back'} size={22} color={ACCENT_HOVER} />
+          <Ionicons name={(stage === 'session' || stage === 'generator') ? 'close' : 'chevron-back'} size={22} color={ACCENT_HOVER} />
         </HapticTouchable>
-        <View style={{ flex: 1 }}>
-          <Text style={s.title} numberOfLines={1}>
-            {(stage === 'session' || stage === 'review') && subject.trim() ? subject.trim() : 'solo quiz'}
-          </Text>
-        </View>
-        <HapticTouchable onPress={() => setSidebarOpen(true)} haptic="selection" accessibilityLabel="Open menu">
-          <Ionicons name="menu-outline" size={24} color={ACCENT_HOVER} />
-        </HapticTouchable>
+        {stage === 'generator' ? (
+          <View>
+            <Text style={s.plainTitle}>create a quiz</Text>
+            <Text style={[s.plainSubtitle, { marginBottom: 0 }]}>practice at your own pace with adaptive questions</Text>
+          </View>
+        ) : (
+          <>
+            <View style={{ flex: 1 }}>
+              <Text style={s.title} numberOfLines={1}>
+                {(stage === 'session' || stage === 'review') && subject.trim() ? subject.trim() : 'solo quiz'}
+              </Text>
+            </View>
+            <HapticTouchable onPress={() => setSidebarOpen(true)} haptic="selection" accessibilityLabel="Open menu">
+              <Ionicons name="menu-outline" size={24} color={ACCENT_HOVER} />
+            </HapticTouchable>
+          </>
+        )}
       </View>
 
       {stage === 'generator' && (
         <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <Text style={s.plainTitle}>create a quiz</Text>
-          <Text style={s.plainSubtitle}>practice at your own pace with adaptive questions</Text>
 
           <Text style={s.fieldLabel}>SUBJECT / TOPIC</Text>
           <TextInput
