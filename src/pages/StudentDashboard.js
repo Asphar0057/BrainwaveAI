@@ -429,6 +429,7 @@ function StudentDashboard() {
             <div className="ci-progress-line"><span style={{ width: `${data.summary.average_mastery}%` }} /></div>
           </section>
 
+          <button className="ci-action ci-action--primary" type="button" onClick={() => navigate('/practice-next')}>Practice next →</button>
           <section className="ci-feature-grid" aria-label="Student workspace">
             <article className="ci-feature ci-feature--classes" id="student-classes">
               <div className="ci-tile-texture" />

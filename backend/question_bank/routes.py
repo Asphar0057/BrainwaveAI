@@ -9,6 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from deps import enforce_request_user_scope, get_current_user
+from services.question_bank_access import enforce_question_bank_resources
 
 from .models import (
     QuestionGenerationRequest,
@@ -56,6 +57,7 @@ logger = logging.getLogger(__name__)
 _QB_AUTH_DEPENDENCIES = [
     Depends(get_current_user),
     Depends(enforce_request_user_scope),
+    Depends(enforce_question_bank_resources),
 ]
 
 def _safe_storage_filename(filename: str) -> str:
@@ -1654,16 +1656,8 @@ def register_question_bank_api(app, unified_ai, get_db_func):
                 user_answer_normalized = str(user_answer).strip().lower()
 
                 if question.question_type in ['short_answer', 'fill_blank']:
-                    correct_clean = re.sub(r'[^\w\s]', '', correct_answer).strip()
-                    user_clean = re.sub(r'[^\w\s]', '', user_answer_normalized).strip()
-
-                    is_correct = user_clean == correct_clean
-
-                    if not is_correct and correct_clean:
-                        correct_words = set(correct_clean.split())
-                        user_words = set(user_clean.split())
-                        if correct_words and len(correct_words & user_words) / len(correct_words) >= 0.8:
-                            is_correct = True
+                    from services.grading import grade_written
+                    is_correct = grade_written(question, user_answer)
                 else:
                     try:
                         answer_options = json.loads(question.options) if question.options else []
@@ -1721,7 +1715,7 @@ def register_question_bank_api(app, unified_ai, get_db_func):
                 for question in questions:
                     user_answer = request.answers.get(str(question.id))
                     if user_answer:
-                        is_correct = user_answer.strip().lower() == question.correct_answer.strip().lower()
+                        is_correct = next((r["is_correct"] for r in results if r["question_id"] == question.id), False)
                         response_time = request.time_taken_seconds / len(questions) if request.time_taken_seconds else 30
 
                         adaptive_integration.process_question_bank_answer(
@@ -1742,6 +1736,10 @@ def register_question_bank_api(app, unified_ai, get_db_func):
             )
 
             db.add(session_record)
+            db.flush()
+            from services.product_events import record_event
+            record_event(db, "practice_answered", user.id, key=f"qb:{session_record.id}")
+            record_event(db, "practice_completed", user.id, key=f"qb-complete:{session_record.id}")
 
             if score > question_set.best_score:
                 question_set.best_score = score

@@ -29,8 +29,8 @@ jobs:
 
       - run: npm ci
 
-      - name: Test adaptive request wiring
-        run: CI=true npm test -- --runInBand src/__tests__/services/questionBankAgentService.test.js
+      - name: Test frontend regressions
+        run: CI=true npm test -- --watchAll=false --runInBand
 
       - name: Build production frontend
         run: npm run build

@@ -16,7 +16,7 @@ export const canRestoreGoogleSession = () =>
   localStorage.getItem(GOOGLE_AUTO_SIGN_IN_KEY) === 'true';
 
 export const getPersistedGoogleUser = async () => {
-  if (!canRestoreGoogleSession()) return null;
+  if (!auth || !canRestoreGoogleSession()) return null;
 
   await authPersistenceReady;
   await auth.authStateReady();
@@ -112,5 +112,5 @@ export const signOutAppSession = async () => {
   clearBackendSession();
 
   await authPersistenceReady;
-  await signOut(auth).catch(() => {});
+  if (auth) await signOut(auth).catch(() => {});
 };

@@ -1,3 +1,4 @@
+import ProductActivation from './components/ProductActivation';
 import './styles/page-titles.css';
 import './components/ToolNavigation.css';
 import NotFound from './pages/NotFound';
@@ -35,6 +36,9 @@ const lazyRoute = (loader) => {
 };
 
 const DashboardCerbyl = lazyRoute(() => import('./pages/DashboardCerbyl'));
+const SampleCourse = lazyRoute(() => import('./pages/SampleCourse'));
+const PracticeNext = lazyRoute(() => import('./pages/PracticeNext'));
+const AnswerReports = lazyRoute(() => import('./pages/AnswerReports'));
 const AIChat = lazyRoute(() => import('./pages/AIChat'));
 const Homepage = lazyRoute(() => import('./pages/Homepage'));
 const LearningReviewHub = lazyRoute(() => import('./pages/LearningReviewHub'));
@@ -275,6 +279,7 @@ function App() {
           <div className="app-neumorphic-root" style={{ minHeight: '100vh', backgroundColor: 'var(--bg-top)', color: 'var(--text-primary)' }}>
             <RouteWarmup />
             {isPostHogEnabled && <PostHogRouteTracker />}
+            <ProductActivation />
             <GlobalNotifications />
             <AIChatDockMount />
             {usageLimit && (
@@ -310,6 +315,9 @@ function App() {
                   <Route path="/terms" element={<Navigate to="/terms-and-conditions" replace />} />
                   <Route path="/privacy" element={<Navigate to="/privacy-policy" replace />} />
                   <Route path="/refund-policy" element={<Navigate to="/refund-and-cancellation-policy" replace />} />
+                  <Route path="/sample-course" element={<SampleCourse />} />
+                  <Route path="/practice-next" element={<ProtectedRoute><PracticeNext /></ProtectedRoute>} />
+                  <Route path="/answer-reports" element={<ProtectedRoute><AnswerReports /></ProtectedRoute>} />
                   <Route path="/workspace" element={<ProtectedRoute><WorkspaceSelect /></ProtectedRoute>} />
                   <Route path="/student" element={<ProtectedRoute><RoleProtectedRoute role="student"><StudentDashboard /></RoleProtectedRoute></ProtectedRoute>} />
                   <Route path="/educator" element={<ProtectedRoute><RoleProtectedRoute role="educator"><EducatorDashboard /></RoleProtectedRoute></ProtectedRoute>} />

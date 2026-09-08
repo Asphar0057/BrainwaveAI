@@ -1,3 +1,4 @@
+import AnswerFeedback from '../components/AnswerFeedback';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import CustomPopup from './CustomPopup';
@@ -1361,7 +1362,9 @@ const Flashcards = () => {
       const mode = params.get('mode') || 'preview';
       const setId = params.get('set_id');
       
-      if (shareCode) {
+      if (params.get('review') === 'due') {
+        setActivePanel('sr_study'); loadDueCards(); loadSrStats();
+      } else if (shareCode) {
                 loadFlashcardSetByCode(shareCode, mode);
         setActivePanel('cards');
       } else if (setId) {
@@ -1371,7 +1374,7 @@ const Flashcards = () => {
       return () => window.clearTimeout(deferredLoad);
     }
     return undefined;
-  }, [userName, location.search, loadChatSessions, loadFlashcardStats, loadReviewCards, loadFlashcardSetByCode]);
+  }, [userName, location.search, loadChatSessions, loadFlashcardStats, loadReviewCards, loadFlashcardSetByCode, loadDueCards, loadSrStats]);
 
   useEffect(() => {
     if (activePanel !== 'sources' || !userName || loadingDocuments || uploadedDocuments.length > 0) return;
@@ -2938,6 +2941,7 @@ const Flashcards = () => {
               )}
             </div>
 
+            {srFlipped && card && <AnswerFeedback key={card.id} resourceType="flashcard" resourceId={card.id} />}
             {srError && <p role="alert">{srError}</p>}
             {srSaving && <p role="status">Saving review…</p>}
             {srFlipped && card && (

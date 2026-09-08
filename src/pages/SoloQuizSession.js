@@ -32,6 +32,9 @@ const SoloQuizSession = () => {
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [loading, setLoading] = useState(true);
   const [grading, setGrading] = useState(false);
+  const [gradingError, setGradingError] = useState('');
+  const [checkingAnswer, setCheckingAnswer] = useState(false);
+  const [instantError, setInstantError] = useState('');
   const [showResult, setShowResult] = useState(false);
   const [results, setResults] = useState(null);
   const [analysis, setAnalysis] = useState(null);
@@ -97,7 +100,7 @@ const SoloQuizSession = () => {
     sessionStorage.setItem(attemptKey, JSON.stringify({ signature: JSON.stringify(quizData), answers: userAnswers, index: currentQuestionIndex, selected: selectedAnswer, startTime, score }));
   }, [loading, quizData, userAnswers, currentQuestionIndex, selectedAnswer, startTime, score, showResult, completionWarning, attemptKey]);
 
-  const handleAnswerSelect = (answerIndex) => {
+  const handleAnswerSelect = async (answerIndex) => {
     if (showInstantFeedback || submittingRef.current) return;
     const question = questions[currentQuestionIndex];
     const value = question.question_type === 'multiple_choice' ? String(answerIndex) : question.question_type === 'true_false' ? (answerIndex === 0 ? 'true' : 'false') : String(answerIndex);
@@ -118,8 +121,14 @@ const SoloQuizSession = () => {
       }
       
       
-      const correctAnswer = currentQuestion.correct_answer;
-      const isCorrect = correctAnswer !== null && answerValue === String(correctAnswer);
+      if (checkingAnswer) return;
+      setCheckingAnswer(true); setInstantError('');
+      let checked;
+      try { checked = await quizAgentService.checkAnswer(quizData?.quiz_id, currentQuestion.id, answerValue); }
+      catch (err) { setInstantError(err.message); setCheckingAnswer(false); return; }
+      setCheckingAnswer(false);
+      const isCorrect = checked.is_correct;
+      setQuestions(prev => prev.map(q => q.id === currentQuestion.id ? { ...q, correct_answer: checked.correct_answer, explanation: checked.explanation } : q));
       
       setSelectedAnswer(answerIndex);
       setShowInstantFeedback(true);
@@ -284,12 +293,14 @@ const SoloQuizSession = () => {
     submittingRef.current = true;
     const submittedAnswers = { ...answersRef.current };
     setGrading(true);
+    setGradingError('');
     const timeTaken = Math.round((Date.now() - startTime) / 1000);
 
     try {
       
       const gradeResponse = await quizAgentService.gradeQuiz({
         userId: username,
+        quizId: quizData?.quiz_id,
         questions,
         answers: submittedAnswers,
         timeTakenSeconds: timeTaken
@@ -332,46 +343,8 @@ const SoloQuizSession = () => {
 
       setShowResult(true);
     } catch (error) {
-      console.error('Quiz grading error:', error);
       setCompletionWarning(true);
-      
-      const localResults = questions.map((q, idx) => {
-        const questionId = String(q.id ?? idx);
-        const userAnswer = submittedAnswers[questionId] || '';
-        const correctAnswer = q.correct_answer;
-        const isCorrect = userAnswer !== '' && correctAnswer !== null && userAnswer === String(correctAnswer);
-        return {
-          question_text: extractQuestionText(q),
-          user_answer: userAnswer,
-          correct_answer: correctAnswer,
-          is_correct: isCorrect,
-          explanation: q.explanation
-        };
-      });
-
-      const localScore = localResults.filter(r => r.is_correct).length;
-      const reviewData = {
-        questions,
-        results: localResults,
-        score: localScore,
-        total_questions: questions.length,
-        correct_answers: localScore,
-        percentage: Math.round((localScore / questions.length) * 100),
-        time_taken: timeTaken,
-        topic: quizData?.topic || 'Quiz',
-        difficulty: quizData?.difficulty || 'medium',
-        analysis: null
-      };
-
-      setResults({
-        total_questions: questions.length,
-        correct_answers: localScore,
-        percentage: reviewData.percentage,
-        results: localResults
-      });
-      
-      sessionStorage.setItem('lastQuizResults', JSON.stringify(reviewData));
-      setShowResult(true);
+      setGradingError(error.message || 'Your score could not be verified. Your answers are saved here; retry when connected.');
     } finally {
       setGrading(false);
       submittingRef.current = false;
@@ -429,6 +402,10 @@ const SoloQuizSession = () => {
         <h2>Loading quiz…</h2>
       </main>
     );
+  }
+
+  if (gradingError && !grading) {
+    return renderSoloChrome(<section className="solo-review-empty"><h1>Score not verified</h1><p role="alert">{gradingError}</p><button type="button" onClick={handleSubmitQuiz}>Retry saving result</button></section>);
   }
 
   if (grading) {
@@ -633,6 +610,8 @@ const SoloQuizSession = () => {
             <MathRenderer content={currentQuestionText} className="question-text" />
           </div>
 
+          {instantError && <p role="alert">{instantError} Choose your answer again to retry.</p>}
+          {checkingAnswer && <p role="status">Checking your answer…</p>}
           <div className="answers-grid">
             {options.map((option, index) => {
               const isSelected = selectedAnswer === index;
@@ -649,7 +628,7 @@ const SoloQuizSession = () => {
                   key={index}
                   className={`answer-option ${isSelected ? 'selected' : ''} ${feedbackClass}`}
                   onClick={() => handleAnswerSelect(index)}
-                  disabled={quizMode === 'sequential-instant' && showInstantFeedback}
+                  disabled={checkingAnswer || (quizMode === 'sequential-instant' && showInstantFeedback)}
                 >
                   <span className="option-letter">{String.fromCharCode(65 + index)}</span>
                   <MathRenderer content={optionText || ''} className="option-text" />
@@ -740,8 +719,8 @@ const SoloQuizSession = () => {
           <div className="score-display">
             <Trophy size={24} />
             <div className="score-info">
-              <span className="score-label">Current Score</span>
-              <span className="score-value">{score}/{questions.length}</span>
+              <span className="score-label">Answers recorded</span>
+              <span className="score-value">{Object.keys(userAnswers).length}/{questions.length}</span>
             </div>
           </div>
 
@@ -754,20 +733,13 @@ const SoloQuizSession = () => {
                 const isCurrent = index === currentQuestionIndex;
                 
                 
-                let isCorrect = false;
-                if (isAnswered && quizMode !== 'standard') {
-                  const q = questions[index];
-                  const userAns = userAnswers[questionId];
-                  isCorrect = q.correct_answer !== null && userAns === String(q.correct_answer);
-                }
-
                 return (
                   <button
                     type="button"
                     key={index}
                     className={`question-dot ${
                       isCurrent ? 'current' : 
-                      isAnswered ? (quizMode === 'standard' ? 'answered' : (isCorrect ? 'answered-correct' : 'answered-incorrect')) : 
+                      isAnswered ? 'answered' :
                       'upcoming'
                     } ${quizMode === 'standard' ? 'clickable' : ''}`}
                     onClick={() => quizMode === 'standard' && handleQuestionJump(index)}

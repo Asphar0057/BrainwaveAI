@@ -24,7 +24,7 @@ from deps import (
     GOOGLE_CLIENT_IDS,
     authenticate_user,
     call_ai,
-    create_access_token,
+    create_user_access_token,
     enforce_request_user_scope,
     get_current_user,
     get_db,
@@ -39,7 +39,6 @@ from deps import (
 )
 from services.subscription_catalog import (
     DEFAULT_PLAN_ID,
-    estimate_usage_cost_usd,
     get_plan,
     list_plans,
     normalize_plan_id,
@@ -1041,7 +1040,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
     _record_login_and_welcome_notification(db, user)
     db.commit()
 
-    access_token = create_access_token(data={"sub": user.username})
+    access_token = create_user_access_token(user)
     return {"access_token": access_token, "token_type": "bearer"}
 
 @router.post("/token_form")
@@ -1054,7 +1053,7 @@ async def login_form(request: Request, username: str = Form(...), password: str 
     _record_login_and_welcome_notification(db, user)
     db.commit()
 
-    access_token = create_access_token(data={"sub": user.username, "user_id": user.id})
+    access_token = create_user_access_token(user)
     return {"access_token": access_token, "token_type": "bearer"}
 
 @router.post("/password-reset/request")
@@ -1143,13 +1142,9 @@ async def confirm_password_reset(
             db.commit()
         raise HTTPException(status_code=400, detail="Invalid or expired OTP.")
 
-    # `user` may be a transient object hydrated from the auth cache (see
-    # get_user_by_email/_get_or_query_user_for_subject), not one attached to
-    # this request's session — mutating and committing it directly is a
-    # silent no-op in that case (same reason change_username/change_password
-    # below call db.merge() first). Re-attach before writing the new hash.
     user = db.merge(user)
     user.hashed_password = get_password_hash(payload.new_password)
+    user.session_version = (user.session_version or 0) + 1
     user.google_user = False if user.google_user is None else user.google_user
     reset_otp.consumed = True
     db.commit()
@@ -1291,7 +1286,7 @@ async def google_auth(request: Request, auth_data: GoogleAuth, db: Session = Dep
             _record_login_and_welcome_notification(db, user)
             db.commit()
 
-        access_token = create_access_token(data={"sub": user.username})
+        access_token = create_user_access_token(user)
 
         return {
             "access_token": access_token,
@@ -1441,9 +1436,7 @@ async def firebase_authentication(request: Request, db: Session = Depends(get_db
                 _record_login_and_welcome_notification(db, user)
                 db.commit()
 
-            access_token = create_access_token(
-                data={"sub": user.username, "user_id": user.id}
-            )
+            access_token = create_user_access_token(user)
 
             return {
                 "access_token": access_token,
@@ -1526,9 +1519,8 @@ async def change_username(
     db.commit()
     invalidate_cached_auth_user(current_user, extra_subjects=(old_username,))
 
-    # The JWT subject is the username, so a stale token would 404 on the next
-    # request — issue a fresh one for the renamed account right away.
-    access_token = create_access_token({"sub": new_username})
+    # Identity remains the same after renaming; refresh the session for the client.
+    access_token = create_user_access_token(current_user)
 
     return {
         "status": "success",
@@ -1553,6 +1545,7 @@ async def change_password(
 
     current_user = db.merge(current_user)
     current_user.hashed_password = get_password_hash(payload.new_password)
+    current_user.session_version = (current_user.session_version or 0) + 1
     current_user.google_user = False
     db.commit()
     invalidate_cached_auth_user(current_user)
@@ -1900,7 +1893,8 @@ async def get_subscription_overview(
             models.ComprehensiveUserProfile.user_id == user.id
         ).first()
 
-        plan_id = normalize_plan_id(comprehensive_profile.subscription_tier if comprehensive_profile else None)
+        from services.token_limits import get_user_plan_id
+        plan_id = get_user_plan_id(db, user)
         billing_cycle = _normalize_billing_cycle(comprehensive_profile.billing_cycle if comprehensive_profile else None)
         subscription_status = _normalize_subscription_status(
             comprehensive_profile.subscription_status if comprehensive_profile else None
@@ -1919,9 +1913,9 @@ async def get_subscription_overview(
             "reset_after_hours": None,
         }
         monthly_price = float(current_plan.get("monthly_price_usd") or 0.0)
-        current_usage_cost = estimate_usage_cost_usd(plan_id, usage.get("total_tokens") or 0)
-        usage_margin = round(monthly_price - current_usage_cost, 2)
-        usage_margin_pct = round((usage_margin / monthly_price) * 100, 1) if monthly_price > 0 else None
+        current_usage_cost = None  # Subscription allowances are not provider cost measurements.
+        usage_margin = None
+        usage_margin_pct = None
         token_utilization_pct = round(
             ((usage.get("total_tokens") or 0) / included_tokens) * 100, 1
         ) if included_tokens > 0 else None
@@ -1971,6 +1965,8 @@ async def select_subscription_plan(payload: dict = Body(...), db: Session = Depe
             comprehensive_profile = models.ComprehensiveUserProfile(user_id=user.id)
             db.add(comprehensive_profile)
 
+        if comprehensive_profile.stripe_subscription_id and comprehensive_profile.subscription_status not in {"cancelled", "canceled"}:
+            raise HTTPException(status_code=409, detail="Manage your existing subscription in the billing portal.")
         previous_tier = normalize_plan_id(comprehensive_profile.subscription_tier)
         requested_tier = normalize_plan_id(payload.get("tier") or payload.get("subscriptionTier"))
         if requested_tier != DEFAULT_PLAN_ID:
@@ -2019,6 +2015,8 @@ async def update_comprehensive_profile(
     db: Session = Depends(get_db)
 ):
     try:
+        if {"subscriptionTier", "billingCycle", "subscriptionStatus", "subscription_tier", "subscription_status"} & payload.keys():
+            raise HTTPException(status_code=400, detail="Billing fields cannot be changed through profile updates.")
         logger.info("Received profile update request")
 
         user_id = payload.get("user_id")
@@ -2044,12 +2042,8 @@ async def update_comprehensive_profile(
             user.first_name = payload["firstName"]
         if payload.get("lastName"):
             user.last_name = payload["lastName"]
-        if payload.get("email"):
-            next_email = _normalize_email(payload["email"])
-            existing_email_user = get_user_by_email(db, next_email)
-            if existing_email_user and existing_email_user.id != user.id:
-                raise HTTPException(status_code=400, detail="Email already registered")
-            user.email = next_email
+        if payload.get("email") and _normalize_email(payload["email"]) != _normalize_email(user.email):
+            raise HTTPException(status_code=400, detail="Your sign-in email cannot be changed in profile settings.")
         if payload.get("fieldOfStudy"):
             user.field_of_study = payload["fieldOfStudy"]
 
@@ -2061,7 +2055,6 @@ async def update_comprehensive_profile(
             comprehensive_profile = models.ComprehensiveUserProfile(user_id=user.id)
             db.add(comprehensive_profile)
 
-        previous_subscription_tier = normalize_plan_id(comprehensive_profile.subscription_tier)
 
         if payload.get("difficultyLevel"):
             comprehensive_profile.difficulty_level = payload["difficultyLevel"]
@@ -2086,47 +2079,9 @@ async def update_comprehensive_profile(
                 value = value.lower() == "true"
             comprehensive_profile.notifications_enabled = bool(value)
 
-        if "subscriptionTier" in payload:
-            next_tier = normalize_plan_id(payload.get("subscriptionTier"))
-            comprehensive_profile.subscription_tier = next_tier
-            if previous_subscription_tier != next_tier or not comprehensive_profile.subscription_started_at:
-                comprehensive_profile.subscription_started_at = datetime.now(timezone.utc)
-            if next_tier != "unlimited":
-                comprehensive_profile.stripe_subscription_id = None
-                comprehensive_profile.stripe_price_id = None
-                comprehensive_profile.current_period_end = None
-                comprehensive_profile.cancel_at_period_end = False
-
-        if "billingCycle" in payload:
-            current_tier = normalize_plan_id(comprehensive_profile.subscription_tier)
-            if current_tier == "unlimited":
-                pass
-            else:
-                comprehensive_profile.billing_cycle = _normalize_billing_cycle(payload.get("billingCycle"))
-
-        if "subscriptionStatus" in payload:
-            current_tier = normalize_plan_id(comprehensive_profile.subscription_tier)
-            if current_tier == "unlimited":
-                pass
-            elif current_tier != DEFAULT_PLAN_ID:
-                raise HTTPException(
-                    status_code=409,
-                    detail="Subscription status for paid plans is managed by provider webhooks.",
-                )
-            else:
-                comprehensive_profile.subscription_status = _normalize_subscription_status(payload.get("subscriptionStatus"))
-
         comprehensive_profile.updated_at = datetime.now(timezone.utc)
 
         db.commit()
-
-        if "subscriptionTier" in payload or "billingCycle" in payload or "subscriptionStatus" in payload:
-            try:
-                from middleware.rate_limiter import invalidate_subscription_cache
-
-                invalidate_subscription_cache(user.username, user.email)
-            except Exception:
-                pass
 
         response = {
             "status": "success",
@@ -2134,7 +2089,7 @@ async def update_comprehensive_profile(
         }
         if new_username:
             response["username"] = new_username
-            response["access_token"] = create_access_token(data={"sub": user.username, "user_id": user.id})
+            response["access_token"] = create_user_access_token(user)
             response["token_type"] = "bearer"
         return response
 

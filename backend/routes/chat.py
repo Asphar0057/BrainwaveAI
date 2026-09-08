@@ -1270,6 +1270,7 @@ async def ask_ai(
                 user_id=user.id,
                 user_message=question,
                 ai_response=response_text,
+                source_metadata=_lightweight_sources(result.get("rag_sources") if "result" in locals() and result else None),
                 is_user=True,
                 timestamp=datetime.now(timezone.utc),
             )
@@ -1332,6 +1333,7 @@ async def ask_ai(
             logger.debug("[CHAT] IntentEngine skipped: %s", _ie_err)
 
         return {
+            "message_id": msg.id if chat_id_int else None,
             "answer":            response_text,
             "ai_confidence":     _computed_confidence,
             "topics_discussed":  ml_output.detected_concepts if ml_output else [],
@@ -1478,6 +1480,7 @@ async def ask_simple(
                 user_id=user.id,
                 user_message=user_question or model_question,
                 ai_response=response_text,
+                source_metadata=_lightweight_sources(result.get("rag_sources") if "result" in locals() and result else None),
                 timestamp=datetime.now(timezone.utc),
             )
             db.add(msg)
@@ -1531,6 +1534,7 @@ async def ask_simple(
             logger.debug("[CHAT/simple] IntentEngine skipped: %s", _ie_err)
 
         return {
+            "message_id": msg.id if chat_id_int else None,
             "answer":        response_text,
             "ai_confidence": _computed_confidence,
             "intent_class":  _intent_result.label if _intent_result else "LEARN_CONCEPT",
@@ -1847,6 +1851,7 @@ async def ask_with_files(
                 user_id=user.id,
                 user_message=user_question or model_question or "[image upload]",
                 ai_response=response_text,
+                source_metadata=_lightweight_sources(result.get("rag_sources") if "result" in locals() and result else None),
                 timestamp=datetime.now(timezone.utc),
                 image_metadata=json.dumps(saved_metadata) if saved_metadata else None,
             )
@@ -1901,6 +1906,7 @@ async def ask_with_files(
             logger.debug("[CHAT/files] IntentEngine skipped: %s", _ie_err)
 
         return {
+            "message_id": msg.id if chat_id_int else None,
             "answer":          response_text,
             "ai_confidence":   _computed_confidence,
             "intent_class":    _intent_result.label if _intent_result else "LEARN_CONCEPT",
@@ -2117,6 +2123,8 @@ def get_chat_messages(
         })
         result.append({
             "id": f"ai_{msg.id}",
+            "message_id": msg.id,
+            "sources": msg.source_metadata or [],
             "type": "ai",
             "content": msg.ai_response,
             "timestamp": msg.timestamp.isoformat() + "Z",

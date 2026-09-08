@@ -50,3 +50,8 @@ def test_math_processing_cannot_corrupt_question_type_enum():
     sanitized = sanitize_generated_questions(questions, question_count=1, difficulty="easy")
 
     assert sanitized[0]["question_type"] == "multiple_choice"
+
+
+def test_math_symbols_and_negation_are_not_erased():
+    for wrong, right in [('2%', '2'), ('x^2', 'x2'), ('x<2', 'x>2'), ('not equal', 'equal'), ('-2', '2')]:
+        assert not answers_equivalent(wrong, right)

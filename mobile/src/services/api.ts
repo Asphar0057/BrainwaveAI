@@ -2856,7 +2856,7 @@ export type SoloQuizQuestion = {
   id: number;
   question: string;
   options: string[];
-  correct_answer: number | string; // 0-based index into `options`
+  correct_answer?: number | string; // Available after server grading; 0-based option index.
   explanation: string;
 };
 
@@ -2881,10 +2881,16 @@ export async function getSoloQuiz(quizId: string | number) {
   }>;
 }
 
+export async function checkSoloQuizAnswer(quizId: string | number, questionId: number, answer: number) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_URL}/solo_quiz/${quizId}/check-answer`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ question_id: questionId, answer: String(answer) }) });
+  if (!res.ok) await readApiError(res, 'Could not verify your answer');
+  return res.json() as Promise<{ is_correct: boolean; correct_answer: number; explanation: string }>;
+}
+
 export async function completeSoloQuiz(payload: {
   quiz_id: string | number;
-  score: number;
-  answers: { question_text: string; user_answer: string; correct_answer: string; is_correct: boolean; explanation?: string }[];
+  answers: Record<string, string>;
 }) {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}/complete_solo_quiz`, {

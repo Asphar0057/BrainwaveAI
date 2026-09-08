@@ -422,7 +422,7 @@ export default function Home() {
             <span className="cb-mark-word">cerbyl</span>
             <h1 className="cb-mark-promise plain-page-title">Study Workspace</h1>
             <p className="cb-mark-description">Ask questions, organize notes, and practice with quizzes and flashcards in one workspace.</p>
-            <button className="cb-mark-start" onClick={() => navigate('/register')}>Start learning →</button>
+            <button className="cb-mark-start" onClick={() => navigate('/sample-course')}>Try a free sample →</button>
           </div>
 
           {SECTIONS.map((s, i) => (

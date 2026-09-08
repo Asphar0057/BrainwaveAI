@@ -1266,6 +1266,8 @@ async def sr_review(request: SRReviewRequest, db: Session = Depends(get_db)):
     if result["new_state"] == "review" and grade_str in ("good", "easy"):
         card.marked_for_review = False
 
+    from services.product_events import record_event
+    record_event(db, "flashcard_reviewed", user.id, key=f"sr:{card.id}:{card.times_reviewed}", origin="client")
     db.commit()
 
     flashcard_set = db.query(models.FlashcardSet).filter(

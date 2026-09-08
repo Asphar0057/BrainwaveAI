@@ -1,3 +1,4 @@
+import ProductAdmin from '../components/ProductAdmin';
 import ToolNavigation from '../components/ToolNavigation';
 import { useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, RefreshCw, Shield, Zap } from 'lucide-react';
@@ -74,6 +75,7 @@ const AdminApiUsage = () => {
         </div>
       )}
 
+      <ProductAdmin />
       <section className="api-usage-summary">
         <MetricCard label="Used today" value={formatNumber(totals.used_tokens)} />
         <MetricCard label="Remaining" value={formatNumber(totals.remaining_tokens)} />

@@ -75,15 +75,22 @@ def _identify_weaknesses(topic_records: list[dict]) -> list[dict]:
     weaknesses = [t for t in topic_records if t["mastery_level"] < 0.5 or t["accuracy"] < 60]
     return sorted(weaknesses, key=lambda x: x["mastery_level"])
 
-def _generate_question_for_topic(topic: str, difficulty: str, db: Session) -> dict:
+def _generate_question_for_topic(topic: str, difficulty: str, db: Session, exclude_ids=()) -> dict:
     existing = db.query(models.GeneratedQuestion).filter(
         models.GeneratedQuestion.topic == topic,
         models.GeneratedQuestion.difficulty == difficulty,
+        ~models.GeneratedQuestion.id.in_(exclude_ids),
     ).order_by(models.GeneratedQuestion.times_used.asc()).first()
 
     if existing:
+        from services.answer_validation import sanitize_generated_questions
+        safe = sanitize_generated_questions([{"question_text": existing.question_text, "question_type": existing.question_type,
+            "options": json.loads(existing.options or "[]"), "correct_answer": existing.correct_answer}], question_count=1)
+        if not safe or existing.correct_answer.strip().lower() == "varies":
+            existing = None
+    if existing:
         existing.times_used += 1
-        db.commit()
+        db.flush()
         options = json.loads(existing.options) if existing.options else []
         hints = json.loads(existing.hints) if existing.hints else []
         return {
@@ -120,15 +127,12 @@ def _generate_question_for_topic(topic: str, difficulty: str, db: Session) -> di
         from services.math_processor import process_math_in_json
         data = process_math_in_json(data)
     except (json.JSONDecodeError, ValueError):
-        data = {
-            "question_text": f"Explain a key concept in {topic}.",
-            "question_type": "short_answer",
-            "options": [],
-            "correct_answer": "Varies",
-            "explanation": "Review your study materials for this topic.",
-            "hints": [],
-            "subtopic": topic,
-        }
+        raise HTTPException(status_code=503, detail="A valid question could not be generated. Please retry.")
+    from services.answer_validation import sanitize_generated_questions
+    validated = sanitize_generated_questions([data], question_count=1, difficulty=difficulty)
+    if not validated:
+        raise HTTPException(status_code=503, detail="A valid question could not be generated. Please retry.")
+    data = validated[0]
 
     new_q = models.GeneratedQuestion(
         topic=topic,
@@ -143,7 +147,7 @@ def _generate_question_for_topic(topic: str, difficulty: str, db: Session) -> di
         times_used=1,
     )
     db.add(new_q)
-    db.commit()
+    db.flush()
     db.refresh(new_q)
 
     return {
@@ -159,36 +163,9 @@ def _generate_question_for_topic(topic: str, difficulty: str, db: Session) -> di
         "difficulty": new_q.difficulty,
     }
 
-def _evaluate_answer(question: dict, user_answer: str) -> tuple[bool, str]:
-    correct_answer = question.get("correct_answer", "")
-    question_type = question.get("question_type", "short_answer")
-
-    if question_type in ("multiple_choice", "true_false"):
-        is_correct = user_answer.strip().lower() == correct_answer.strip().lower()
-        feedback = (
-            f"Correct! {question.get('explanation', '')}"
-            if is_correct
-            else f"Incorrect. The correct answer is: {correct_answer}. {question.get('explanation', '')}"
-        )
-        return is_correct, feedback
-
-    prompt = (
-        f"Question: {question.get('question_text', '')}\n"
-        f"Correct answer: {correct_answer}\n"
-        f"User answer: {user_answer}\n\n"
-        "Is the user's answer correct or substantially correct? "
-        "Respond with JSON: {\"is_correct\": true/false, \"feedback\": \"brief explanation\"}"
-    )
-    raw = call_ai(prompt, max_tokens=200, temperature=0.3)
-    try:
-        start = raw.find("{")
-        end = raw.rfind("}") + 1
-        data = json.loads(raw[start:end])
-        from services.math_processor import process_math_in_response
-        return bool(data.get("is_correct", False)), process_math_in_response(data.get("feedback", ""))
-    except (json.JSONDecodeError, ValueError):
-        is_correct = user_answer.strip().lower() in correct_answer.strip().lower()
-        return is_correct, f"Expected: {correct_answer}"
+def _evaluate_answer(question: dict, user_answer: str):
+    from services.grading import evaluate_answer
+    return evaluate_answer(question, user_answer, call_ai)
 
 @router.get("/weakness-practice/analysis")
 async def get_weakness_analysis(
@@ -235,7 +212,11 @@ async def get_weakness_analysis(
             "total_topics_studied": len(topic_records),
             "topics_needing_practice": len(weaknesses),
         })
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
+        db.rollback()
         logger.error(f"Error in weakness analysis: {e}")
         return JSONResponse(status_code=500, content={"status": "error", "error": str(e)})
 
@@ -249,8 +230,13 @@ async def start_weakness_practice_session(
     token: str = Depends(verify_token),
 ):
     try:
+        caller_id = _resolve_user_id(db, token)
+        if caller_id != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        if not 1 <= question_count <= 20 or not topic.strip() or len(topic) > 200:
+            raise HTTPException(status_code=422, detail="Choose a topic and 1–20 questions.")
         session = models.PracticeSession(
-            user_id=user_id,
+            user_id=caller_id,
             topic=topic,
             difficulty=difficulty,
             target_question_count=question_count,
@@ -261,7 +247,7 @@ async def start_weakness_practice_session(
         db.commit()
         db.refresh(session)
 
-        first_question = _generate_question_for_topic(topic, difficulty, db)
+        # Questions are issued only by next-question, which records delivery.
 
         return JSONResponse(content={
             "status": "success",
@@ -269,10 +255,13 @@ async def start_weakness_practice_session(
             "topic": topic,
             "difficulty": difficulty,
             "target_question_count": question_count,
-            "first_question": first_question,
             "started_at": session.started_at.isoformat(),
         })
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
+        db.rollback()
         logger.error(f"Error starting practice session: {e}")
         return JSONResponse(status_code=500, content={"status": "error", "error": str(e)})
 
@@ -287,7 +276,7 @@ async def get_next_practice_question(
         session = db.query(models.PracticeSession).filter(
             models.PracticeSession.id == int(session_id),
             models.PracticeSession.user_id == caller_id,
-        ).first()
+        ).with_for_update().first()
 
         if not session:
             return JSONResponse(status_code=404, content={"status": "error", "error": "Session not found"})
@@ -308,7 +297,17 @@ async def get_next_practice_question(
                 "correct_answers": session.correct_answers,
             })
 
-        question = _generate_question_for_topic(session.topic, session.difficulty, db)
+        delivery = db.query(models.PracticeDelivery).filter_by(session_id=session.id, answered_at=None).first()
+        if delivery:
+            q = db.query(models.GeneratedQuestion).filter_by(id=delivery.question_id).one()
+            question = {"question_id": str(q.id), "question_text": q.question_text, "question_type": q.question_type,
+                        "options": json.loads(q.options or "[]"), "topic": q.topic, "difficulty": q.difficulty}
+        else:
+            issued = [qid for (qid,) in db.query(models.PracticeDelivery.question_id).filter_by(session_id=session.id).all()]
+            question = _generate_question_for_topic(session.topic, session.difficulty, db, issued)
+            db.add(models.PracticeDelivery(session_id=session.id, question_id=int(question["question_id"]), ordinal=session.questions_answered + 1))
+            db.commit()
+        question = {key: question.get(key) for key in ("question_id", "question_text", "question_type", "options", "topic", "difficulty")}
         questions_remaining = session.target_question_count - session.questions_answered
 
         return JSONResponse(content={
@@ -318,7 +317,11 @@ async def get_next_practice_question(
             "questions_remaining": questions_remaining,
             "total_questions": session.target_question_count,
         })
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
+        db.rollback()
         logger.error(f"Error getting next question: {e}")
         return JSONResponse(status_code=500, content={"status": "error", "error": str(e)})
 
@@ -336,7 +339,7 @@ async def submit_practice_answer(
         session = db.query(models.PracticeSession).filter(
             models.PracticeSession.id == int(session_id),
             models.PracticeSession.user_id == caller_id,
-        ).first()
+        ).with_for_update().first()
 
         if not session:
             return JSONResponse(status_code=404, content={"status": "error", "error": "Session not found"})
@@ -348,6 +351,11 @@ async def submit_practice_answer(
         if not generated_q:
             return JSONResponse(status_code=404, content={"status": "error", "error": "Question not found"})
 
+        if session.status != "active" or session.questions_answered >= session.target_question_count:
+            raise HTTPException(status_code=409, detail="This practice session is complete.")
+        delivery = db.query(models.PracticeDelivery).filter_by(session_id=session.id, question_id=generated_q.id, answered_at=None).first()
+        if not delivery:
+            raise HTTPException(status_code=409, detail="This question was not issued or has already been answered.")
         question_dict = {
             "question_text": generated_q.question_text,
             "question_type": generated_q.question_type,
@@ -356,8 +364,13 @@ async def submit_practice_answer(
             "options": json.loads(generated_q.options) if generated_q.options else [],
         }
 
+        if not 0 <= time_taken <= 86400 or len(user_answer) > 10000:
+            raise HTTPException(status_code=422, detail="Invalid answer or elapsed time.")
         is_correct, feedback = _evaluate_answer(question_dict, user_answer)
 
+        claimed = db.query(models.PracticeDelivery).filter_by(id=delivery.id, answered_at=None).update({"answered_at": datetime.now(timezone.utc)})
+        if claimed != 1:
+            raise HTTPException(status_code=409, detail="This answer has already been submitted.")
         answer = models.PracticeAnswer(
             session_id=session.id,
             question_text=generated_q.question_text,
@@ -402,13 +415,19 @@ async def submit_practice_answer(
             )
             db.add(mastery)
 
-        db.commit()
-
+        from services.product_events import record_event
+        record_event(db, "practice_answered", session.user_id, key=f"practice:{delivery.id}")
         session_complete = session.questions_answered >= session.target_question_count
+        if session_complete:
+            session.status = "completed"
+            session.completed_at = datetime.now(timezone.utc)
+            record_event(db, "practice_completed", session.user_id, key=f"practice-complete:{session.id}")
+        db.commit()
 
         return JSONResponse(content={
             "status": "success",
             "is_correct": is_correct,
+            "answer_id": answer.id,
             "feedback": feedback,
             "correct_answer": generated_q.correct_answer,
             "explanation": generated_q.explanation,
@@ -417,7 +436,11 @@ async def submit_practice_answer(
             "session_accuracy": round(session.accuracy * 100, 2),
             "session_complete": session_complete,
         })
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
+        db.rollback()
         logger.error(f"Error submitting answer: {e}")
         return JSONResponse(status_code=500, content={"status": "error", "error": str(e)})
 
@@ -432,7 +455,7 @@ async def end_weakness_practice_session(
         session = db.query(models.PracticeSession).filter(
             models.PracticeSession.id == int(session_id),
             models.PracticeSession.user_id == caller_id,
-        ).first()
+        ).with_for_update().first()
 
         if not session:
             return JSONResponse(status_code=404, content={"status": "error", "error": "Session not found"})
@@ -481,7 +504,11 @@ async def end_weakness_practice_session(
             "performance": performance_label,
             "completed_at": session.completed_at.isoformat(),
         })
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
+        db.rollback()
         logger.error(f"Error ending practice session: {e}")
         return JSONResponse(status_code=500, content={"status": "error", "error": str(e)})
 
@@ -528,7 +555,11 @@ async def get_mastery_overview(
                 "needs_work": needs_work,
             },
         })
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
+        db.rollback()
         logger.error(f"Error getting mastery overview: {e}")
         return JSONResponse(status_code=500, content={"status": "error", "error": str(e)})
 
@@ -594,7 +625,11 @@ async def get_weekly_progress(
                 "active_days": active_days,
             },
         })
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
+        db.rollback()
         logger.error(f"Error getting weekly progress: {e}")
         return JSONResponse(status_code=500, content={"status": "error", "error": str(e)})
 
@@ -663,7 +698,11 @@ async def generate_study_plan(
             "plan": plan_data,
             "created_at": study_plan.created_at.isoformat(),
         })
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
+        db.rollback()
         logger.error(f"Error generating study plan: {e}")
         return JSONResponse(status_code=500, content={"status": "error", "error": str(e)})
 
@@ -740,7 +779,11 @@ async def get_daily_recommendations(
             "plan_focus_topics": plan_hint or [],
             "daily_goal_met": sessions_today >= 2,
         })
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
+        db.rollback()
         logger.error(f"Error getting daily recommendations: {e}")
         return JSONResponse(status_code=500, content={"status": "error", "error": str(e)})
 
@@ -847,8 +890,10 @@ async def get_recent_mistakes(
             "topics": topics,
         })
     except HTTPException:
+        db.rollback()
         raise
     except Exception as e:
+        db.rollback()
         logger.error(f"Error getting recent mistakes: {e}")
         return JSONResponse(status_code=500, content={"status": "error", "error": str(e)})
 
@@ -927,7 +972,9 @@ async def explain_mistake(
 
         return JSONResponse(content={"success": True, "content": content, "cached": False})
     except HTTPException:
+        db.rollback()
         raise
     except Exception as e:
+        db.rollback()
         logger.error(f"Error explaining mistake: {e}")
         return JSONResponse(status_code=500, content={"status": "error", "error": str(e)})

@@ -50,16 +50,13 @@ def _jwt_subject(request: Request) -> Optional[str]:
     token = auth[7:].strip()
     if not token:
         return None
+    from database import SessionLocal
+    from services.auth_tokens import AuthSubject, resolve_access_token
+    from fastapi import HTTPException
     try:
-        payload = jwt.decode(
-            token,
-            SECRET_KEY,
-            algorithms=[ALGORITHM],
-            audience=JWT_AUDIENCE,
-            issuer=JWT_ISSUER,
-        )
-        return payload.get("sub")
-    except JWTError:
+        with SessionLocal() as db:
+            return AuthSubject(resolve_access_token(token, db))
+    except HTTPException:
         return None
 
 
@@ -72,17 +69,9 @@ def _request_subject(request: Request) -> Optional[str]:
 
 
 def _find_user(db: Session, subject: str) -> Optional[models.User]:
-    normalized = (subject or "").strip().lower()
-    if not normalized or normalized == "null":
-        return None
-    return (
-        db.query(models.User)
-        .filter(
-            (models.User.username.ilike(normalized))
-            | (models.User.email.ilike(normalized))
-        )
-        .first()
-    )
+    if getattr(subject, "user_id", None) is not None:
+        return db.query(models.User).filter(models.User.id == subject.user_id).first()
+    return db.query(models.User).filter(models.User.username == subject).first()
 
 
 class TokenLimitMiddleware(BaseHTTPMiddleware):
@@ -94,8 +83,6 @@ class TokenLimitMiddleware(BaseHTTPMiddleware):
         subject = _request_subject(request)
         if not subject:
             return await call_next(request)
-        if _subject_bypasses_token_limit(subject):
-            return await call_next(request)
 
         state = None
         user_id = None
@@ -105,6 +92,8 @@ class TokenLimitMiddleware(BaseHTTPMiddleware):
                 if user:
                     user_id = user.id
                     state = get_token_limit_state(db, user)
+                    if _subject_bypasses_token_limit(user.email or ""):
+                        state = {**state, "allowed": True}
 
             if state is None:
                 return await call_next(request)

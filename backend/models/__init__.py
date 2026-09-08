@@ -208,3 +208,5 @@ def get_db():
 if __name__ == "__main__":
     create_tables()
     logger.info(" Database tables created successfully!")
+
+from models.product import ProductEvent, AnswerReport, PracticeDelivery, BillingEvent

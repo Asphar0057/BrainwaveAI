@@ -6,11 +6,12 @@ const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({ useNavigate: () => mockNavigate }));
 jest.mock('../../components/SocialHubChrome', () => ({ children }) => <div>{children}</div>);
 jest.mock('../../components/MathRenderer', () => ({ content }) => <span>{content}</span>);
-jest.mock('../../services/quizAgentService', () => ({ __esModule: true, default: { gradeQuiz: jest.fn(), analyzePerformance: jest.fn() } }));
+jest.mock('../../services/quizAgentService', () => ({ __esModule: true, default: { gradeQuiz: jest.fn(), analyzePerformance: jest.fn(), checkAnswer: jest.fn().mockResolvedValue({ is_correct: true, correct_answer: 1 }) } }));
 const quiz = { questions: [{ id: 42, question: 'Which answer?', question_type: 'multiple_choice', options: ['Alpha', 'Beta'], correct_answer: 'B' }], timingMode: 'untimed', quizMode: 'standard' };
 beforeEach(() => {
   localStorage.setItem('username', 'ux-test'); sessionStorage.clear();
   sessionStorage.setItem('quizData', JSON.stringify(quiz));
+  quizAgentService.checkAnswer.mockResolvedValue({ is_correct: true, correct_answer: 1 });
   quizAgentService.gradeQuiz.mockReset();
   quizAgentService.gradeQuiz.mockResolvedValue({ correct_answers: 1, total_questions: 1, percentage: 100, completion_saved: true });
 });
@@ -43,6 +44,7 @@ it('includes the last sequential answer when delayed submission runs', async () 
   jest.useFakeTimers();
   render(<SoloQuizSession/>);
   fireEvent.click(screen.getByRole('button', {name: /Beta/}));
+  await act(async () => {});
   await act(async () => { jest.advanceTimersByTime(1500); });
   expect(quizAgentService.gradeQuiz).toHaveBeenCalledWith(expect.objectContaining({answers: {'42':'1'}}));
 });

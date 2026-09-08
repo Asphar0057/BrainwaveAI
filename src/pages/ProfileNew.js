@@ -1,3 +1,4 @@
+import { productRequest } from '../services/productService';
 import { readDraft, writeDraft, clearDraft } from '../utils/draftStorage';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -686,6 +687,12 @@ const ProfileNew = () => {
     }
   };
 
+  const openBillingPortal = async () => {
+    setSubscriptionData(prev => ({ ...prev, saving: true, error: null }));
+    try { const data = await productRequest('/subscription/portal', { method: 'POST' }); window.location.assign(data.url); }
+    catch (err) { setSubscriptionData(prev => ({ ...prev, saving: false, error: err.message })); }
+  };
+
   const handleBillingCycleChange = nextCycle => { if (!subscriptionData.saving) setPreviewBillingCycle(nextCycle); };
 
   const loadProfile = async () => {
@@ -1135,8 +1142,8 @@ const ProfileNew = () => {
                       <input value={profileData.username} onChange={(e) => setField('username', e.target.value)} autoCapitalize="none" autoCorrect="off" />
                     </label>
                     <label>
-                      <span>Email address</span>
-                      <input type="email" value={profileData.email} onChange={(e) => setField('email', e.target.value)} autoComplete="email" />
+                      <span>Sign-in email</span>
+                      <input type="email" value={profileData.email} readOnly autoComplete="email" />
                     </label>
                   </div>
                 </section>
@@ -1378,6 +1385,7 @@ const ProfileNew = () => {
                     </article>
                   </div>
                 )}
+                <button type="button" onClick={openBillingPortal} disabled={subscriptionData.saving}>Manage billing / cancel subscription</button>
                 {subscriptionData.error && <div className="pnw-inline-error" role="alert">{subscriptionData.error}</div>}
 
                 <div className="pnw-usage-rack">

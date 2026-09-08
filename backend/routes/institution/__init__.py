@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from deps import enforce_request_user_scope
+from deps import get_current_user
 
 from . import (
     announcements,
@@ -15,7 +15,7 @@ from . import (
 router = APIRouter(
     prefix="/api/institution",
     tags=["institution"],
-    dependencies=[Depends(enforce_request_user_scope)],
+    dependencies=[Depends(get_current_user)],
 )
 
 for _module in (

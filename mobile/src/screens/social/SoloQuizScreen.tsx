@@ -7,7 +7,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../../services/auth';
-import { createSoloQuiz, getSoloQuiz, completeSoloQuiz, getSoloQuizHistory, SoloQuizQuestion, SoloQuizHistoryEntry } from '../../services/api';
+import { createSoloQuiz, getSoloQuiz, completeSoloQuiz, checkSoloQuizAnswer, getSoloQuizHistory, SoloQuizQuestion, SoloQuizHistoryEntry } from '../../services/api';
 import HapticTouchable from '../../components/HapticTouchable';
 import GeoBackground from '../../components/GeoBackground';
 import MathText from '../../components/MathText';
@@ -34,11 +34,12 @@ type AnsweredResult = {
   explanation?: string;
 };
 
-// `correct_answer` from the API is a 0-based index into `options`, not a letter —
-// confirmed against the live endpoint response, not assumed from the web grading code.
-function isAnswerCorrect(userIndex: number | undefined, correctAnswer: number | string): boolean {
-  if (userIndex === undefined) return false;
-  return String(userIndex) === String(correctAnswer);
+function readableResults(rows: any[], questions: SoloQuizQuestion[]): AnsweredResult[] {
+  return rows.map((row, index) => {
+    const q = questions.find(q => q.id === row.question_id) || questions[index];
+    const display = (value: unknown) => /^\d+$/.test(String(value)) ? (q?.options[Number(value)] ?? String(value)) : String(value ?? '');
+    return { ...row, user_answer: display(row.user_answer), correct_answer: display(row.correct_answer) };
+  });
 }
 
 export default function SoloQuizScreen({ user, onBack }: Props) {
@@ -75,6 +76,7 @@ export default function SoloQuizScreen({ user, onBack }: Props) {
   // Review state
   const [results, setResults] = useState<AnsweredResult[]>([]);
   const [score, setScore] = useState(0);
+  const savingRef = useRef(false);
 
   // Past Quizzes / Analyze (hamburger sections) -- one fetch backs both,
   // since the history endpoint returns the list and the aggregate stats
@@ -128,7 +130,16 @@ export default function SoloQuizScreen({ user, onBack }: Props) {
     }
   };
 
-  const selectAnswer = (questionId: number, optionIndex: number) => {
+  const selectAnswer = async (questionId: number, optionIndex: number) => {
+    if (savingRef.current) return;
+    if (quizMode === 'instant' && quizId) {
+      savingRef.current = true;
+      try {
+        const checked = await checkSoloQuizAnswer(quizId, questionId, optionIndex);
+        setQuestions(prev => prev.map(q => q.id === questionId ? { ...q, ...checked } : q));
+      } catch (e: any) { Alert.alert('Answer not verified', e.message || 'Select your answer again to retry.'); return; }
+      finally { savingRef.current = false; }
+    }
     setAnswers(prev => ({ ...prev, [questionId]: optionIndex }));
   };
 
@@ -141,7 +152,7 @@ export default function SoloQuizScreen({ user, onBack }: Props) {
       }
       setQuizId(data.quiz.id);
       setSubject(data.quiz.subject || '');
-      setResults(data.quiz.answers);
+      setResults(readableResults(data.quiz.answers, data.questions));
       setScore(Math.round(data.quiz.score ?? 0));
       setStage('review');
     } catch (e: any) {
@@ -151,32 +162,16 @@ export default function SoloQuizScreen({ user, onBack }: Props) {
   };
 
   const finishQuiz = async () => {
-    let correctCount = 0;
-    const graded: AnsweredResult[] = questions.map(q => {
-      const userIndex = answers[q.id];
-      const correct = isAnswerCorrect(userIndex, q.correct_answer);
-      if (correct) correctCount++;
-      const correctIndex = Number(q.correct_answer);
-      return {
-        question_text: q.question,
-        user_answer: userIndex !== undefined ? q.options[userIndex] : '',
-        correct_answer: q.options[correctIndex] ?? String(q.correct_answer),
-        is_correct: correct,
-        explanation: q.explanation,
-      };
-    });
-    const percentage = Math.round((correctCount / questions.length) * 100);
-    setResults(graded);
-    setScore(percentage);
-    setStage('review');
-
-    if (quizId) {
-      try {
-        await completeSoloQuiz({ quiz_id: quizId, score: percentage, answers: graded });
-      } catch {
-        // results still shown locally even if the save fails
-      }
-    }
+    if (savingRef.current || !quizId) return;
+    savingRef.current = true;
+    try {
+      const result = await completeSoloQuiz({ quiz_id: quizId, answers: Object.fromEntries(Object.entries(answers).map(([id, answer]) => [id, String(answer)])) });
+      setResults(readableResults(result.results, questions));
+      setScore(result.percentage);
+      setStage('review');
+    } catch (e: any) {
+      Alert.alert('Score not verified', e.message || 'Your answers are still here. Tap Finish again to retry.');
+    } finally { savingRef.current = false; }
   };
 
   const retryQuiz = () => {
@@ -360,6 +355,7 @@ export default function SoloQuizScreen({ user, onBack }: Props) {
           onSelect={optionIndex => selectAnswer(questions[currentIndex].id, optionIndex)}
           onPrev={() => setCurrentIndex(i => Math.max(0, i - 1))}
           onNext={() => {
+            if (savingRef.current) return;
             if (currentIndex === questions.length - 1) finishQuiz();
             else setCurrentIndex(i => Math.min(questions.length - 1, i + 1));
           }}

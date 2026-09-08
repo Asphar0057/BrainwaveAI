@@ -223,7 +223,10 @@ async def complete_study_session(payload: StudySessionComplete, db: Session = De
     
     try:
         user = get_user(db, payload.user_id)
-        
+        if not db.query(models.FlashcardSet.id).filter_by(id=payload.set_id, user_id=user.id).first():
+            raise HTTPException(status_code=404, detail="Flashcard set not found")
+        if not 0 <= payload.correct_answers <= payload.cards_studied <= 10000 or not 0 <= payload.session_duration <= 86400:
+            raise HTTPException(status_code=422, detail="Invalid study session totals")
         session = models.FlashcardStudySession(
             set_id=payload.set_id,
             user_id=user.id,
@@ -233,6 +236,9 @@ async def complete_study_session(payload: StudySessionComplete, db: Session = De
             session_date=datetime.now(timezone.utc)
         )
         db.add(session)
+        db.flush()
+        from services.product_events import record_event
+        record_event(db, "flashcard_session_completed", user.id, key=f"flashcard-session:{session.id}", origin="client")
         db.commit()
         
         logger.info(f"Saved study session for user {user.id}: {payload.cards_studied} cards, {payload.correct_answers} correct")

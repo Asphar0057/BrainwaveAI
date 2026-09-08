@@ -1,0 +1,22 @@
+name: Product trust regressions
+on:
+  pull_request:
+    paths: ['backend/**', '.github/workflows/test-product-trust.yml']
+  push:
+    branches: [main]
+    paths: ['backend/**', '.github/workflows/test-product-trust.yml']
+permissions:
+  contents: read
+jobs:
+  trust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install -r backend/requirements-product-tests.txt
+      - name: Isolated API and migration regressions
+        run: PYTHONPATH=backend pytest backend/tests/test_product_trust.py -q
+      - name: Answer and authorization invariants
+        run: PYTHONPATH=backend pytest backend/tests/test_answer_validation.py backend/tests/test_security_invariants.py backend/tests/test_solo_quiz_option_shuffle.py -q

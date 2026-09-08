@@ -655,6 +655,7 @@ class UnifiedAIClient:
         raise Exception("No AI client available for streaming")
 
     def _log_usage(self, usage, model: str, provider: str, prompt: str = "", completion: str = ""):
+        from services.ai_costs import cost_metadata
         token_source = "model_usage" if usage else "estimated"
         usage = usage or estimate_usage(prompt, completion)
         try:
@@ -672,6 +673,7 @@ class UnifiedAIClient:
                 total_tokens=total_tokens,
                 model=model,
                 metadata={
+                    **cost_metadata(provider, model, usage),
                     "provider": provider,
                     "endpoint": ctx.get("endpoint"),
                     "method": ctx.get("method"),

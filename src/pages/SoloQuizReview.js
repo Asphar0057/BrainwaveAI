@@ -1,3 +1,4 @@
+import AnswerFeedback from '../components/AnswerFeedback';
 import { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, Clock, FileQuestion, Play, Target, Trophy, XCircle } from 'lucide-react';
@@ -121,6 +122,7 @@ const SoloQuizReview = () => {
                       {(result.explanation || question?.explanation) && (
                         <p className="solo-review-explanation">{result.explanation || question.explanation}</p>
                       )}
+                      <AnswerFeedback resourceType="solo_question" resourceId={result.question_id || question?.id} />
                     </article>
                   );
                 })}

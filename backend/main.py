@@ -695,6 +695,8 @@ from routes import (
 
 app.include_router(auth.router)
 app.include_router(subscription.router)
+from routes import product
+app.include_router(product.router)
 app.include_router(chat.router)
 app.include_router(notes.router)
 app.include_router(flashcards.router)

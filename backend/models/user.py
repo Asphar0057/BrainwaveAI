@@ -24,6 +24,7 @@ class User(Base):
     username = Column(String(50), unique=True, index=True)
     phone_number = Column(String(32), unique=True, index=True, nullable=True)
     hashed_password = Column(String(255))
+    session_version = Column(Integer, nullable=False, default=0, server_default="0")
     account_role = Column(String(20), nullable=False, default="learner", index=True)
     age = Column(Integer, nullable=True)
     field_of_study = Column(String(100), nullable=True)

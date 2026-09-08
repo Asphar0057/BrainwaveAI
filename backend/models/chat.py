@@ -33,6 +33,7 @@ class ChatMessage(Base):
     is_user = Column(Boolean, default=True)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     image_metadata = Column(Text, nullable=True)
+    source_metadata = Column(JSON, nullable=True)
 
     chat_session = relationship("ChatSession", back_populates="messages")
 

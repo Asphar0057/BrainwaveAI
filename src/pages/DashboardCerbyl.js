@@ -1948,8 +1948,8 @@ const DashboardCerbyl = () => {
                   <span className="cb-period">.</span>
                 )}
               </h1>
-              <button type="button" className="cb-continue-study" onClick={() => navigate('/notes/dashboard')}>
-                <Library size={16} aria-hidden="true" />Continue studying<ArrowUpRight size={16} aria-hidden="true" />
+              <button type="button" className="cb-continue-study" onClick={() => navigate('/practice-next')}>
+                <Library size={16} aria-hidden="true" />Practice next<ArrowUpRight size={16} aria-hidden="true" />
               </button>
             </div>
 

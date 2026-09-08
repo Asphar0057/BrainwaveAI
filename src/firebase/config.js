@@ -18,18 +18,27 @@ const firebaseConfig = {
   measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID,
 };
 
-const app = initializeApp(firebaseConfig);
-
-export const auth = getAuth(app);
-export const authPersistenceReady = setPersistence(auth, browserLocalPersistence).catch(() => {
+// Public lessons and password sign-in must not depend on optional Google configuration.
+let app = null;
+let configuredAuth = null;
+if (firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId) {
+  try { app = initializeApp(firebaseConfig); configuredAuth = getAuth(app); }
+  catch (_) { /* Google sign-in reports unavailable when invoked. */ }
+}
+export const auth = configuredAuth;
+export const authPersistenceReady = auth ? setPersistence(auth, browserLocalPersistence).catch(() => {
   // Firebase still uses its platform default if local persistence is unavailable.
-});
+}) : Promise.resolve();
 export const googleProvider = new GoogleAuthProvider();
 
 googleProvider.setCustomParameters({
   prompt: 'select_account'
 });
 
-export const analytics = getAnalytics(app);
+let configuredAnalytics = null;
+if (app && firebaseConfig.measurementId) {
+  try { configuredAnalytics = getAnalytics(app); } catch (_) { /* Analytics is optional. */ }
+}
+export const analytics = configuredAnalytics;
 
 export default app;

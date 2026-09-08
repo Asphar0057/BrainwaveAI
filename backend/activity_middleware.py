@@ -133,15 +133,11 @@ async def log_request_activity(request: Request, call_next):
     if auth_header.startswith('Bearer '):
         token = auth_header.split(' ', 1)[1].strip()
         try:
-            payload = jwt.decode(
-                token,
-                SECRET_KEY,
-                algorithms=[ALGORITHM],
-                audience="brainwave-client",
-                issuer="brainwave-backend",
-            )
-            user_id = payload.get("sub")
-        except JWTError:
+            from database import SessionLocal
+            from services.auth_tokens import resolve_access_token
+            with SessionLocal() as db:
+                user_id = str(resolve_access_token(token, db).id)
+        except Exception:
             user_id = None
 
     context_token = None

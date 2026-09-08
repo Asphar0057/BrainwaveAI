@@ -39,7 +39,7 @@ def is_unlimited_user(user: models.User | None) -> bool:
     identifiers = _unlimited_identifiers()
     return any(
         value and value.strip().lower() in identifiers
-        for value in (getattr(user, "username", None), getattr(user, "email", None))
+        for value in (getattr(user, "email", None),)
     )
 
 
@@ -117,13 +117,9 @@ def _seconds_until(reset_at: str | None) -> int | None:
 def get_user_plan_id(db: Session, user: models.User) -> str:
     if is_unlimited_user(user):
         return "unlimited"
-    profile = (
-        db.query(models.ComprehensiveUserProfile.subscription_tier)
-        .filter(models.ComprehensiveUserProfile.user_id == user.id)
-        .first()
-    )
-    plan_id = profile[0] if profile and profile[0] else None
-    return normalize_plan_id(plan_id)
+    from services.entitlements import effective_plan
+    profile = db.query(models.ComprehensiveUserProfile).filter(models.ComprehensiveUserProfile.user_id == user.id).first()
+    return effective_plan(profile)
 
 
 def get_token_limit_state(db: Session, user: models.User) -> dict[str, Any]:

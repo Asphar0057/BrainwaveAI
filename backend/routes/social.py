@@ -230,8 +230,7 @@ async def get_solo_quiz(
                 "id": q.id,
                 "question": q.question,
                 "options": json.loads(q.options),
-                "correct_answer": q.correct_answer,
-                "explanation": q.explanation
+                **({"correct_answer": q.correct_answer, "explanation": q.explanation} if quiz.completed else {})
             } for q in questions]
         }
 
@@ -252,12 +251,9 @@ async def complete_solo_quiz(
             raise HTTPException(status_code=404, detail="User not found")
 
         quiz_id = payload.get("quiz_id")
-        score = payload.get("score")
-        answers = payload.get("answers", [])
-
-        if not isinstance(score, (int, float)) or isinstance(score, bool):
-            raise HTTPException(status_code=422, detail="score is required and must be a number")
-
+        submitted = payload.get("answers", {})
+        if not isinstance(submitted, dict):
+            raise HTTPException(status_code=422, detail="Update or refresh the client: submit chosen option indices keyed by question ID.")
         quiz = resolve_by_id_or_uid(
             db.query(models.SoloQuiz).filter(models.SoloQuiz.user_id == current_user.id),
             models.SoloQuiz,
@@ -268,14 +264,38 @@ async def complete_solo_quiz(
         if not quiz:
             raise HTTPException(status_code=404, detail="Quiz not found")
 
-        logger.info(f"Quiz completion - User: {current_user.id}, Score: {score}%")
-
+        questions = db.query(models.SoloQuizQuestion).filter_by(quiz_id=quiz.id).order_by(models.SoloQuizQuestion.id).all()
+        if not questions:
+            raise HTTPException(status_code=409, detail="This quiz has no valid questions.")
+        if quiz.completed:
+            saved = json.loads(quiz.answers or "[]")
+            return {"status": "success", "completion_saved": True, "results": saved,
+                    "total_questions": len(questions), "correct_answers": sum(r.get("is_correct") is True for r in saved), "percentage": quiz.score}
+        answers = []
+        for q in questions:
+            raw = submitted.get(str(q.id), "")
+            selected = str(raw).strip() if raw is not None else ""
+            options = json.loads(q.options)
+            if not 0 <= q.correct_answer < len(options):
+                raise HTTPException(status_code=503, detail="A question needs review before this quiz can be graded.")
+            # Stored solo quiz keys are zero-based option indices.
+            if len(selected) == 1 and selected.upper() in "ABCD":
+                selected = str(ord(selected.upper()) - ord("A"))
+            answers.append({"question_id": q.id, "question_text": q.question, "user_answer": selected,
+                "correct_answer": q.correct_answer, "is_correct": selected == str(q.correct_answer), "explanation": q.explanation})
+        correct_count = sum(r["is_correct"] for r in answers)
+        score = round(correct_count / len(questions) * 100)
+        claimed = db.query(models.SoloQuiz).filter_by(id=quiz.id, completed=False).update({"completed": True})
+        if claimed != 1:
+            raise HTTPException(status_code=409, detail="Quiz submission is already in progress. Retry to retrieve the saved result.")
         quiz.score = score
-        quiz.completed = True
+        quiz.question_count = len(questions)
         quiz.status = "completed"
         quiz.answers = json.dumps(answers)
         quiz.completed_at = datetime.now(timezone.utc)
-
+        from services.product_events import record_event
+        record_event(db, "practice_answered", current_user.id, key=f"solo:{quiz.id}")
+        record_event(db, "practice_completed", current_user.id, key=f"solo-complete:{quiz.id}")
         db.commit()
         logger.info("Quiz saved successfully")
 
@@ -444,6 +464,11 @@ async def complete_solo_quiz(
 
         response = {
             "status": "success",
+            "completion_saved": True,
+            "results": answers,
+            "correct_answers": sum(r["is_correct"] for r in answers),
+            "total_questions": len(questions),
+            "percentage": score,
             "message": "Quiz completed",
             "points_earned": points_result["points_earned"],
             "total_points": points_result["total_points"],
@@ -460,6 +485,9 @@ async def complete_solo_quiz(
 
         return response
 
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         logger.error(f"Error completing solo quiz: {str(e)}")
         db.rollback()
@@ -604,28 +632,8 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
         db = next(get_db())
 
         try:
-            payload = jwt.decode(
-                token,
-                SECRET_KEY,
-                algorithms=[ALGORITHM],
-                audience=JWT_AUDIENCE,
-                issuer=JWT_ISSUER,
-            )
-            username = payload.get("sub")
-
-            if not username:
-                logger.error("No username in token")
-                await websocket.close(code=1008, reason="Invalid token")
-                return
-
-            logger.info(f"Token verified for: {username}")
-
-            user = get_user_by_username(db, username) or get_user_by_email(db, username)
-            if not user:
-                logger.error(f"User not found: {username}")
-                await websocket.close(code=1008, reason="User not found")
-                return
-
+            from services.auth_tokens import resolve_access_token
+            user = resolve_access_token(token, db)
             user_id = user.id
             logger.info(f"User {user_id} authenticated successfully")
 
@@ -686,3 +694,17 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                 logger.info("Database connection closed in cleanup")
             except Exception:
                 pass
+
+
+@router.post("/solo_quiz/{quiz_id}/check-answer")
+def check_solo_answer(quiz_id: int, payload: dict = Body(...), db: Session = Depends(get_db), user=Depends(get_current_user)):
+    question = db.query(models.SoloQuizQuestion).join(models.SoloQuiz).filter(
+        models.SoloQuiz.id == quiz_id, models.SoloQuiz.user_id == user.id,
+        models.SoloQuizQuestion.id == payload.get("question_id")).first()
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+    selected = str(payload.get("answer", "")).strip()
+    options = json.loads(question.options)
+    if not selected.isdigit() or not 0 <= int(selected) < len(options):
+        raise HTTPException(status_code=422, detail="Choose an available option")
+    return {"is_correct": int(selected) == question.correct_answer, "correct_answer": question.correct_answer, "explanation": question.explanation}

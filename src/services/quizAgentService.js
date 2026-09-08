@@ -1,7 +1,6 @@
 
 
 import { API_URL, getAuthToken } from '../config';
-import { answerToOptionIndex } from '../utils/quizQuestionUtils';
 
 class QuizAgentService {
   constructor() {
@@ -141,81 +140,21 @@ class QuizAgentService {
   }
 
   
-  async gradeQuiz(params) {
-    const {
-      userId,
-      questions,
-      answers,
-      timeTakenSeconds,
-      sessionId
-    } = params;
-
-    
-    let correctCount = 0;
-    const results = questions.map((q, idx) => {
-      const questionId = String(q.id ?? idx);
-      const rawUserAnswer = answers[questionId];
-      const userAnswer = rawUserAnswer === null || rawUserAnswer === undefined ? '' : String(rawUserAnswer).trim();
-      const correctAnswer = q.correct_answer === null || q.correct_answer === undefined ? '' : String(q.correct_answer).trim();
-      
-      
-      let isCorrect = false;
-      if (q.question_type === 'multiple_choice') {
-        const optionsLength = Array.isArray(q.options) ? q.options.length : 0;
-        const userIndex = answerToOptionIndex(userAnswer, optionsLength);
-        const correctIndex = answerToOptionIndex(correctAnswer, optionsLength);
-        isCorrect = userIndex !== null && correctIndex !== null && userIndex === correctIndex;
-      } else {
-        isCorrect = Boolean(userAnswer && correctAnswer && userAnswer.toLowerCase() === correctAnswer.toLowerCase());
-      }
-      
-      if (isCorrect) correctCount++;
-      
-      return {
-        question_text: q.question || q.question_text,
-        user_answer: answers[questionId] || '',
-        correct_answer: q.correct_answer,
-        is_correct: isCorrect,
-        explanation: q.explanation
-      };
-    });
-
-    const percentage = Math.round((correctCount / questions.length) * 100);
-
-    
-    const quizData = JSON.parse(sessionStorage.getItem('quizData') || '{}');
-    const quiz_id = quizData.quiz_id;
-
-    let completionSaved = !quiz_id;
-    if (quiz_id) {
-      try {
-
-        await this.request('/complete_solo_quiz', {
-          method: 'POST',
-          body: JSON.stringify({
-            quiz_id,
-            score: percentage,
-            answers: results
-          })
-        });
-        completionSaved = true;
-      } catch (error) {
-        console.error('Failed to submit quiz completion:', error);
-        completionSaved = false;
-      }
-    }
-
-    return {
-      success: true,
-      completion_saved: completionSaved,
-      total_questions: questions.length,
-      correct_answers: correctCount,
-      percentage,
-      results
-    };
+  async checkAnswer(quizId, questionId, answer) {
+    if (!quizId) throw new Error('This quiz has no saved session. Start a new quiz.');
+    return this.request(`/solo_quiz/${quizId}/check-answer`, { method: 'POST', body: JSON.stringify({ question_id: questionId, answer }) });
   }
 
-  
+  async gradeQuiz(params) {
+    const stored = JSON.parse(sessionStorage.getItem('quizData') || '{}');
+    const quizId = params.quizId || stored.quiz_id;
+    if (!quizId) throw new Error('This quiz has no saved session. Create a new quiz to record a verified score.');
+    return this.request('/complete_solo_quiz', {
+      method: 'POST', body: JSON.stringify({ quiz_id: quizId, answers: params.answers })
+    });
+  }
+
+
   async analyzePerformance(params) {
     const {
       userId,

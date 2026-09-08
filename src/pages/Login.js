@@ -134,6 +134,7 @@ function Login() {
     setGoogleLoading(true);
     try {
       await signOutAppSession();
+      if (!auth) throw new Error('Google sign-in is not configured. Please use email sign-in.');
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
       const userData = await exchangeGoogleSession(user);

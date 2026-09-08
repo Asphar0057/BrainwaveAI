@@ -1186,22 +1186,8 @@ async def get_slide_image(
     jwt_str = token or (credentials.credentials if credentials else None)
     if not jwt_str:
         raise HTTPException(status_code=401, detail="Authentication required")
-    try:
-        payload = jose_jwt.decode(
-            jwt_str,
-            SECRET_KEY,
-            algorithms=[ALGORITHM],
-            audience=JWT_AUDIENCE,
-            issuer=JWT_ISSUER,
-        )
-        username = payload.get("sub")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    current_user = db.query(models.User).filter(models.User.username == username).first()
-    if not current_user:
-        current_user = db.query(models.User).filter(models.User.email == username).first()
-    if not current_user:
-        raise HTTPException(status_code=404, detail="User not found")
+    from services.auth_tokens import resolve_access_token
+    current_user = resolve_access_token(jwt_str, db)
     import base64
 
     try:

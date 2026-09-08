@@ -50,6 +50,7 @@ function Register() {
     }
     setGoogleLoading(true);
     try {
+      if (!auth) throw new Error('Google sign-in is not configured. Please use email sign-in.');
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
       const idToken = await user.getIdToken();

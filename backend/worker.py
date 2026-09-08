@@ -220,7 +220,7 @@ def _persist_chat_message(db, job: models.AIJob, payload: dict[str, Any], result
 
 def _process_legacy_route(payload: dict[str, Any]) -> dict[str, Any]:
     from fastapi.testclient import TestClient
-    from deps import create_access_token
+    from services.auth_tokens import create_user_access_token
     from main import app
 
     method = (payload.get("method") or "POST").upper()
@@ -230,7 +230,11 @@ def _process_legacy_route(payload: dict[str, Any]) -> dict[str, Any]:
     if not auth_subject:
         raise ValueError("Legacy AI route job auth_subject is required")
 
-    token = create_access_token({"sub": auth_subject})
+    with SessionLocal() as auth_db:
+        auth_user = auth_db.query(models.User).filter(models.User.id == payload["auth_user_id"]).first()
+        if not auth_user:
+            raise ValueError("Job owner no longer exists")
+        token = create_user_access_token(auth_user)
     headers = {"Authorization": f"Bearer {token}"}
     client = TestClient(app)
 
@@ -263,7 +267,7 @@ def _process_legacy_route(payload: dict[str, Any]) -> dict[str, Any]:
 
 def _process_legacy_file_route(payload: dict[str, Any]) -> dict[str, Any]:
     from fastapi.testclient import TestClient
-    from deps import create_access_token
+    from services.auth_tokens import create_user_access_token
     from main import app
 
     path = payload.get("path") or ""
@@ -271,7 +275,11 @@ def _process_legacy_file_route(payload: dict[str, Any]) -> dict[str, Any]:
     if not auth_subject:
         raise ValueError("Legacy file AI route job auth_subject is required")
 
-    token = create_access_token({"sub": auth_subject})
+    with SessionLocal() as auth_db:
+        auth_user = auth_db.query(models.User).filter(models.User.id == payload["auth_user_id"]).first()
+        if not auth_user:
+            raise ValueError("Job owner no longer exists")
+        token = create_user_access_token(auth_user)
     headers = {"Authorization": f"Bearer {token}"}
     client = TestClient(app)
     opened_files = []
@@ -366,7 +374,7 @@ def process_job(job_id: int) -> bool:
         job.progress_message = f"Running attempt {attempt} of {_max_attempts()}"
         db.commit()
 
-        payload = job.input_json or {}
+        payload = {**(job.input_json or {}), "auth_user_id": job.user_id}
         with _job_timeout(job.timeout_seconds):
             if job.job_type == "chat_completion":
                 result = _process_chat_completion(job, payload, db)

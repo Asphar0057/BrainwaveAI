@@ -1,3 +1,4 @@
+import LearningEvidence from '../components/LearningEvidence';
 import useAccountDraft from '../hooks/useAccountDraft';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -644,6 +645,7 @@ function EducatorDashboard() {
             <div className="ci-progress-line"><span style={{ width: `${data.summary.average_mastery}%` }} /></div>
           </section>
 
+          <LearningEvidence sections={classHealth} />
           <section className="ci-feature-grid" aria-label="Educator workspace">
             <article className="ci-feature ci-feature--classes" id="educator-classes">
               <div className="ci-tile-texture" />

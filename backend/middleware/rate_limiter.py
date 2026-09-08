@@ -46,6 +46,9 @@ _RULES: list[tuple[Optional[frozenset], Optional[str], Optional[str]]] = [
     (frozenset(["POST"]),           "/api/forgot-password",             "auth_login"),
     (frozenset(["POST"]),           "/api/reset-password",              "auth_login"),
 
+    (frozenset(["GET"]),            "/api/weakness-practice/next-question", "ai_heavy"),
+    (frozenset(["POST"]),           "/api/weakness-practice/submit-answer", "ai_light"),
+    (frozenset(["POST"]),           "/api/qb/submit_answers", "ai_light"),
     (frozenset(["POST"]),           "/api/ask_simple",                  "ai_heavy"),
     (frozenset(["POST"]),           "/api/ask_with_files",              "ai_heavy"),
     (frozenset(["POST"]),           "/api/ask",                         "ai_heavy"),
@@ -243,24 +246,22 @@ def _get_jwt_sub(request: Request) -> Optional[str]:
     token = auth[7:].strip()
     if not token or not _SECRET_KEY:
         return None
+    from database import SessionLocal
+    from services.auth_tokens import AuthSubject, resolve_access_token
+    from fastapi import HTTPException
     try:
-        payload = jwt.decode(
-            token,
-            _SECRET_KEY,
-            algorithms=[_ALGORITHM],
-            audience=_JWT_AUDIENCE,
-            issuer=_JWT_ISSUER,
-        )
-        return payload.get("sub")
-    except JWTError:
+        with SessionLocal() as db:
+            return AuthSubject(resolve_access_token(token, db))
+    except HTTPException:
         return None
+
 
 def _get_identity(request: Request, use_ip: bool) -> str:
     if use_ip:
         return get_client_ip(request)
     sub = _get_jwt_sub(request)
     if sub:
-        return sub
+        return f"user:{sub.user_id}" if getattr(sub, "user_id", None) else sub
     return get_client_ip(request)
 
 def _prune_subscription_cache_locked(now: float) -> None:
@@ -289,46 +290,19 @@ def get_subscription_tier(subject: Optional[str]) -> str:
     return tier
 
 def _resolve_subscription_tier(subject: Optional[str]) -> str:
-    normalized_subject = (subject or "").strip().lower()
-    if not normalized_subject:
+    if not subject:
         return DEFAULT_PLAN_ID
-    if normalized_subject in _UNLIMITED_IDENTIFIERS:
-        return "unlimited"
+    from database import SessionLocal
+    from services.token_limits import get_user_plan_id
+    import models
+    with SessionLocal() as db:
+        query = db.query(models.User)
+        if getattr(subject, "user_id", None) is not None:
+            user = query.filter(models.User.id == subject.user_id).first()
+        else:
+            user = query.filter(models.User.username == subject).first()
+        return get_user_plan_id(db, user) if user else DEFAULT_PLAN_ID
 
-    now = time.time()
-    with _subscription_lock:
-        cached = _subscription_cache.get(normalized_subject)
-        if cached and cached[1] > now:
-            return cached[0]
-
-    tier = DEFAULT_PLAN_ID
-    try:
-        with engine.connect() as conn:
-            row = conn.execute(
-                text(
-                    """
-                    SELECT cp.subscription_tier, u.email
-                    FROM users u
-                    LEFT JOIN comprehensive_user_profiles cp ON cp.user_id = u.id
-                    WHERE lower(u.username) = :subject OR lower(u.email) = :subject
-                    LIMIT 1
-                    """
-                ),
-                {"subject": normalized_subject},
-            ).first()
-        if row:
-            email = (row[1] or "").strip().lower()
-            if email in _UNLIMITED_IDENTIFIERS:
-                tier = "unlimited"
-            elif row[0]:
-                tier = normalize_plan_id(str(row[0]))
-    except Exception as e:
-        logger.debug("Rate limiter subscription lookup failed for %s: %s", normalized_subject, e)
-
-    with _subscription_lock:
-        _subscription_cache[normalized_subject] = (tier, now + _SUBSCRIPTION_CACHE_TTL)
-        _prune_subscription_cache_locked(now)
-    return tier
 
 def _classify(method: str, path: str) -> Optional[str]:
     for rule_methods, rule_path, tier in _RULES:

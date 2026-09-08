@@ -1,3 +1,4 @@
+from services.grading import grade_written
 import json
 import logging
 import os
@@ -1034,10 +1035,7 @@ async def submit_question_answers(
                     elif question.question_type == "true_false":
                         is_correct = answers_equivalent(user_answer, question.correct_answer, ["True", "False"])
                     else:
-                        is_correct = any(
-                            keyword in user_answer.strip().lower()
-                            for keyword in question.correct_answer.strip().lower().split()[:3]
-                        )
+                        is_correct = grade_written(question, user_answer)
 
             if is_correct:
                 correct_count += 1
@@ -1070,6 +1068,10 @@ async def submit_question_answers(
         )
 
         db.add(attempt)
+        db.flush()
+        from services.product_events import record_event
+        record_event(db, "practice_answered", attempt.user_id, key=f"question-attempt:{attempt.id}")
+        record_event(db, "practice_completed", attempt.user_id, key=f"question-complete:{attempt.id}")
 
         # NOTE: models.QuestionSet has no `attempt_count` column (only `attempts`)
         # -- `question_set.attempt_count += 1` unconditionally raised AttributeError
@@ -1349,6 +1351,10 @@ async def submit_learning_response(
             submitted_at=datetime.now(timezone.utc),
         )
         db.add(attempt)
+        db.flush()
+        from services.product_events import record_event
+        record_event(db, "practice_answered", attempt.user_id, key=f"question-attempt:{attempt.id}")
+        record_event(db, "practice_completed", attempt.user_id, key=f"question-complete:{attempt.id}")
 
         review.current_attempt = attempt_number
         review.attempt_count = max(review.attempt_count, attempt_number)
@@ -1530,10 +1536,7 @@ async def submit_answers(
             elif question.question_type == "true_false":
                 is_correct = answers_equivalent(user_answer, question.correct_answer, ["True", "False"])
             else:
-                is_correct = any(
-                    keyword in user_answer.lower()
-                    for keyword in question.correct_answer.lower().split()[:3]
-                )
+                is_correct = grade_written(question, user_answer)
 
             if is_correct:
                 correct_count += 1
@@ -1566,6 +1569,10 @@ async def submit_answers(
             submitted_at=datetime.now(timezone.utc),
         )
         db.add(attempt)
+        db.flush()
+        from services.product_events import record_event
+        record_event(db, "practice_answered", attempt.user_id, key=f"question-attempt:{attempt.id}")
+        record_event(db, "practice_completed", attempt.user_id, key=f"question-complete:{attempt.id}")
         db.commit()
 
         return {

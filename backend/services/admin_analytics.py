@@ -68,31 +68,14 @@ def _db_fetch_all(query: str, params: Optional[dict] = None):
     return [dict(row) for row in rows]
 
 def check_admin(credentials: HTTPAuthorizationCredentials = Depends(_admin_bearer)):
-    try:
-        payload = jwt.decode(
-            credentials.credentials,
-            _get_secret_key(),
-            algorithms=["HS256"],
-            audience="brainwave-client",
-            issuer="brainwave-backend",
-        )
-        sub = payload.get("sub")
-        if not sub:
-            raise HTTPException(status_code=403, detail="Admin access required")
-    except JWTError:
-        raise HTTPException(status_code=403, detail="Admin access required")
-
-    try:
-        row = _db_fetch_one(
-            "SELECT email FROM users WHERE username = :subject OR email = :subject LIMIT 1",
-            {"subject": sub},
-        )
-        if row and row.get("email") in ADMIN_EMAILS:
-            return row["email"]
-    except Exception:
-        pass
-
+    from database import SessionLocal
+    from services.auth_tokens import resolve_access_token
+    with SessionLocal() as db:
+        user = resolve_access_token(credentials.credentials, db)
+        if user.email in ADMIN_EMAILS:
+            return user.email
     raise HTTPException(status_code=403, detail="Admin access required")
+
 
 def get_analytics_overview(days: int = 30):
     try:

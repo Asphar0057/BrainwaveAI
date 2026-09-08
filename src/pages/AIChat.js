@@ -1,3 +1,4 @@
+import AnswerFeedback from '../components/AnswerFeedback';
 import ToolNavigation from '../components/ToolNavigation';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
@@ -1712,6 +1713,8 @@ const AIChat = ({ sharedMode = false }) => {
       if (requestVersion !== conversationVersionRef.current) return;
       const aiMessage = {
         id: `ai_${Date.now()}`,
+        message_id: data.message_id,
+        sources: data.sources || [],
         type: 'ai',
         content: aiAnswerContent,
         timestamp: new Date().toISOString(),
@@ -2890,6 +2893,8 @@ const AIChat = ({ sharedMode = false }) => {
           // Add AI response to UI
           const aiMessage = {
             id: `ai_${Date.now()}`,
+        message_id: data.message_id,
+        sources: data.sources || [],
             type: 'ai',
             content: aiAnswerContent,
             timestamp: new Date().toISOString(),
@@ -3609,6 +3614,7 @@ const AIChat = ({ sharedMode = false }) => {
                       <div className="ac-message-content">
                         {renderMessageContent(message.content)}
                       </div>
+                      {message.type === 'ai' && !sharedMode && message.message_id && <AnswerFeedback resourceType="chat_message" resourceId={message.message_id} sources={message.sources || []} />}
 
                       {message.files && message.files.length > 0 && (
                         <div className="ac-msg-attachments">

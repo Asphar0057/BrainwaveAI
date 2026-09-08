@@ -8,16 +8,20 @@ _OPTION_LABEL_RE = re.compile(r"^(?:option\s*)?([A-Da-d])(?:[).:\-])?$", re.IGNO
 
 def canonical_answer(value) -> str:
     """Normalize display-equivalent answers without changing their meaning."""
-    text = unicodedata.normalize("NFKC", str(value or ""))
+    text = str(value or "")
+    text = re.sub(r"[⁰¹²³⁴⁵⁶⁷⁸⁹]+", lambda m: "^" + m.group().translate(str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹", "0123456789")), text)
+    text = unicodedata.normalize("NFKC", text)
+    while "\\\\" in text:
+        text = text.replace("\\\\", "\\")
     text = text.replace("−", "-").replace("–", "-").replace("—", "-")
     text = re.sub(r"^\s*[A-Da-d][).:\-]\s+", "", text)
     text = re.sub(r"\\(?:text|mathrm|mathbf|mathit)\s*\{([^{}]*)\}", r"\1", text)
     text = re.sub(r"\\frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}", r"\1/\2", text)
     text = text.replace("\\(", "").replace("\\)", "")
     text = text.replace("\\[", "").replace("\\]", "")
-    text = text.replace("$", "").replace("^", "")
+    text = text.replace("$", "")
     text = re.sub(r"\\,|\\;|\\!", " ", text)
-    text = re.sub(r"[^\w.+\-/]+", " ", text.lower(), flags=re.UNICODE)
+    text = text.lower()
     return re.sub(r"\s+", " ", text).strip()
 
 

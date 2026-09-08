@@ -157,158 +157,41 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def get_password_hash(password: str) -> str:
     return ph.hash(password)
 
-def create_access_token(data: dict, expires_delta: timedelta = None) -> str:
-    to_encode = data.copy()
-    now = datetime.now(timezone.utc)
-    expire = now + (expires_delta or timedelta(hours=8))
-    to_encode.update({"exp": expire, "iat": now, "iss": JWT_ISSUER, "aud": JWT_AUDIENCE})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+from services.auth_tokens import AuthSubject, create_user_access_token, resolve_access_token
 
-def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
-    try:
-        payload = jwt.decode(
-            credentials.credentials,
-            SECRET_KEY,
-            algorithms=[ALGORITHM],
-            audience=JWT_AUDIENCE,
-            issuer=JWT_ISSUER,
-        )
-        username: str = payload.get("sub")
-        if username is None:
-            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
-        return username
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
 
-def _user_cache_key(subject: str) -> str:
-    return (subject or "").strip().lower()
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)) -> str:
+    return AuthSubject(resolve_access_token(credentials.credentials, db))
 
-@contextmanager
-def _auth_lookup_lock(subject: str):
-    """Per-subject lock guarding the cache-miss DB lookup below, evicted from
-    _auth_user_lookup_locks once no other thread is still using it so this
-    dict doesn't grow forever with one entry per distinct username/email ever
-    authenticated."""
-    key = _user_cache_key(subject)
-    with _auth_user_lookup_locks_guard:
-        entry = _auth_user_lookup_locks.get(key)
-        if entry is None:
-            entry = _RefCountedLock()
-            _auth_user_lookup_locks[key] = entry
-        entry.refcount += 1
 
-    entry.lock.acquire()
-    try:
-        yield
-    finally:
-        entry.lock.release()
-        with _auth_user_lookup_locks_guard:
-            entry.refcount -= 1
-            if entry.refcount <= 0 and _auth_user_lookup_locks.get(key) is entry:
-                del _auth_user_lookup_locks[key]
-
-def _serialize_user(user: models.User) -> dict[str, Any]:
-    return {column.name: getattr(user, column.name) for column in models.User.__table__.columns}
-
-def _hydrate_user(data: dict[str, Any]) -> models.User:
-    return models.User(**data)
-
-def _get_cached_auth_user(subject: str) -> models.User | None:
-    if _AUTH_USER_CACHE_TTL_SECONDS <= 0:
-        return None
-    key = _user_cache_key(subject)
-    now = time.monotonic()
+def invalidate_cached_auth_user(user, extra_subjects=()):
+    # Authentication now reads session-bound ORM instances, never detached cached users.
     with _auth_user_cache_lock:
-        cached = _auth_user_cache.get(key)
-        if not cached:
-            return None
-        expires_at, data = cached
-        if expires_at <= now:
-            _auth_user_cache.pop(key, None)
-            return None
-        return _hydrate_user(data)
+        _auth_user_cache.clear()
 
-def _set_cached_auth_user(subject: str, user: models.User) -> None:
-    if _AUTH_USER_CACHE_TTL_SECONDS <= 0:
-        return
-    expires_at = time.monotonic() + _AUTH_USER_CACHE_TTL_SECONDS
-    data = _serialize_user(user)
-    keys = {
-        _user_cache_key(subject),
-        _user_cache_key(str(getattr(user, "id", ""))),
-        _user_cache_key(getattr(user, "username", "")),
-        _user_cache_key(getattr(user, "email", "")),
-    }
-    with _auth_user_cache_lock:
-        for key in keys:
-            if key:
-                _auth_user_cache[key] = (expires_at, data)
 
-def _find_user_for_subject(db: Session, subject: str) -> models.User | None:
+def _find_user_for_subject(db, subject):
+    if isinstance(subject, AuthSubject):
+        return db.query(models.User).filter(models.User.id == subject.user_id).first()
     user = db.query(models.User).filter(models.User.username == subject).first()
     if not user:
         user = db.query(models.User).filter(models.User.email == subject).first()
-    if not user and subject:
-        user = db.query(models.User).filter(models.User.phone_number == subject).first()
     return user
 
-def invalidate_cached_auth_user(user: models.User, extra_subjects: tuple[str, ...] = ()) -> None:
-    keys = {
-        _user_cache_key(str(getattr(user, "id", ""))),
-        _user_cache_key(getattr(user, "username", "")),
-        _user_cache_key(getattr(user, "email", "")),
-    }
-    keys.update(_user_cache_key(subject) for subject in extra_subjects)
-    with _auth_user_cache_lock:
-        for key in keys:
-            if key:
-                _auth_user_cache.pop(key, None)
 
-def _get_or_query_user_for_subject(db: Session, subject: str) -> models.User | None:
-    user = _get_cached_auth_user(subject)
-    if user:
-        return user
+def _get_or_query_user_for_subject(db, subject):
+    return _find_user_for_subject(db, subject)
 
-    with _auth_lookup_lock(subject):
-        user = _get_cached_auth_user(subject)
-        if user:
-            return user
-        user = _find_user_for_subject(db, subject)
-        if user:
-            _set_cached_auth_user(subject, user)
-        return user
 
 def get_current_user(db: Session = Depends(get_db), token: str = Depends(verify_token)):
-    user = _get_or_query_user_for_subject(db, token)
+    user = _find_user_for_subject(db, token)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=401, detail="User not found")
     return user
 
-def get_current_user_optional(
-    db: Session = Depends(get_db),
-    credentials: HTTPAuthorizationCredentials = Depends(optional_security),
-):
-    if credentials is None or not credentials.credentials:
-        return None
-    try:
-        payload = jwt.decode(
-            credentials.credentials,
-            SECRET_KEY,
-            algorithms=[ALGORITHM],
-            audience=JWT_AUDIENCE,
-            issuer=JWT_ISSUER,
-        )
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
 
-    username: str = payload.get("sub")
-    if not username:
-        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
-
-    user = _get_or_query_user_for_subject(db, username)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user
+def get_current_user_optional(db: Session = Depends(get_db), credentials=Depends(optional_security)):
+    return resolve_access_token(credentials.credentials, db) if credentials else None
 
 def _iter_user_scope_values(payload: Any, keys: set[str], depth: int = 0) -> Iterable[str]:
     if payload is None or depth > 4:
@@ -332,8 +215,9 @@ def _iter_user_scope_values(payload: Any, keys: set[str], depth: int = 0) -> Ite
 async def enforce_request_user_scope(
     request: Request,
     current_user: models.User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
 ):
-    keys = {"user_id", "user_id_param", "student_id"}
+    keys = {"user_id", "userId", "user_id_param", "student_id"}
     candidates: list[str] = []
 
     for key in keys:
@@ -368,27 +252,21 @@ async def enforce_request_user_scope(
     if not current_user:
         raise HTTPException(status_code=401, detail="Authentication required")
 
-    allowed_exact = {
-        str(current_user.id).strip(),
-    }
-    allowed_lower = {
-        (current_user.username or "").strip().lower(),
-        (current_user.email or "").strip().lower(),
-    }
-
+    allowed = {str(current_user.id), current_user.username, current_user.email}
     for requested in normalized_candidates:
-        if requested in allowed_exact:
-            continue
-        if requested.lower() in allowed_lower:
-            continue
-        raise HTTPException(status_code=403, detail="Access denied")
+        if requested not in allowed:
+            raise HTTPException(status_code=403, detail="Access denied")
+        # A numeric username must not let an ID-shaped reference select another account.
+        other = db.query(models.User.id).filter(models.User.username == requested, models.User.id != current_user.id).first()
+        if other:
+            raise HTTPException(status_code=403, detail="Ambiguous account reference")
     return current_user
 
 def get_user_by_username(db: Session, username: str):
     return _get_or_query_user_for_subject(db, username)
 
 def get_user_by_email(db: Session, email: str):
-    return _get_or_query_user_for_subject(db, email)
+    return db.query(models.User).filter(models.User.email == email).first()
 
 def get_user_by_phone(db: Session, phone: str):
     if not phone:
