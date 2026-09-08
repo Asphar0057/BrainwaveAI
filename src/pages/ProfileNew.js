@@ -1115,8 +1115,8 @@ const ProfileNew = () => {
                 <section className="pnw-panel pnw-identity-form" id="pn-section-personal">
                   <div className="pnw-section-heading">
                     <div>
-                      <span><Fingerprint size={15} /> Identity</span>
-                      <h2>The details Cerbyl uses.</h2>
+
+                      <h2>Profile Details</h2>
                     </div>
                     <small role="status">{autoSaving ? 'Saving changes…' : profileSaveError ? 'Changes not saved' : JSON.stringify(profileData) !== lastSavedRef.current ? 'Changes saved on this device; syncing…' : lastSaved ? 'All changes saved' : 'Autosaves after changes'}</small>
                     {profileSaveError && <div role="alert">{profileSaveError} <button type="button" onClick={() => autoSave(profileData)}>Retry saving</button></div>}
@@ -1144,8 +1144,8 @@ const ProfileNew = () => {
                 <section className="pnw-panel pnw-goal-form" id="pn-section-goals">
                   <div className="pnw-section-heading">
                     <div>
-                      <span><Target size={15} /> Learning direction</span>
-                      <h2>What are you working toward?</h2>
+
+                      <h2>Learning Goals</h2>
                     </div>
                   </div>
                   {profileData.quizSkipped && !profileData.quizCompleted && !profileData.fieldOfStudy && profileData.preferredSubjects.length === 0 && (
@@ -1175,7 +1175,7 @@ const ProfileNew = () => {
                   <div className="pnw-section-heading">
                     <div>
                       <span><Sparkles size={15} /> Learning profile</span>
-                      <h2>{profileData.primaryArchetype || 'Build your learning signature.'}</h2>
+                      <h2>{profileData.primaryArchetype || 'Learning Profile'}</h2>
                     </div>
                   </div>
                   {arch ? (
@@ -1250,8 +1250,8 @@ const ProfileNew = () => {
                 <div className="pnw-plan-heading">
                   <div className="pnw-section-heading">
                     <div>
-                      <span><CreditCard size={15} /> SUBSCRIPTION</span>
-                      <h2>Choose the capacity you need.</h2>
+
+                      <h2>Account Plans</h2>
                     </div>
                   </div>
                   <div className="pnw-plan-controls">
@@ -1404,8 +1404,8 @@ const ProfileNew = () => {
               <section className="pnw-mastery" id="pn-section-mastery">
                 <div className="pnw-section-heading">
                   <div>
-                    <span><BarChart3 size={15} /> Mastery</span>
-                    <h2>Your learning evidence.</h2>
+
+                    <h2>Learning History</h2>
                   </div>
                   <button type="button" className="pnw-text-action" onClick={() => navigate('/weaknesses')}>
                     Open Weak Areas <ArrowUpRight size={14} />
@@ -1431,8 +1431,8 @@ const ProfileNew = () => {
                 <section className="pnw-panel" id="pn-section-settings">
                   <div className="pnw-section-heading">
                     <div>
-                      <span><Settings size={15} /> Preferences</span>
-                      <h2>How the app meets you.</h2>
+
+                      <h2>App Preferences</h2>
                     </div>
                   </div>
                   <div className="pnw-setting-list">
@@ -1463,8 +1463,8 @@ const ProfileNew = () => {
                 <section className="pnw-panel pnw-danger" id="pn-section-account">
                   <div className="pnw-section-heading">
                     <div>
-                      <span><Trash2 size={15} /> Account control</span>
-                      <h2>Delete this account.</h2>
+
+                      <h2>Delete Account</h2>
                     </div>
                   </div>
                   <p>

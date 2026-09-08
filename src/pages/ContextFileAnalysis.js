@@ -411,7 +411,7 @@ const ContextFileAnalysis = () => {
             <section className="cfp-insights" aria-labelledby="cfp-insights-title">
               <div>
                 <p className="cfp-eyebrow">Source analysis</p>
-                <h2 id="cfp-insights-title">What this source covers</h2>
+                <h2 id="cfp-insights-title">Source Summary</h2>
                 <p>{doc.ai_summary || 'Key ideas identified while this source was indexed.'}</p>
               </div>
               {(doc.key_concepts?.length || doc.topic_tags?.length) && (

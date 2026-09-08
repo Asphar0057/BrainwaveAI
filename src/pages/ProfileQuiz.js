@@ -369,8 +369,8 @@ const ProfileQuiz = () => {
             <div className="pq-tile pq-tile-hero">
               <div className="pq-tile-texture" />
               <div className="pq-hero-logo" />
-              <h1 className="pq-hero-title">welcome to cerbyl</h1>
-              <p className="pq-hero-tagline"><span className="pq-nav-dot" />LEARNING UNIFIED</p>
+              <h1 className="pq-hero-title">Learning Profile</h1>
+
             </div>
 
             <button className="pq-tile pq-cta pq-cta--primary" onClick={() => setCurrentStep('form')}>

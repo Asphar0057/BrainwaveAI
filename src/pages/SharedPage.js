@@ -247,8 +247,8 @@ const SharedPage = () => {
         <main className="sp-main">
           <div className="sp-content">
             <div className="view-heading">
-              <span className="view-kicker">Library</span>
-              <h2 className="view-title">Shared With Me</h2>
+
+              <h2 className="view-title">Shared Content</h2>
               <p className="view-sub">{filteredSharedItems.length} item{filteredSharedItems.length !== 1 ? 's' : ''}</p>
             </div>
 

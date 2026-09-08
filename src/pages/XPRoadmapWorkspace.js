@@ -201,8 +201,8 @@ export default function XPRoadmapWorkspace({
         <div className="xpv-content">
           <section className="xpv-hero" id="xpv-roadmap">
             <div className="xpv-hero-copy">
-              <span className="xpv-kicker">XP Roadmap</span>
-              <h1>Level {level} is taking shape.</h1>
+
+              <h1 className="plain-page-title">XP Roadmap</h1>
               <p>
                 {nextNode
                   ? `Your learning has built four layers. ${Math.max(0, nextNode.xp - xp).toLocaleString()} XP completes the next one.`
@@ -257,8 +257,8 @@ export default function XPRoadmapWorkspace({
           <section className="xpv-map-panel" aria-labelledby="xpv-map-title">
             <div className="xpv-section-head">
               <div>
-                <span>Milestone field</span>
-                <h2 id="xpv-map-title">Your route bends with the work you finish.</h2>
+
+                <h2 id="xpv-map-title" className="plain-page-title">XP Roadmap</h2>
               </div>
               <p>{masteredCount} of {badgeCollection.length} milestones reached</p>
             </div>
@@ -370,7 +370,7 @@ export default function XPRoadmapWorkspace({
           <section className="xpv-tools-grid" aria-label="Momentum tools">
             <div className="xpv-streak-panel">
               <div className="xpv-panel-label"><Flame size={16} /><span>Seven day chain</span></div>
-              <h2>Keep the learning rhythm intact.</h2>
+              <h2>Study Streak</h2>
               <div className="xpv-chain" aria-label={`${stats?.current_streak || 0} day streak`}>
                 {streakChain.map((link, index) => (
                   <span key={link.id} className={`${link.active ? 'active' : ''} ${link.current ? 'current' : ''}`}>
@@ -418,7 +418,7 @@ export default function XPRoadmapWorkspace({
 
           <section className="xpv-rewards-panel" id="xpv-rewards">
             <div className="xpv-section-head">
-              <div><span>Rewards</span><h2>Your unlocks, in the order they become useful.</h2></div>
+              <div><h2>Upcoming Rewards</h2></div>
             </div>
             <div className="xpv-reward-layout">
               <div className="xpv-season-track">
@@ -455,7 +455,7 @@ export default function XPRoadmapWorkspace({
 
           <section className="xpv-topic-panel" id="xpv-topics">
             <div className="xpv-section-head">
-              <div><span>Personalized topic arcs</span><h2>Progress tied to what you actually study.</h2></div>
+              <div><h2>Topic Progress</h2></div>
               {roadmapLoading && <p role="status">Refreshing recommendations</p>}
             </div>
             {!roadmapLoading && roadmapError ? (
@@ -494,7 +494,7 @@ export default function XPRoadmapWorkspace({
 
           <section className="xpv-badge-panel">
             <div className="xpv-section-head">
-              <div><span>Milestone archive</span><h2>Every mark tells you what it took to earn it.</h2></div>
+              <div><h2>Milestone History</h2></div>
             </div>
             <div className="xpv-badge-grid">
               {badgeCollection.map((badge) => {

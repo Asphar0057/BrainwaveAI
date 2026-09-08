@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, Clock, FileQuestion, Play, Target, Trophy, XCircle } from 'lucide-react';
 import SocialHubChrome from '../components/SocialHubChrome';
 import MathRenderer from '../components/MathRenderer';
-import { extractQuestionText } from '../utils/quizQuestionUtils';
+import { answerToOptionIndex, extractQuestionText } from '../utils/quizQuestionUtils';
 import './SoloQuizFlow.css';
 
 const readStoredResults = () => {
@@ -22,14 +22,9 @@ const readableAnswer = (answer, question) => {
     try { options = JSON.parse(options); } catch { options = []; }
   }
   const normalized = String(answer).trim();
-  let index = -1;
-  if (/^[A-Z]$/i.test(normalized)) {
-    index = normalized.toUpperCase().charCodeAt(0) - 65;
-  } else if (/^\d+$/.test(normalized)) {
-    index = parseInt(normalized, 10);
-  }
-  const option = index >= 0 ? options[index] : null;
-  const letter = index >= 0 ? String.fromCharCode(65 + index) : normalized.toUpperCase();
+  const index = answerToOptionIndex(normalized, options.length);
+  const option = index !== null ? options[index] : null;
+  const letter = index !== null ? String.fromCharCode(65 + index) : normalized.toUpperCase();
   return option ? `${letter} · ${String(option).replace(/^[A-D][).]\s*/, '')}` : normalized;
 };
 
@@ -99,6 +94,7 @@ const SoloQuizReview = () => {
               <section className="solo-review-list" aria-label="Question review">
                 {results.map((result, index) => {
                   const question = questions[index];
+                  const isAnswered = result.user_answer !== null && result.user_answer !== undefined && String(result.user_answer).trim() !== '';
                   return (
                     <article className="solo-review-question" key={question?.id || index}>
                       <div className="solo-review-question-head">
@@ -108,8 +104,8 @@ const SoloQuizReview = () => {
                           className="solo-review-question-title"
                         />
                         <span className={`solo-review-status ${result.is_correct ? 'correct' : 'incorrect'}`}>
-                          {result.is_correct ? <CheckCircle size={14} /> : <XCircle size={14} />}
-                          {result.is_correct ? 'Correct' : 'Review'}
+                          {result.is_correct ? <CheckCircle size={14} /> : isAnswered ? <XCircle size={14} /> : <FileQuestion size={14} />}
+                          {result.is_correct ? 'Correct' : isAnswered ? 'Review' : 'Unanswered'}
                         </span>
                       </div>
                       <div className="solo-review-answers">

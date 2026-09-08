@@ -425,17 +425,17 @@ const FriendsDashboard = () => {
   const viewCopy = {
     'my-friends': {
       kicker: 'Your circle',
-      title: 'People who make learning less solitary.',
+      title: 'Your Friends',
       description: 'See the learners in your network and the momentum they are building.',
     },
     'find-friends': {
       kicker: 'Discover learners',
-      title: 'Find your next study connection.',
+      title: 'Find Friends',
       description: 'Search the Cerbyl community by username or email.',
     },
     requests: {
       kicker: 'Connection inbox',
-      title: 'Turn introductions into a network.',
+      title: 'Friend Requests',
       description: 'Review incoming invitations and keep track of requests you have sent.',
     },
   }[activeView];
@@ -482,9 +482,9 @@ const FriendsDashboard = () => {
         <main className="fd-main fd-main--redesigned">
           <header className="fd-hero">
             <div className="fd-hero-copy">
-              <span className="fd-hero-kicker">{viewCopy.kicker}</span>
-              <h1>{viewCopy.title}</h1>
-              <p>{viewCopy.description}</p>
+
+              <h1 className="plain-page-title">{viewCopy.title}</h1>
+
             </div>
           </header>
 
@@ -537,17 +537,17 @@ const FriendsDashboard = () => {
               ) : friends.length > 0 ? (
                 <div className="fd-empty-state fd-empty-state--compact">
                   <div className="fd-empty-icon"><Search size={22} /></div>
-                  <span>No match in your network</span>
-                  <h2>Try a different name.</h2>
+
+                  <h2>No Matches</h2>
                   <p>No connection matched “{friendQuery}”.</p>
                   <button type="button" onClick={() => setFriendQuery('')}>Clear search</button>
                 </div>
               ) : (
                 <div className="fd-empty-state">
                   <div className="fd-empty-icon"><Users size={23} /></div>
-                  <span>Your network is open</span>
-                  <h2>Learning is better with company.</h2>
-                  <p>Find someone studying a similar topic and build momentum together.</p>
+
+                  <h2>No Friends</h2>
+
                   <button type="button" onClick={() => setActiveView('find-friends')}><UserPlus size={14} /> Find people</button>
                 </div>
               )}
@@ -592,8 +592,8 @@ const FriendsDashboard = () => {
               ) : (
                 <div className="fd-empty-state fd-empty-state--compact">
                   <div className="fd-empty-icon"><Search size={22} /></div>
-                  <span>No matches</span>
-                  <h2>Try another name.</h2>
+
+                  <h2>No Matches</h2>
                   <p>No learners matched “{searchQuery}”.</p>
                 </div>
               )}
@@ -676,9 +676,9 @@ const FriendsDashboard = () => {
               ) : (
                 <div className="fd-empty-state">
                   <div className="fd-empty-icon"><Inbox size={23} /></div>
-                  <span>Inbox clear</span>
-                  <h2>No introductions waiting.</h2>
-                  <p>New requests and invitations you send will appear here.</p>
+
+                  <h2>No Requests</h2>
+
                   <button type="button" onClick={() => setActiveView('find-friends')}><Compass size={14} /> Discover learners</button>
                 </div>
               )}
@@ -750,9 +750,9 @@ const FriendsDashboard = () => {
           {activeView === 'find-friends' && (
             <>
               <div className="view-heading">
-                <span className="view-kicker">Discover</span>
-                <h2 className="view-title">Find Friends</h2>
-                <p className="view-sub">Search and connect with learners</p>
+
+                <h2 className="view-title plain-page-title">Find Friends</h2>
+
               </div>
               <div className="fd-search-box">
                 <Search size={16} className="fd-search-icon" />

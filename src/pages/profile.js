@@ -594,7 +594,7 @@ const Profile = () => {
                 <Target className="header-icon" />
                 <div>
                   <h2 className="card-title">Learning Goals</h2>
-                  <p className="card-subtitle">What you want to achieve</p>
+
                 </div>
               </div>
             </div>

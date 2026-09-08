@@ -919,8 +919,8 @@ const XPRoadmap = () => {
 
             <div className="xpv-stage-header">
               <div>
-                <span className="xpv-kicker">Current Campaign</span>
-                <h1>Road to {nextNode?.title || 'Ascendant Core'}</h1>
+
+                <h1 className="plain-page-title">XP Roadmap</h1>
               </div>
               <div className="xpv-level-module" style={{ '--level-progress': `${levelProgress}%` }}>
                 <span>LEVEL {level}</span>
@@ -1145,7 +1145,7 @@ const XPRoadmap = () => {
         <section className="xpv-topic-band">
           <div className="xpv-topic-heading">
             <BookOpen size={17} />
-            <h2>Personalized Topic Arcs</h2>
+            <h2>Topic Progress</h2>
           </div>
           <div className="xpv-topic-arcs">
             {topicArcs.length === 0 && (

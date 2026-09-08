@@ -26,6 +26,7 @@ from services.math_processor import process_math_in_response
 from services.websocket_manager import manager
 from services.admin_analytics import check_admin
 from services.content_bandit import get_content_bandit, is_auto_difficulty
+from services.quiz_options import shuffle_question_options
 from uid_utils import resolve_by_id_or_uid
 
 logger = logging.getLogger(__name__)
@@ -120,17 +121,14 @@ async def create_solo_quiz(
                     if adaptive_quiz.is_duplicate_question(question_text, recent_texts):
                         logger.info("[SOLO_QUIZ] dropped duplicate question from generation")
                         continue
-                    correct_text = q.get("correct_answer", "")
-                    try:
-                        correct_index = options.index(correct_text)
-                    except ValueError:
-                        correct_index = 0
-                    questions.append({
+                    prepared_question = shuffle_question_options({
                         "question": question_text,
                         "options": options,
-                        "correct_answer": correct_index,
+                        "correct_answer": q.get("correct_answer"),
                         "explanation": q.get("explanation", ""),
                     })
+                    if prepared_question:
+                        questions.append(prepared_question)
         except Exception as e:
             logger.warning(f"[SOLO_QUIZ] quiz graph failed, falling back to direct generation: {e}")
             questions = []
@@ -566,25 +564,26 @@ Use this exact structure:
         if len(options) < 4:
             raise ValueError(f"AI returned invalid options for question {index + 1}")
 
-        raw_answer = item.get("correct_answer", 0)
+        raw_answer = item.get("correct_answer")
         if isinstance(raw_answer, str) and raw_answer.strip().upper() in {"A", "B", "C", "D"}:
             correct_answer = ord(raw_answer.strip().upper()) - ord("A")
         else:
             try:
                 correct_answer = int(raw_answer)
             except (TypeError, ValueError):
-                correct_answer = 0
-        correct_answer = max(0, min(3, correct_answer))
+                raise ValueError(f"AI returned an invalid correct answer for question {index + 1}")
+        if correct_answer < 0 or correct_answer >= len(options):
+            raise ValueError(f"AI returned an out-of-range correct answer for question {index + 1}")
 
         if not question_text:
             raise ValueError(f"AI returned empty question text for question {index + 1}")
 
-        normalized_questions.append({
+        normalized_questions.append(shuffle_question_options({
             "question": process_math_in_response(question_text),
             "options": [process_math_in_response(o) for o in options],
             "correct_answer": correct_answer,
             "explanation": process_math_in_response(str(item.get("explanation") or "").strip()),
-        })
+        }))
 
     return normalized_questions
 

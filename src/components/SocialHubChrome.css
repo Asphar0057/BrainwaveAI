@@ -708,6 +708,7 @@
    Carries the hub tile's linework and depth into every destination page.
    ═══════════════════════════════════════════ */
 :is(
+  .my-notes-standard .shc-main .nt-note-card,
   .af-activity-card,
   .af-empty-feed,
   .sp-item-card,

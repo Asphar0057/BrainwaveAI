@@ -188,11 +188,11 @@ const Weaknesses = () => {
   const activeNav = VIEWS.find((item) => item.id === activeView);
 
   const pageTitle = {
-    'weak-areas': 'Turn mistakes into a route forward.',
-    'topics-hub': 'See mastery as a moving system.',
-    intelligence: 'Read the signals behind the score.',
-    'how-i-learn': 'Tune the way Cerbyl teaches you.',
-    activity: 'Trace what changed your learning.',
+    'weak-areas': 'Weak Areas',
+    'topics-hub': 'Topic Mastery',
+    intelligence: 'Learning Insights',
+    'how-i-learn': 'Learning Preferences',
+    activity: 'Learning Activity',
   }[activeView];
   const pageDescription = {
     'weak-areas': 'Rank the strongest learning signals, inspect their evidence, and move directly into targeted practice.',
@@ -250,9 +250,9 @@ const Weaknesses = () => {
       >
         <main className="wa-main">
           <header className="wa-hero">
-            <span className="wa-hero-kicker">Weak Areas / {activeNav?.label}</span>
-            <h1>{pageTitle}</h1>
-            <p>{pageDescription}</p>
+
+            <h1 className="plain-page-title">{pageTitle}</h1>
+
           </header>
 
           <section className="wa-content-toolbar" aria-label="Diagnosis status">
@@ -300,8 +300,8 @@ const Weaknesses = () => {
               <section className="wa-component-panel">
                 <header className="wa-component-intro">
                   <div><Cpu size={20} /><span>Pattern intelligence</span></div>
-                  <h2>How Cerbyl formed this diagnosis.</h2>
-                  <p>Long-term mastery, study frequency, and repeated mistakes appear here once enough evidence has accumulated.</p>
+                  <h2>Learning Diagnosis</h2>
+
                 </header>
                 <WeaknessTracker
                   userId={userName}
@@ -325,8 +325,8 @@ const Weaknesses = () => {
               <section className="wa-component-panel">
                 <header className="wa-component-intro">
                   <div><Brain size={20} /><span>Teaching strategy</span></div>
-                  <h2>The methods that help you recover fastest.</h2>
-                  <p>Your tutor adapts its explanations as your interaction history becomes strong enough to reveal a pattern.</p>
+                  <h2>Study Methods</h2>
+
                 </header>
                 <RLInsights userName={userName} token={token} />
               </section>

@@ -1,6 +1,7 @@
 
 
 import { API_URL, getAuthToken } from '../config';
+import { answerToOptionIndex } from '../utils/quizQuestionUtils';
 
 class QuizAgentService {
   constructor() {
@@ -153,19 +154,19 @@ class QuizAgentService {
     let correctCount = 0;
     const results = questions.map((q, idx) => {
       const questionId = String(q.id ?? idx);
-      const userAnswer = String(answers[questionId] || '').trim().toUpperCase();
-      const correctAnswer = String(q.correct_answer || '').trim().toUpperCase();
+      const rawUserAnswer = answers[questionId];
+      const userAnswer = rawUserAnswer === null || rawUserAnswer === undefined ? '' : String(rawUserAnswer).trim();
+      const correctAnswer = q.correct_answer === null || q.correct_answer === undefined ? '' : String(q.correct_answer).trim();
       
       
       let isCorrect = false;
-      if (userAnswer === correctAnswer) {
-        isCorrect = true;
-      } else if (userAnswer.length === 1 && correctAnswer.startsWith(userAnswer)) {
-        
-        isCorrect = true;
-      } else if (correctAnswer.length === 1 && userAnswer.startsWith(correctAnswer)) {
-        
-        isCorrect = true;
+      if (q.question_type === 'multiple_choice') {
+        const optionsLength = Array.isArray(q.options) ? q.options.length : 0;
+        const userIndex = answerToOptionIndex(userAnswer, optionsLength);
+        const correctIndex = answerToOptionIndex(correctAnswer, optionsLength);
+        isCorrect = userIndex !== null && correctIndex !== null && userIndex === correctIndex;
+      } else {
+        isCorrect = Boolean(userAnswer && correctAnswer && userAnswer.toLowerCase() === correctAnswer.toLowerCase());
       }
       
       if (isCorrect) correctCount++;

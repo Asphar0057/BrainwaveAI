@@ -94,12 +94,8 @@ const LearningReviewHub = () => {
 
       <main className="lrh-main">
         <section className="lrh-hero">
-          <h2 className="lrh-hero-title">
-            Welcome back, <span className="lrh-hero-name">{userName}</span>
-          </h2>
-          <p className="lrh-hero-subtitle">
-            Select a tool — Learning Unified
-          </p>
+          <h2 className="lrh-hero-title plain-page-title">Learning Tools</h2>
+
         </section>
 
         <section className="lrh-grid">

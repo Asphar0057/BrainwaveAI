@@ -4,7 +4,7 @@ import { Clock, Trophy, CheckCircle, XCircle, Loader, Lightbulb, RefreshCw, Aler
 import SocialHubChrome from '../components/SocialHubChrome';
 import quizAgentService from '../services/quizAgentService';
 import MathRenderer from '../components/MathRenderer';
-import { extractQuestionText, normalizeQuestions } from '../utils/quizQuestionUtils';
+import { answerToOptionIndex, extractQuestionText, normalizeQuestions } from '../utils/quizQuestionUtils';
 import './QuizBattleSession.css';
 import './SoloQuizFlow.css';
 
@@ -100,7 +100,7 @@ const SoloQuizSession = () => {
   const handleAnswerSelect = (answerIndex) => {
     if (showInstantFeedback || submittingRef.current) return;
     const question = questions[currentQuestionIndex];
-    const value = question.question_type === 'multiple_choice' ? String.fromCharCode(65 + answerIndex) : question.question_type === 'true_false' ? (answerIndex === 0 ? 'true' : 'false') : String(answerIndex);
+    const value = question.question_type === 'multiple_choice' ? String(answerIndex) : question.question_type === 'true_false' ? (answerIndex === 0 ? 'true' : 'false') : String(answerIndex);
     setUserAnswers(previous => ({ ...previous, [String(question.id ?? currentQuestionIndex)]: value }));
     
     if (quizMode === 'sequential-instant') {
@@ -110,7 +110,7 @@ const SoloQuizSession = () => {
       
       let answerValue;
       if (currentQuestion.question_type === 'multiple_choice') {
-        answerValue = String.fromCharCode(65 + answerIndex);
+        answerValue = String(answerIndex);
       } else if (currentQuestion.question_type === 'true_false') {
         answerValue = answerIndex === 0 ? 'true' : 'false';
       } else {
@@ -118,9 +118,8 @@ const SoloQuizSession = () => {
       }
       
       
-      const correctAnswer = String(currentQuestion.correct_answer || '').toLowerCase();
-      const isCorrect = answerValue.toLowerCase() === correctAnswer || 
-                        answerValue.toLowerCase() === correctAnswer.charAt(0);
+      const correctAnswer = currentQuestion.correct_answer;
+      const isCorrect = correctAnswer !== null && answerValue === String(correctAnswer);
       
       setSelectedAnswer(answerIndex);
       setShowInstantFeedback(true);
@@ -162,7 +161,7 @@ const SoloQuizSession = () => {
         
         let answerValue;
         if (currentQuestion.question_type === 'multiple_choice') {
-          answerValue = String.fromCharCode(65 + selectedAnswer);
+          answerValue = String(selectedAnswer);
         } else if (currentQuestion.question_type === 'true_false') {
           answerValue = selectedAnswer === 0 ? 'true' : 'false';
         } else {
@@ -196,7 +195,7 @@ const SoloQuizSession = () => {
       
       let answerValue;
       if (currentQuestion.question_type === 'multiple_choice') {
-        answerValue = String.fromCharCode(65 + selectedAnswer);
+        answerValue = String(selectedAnswer);
       } else if (currentQuestion.question_type === 'true_false') {
         answerValue = selectedAnswer === 0 ? 'true' : 'false';
       } else {
@@ -209,9 +208,8 @@ const SoloQuizSession = () => {
       }));
 
       
-      const correctAnswer = String(currentQuestion.correct_answer || '').toLowerCase();
-      const isCorrect = answerValue.toLowerCase() === correctAnswer || 
-                        answerValue.toLowerCase() === correctAnswer.charAt(0);
+      const correctAnswer = currentQuestion.correct_answer;
+      const isCorrect = correctAnswer !== null && answerValue === String(correctAnswer);
       
       if (isCorrect) {
         setScore(prev => prev + 1);
@@ -238,7 +236,7 @@ const SoloQuizSession = () => {
           const prevAnswer = userAnswers[prevQuestionId];
 
           if (prevQuestion.question_type === 'multiple_choice') {
-            setSelectedAnswer(prevAnswer.charCodeAt(0) - 65);
+            setSelectedAnswer(answerToOptionIndex(prevAnswer, prevQuestion.options?.length || 0));
           } else if (prevQuestion.question_type === 'true_false') {
             setSelectedAnswer(prevAnswer === 'true' ? 0 : 1);
           } else {
@@ -262,7 +260,7 @@ const SoloQuizSession = () => {
       if (userAnswers[questionId]) {
         const answer = userAnswers[questionId];
         if (question.question_type === 'multiple_choice') {
-          setSelectedAnswer(answer.charCodeAt(0) - 65);
+          setSelectedAnswer(answerToOptionIndex(answer, question.options?.length || 0));
         } else if (question.question_type === 'true_false') {
           setSelectedAnswer(answer === 'true' ? 0 : 1);
         } else {
@@ -340,9 +338,8 @@ const SoloQuizSession = () => {
       const localResults = questions.map((q, idx) => {
         const questionId = String(q.id ?? idx);
         const userAnswer = submittedAnswers[questionId] || '';
-        const correctAnswer = String(q.correct_answer || '');
-        const isCorrect = userAnswer.toLowerCase() === correctAnswer.toLowerCase() || 
-                         userAnswer.toLowerCase() === correctAnswer.toLowerCase().charAt(0);
+        const correctAnswer = q.correct_answer;
+        const isCorrect = userAnswer !== '' && correctAnswer !== null && userAnswer === String(correctAnswer);
         return {
           question_text: extractQuestionText(q),
           user_answer: userAnswer,
@@ -510,6 +507,7 @@ const SoloQuizSession = () => {
               {(results?.results || []).map((result, index) => {
                 const question = questions[index];
                 const isCorrect = result.is_correct;
+                const isAnswered = result.user_answer !== null && result.user_answer !== undefined && String(result.user_answer).trim() !== '';
                 let options = question?.options || [];
                 if (typeof options === 'string') {
                   try { options = JSON.parse(options); } catch { options = []; }
@@ -521,7 +519,7 @@ const SoloQuizSession = () => {
                       <div className="question-number">Q{index + 1}</div>
                       <MathRenderer content={result.question_text || extractQuestionText(question)} className="question-text-full" />
                       <span className={`status-badge ${isCorrect ? 'correct' : 'incorrect'}`}>
-                        {isCorrect ? '✓ Correct' : '✗ Incorrect'}
+                        {isCorrect ? '✓ Correct' : isAnswered ? '✗ Incorrect' : '— Unanswered'}
                       </span>
                     </div>
                     
@@ -529,10 +527,10 @@ const SoloQuizSession = () => {
                       <div className="answer-options-review">
                         {options.map((option, optIndex) => {
                           const optionLetter = String.fromCharCode(65 + optIndex);
-                          const correctAnswerNum = Number(result.correct_answer);
-                          const userAnswerNum = Number(result.user_answer);
-                          const isCorrectOption = Number.isFinite(correctAnswerNum) && optIndex === correctAnswerNum;
-                          const isUserSelected = Number.isFinite(userAnswerNum) && optIndex === userAnswerNum;
+                          const correctAnswerNum = answerToOptionIndex(result.correct_answer, options.length);
+                          const userAnswerNum = answerToOptionIndex(result.user_answer, options.length);
+                          const isCorrectOption = correctAnswerNum !== null && optIndex === correctAnswerNum;
+                          const isUserSelected = userAnswerNum !== null && optIndex === userAnswerNum;
                           const optionText = typeof option === 'string' ? option.replace(/^[A-D]\)\s*/, '') : option;
                           
                           return (
@@ -760,9 +758,7 @@ const SoloQuizSession = () => {
                 if (isAnswered && quizMode !== 'standard') {
                   const q = questions[index];
                   const userAns = userAnswers[questionId];
-                  const correctAns = String(q.correct_answer || '').toLowerCase();
-                  isCorrect = userAns.toLowerCase() === correctAns || 
-                             userAns.toLowerCase() === correctAns.charAt(0);
+                  isCorrect = q.correct_answer !== null && userAns === String(q.correct_answer);
                 }
 
                 return (

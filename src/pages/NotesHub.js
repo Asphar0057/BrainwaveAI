@@ -146,9 +146,9 @@ function NotesHub() {
         <main className="nh-main">
           <header className="nh-hero">
             <div className="nh-hero-copy">
-              <span className="nh-kicker">Your thinking, in one place</span>
-              <h1>What do you want to capture?</h1>
-              <p>Write from scratch, or bring a source and let Cerbyl structure the first pass.</p>
+
+              <h1 className="plain-page-title">Notes Workspace</h1>
+
             </div>
             <div className="nh-library-status" aria-label={totalLabel}>
               <span className="nh-status-dot" />

@@ -43,7 +43,7 @@ describe('ContextFileAnalysis', () => {
   it('shows indexed analysis and safely renders malformed dates', async () => {
     render(<MemoryRouter><ContextFileAnalysis /></MemoryRouter>);
     expect(await screen.findByText('Cell biology.pdf')).toBeInTheDocument();
-    expect(screen.getByText('What this source covers')).toBeInTheDocument();
+    expect(screen.getByText('Source Summary')).toBeInTheDocument();
     expect(screen.getByText('A grounded overview of cellular structure and transport.')).toBeInTheDocument();
     expect(screen.getByText('Diffusion')).toBeInTheDocument();
     expect(screen.queryByText(/Invalid Date/i)).not.toBeInTheDocument();

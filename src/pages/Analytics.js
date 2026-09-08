@@ -363,9 +363,9 @@ const Analytics = () => {
       <main className="an-main">
         {(loadError || panelError) && <div role="alert"><p>{loadError || panelError}</p><button onClick={() => setRetry(value => value + 1)}>Retry analytics</button></div>}
         <header className="an-hero">
-          <span className="an-hero-kicker">Learning intelligence</span>
-          <h1>See the shape of your learning.</h1>
-          <p>Follow momentum, find the habits that compound, and understand how Cerbyl adapts around you.</p>
+
+          <h1 className="plain-page-title">Learning Analytics</h1>
+
         </header>
 
         <div className="an-mobile-tabs" role="tablist" aria-label="Analytics views">

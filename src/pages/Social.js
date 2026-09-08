@@ -456,7 +456,7 @@ const Social = () => {
               { icon: Search,        label: 'Find People',  onClick: () => setActiveTab('search'),   active: activeTab === 'search' },
               { icon: Inbox,         label: 'Requests',     onClick: () => setActiveTab('requests'), active: activeTab === 'requests', count: friendRequests.received.length + friendRequests.sent.length },
               { icon: Users,         label: 'Friends',      onClick: () => setActiveTab('friends'),  active: activeTab === 'friends', count: friends.length },
-              { icon: Share2,        label: 'Shared With Me', onClick: () => setActiveTab('shared'), active: activeTab === 'shared', count: sharedItems.length },
+              { icon: Share2,        label: 'Shared Content', onClick: () => setActiveTab('shared'), active: activeTab === 'shared', count: sharedItems.length },
             ],
           },
           {
@@ -486,8 +486,8 @@ const Social = () => {
               </div>
               <div className="lh-header">
                 <div className="lh-heading">
-                  <span className="lh-kicker">Friends Leaderboard</span>
-                  <h2 className="lh-title">Top of Your Circle</h2>
+
+                  <h2 className="lh-title">Your Leaderboard</h2>
                 </div>
                 <span className="lh-view-all">
                   View All <ArrowUpRight size={12} />
@@ -604,7 +604,7 @@ const Social = () => {
                   <div className="view-heading">
                     <span className="view-kicker">Discover</span>
                     <h2 className="view-title">Find People</h2>
-                    <p className="view-sub">Search by username or email to connect</p>
+
                   </div>
                   <div className="friend-section">
                     <div className="search-container">
@@ -630,8 +630,8 @@ const Social = () => {
               {activeTab === 'requests' && (
                 <div className="sh-tab-content">
                   <div className="view-heading">
-                    <span className="view-kicker">Inbox</span>
-                    <h2 className="view-title">Friend Requests</h2>
+
+                    <h2 className="view-title plain-page-title">Friend Requests</h2>
                     <p className="view-sub">{friendRequests.received.length + friendRequests.sent.length} pending</p>
                   </div>
                   <div className="friend-section">
@@ -692,9 +692,9 @@ const Social = () => {
               {activeTab === 'shared' && (
                 <div className="sh-tab-content">
                   <div className="view-heading">
-                    <span className="view-kicker">Library</span>
-                    <h2 className="view-title">Shared With Me</h2>
-                    <p className="view-sub">Content friends have shared with you</p>
+
+                    <h2 className="view-title">Shared Content</h2>
+
                   </div>
                   <div className="friend-section">
                     <div className="shared-controls">

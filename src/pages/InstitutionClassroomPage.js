@@ -361,7 +361,7 @@ function InstitutionClassroomPage({ role, view }) {
               {resource.status === 'ready' && !resource.data?.messages?.length && <div className="icp-empty">No private messages in this class yet.</div>}
             </section>
             <form className="icp-compose" onSubmit={sendMessage}>
-              <span>NEW PRIVATE MESSAGE</span><h2>Write with context.</h2>
+              <h2>New Message</h2>
               <label>Recipient<select required value={messageForm.recipient_id} onChange={(event) => setMessageForm({ ...messageForm, recipient_id: event.target.value })}><option value="">Choose recipient</option>{messageRecipients.map((person) => <option key={person.id} value={person.id}>{person.display_name}</option>)}</select></label>
               <label>Subject<input minLength={3} maxLength={180} required value={messageForm.subject} onChange={(event) => setMessageForm({ ...messageForm, subject: event.target.value })} /></label>
               <label>Message<textarea rows={7} minLength={3} maxLength={5000} required value={messageForm.body} onChange={(event) => setMessageForm({ ...messageForm, body: event.target.value })} /></label>
@@ -387,7 +387,7 @@ function InstitutionClassroomPage({ role, view }) {
       {editDraft && (
         <div className="icp-editor-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setEditDraft(null)}>
           <section ref={editorRef} className="icp-editor" role="dialog" aria-modal="true" aria-label="Edit assignment">
-            <header><span>ASSIGNMENT CONTROL</span><h2>Edit and publish.</h2></header>
+            <header><h2>Edit Assignment</h2></header>
             <label>Title<input value={editDraft.title} onChange={(event) => setEditDraft({ ...editDraft, title: event.target.value })} /></label>
             <label>Instructions<textarea rows={4} value={editDraft.description || ''} onChange={(event) => setEditDraft({ ...editDraft, description: event.target.value })} /></label>
             <label>Rubric<textarea rows={4} value={editDraft.rubric_text || ''} onChange={(event) => setEditDraft({ ...editDraft, rubric_text: event.target.value })} /></label>

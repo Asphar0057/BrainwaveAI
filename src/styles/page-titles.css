@@ -1,0 +1,8 @@
+/* App page banners use short, functional titles instead of display slogans. */
+.plain-page-title {
+  font-size: clamp(26px, 2.5vw, 36px) !important;
+  line-height: 1.2 !important;
+  letter-spacing: -.025em !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}

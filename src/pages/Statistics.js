@@ -144,9 +144,9 @@ const Statistics = () => {
       <div className="st-content">
         <section className="st-hero">
           <div>
-            <span className="st-eyebrow">Learning signal</span>
-            <h1>{userName ? `${userName}'s progress,` : 'Your progress,'}<br />made legible.</h1>
-            <p>See what is sticking, where time is going, and which topic deserves the next session.</p>
+
+            <h1 className="plain-page-title">Learning Statistics</h1>
+
           </div>
           <div className="st-hero-mark" aria-hidden="true">
             <BarChart3 size={30} />
@@ -217,9 +217,9 @@ const Statistics = () => {
             {stats.totalSessions === 0 && (
               <section className="st-zero-state">
                 <div>
-                  <span className="st-eyebrow">No signal yet</span>
-                  <h2>Your first review creates the baseline.</h2>
-                  <p>Complete one focused quiz or learning review. Cerbyl will turn it into score, time, topic, and improvement signals here.</p>
+
+                  <h2>No Reviews</h2>
+
                 </div>
                 <button type="button" onClick={() => navigate('/learning-review')}>
                   <Play size={15} fill="currentColor" />
@@ -274,7 +274,7 @@ const Statistics = () => {
                   <div className="view-heading">
                     <span className="view-kicker">Track Record</span>
                     <h2 className="view-title">Recent Sessions</h2>
-                    <p className="view-sub">Your learning history</p>
+
                   </div>
                 </div>
 

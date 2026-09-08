@@ -99,9 +99,9 @@ const QuizHub = () => {
       >
         <main className="qh-main">
           <header className="qh-hero">
-            <span className="qh-kicker">Quiz studio</span>
-            <h1>Choose how you want to be tested.</h1>
-            <p>Practice privately or bring a friend into the same question set.</p>
+
+            <h1 className="plain-page-title">Quiz Hub</h1>
+
           </header>
 
           <section className="qh-workspace" aria-labelledby="qh-routes-heading">
@@ -148,8 +148,8 @@ const QuizHub = () => {
                     <span className="qh-preview-option"><i>C</i><b /></span>
                   </div>
                   <div className="qh-card-copy">
-                    <h2>Build a quiz around what you need to learn.</h2>
-                    <p>Choose the topic, pressure level and feedback style before you begin.</p>
+                    <h2>Solo Quiz</h2>
+
                   </div>
                 </div>
 
@@ -192,8 +192,8 @@ const QuizHub = () => {
                     <div><small>Friend</small><strong>?</strong></div>
                   </div>
                   <div className="qh-card-copy">
-                    <h2>Put the same knowledge under live pressure.</h2>
-                    <p>Challenge a friend, choose the rules and settle it question by question.</p>
+                    <h2 className="plain-page-title">Quiz Battles</h2>
+
                   </div>
                 </div>
 

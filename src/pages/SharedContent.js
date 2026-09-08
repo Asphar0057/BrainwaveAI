@@ -124,9 +124,9 @@ const SharedContent = () => {
         <div className="shared-welcome">
           <div className="shared-welcome-left">
             <div className="view-heading" style={{ marginBottom: 0, paddingBottom: 0, border: 'none' }}>
-              <span className="view-kicker">Friends</span>
-              <h2 className="view-title">Content Shared With You</h2>
-              <p className="view-sub">Access notes and AI chats that friends have shared with you</p>
+
+              <h2 className="view-title">Shared Content</h2>
+
             </div>
           </div>
           <div className="shared-stats">

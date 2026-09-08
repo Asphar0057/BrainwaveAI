@@ -2098,9 +2098,9 @@ ${answeringComprehensionCheck ? `- The student is answering this previous compre
             <header className="kr-section-header">
               <div className="kr-header-content">
                 <div>
-                  <span className="view-kicker">Knowledge workspace</span>
-                  <h1 className="view-title">See how every idea connects.</h1>
-                  <p className="view-sub">Build interactive learning maps, explore related topics, and keep the context behind every connection.</p>
+
+                  <h1 className="view-title plain-page-title">Knowledge Map</h1>
+
                 </div>
                 <div className="kr-header-actions">
                   <button className="kr-create-btn" type="button" onClick={() => setShowCreateModal(true)}>

@@ -19,7 +19,7 @@ it('submits the selected final answer without requiring Next', async () => {
   render(<SoloQuizSession/>);
   fireEvent.click(await screen.findByRole('button', {name: /Beta/}));
   fireEvent.click(screen.getByRole('button', {name: /submit quiz/i}));
-  await waitFor(() => expect(quizAgentService.gradeQuiz).toHaveBeenCalledWith(expect.objectContaining({answers: {'42':'B'}})));
+  await waitFor(() => expect(quizAgentService.gradeQuiz).toHaveBeenCalledWith(expect.objectContaining({answers: {'42':'1'}})));
 });
 it('restores answers after leaving and reopening an attempt', async () => {
   const first = render(<SoloQuizSession/>);
@@ -27,7 +27,7 @@ it('restores answers after leaving and reopening an attempt', async () => {
   first.unmount();
   render(<SoloQuizSession/>);
   fireEvent.click(await screen.findByRole('button', {name: /submit quiz/i}));
-  await waitFor(() => expect(quizAgentService.gradeQuiz).toHaveBeenCalledWith(expect.objectContaining({answers: {'42':'B'}})));
+  await waitFor(() => expect(quizAgentService.gradeQuiz).toHaveBeenCalledWith(expect.objectContaining({answers: {'42':'1'}})));
 });
 it('retains an attempt after failed persistence and retries the same answers', async () => {
   quizAgentService.gradeQuiz.mockRejectedValueOnce(new Error('Offline'));
@@ -36,7 +36,7 @@ it('retains an attempt after failed persistence and retries the same answers', a
   fireEvent.click(screen.getByRole('button', {name: /submit quiz/i}));
   fireEvent.click(await screen.findByRole('button', {name: /retry saving result/i}));
   await waitFor(() => expect(quizAgentService.gradeQuiz).toHaveBeenCalledTimes(2));
-  expect(quizAgentService.gradeQuiz.mock.calls[1][0].answers).toEqual({'42':'B'});
+  expect(quizAgentService.gradeQuiz.mock.calls[1][0].answers).toEqual({'42':'1'});
 });
 it('includes the last sequential answer when delayed submission runs', async () => {
   sessionStorage.setItem('quizData', JSON.stringify({...quiz, quizMode:'sequential-instant'}));
@@ -44,5 +44,19 @@ it('includes the last sequential answer when delayed submission runs', async () 
   render(<SoloQuizSession/>);
   fireEvent.click(screen.getByRole('button', {name: /Beta/}));
   await act(async () => { jest.advanceTimersByTime(1500); });
-  expect(quizAgentService.gradeQuiz).toHaveBeenCalledWith(expect.objectContaining({answers: {'42':'B'}}));
+  expect(quizAgentService.gradeQuiz).toHaveBeenCalledWith(expect.objectContaining({answers: {'42':'1'}}));
+});
+
+it('submits only questions the learner answered', async () => {
+  sessionStorage.setItem('quizData', JSON.stringify({
+    ...quiz,
+    questions: [
+      quiz.questions[0],
+      { id: 43, question: 'Leave this blank', question_type: 'multiple_choice', options: ['One', 'Two'], correct_answer: 0 },
+    ],
+  }));
+  render(<SoloQuizSession/>);
+  fireEvent.click(await screen.findByRole('button', {name: /Beta/}));
+  fireEvent.click(screen.getByRole('button', {name: /submit quiz/i}));
+  await waitFor(() => expect(quizAgentService.gradeQuiz).toHaveBeenCalledWith(expect.objectContaining({answers: {'42':'1'}})));
 });

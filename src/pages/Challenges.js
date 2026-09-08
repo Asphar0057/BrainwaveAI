@@ -196,8 +196,8 @@ const Challenges = () => {
           <div className="challenges-welcome-left">
             <div className="view-heading">
               <span className="view-kicker">Daily Challenges</span>
-              <h2 className="view-title">Challenges</h2>
-              <p className="view-sub">Test yourself with today's curated challenges</p>
+              <h2 className="view-title">Daily Challenges</h2>
+
             </div>
           </div>
           <button className="create-challenge-btn" onClick={() => setShowCreateModal(true)}>

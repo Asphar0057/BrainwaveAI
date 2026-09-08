@@ -1157,9 +1157,7 @@ export default function ContextHub() {
           <BookCopy size={28} />
           Context Hub
         </h1>
-        <p className="ch-landing-desc">
-          Upload your study materials or browse the curriculum library — your AI tutor, flashcards, quizzes, and notes will use them as context.
-        </p>
+
       </div>
 
       <div className="ch-how-it-works">
@@ -1233,7 +1231,7 @@ export default function ContextHub() {
           <div className="ch-bento-card-inner">
             <div className="ch-bento-card-plus-icon"><Upload size={28} /></div>
             <div className="ch-bento-card-text">
-              <h2 className="ch-bento-card-title">Upload Your Own Docs</h2>
+              <h2 className="ch-bento-card-title">Upload Documents</h2>
               <p className="ch-bento-card-desc">
                 Drop in your textbook, syllabus, or notes. It auto-selects as context — open AI Chat and it's already reading from it.
               </p>

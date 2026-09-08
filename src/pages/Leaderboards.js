@@ -62,8 +62,8 @@ const Leaderboards = () => {
         <div className="leaderboard-welcome">
           <div className="view-heading">
             <span className="view-kicker">Rankings</span>
-            <h2 className="view-title">Leaderboards</h2>
-            <p className="view-sub">See where you stand by all-time XP</p>
+            <h2 className="view-title">Global Rankings</h2>
+
           </div>
         </div>
 

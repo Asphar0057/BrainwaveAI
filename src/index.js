@@ -1,3 +1,4 @@
+import { NavigationHistoryProvider } from './components/NavigationHistory';
 import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import App from './App';
@@ -14,7 +15,7 @@ if (typeof window !== 'undefined') {
 const container = document.getElementById('root');
 const root = ReactDOM.createRoot(container);
 // Data-router navigation blockers protect pending note edits, including browser Back.
-const router = createBrowserRouter([{ path: '*', element: <App /> }], {
+const router = createBrowserRouter([{ path: '*', element: <NavigationHistoryProvider><App /></NavigationHistoryProvider> }], {
   future: { v7_relativeSplatPath: true }
 });
 root.render(<RouterProvider router={router} future={{ v7_startTransition: true }} />);

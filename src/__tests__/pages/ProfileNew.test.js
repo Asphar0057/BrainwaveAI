@@ -209,7 +209,7 @@ describe('ProfileNew billing cycle regression', () => {
     await renderProfileNew();
 
     await waitFor(() => {
-      expect(screen.getByText('SUBSCRIPTION')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Account Plans' })).toBeInTheDocument();
     });
 
     const proCard = screen.getByText('Pro').closest('article');

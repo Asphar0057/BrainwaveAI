@@ -807,7 +807,7 @@ const AIMediaNotes = () => {
                   <div className="view-heading mn-view-heading">
                     <span className="view-kicker">Source Archive / {history.length} editions</span>
                     <h2 className="view-title">Media library</h2>
-                    <p className="view-sub">Return to the source, transcript and every study output without breaking context.</p>
+
                   </div>
                   <button type="button" className="amn-library-new" onClick={startNewUpload}><Upload size={15} />Add source</button>
                 </div>
@@ -862,9 +862,9 @@ const AIMediaNotes = () => {
               <div className="mn-upload-section mn-intake">
                 <div className="mn-intake-heading">
                   <div className="view-heading mn-view-heading">
-                    <span className="view-kicker">Media Desk / New study edition</span>
-                    <h2 className="view-title">Keep the source.<br />Lose the noise.</h2>
-                    <p className="view-sub">A source-aware workspace for turning recordings, video and documents into notes you can trace, review and reuse.</p>
+
+                    <h2 className="view-title plain-page-title">Media Notes</h2>
+
                   </div>
                 </div>
 

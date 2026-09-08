@@ -315,8 +315,8 @@ const QuizBattle = () => {
                       </button>
                     </div>
                     <Swords size={30} className="qb-create-icon" />
-                    <h1 className="qb-create-title">Set the terms of the challenge.</h1>
-                    <p className="qb-create-subtitle">Choose the opponent, topic and pressure. Both players get the same test.</p>
+                    <h1 className="qb-create-title plain-page-title">Create Battle</h1>
+
                   </div>
                   <div className="qb-live-brief" aria-live="polite">
                     <div className="qb-live-match">
@@ -516,10 +516,8 @@ const QuizBattle = () => {
                 <section className="qb-welcome-section">
                   <div className="qb-welcome-left">
                     <div className="qb-view-kicker">Live Arena</div>
-                    <h1 className="qb-view-title">Your 1v1 arena.</h1>
-                    <p className="qb-welcome-desc">
-                      Challenge a friend, agree on the rules and answer the same questions under pressure.
-                    </p>
+                    <h1 className="qb-view-title plain-page-title">Quiz Battles</h1>
+
                     <div className={`qb-connection-status ${isConnected ? 'is-live' : ''}`}>
                       <span aria-hidden="true" />
                       {isConnected ? 'Live updates connected' : 'Refreshing every 10 seconds'}

@@ -328,7 +328,8 @@ html:has(.ai-chat-page) {
   box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.05);
 }
 
-.ai-chat-page * {
+/* Baseline only: embedded panels and controls own their spacing. */
+:where(.ai-chat-page *) {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -1721,6 +1722,56 @@ html:has(.ai-chat-page) {
   border-color: color-mix(in srgb, var(--ac-accent) 20%, transparent) !important;
 }
 
+.ac-folder-empty-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: calc(100% - 24px);
+  margin: 4px 12px 10px;
+  padding: 10px 12px;
+  border: 1px dashed color-mix(in srgb, var(--ac-accent) 30%, transparent);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ac-text-secondary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ac-folder-empty-action:hover,
+.ac-folder-empty-action:focus-visible {
+  border-color: color-mix(in srgb, var(--ac-accent) 60%, transparent);
+  color: var(--ac-text-primary);
+  background: color-mix(in srgb, var(--ac-accent) 8%, transparent);
+}
+
+.ac-folder-empty-action svg {
+  width: 15px;
+  height: 15px;
+  color: var(--ac-accent);
+}
+
+.ac-folder-load-error {
+  display: grid;
+  gap: 8px;
+  margin: 4px 12px 10px;
+  color: var(--ac-danger);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.ac-folder-load-error button {
+  width: max-content;
+  padding: 5px 9px;
+  border: 1px solid color-mix(in srgb, var(--ac-danger) 45%, transparent);
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
 .ac-folder-icon {
   width: 20px !important;
   height: 20px !important;
@@ -2117,8 +2168,52 @@ html:has(.ai-chat-page) {
   padding: 8px 0;
   min-width: 180px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-  z-index: 10000;
+  z-index: 10001;
   animation: scaleIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ac-move-menu-overlay {
+  z-index: 10000;
+}
+
+.ac-move-menu-empty {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  color: var(--ac-text-secondary);
+  font-size: 12px;
+}
+
+.ac-move-menu-empty button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--ac-accent) 28%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ac-accent) 9%, transparent);
+  color: var(--ac-text-primary);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.ac-move-menu-empty button:hover {
+  background: color-mix(in srgb, var(--ac-accent) 16%, transparent);
+}
+
+.ac-move-menu-empty button svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+}
+
+.ac-move-menu-error,
+.ac-folder-dialog-error {
+  color: var(--ac-danger);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .ac-move-menu-item {

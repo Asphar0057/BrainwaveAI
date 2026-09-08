@@ -1,3 +1,4 @@
+import ToolNavigation from '../components/ToolNavigation';
 import { readLibraryState, writeLibraryState } from '../utils/libraryState';
 import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -245,13 +246,7 @@ const NotesDashboard = () => {
     <div className="notes-dashboard" style={{ fontFamily: selectedFont }}>
       <NotesLineField />
       <div className="shc-topbar">
-        <nav className="ndb-breadcrumbs" aria-label="Breadcrumb">
-          <Link to="/dashboard-cerbyl"><LayoutDashboard size={16} />Dashboard</Link>
-          <ChevronRight size={14} aria-hidden="true" />
-          <Link to="/notes">Notes</Link>
-          <ChevronRight size={14} aria-hidden="true" />
-          <span aria-current="page">My notes</span>
-        </nav>
+        <ToolNavigation />
       </div>
       <div className="ndb-qb-body">
         <button

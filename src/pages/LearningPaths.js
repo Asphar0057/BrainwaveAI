@@ -299,9 +299,9 @@ const LearningPaths = () => {
           {activePanel === 'generator' ? (
             <section className="lp-builder" aria-labelledby="lp-builder-title">
               <div className="lp-builder-copy">
-                <span className="lp-kicker">Plot a new route</span>
-                <h1 id="lp-builder-title">Build a learning path.</h1>
-                <p>Choose the subject, depth and outcome. Cerbyl will arrange the sequence.</p>
+
+                <h1 id="lp-builder-title" className="plain-page-title">Create Path</h1>
+
               </div>
 
               <div className="lp-planning-desk">
@@ -408,9 +408,9 @@ const LearningPaths = () => {
             <section className="lp-library" aria-labelledby="lp-library-title">
               <div className="lp-library-head">
                 <div>
-                  <span className="lp-kicker">Learning paths</span>
-                  <h1 id="lp-library-title">Your routes</h1>
-                  <p>Resume the path that matters now, or find another route in your library.</p>
+
+                  <h1 id="lp-library-title" className="plain-page-title">Learning Paths</h1>
+
                 </div>
                 <button type="button" className="lp-head-create" onClick={() => openPanel('generator')}>
                   <Plus size={17} /> New path
@@ -431,9 +431,9 @@ const LearningPaths = () => {
                   <div className="lp-empty-map" aria-hidden="true">
                     <span /><span /><span /><i />
                   </div>
-                  <span className="lp-kicker">No route plotted</span>
-                  <h2>Your next subject is still a blank map.</h2>
-                  <p>Start with a destination. Cerbyl will turn it into a sequence of concepts, practice and checks.</p>
+
+                  <h2>No Paths</h2>
+
                   <button type="button" onClick={() => openPanel('generator')}>Plot the first path <ArrowRight size={16} /></button>
                 </div>
               ) : (

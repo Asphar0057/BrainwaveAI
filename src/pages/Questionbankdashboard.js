@@ -28,7 +28,7 @@ const QUICK_SECTIONS = [
 const QUESTION_VIEWS = [
   { key: 'question-sets', label: 'Practice Library', icon: FileText },
   { key: 'upload-pdf', label: 'PDF Sources', icon: Upload },
-  { key: 'chat-slides', label: 'Chats & Slides', icon: MessageSquare },
+  { key: 'chat-slides', label: 'Study Sources', icon: MessageSquare },
   { key: 'custom', label: 'Build a Set', icon: Sparkles },
   { key: 'analytics', label: 'Performance', icon: BarChart3 }
 ];
@@ -1576,7 +1576,7 @@ const QuestionBankDashboard = () => {
           <Upload className="qbd-view-icon" size={32} />
           <div>
             <h2 className="qbd-view-title">PDF Sources</h2>
-            <p className="qbd-view-subtitle">Upload PDFs and select multiple sources to generate questions</p>
+
           </div>
         </div>
       </div>
@@ -1949,8 +1949,8 @@ const QuestionBankDashboard = () => {
         <div className="qbd-view-title-group">
           <MessageSquare className="qbd-view-icon" size={32} />
           <div>
-            <h2 className="qbd-view-title">Chats & Slides</h2>
-            <p className="qbd-view-subtitle">Choose the conversations and presentations that should shape your next question set.</p>
+            <h2 className="qbd-view-title">Study Sources</h2>
+
           </div>
         </div>
       </div>
@@ -2144,8 +2144,8 @@ const QuestionBankDashboard = () => {
         <div className="qbd-view-title-group">
           <Sparkles className="qbd-view-icon" size={32} />
           <div>
-            <h2 className="qbd-view-title">Build a question set</h2>
-            <p className="qbd-view-subtitle">Write the source brief on the left, then shape the practice experience on the right.</p>
+            <h2 className="qbd-view-title">Create Questions</h2>
+
           </div>
         </div>
       </div>
@@ -2380,9 +2380,9 @@ const QuestionBankDashboard = () => {
     <div className="qbd-view qbd-question-hub">
       <header className="qbd-qh-hero">
         <div className="qbd-qh-hero-copy">
-          <span className="qbd-qh-kicker">Question hub / practice desk</span>
-          <h1>Make every question count.</h1>
-          <p>Resume a set, find a weak spot, or build focused practice from the material you already have.</p>
+
+          <h1 className="plain-page-title">Question Bank</h1>
+
         </div>
         <div className="qbd-qh-hero-actions">
           <button className="qbd-qh-quiet-btn" onClick={fetchQuestionSets} type="button">
@@ -2699,7 +2699,7 @@ const QuestionBankDashboard = () => {
           <BarChart3 className="qbd-view-icon" size={32} />
           <div>
             <h2 className="qbd-view-title">Performance Analytics</h2>
-            <p className="qbd-view-subtitle">Track your progress and identify areas for improvement</p>
+
           </div>
         </div>
       </div>
@@ -2858,8 +2858,8 @@ const QuestionBankDashboard = () => {
         <div className="qbd-view-title-group">
           <AlertTriangle className="qbd-view-icon" size={32} />
           <div>
-            <h2 className="qbd-view-title">Weak Areas & Practice</h2>
-            <p className="qbd-view-subtitle">Track your struggles and generate targeted practice</p>
+            <h2 className="qbd-view-title">Weak Areas</h2>
+
           </div>
         </div>
         <button 
@@ -3350,7 +3350,7 @@ const QuestionBankDashboard = () => {
   const sidebarLead = (
     <button className="qbd-hub-create" onClick={() => setActiveView('custom')} type="button">
       <Sparkles size={15} />
-      <span>Build a question set</span>
+      <span>Create Questions</span>
     </button>
   );
 

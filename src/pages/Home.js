@@ -139,7 +139,7 @@ function SectionDetail({ id, navigate }) {
     return (
       <>
         <div className="cb-modal-label">THE PROBLEM</div>
-        <h2 className="cb-modal-title">Your brain is actively<br />deleting what you study.</h2>
+        <h2 className="cb-modal-title">Memory Science</h2>
         <p className="cb-modal-sub">Ebbinghaus proved it in 1885. Most AI tools still ignore it in 2025.</p>
         <div className="cb-curve">
           {CURVE_BARS.map((b) => (
@@ -163,7 +163,7 @@ function SectionDetail({ id, navigate }) {
     return (
       <>
         <div className="cb-modal-label">THE INFRASTRUCTURE</div>
-        <h2 className="cb-modal-title">Two systems. One brain.</h2>
+        <h2 className="cb-modal-title">Learning Methods</h2>
         <div className="cb-arch-grid">
           {SYSTEMS.map((s) => (
             <div key={s.num} className="cb-arch-card">
@@ -190,7 +190,7 @@ function SectionDetail({ id, navigate }) {
     return (
       <>
         <div className="cb-modal-label">WHAT YOU GET</div>
-        <h2 className="cb-modal-title">Seven features. One platform.</h2>
+        <h2 className="cb-modal-title">Study Tools</h2>
         <div className="cb-feat-grid">
           {FEATURES.map((f) => (
             <div key={f.title} className="cb-feat-card">
@@ -208,7 +208,7 @@ function SectionDetail({ id, navigate }) {
     return (
       <>
         <div className="cb-modal-label">WHY CERBYL</div>
-        <h2 className="cb-modal-title">One AI workspace that actually knows you.</h2>
+        <h2 className="cb-modal-title">Personalized Learning</h2>
         <div className="cb-why-grid">
           {WHY_REASONS.map((r) => (
             <div key={r.num} className="cb-why-card">
@@ -237,7 +237,7 @@ function CompetitionDetail() {
   return (
     <>
       <div className="cb-modal-label">COMPETITIVE ADVANTAGE</div>
-      <h2 className="cb-modal-title">Why chatbots fail at learning.</h2>
+      <h2 className="cb-modal-title">Learning Support</h2>
       <div className="cb-comp-tabs">
         <button className={`cb-ctab${tab === 0 ? ' cb-ctab--on' : ''}`} onClick={() => setTab(0)}>VS AI CHATBOTS</button>
         <button className={`cb-ctab${tab === 1 ? ' cb-ctab--on' : ''}`} onClick={() => setTab(1)}>VS COMPETITORS</button>
@@ -420,7 +420,7 @@ export default function Home() {
             <div className="cb-bg-grain" />
             <div className="cb-mark-logo" />
             <span className="cb-mark-word">cerbyl</span>
-            <h1 className="cb-mark-promise">Turn your study materials into understanding.</h1>
+            <h1 className="cb-mark-promise plain-page-title">Study Workspace</h1>
             <p className="cb-mark-description">Ask questions, organize notes, and practice with quizzes and flashcards in one workspace.</p>
             <button className="cb-mark-start" onClick={() => navigate('/register')}>Start learning →</button>
           </div>

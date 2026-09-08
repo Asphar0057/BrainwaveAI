@@ -3317,7 +3317,7 @@ const Flashcards = () => {
                 <div className="fc-view-header">
                   <span className="fc-view-kicker">AI-Powered</span>
                   <h2 className="fc-view-title">Create Flashcards</h2>
-                  <p className="fc-view-sub">Generate with AI by topic, from chat history, or build your own</p>
+
                 </div>
                 
                 <div className="fc-generator">
@@ -3714,7 +3714,7 @@ const Flashcards = () => {
                 <div className="fc-view-header">
                   <span className="fc-view-kicker">Question Hub Sources</span>
                   <h2 className="fc-view-title">PDF Sources</h2>
-                  <p className="fc-view-sub">Use the same uploaded PDFs from Question Hub and convert selected sources into flashcards</p>
+
                 </div>
 
                 <div className="fc-source-layout">
@@ -3930,7 +3930,7 @@ const Flashcards = () => {
                     <div className="fc-view-header">
                       <span className="fc-view-kicker">Weak Cards</span>
                       <h2 className="fc-view-title">Needs Review</h2>
-                      <p className="fc-view-sub">Cards you marked as "I don't know this" — practice them to mastery</p>
+
                     </div>
                     
                     <div className="fc-review-section">
@@ -4017,7 +4017,7 @@ const Flashcards = () => {
                     <div className="fc-view-header">
                       <span className="fc-view-kicker">Community</span>
                       <h2 className="fc-view-title">Explore Public</h2>
-                      <p className="fc-view-sub">Discover and copy flashcard sets shared by the community</p>
+
                     </div>
                     <div className="fc-explore-search-landing">
                       <form
@@ -4078,7 +4078,7 @@ const Flashcards = () => {
                     <div className="fc-view-header">
                       <span className="fc-view-kicker">Community</span>
                       <h2 className="fc-view-title">Explore Public</h2>
-                      <p className="fc-view-sub">Discover and copy flashcard sets shared by the community</p>
+
                     </div>
                     
                     <div className="fc-public-search-bar">
@@ -4375,8 +4375,8 @@ const Flashcards = () => {
               <div className="fc-content">
                 <div className="fc-view-header">
                   <span className="fc-view-kicker">Performance</span>
-                  <h2 className="fc-view-title">Statistics</h2>
-                  <p className="fc-view-sub">Track your learning progress and mastery over time</p>
+                  <h2 className="fc-view-title">Study Statistics</h2>
+
                 </div>
                 
                 {flashcardStats ? (

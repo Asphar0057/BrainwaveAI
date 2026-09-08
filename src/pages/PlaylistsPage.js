@@ -302,9 +302,9 @@ const PlaylistsPage = () => {
         <div className="plx-workspace">
           <header className="plx-header">
             <div>
-              <span className="plx-eyebrow">Learning library</span>
-              <h1>Build a path through what matters.</h1>
-              <p>Collect resources, order the work, and turn a scattered topic into something you can finish.</p>
+
+              <h1 className="plain-page-title">Study Playlists</h1>
+
             </div>
             <div className="plx-header-actions">
               <button className="plx-secondary-btn" type="button" onClick={() => setShowImportExport(true)}>
@@ -471,7 +471,7 @@ const PlaylistsPage = () => {
               <div className="plx-state plx-state--empty">
                 <div className="plx-empty-mark"><BookOpen size={24} /></div>
                 <span>{hasActiveFilters ? 'Nothing matches yet' : 'Your first path starts here'}</span>
-                <h2>{hasActiveFilters ? 'Try a wider search.' : 'Create a playlist worth finishing.'}</h2>
+                <h2>{hasActiveFilters ? 'No Matches' : 'No Playlists'}</h2>
                 <p>{hasActiveFilters ? 'Clear one or more filters to bring more collections into view.' : 'Bundle notes, links, videos, and quizzes into one focused sequence.'}</p>
                 <button className="plx-primary-btn" type="button" onClick={hasActiveFilters ? clearFilters : () => setShowCreateModal(true)}>
                   {hasActiveFilters ? <X size={15} /> : <Plus size={15} />}

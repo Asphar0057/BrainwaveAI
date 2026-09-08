@@ -53,24 +53,44 @@ const normalizeOptions = (options) => {
 };
 
 const normalizeCorrectAnswer = (correctAnswer, optionsLength) => {
+  if (!optionsLength) return null;
+
   if (typeof correctAnswer === 'number' && Number.isFinite(correctAnswer)) {
-    return Math.min(Math.max(Math.trunc(correctAnswer), 0), Math.max(optionsLength - 1, 0));
+    const index = Math.trunc(correctAnswer);
+    return index >= 0 && index < optionsLength ? index : null;
   }
 
   if (typeof correctAnswer === 'string') {
     const trimmed = correctAnswer.trim();
+    if (!trimmed) return null;
+
     const numeric = Number(trimmed);
-    if (Number.isInteger(numeric)) {
-      return Math.min(Math.max(numeric, 0), Math.max(optionsLength - 1, 0));
+    if (Number.isInteger(numeric) && numeric >= 0 && numeric < optionsLength) {
+      return numeric;
     }
 
-    const letterIndex = trimmed.toUpperCase().charCodeAt(0) - 65;
-    if (letterIndex >= 0) {
-      return Math.min(letterIndex, Math.max(optionsLength - 1, 0));
+    if (/^[A-Z]$/i.test(trimmed)) {
+      const letterIndex = trimmed.toUpperCase().charCodeAt(0) - 65;
+      return letterIndex >= 0 && letterIndex < optionsLength ? letterIndex : null;
     }
   }
 
-  return 0;
+  return null;
+};
+
+export const answerToOptionIndex = (answer, optionsLength = Infinity) => {
+  if (answer === null || answer === undefined) return null;
+  const normalized = String(answer).trim();
+  if (!normalized) return null;
+
+  let index = null;
+  if (/^\d+$/.test(normalized)) {
+    index = Number(normalized);
+  } else if (/^[A-Z]$/i.test(normalized)) {
+    index = normalized.toUpperCase().charCodeAt(0) - 65;
+  }
+
+  return Number.isInteger(index) && index >= 0 && index < optionsLength ? index : null;
 };
 
 export const extractQuestionText = (question) => {
@@ -111,20 +131,25 @@ export const extractQuestionText = (question) => {
 export const normalizeQuestion = (question) => {
   if (!question || typeof question !== 'object') {
     const text = extractQuestionText(question);
-    return { question: text, question_text: text, options: [], correct_answer: 0 };
+    return { question: text, question_text: text, options: [], correct_answer: null };
   }
 
   const text = extractQuestionText(question);
   const questionValue = typeof question.question === 'string' ? question.question : '';
   const questionTextValue = typeof question.question_text === 'string' ? question.question_text : '';
   const options = normalizeOptions(question.options);
+  const questionType = cleanString(question.question_type).toLowerCase() || (options.length ? 'multiple_choice' : 'short_answer');
+  const correctAnswer = questionType === 'multiple_choice'
+    ? normalizeCorrectAnswer(question.correct_answer, options.length)
+    : cleanString(question.correct_answer).toLowerCase() || null;
 
   return {
     ...question,
     question: text || questionValue,
     question_text: text || questionTextValue,
+    question_type: questionType,
     options,
-    correct_answer: normalizeCorrectAnswer(question.correct_answer, options.length)
+    correct_answer: correctAnswer
   };
 };
 

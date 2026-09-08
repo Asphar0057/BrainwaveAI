@@ -505,7 +505,7 @@ function ContextHubWorkspace() {
         <header className="cxh-pane-head">
           <div>
             <p>Browse sources</p>
-            <h2 id="source-ledger-title">Find your sources</h2>
+            <h2 id="source-ledger-title">Find Sources</h2>
           </div>
           <span>{deskSources.length} available</span>
         </header>
@@ -739,7 +739,7 @@ function ContextHubWorkspace() {
     <section className="cxh-ingest" aria-labelledby="upload-title">
       <div className="cxh-ingest-copy">
         <p>Add a new source</p>
-        <h2 id="upload-title">Drop in the material you actually study from.</h2>
+        <h2 id="upload-title">Upload Source</h2>
         <span>PDF, DOCX, TXT, or Markdown up to 50 MB. Cerbyl indexes the source so every generated artifact can stay grounded.</span>
         <div className="cxh-file-spec">
           <span><strong>01</strong> Choose a file</span>
@@ -823,8 +823,8 @@ function ContextHubWorkspace() {
         <div className="cxh-main">
           <header className="cxh-main-head">
             <div>
-              <span>Context Hub / {activeNav?.label}</span>
-              <h1>{view === 'desk' ? 'Work with what matters.' : view === 'library' ? 'Your documents, organized.' : 'Add a source.'}</h1>
+
+              <h1 className="plain-page-title">{view === 'desk' ? 'Context Workspace' : view === 'library' ? 'Document Library' : 'Add Source'}</h1>
             </div>
             <div className="cxh-main-meta">
               <span><strong>{userDocs.length}</strong> documents</span>

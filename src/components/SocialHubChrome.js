@@ -44,6 +44,7 @@ const REACTIVE_SURFACE_SELECTOR = [
   '.fd-user-row',
   '.nh-route-card',
   '.nh-note-row',
+  '.my-notes-standard .nt-note-card',
   '.mn-intake-card',
   '.amn-library-card',
   '.mn-study-workspace .mn-notes-panel',
@@ -227,6 +228,7 @@ const SocialHubChrome = ({
   brandKicker = 'Social',
   footerItems = FOOTER_ITEMS,
   topbarAction = { label: 'Dashboard', path: '/dashboard-cerbyl' },
+  topbarContent = null,
   sidebarLead = null,
   sidebarTail = null,
   collapsedLeadItems = [],
@@ -363,6 +365,7 @@ const SocialHubChrome = ({
 
         <div className="shc-topbar">
           <ToolNavigation toolLabel={brandKicker} currentLabel={activeLabel} />
+          {topbarContent && <div className="shc-topbar-right">{topbarContent}</div>}
           {topbarAction && topbarAction.path !== '/dashboard-cerbyl' && topbarAction.path !== getToolNavigation(pathname).parentPath && (
             <div className="shc-topbar-right">
               <button className="shc-top-btn" type="button" onClick={() => navigate(topbarAction.path)}>

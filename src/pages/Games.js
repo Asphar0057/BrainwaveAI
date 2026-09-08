@@ -398,9 +398,9 @@ const Games = () => {
       <div className="games-container">
         <section className="gm-hero">
           <div className="gm-hero-copy">
-            <span className="gm-hero-kicker"><Gamepad2 size={14} /> Learning Arcade</span>
-            <h1>Turn progress into momentum.</h1>
-            <p>Complete focused challenges, build streaks, and climb the leaderboard while your real study activity powers every score.</p>
+
+            <h1 className="plain-page-title">Learning Games</h1>
+
             <div className="gm-hero-actions">
               <button type="button" className="gm-primary-action" onClick={() => document.querySelector('.dc-mission-card')?.scrollIntoView({ behavior: 'smooth' })}>
                 <Zap size={16} /> Today's Mission
@@ -509,7 +509,7 @@ const Games = () => {
               <div className="view-heading">
                 <span className="view-kicker">This Week</span>
                 <h2 className="view-title">Weekly Challenges</h2>
-                <p className="view-sub">Fresh challenges updated every week</p>
+
               </div>
               <span className="completion-badge">{completedCount}/{totalTasks}</span>
             </div>
@@ -562,7 +562,7 @@ const Games = () => {
               <div className="view-heading">
                 <span className="view-kicker">Your History</span>
                 <h2 className="view-title">Recent Activity</h2>
-                <p className="view-sub">Your latest learning activity</p>
+
               </div>
             </div>
             <div className="activity-list">
@@ -590,7 +590,7 @@ const Games = () => {
               <div className="view-heading">
                 <span className="view-kicker">How It Works</span>
                 <h2 className="view-title">Point System</h2>
-                <p className="view-sub">Earn points by completing learning activities</p>
+
               </div>
             </div>
             <div className="points-list">

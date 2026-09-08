@@ -43,6 +43,7 @@ import { parseNumericChatRouteId } from '../utils/chatSession';
 import { getConversationPrompts } from '../utils/conversationMap';
 import { formatUsageLimitMessage, getUsageLimitFromError, throwIfUsageLimitResponse } from '../utils/usageLimit';
 import { buildContextAwareMessage } from '../utils/slideDiscussionContext';
+import { getApiErrorMessage } from '../utils/apiError';
 import {
   getTutorContinuation,
   isAnsweringPreviousComprehensionCheck,
@@ -699,6 +700,9 @@ const AIChat = ({ sharedMode = false }) => {
   ));
   const [greeting, setGreeting] = useState('');
   const [folders, setFolders] = useState([]);
+  const [folderBusy, setFolderBusy] = useState(false);
+  const [folderError, setFolderError] = useState('');
+  const [folderLoadError, setFolderLoadError] = useState('');
   
   const [showFeedbackFor, setShowFeedbackFor] = useState(null);
   const [feedbackText, setFeedbackText] = useState('');
@@ -737,7 +741,9 @@ const AIChat = ({ sharedMode = false }) => {
   }, []);
 
   const handleFolderCreation = async () => {
-    if (!folderName.trim()) return;
+    if (!folderName.trim() || folderBusy) return;
+    setFolderBusy(true);
+    setFolderError('');
     
     try {
       const token = localStorage.getItem('token');
@@ -754,21 +760,25 @@ const AIChat = ({ sharedMode = false }) => {
         })
       });
 
-      if (response.ok) {
-        const newFolder = await response.json();
-        setFolders(prev => [...prev, newFolder]);
-        setShowFolderCreation(false);
-        setShowFolderDialog(false);
-        setFolderName('');
-        setFolderColor('#D7B38C');
-        loadChatFolders();
+      const responseData = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(getApiErrorMessage(responseData, 'Could not create the folder.'));
       }
+
+      setFolders(prev => prev.some(folder => folder.id === responseData.id) ? prev : [...prev, responseData]);
+      setShowFolderCreation(false);
+      setShowFolderDialog(false);
+      setFolderName('');
+      setFolderColor('#D7B38C');
     } catch (error) {
-    // silenced
-  }
+      setFolderError(error.message || 'Could not create the folder. Please try again.');
+    } finally {
+      setFolderBusy(false);
+    }
   };
 
   const handleMoveToFolder = async (chatId, folderId) => {
+    setFolderError('');
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/move_chat_to_folder`, {
@@ -778,7 +788,7 @@ const AIChat = ({ sharedMode = false }) => {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          chat_id: chatId,
+          chat_id: String(chatId),
           folder_id: folderId
         })
       });
@@ -790,10 +800,27 @@ const AIChat = ({ sharedMode = false }) => {
         setShowMoveMenu(null);
         return true;
       }
+      const errorData = await response.json().catch(() => ({}));
+      setFolderError(getApiErrorMessage(errorData, 'Could not move this chat. Please try again.'));
       return false;
     } catch (error) {
+      setFolderError('Could not move this chat. Check your connection and try again.');
       return false;
-  }
+    }
+  };
+
+  const openFolderDialog = () => {
+    setShowMoveMenu(null);
+    setFolderError('');
+    setShowFolderDialog(true);
+  };
+
+  const closeFolderDialog = () => {
+    if (folderBusy) return;
+    setShowFolderDialog(false);
+    setFolderName('');
+    setFolderColor('#D7B38C');
+    setFolderError('');
   };
 
   const handleContextMenu = (e, chatId) => {
@@ -1200,20 +1227,23 @@ const AIChat = ({ sharedMode = false }) => {
 
   const loadChatFolders = async () => {
     if (!userName) return;
+    setFolderLoadError('');
     
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/get_chat_folders?user_id=${userName}`, {
+      const response = await fetch(`${API_URL}/get_chat_folders?user_id=${encodeURIComponent(userName)}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
       if (response.ok) {
         const foldersData = await response.json();
         setFolders(foldersData.folders || []);
+      } else {
+        setFolderLoadError('Could not load folders.');
       }
     } catch (error) {
-    // silenced
-  }
+      setFolderLoadError('Could not load folders. Check your connection.');
+    }
   };
 
   const loadChatSessions = async () => {
@@ -2311,7 +2341,7 @@ const AIChat = ({ sharedMode = false }) => {
         setFolderToDelete(null);
       } else {
         const errorData = await response.json().catch(() => ({}));
-        alert(`Failed to delete folder: ${errorData.detail || 'Unknown error'}`);
+        alert(`Failed to delete folder: ${getApiErrorMessage(errorData, 'Unknown error')}`);
       }
     } catch (error) {
       alert('Error deleting folder. Please check your connection and try again.');
@@ -3189,11 +3219,25 @@ const AIChat = ({ sharedMode = false }) => {
                 <h4>Folders</h4>
                 <button
                   className="ac-add-folder-btn"
-                  onClick={() => setShowFolderDialog(true)}
+                  onClick={openFolderDialog}
+                  aria-label="Create a folder"
                 >
                   {Icons.plus}
                 </button>
               </div>
+
+              {folders.length === 0 && !folderLoadError && (
+                <button className="ac-folder-empty-action" type="button" onClick={openFolderDialog}>
+                  {Icons.folder}
+                  <span>Create your first folder</span>
+                </button>
+              )}
+              {folderLoadError && (
+                <div className="ac-folder-load-error" role="alert">
+                  <span>{folderLoadError}</span>
+                  <button type="button" onClick={loadChatFolders}>Retry</button>
+                </div>
+              )}
 
               {folders.map((folder) => (
                 <div
@@ -3252,6 +3296,13 @@ const AIChat = ({ sharedMode = false }) => {
                 {chatSessions.length === 0 ? (
                   <div className="ac-empty">
                     <p>No conversations yet</p>
+                  </div>
+                ) : chatSessions
+                    .filter(session => selectedFolder ? session.folder_id === selectedFolder : true)
+                    .filter(session => searchQuery.trim() === '' || session.title.toLowerCase().includes(searchQuery.toLowerCase()))
+                    .length === 0 ? (
+                  <div className="ac-empty">
+                    <p>{selectedFolder ? 'No chats in this folder yet' : 'No matching conversations'}</p>
                   </div>
                 ) : (
                   chatSessions
@@ -3380,25 +3431,27 @@ const AIChat = ({ sharedMode = false }) => {
 
         {/* Folder Creation Dialog */}
         {showFolderDialog && (
-          <div className="ac-folder-dialog-overlay" onClick={() => { setShowFolderDialog(false); setFolderName(''); setFolderColor('#D7B38C'); }}>
-            <div className="ac-folder-dialog" onClick={e => e.stopPropagation()}>
+          <div className="ac-folder-dialog-overlay" onClick={closeFolderDialog}>
+            <div className="ac-folder-dialog" role="dialog" aria-modal="true" aria-labelledby="ac-folder-dialog-title" onClick={e => e.stopPropagation()}>
               <div className="ac-folder-dialog-header">
                 <div className="ac-folder-dialog-title-row">
                   <span className="ac-folder-dialog-icon" style={{ color: folderColor }}>{Icons.folder}</span>
-                  <h3>New Folder</h3>
+                  <h3 id="ac-folder-dialog-title">New Folder</h3>
                 </div>
-                <button className="ac-folder-dialog-close" onClick={() => { setShowFolderDialog(false); setFolderName(''); setFolderColor('#D7B38C'); }}>{Icons.x}</button>
+                <button className="ac-folder-dialog-close" onClick={closeFolderDialog} disabled={folderBusy} aria-label="Close folder dialog">{Icons.x}</button>
               </div>
               <div className="ac-folder-dialog-body">
-                <label className="ac-folder-dialog-label">Folder Name</label>
+                <label className="ac-folder-dialog-label" htmlFor="ac-folder-name">Folder Name</label>
                 <input
+                  id="ac-folder-name"
                   autoFocus
                   type="text"
                   className="ac-folder-dialog-input"
                   placeholder="e.g. Physics, Week 3 Review..."
                   value={folderName}
                   onChange={e => setFolderName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && folderName.trim()) handleFolderCreation(); else if (e.key === 'Escape') { setShowFolderDialog(false); setFolderName(''); setFolderColor('#D7B38C'); } }}
+                  onKeyDown={e => { if (e.key === 'Enter' && folderName.trim()) handleFolderCreation(); else if (e.key === 'Escape') closeFolderDialog(); }}
+                  aria-describedby={folderError ? 'ac-folder-error' : undefined}
                 />
                 <label className="ac-folder-dialog-label">Color</label>
                 <div className="ac-folder-color-grid">
@@ -3413,10 +3466,11 @@ const AIChat = ({ sharedMode = false }) => {
                     />
                   ))}
                 </div>
+                {folderError && <p className="ac-folder-dialog-error" id="ac-folder-error" role="alert">{folderError}</p>}
               </div>
               <div className="ac-folder-dialog-footer">
-                <button className="ac-folder-dialog-cancel" onClick={() => { setShowFolderDialog(false); setFolderName(''); setFolderColor('#D7B38C'); }} type="button">Cancel</button>
-                <button className="ac-folder-dialog-create" onClick={handleFolderCreation} disabled={!folderName.trim()} type="button">Create Folder</button>
+                <button className="ac-folder-dialog-cancel" onClick={closeFolderDialog} disabled={folderBusy} type="button">Cancel</button>
+                <button className="ac-folder-dialog-create" onClick={handleFolderCreation} disabled={!folderName.trim() || folderBusy} type="button">{folderBusy ? 'Creating…' : 'Create Folder'}</button>
               </div>
             </div>
           </div>
@@ -3468,7 +3522,7 @@ const AIChat = ({ sharedMode = false }) => {
             {messages.length === 0 && !isChatSwitching ? (
               <div className="ac-empty-center">
                 <div className="ac-welcome-hero">
-                  <h1 className="ac-welcome-title">{greeting}</h1>
+                  <h1 className="ac-welcome-title plain-page-title">AI Chat</h1>
                 </div>
 
                 <div
@@ -4029,9 +4083,11 @@ const AIChat = ({ sharedMode = false }) => {
       {/* Move to Folder Menu */}
       {showMoveMenu && (
         <>
-          <div className="ac-modal-overlay" onClick={() => setShowMoveMenu(null)} />
+          <div className="ac-modal-overlay ac-move-menu-overlay" onClick={() => { setShowMoveMenu(null); setFolderError(''); }} />
           <div 
             className="ac-move-menu" 
+            role="dialog"
+            aria-label="Move chat to folder"
             style={{ 
               top: `${menuPosition.y}px`, 
               left: `${menuPosition.x}px` 
@@ -4047,6 +4103,12 @@ const AIChat = ({ sharedMode = false }) => {
                 {folder.name}
               </button>
             ))}
+            {folders.length === 0 && (
+              <div className="ac-move-menu-empty">
+                <span>No folders yet</span>
+                <button type="button" onClick={openFolderDialog}>{Icons.plus} Create folder</button>
+              </div>
+            )}
             {chatSessions.find(s => s.id === showMoveMenu)?.folder_id && (
               <button
                 className="ac-move-menu-item"
@@ -4056,6 +4118,7 @@ const AIChat = ({ sharedMode = false }) => {
                 Remove from {folders.find(f => f.id === chatSessions.find(s => s.id === showMoveMenu)?.folder_id)?.name || 'Folder'}
               </button>
             )}
+            {folderError && <p className="ac-move-menu-error" role="alert">{folderError}</p>}
           </div>
         </>
       )}

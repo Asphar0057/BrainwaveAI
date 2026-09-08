@@ -773,9 +773,9 @@ const AdminAnalytics = () => {
       </div>
       <div className="aa-hero">
         <div>
-          <span className="aa-eyebrow"><Shield size={13} /> Operations intelligence</span>
-          <h1>Product health,<br />without the noise.</h1>
-          <p>Real-time product usage, AI token efficiency, and reliability signals.</p>
+
+          <h1 className="plain-page-title">Product Analytics</h1>
+
         </div>
         <div className="aa-header-actions">
           <select

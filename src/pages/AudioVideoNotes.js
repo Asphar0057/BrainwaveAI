@@ -296,8 +296,8 @@ const AudioVideoNotes = () => {
           <main className="avn-qb-main">
       <div className="page-header-bar">
         <div className="header-left">
-          <h1 className="page-title-main">audio / video notes</h1>
-          <p className="page-subtitle-main">generate notes from media files</p>
+          <h1 className="page-title-main plain-page-title">Media Notes</h1>
+
         </div>
       </div>
 

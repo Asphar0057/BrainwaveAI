@@ -607,12 +607,12 @@ const SlideExplorer = () => {
   const viewCopy = activeView === 'upload'
     ? {
       kicker: 'New presentation',
-      title: 'Bring a deck into focus.',
+      title: 'Upload Slides',
       description: 'Upload a PDF or PowerPoint and Cerbyl will preserve every slide before building its study layer.',
     }
     : {
       kicker: 'Your slide library',
-      title: 'Presentations worth revisiting.',
+      title: 'Slide Library',
       description: 'Open a deck to study each source frame beside explanations, concepts and practice prompts.',
     };
 
@@ -628,9 +628,9 @@ const SlideExplorer = () => {
         <main className="se-workspace">
           <header className="se-hero">
             <div>
-              <span className="se-kicker">{viewCopy.kicker}</span>
-              <h1>{viewCopy.title}</h1>
-              <p>{viewCopy.description}</p>
+
+              <h1 className="plain-page-title">{viewCopy.title}</h1>
+
             </div>
           </header>
 
@@ -670,7 +670,7 @@ const SlideExplorer = () => {
                   {uploading ? <Loader size={30} className="se-spinner" /> : <UploadCloud size={30} />}
                 </div>
                 <span className="se-upload-kicker">Source intake</span>
-                <h2>{uploading ? 'Uploading presentation…' : 'Drop a deck into the workspace'}</h2>
+                <h2>{uploading ? 'Uploading presentation…' : 'Upload Slides'}</h2>
                 <p>PDF, PPTX or PPT · multiple files supported</p>
                 <span className="se-upload-cta">{uploading ? 'Keeping the source intact' : 'Choose files'} <ArrowUpRight size={14} /></span>
                 <input type="file" id="se-file-input" accept=".pdf,.pptx,.ppt" onChange={handleFileSelect} disabled={uploading} className="se-file-input" multiple />
@@ -686,9 +686,9 @@ const SlideExplorer = () => {
             ) : libraryError ? (<div role="alert"><p>{libraryError}</p><button onClick={fetchUploadedSlides}>Retry library</button></div>) : uploadedSlides.length === 0 ? (
               <div className="se-empty-state">
                 <div className="se-empty-icon-wrap"><Layers3 size={26} /></div>
-                <span>Library ready</span>
-                <h2>Your presentations will live here.</h2>
-                <p>Upload a PDF or PowerPoint to create a source-aware study deck.</p>
+
+                <h2>No Slides</h2>
+
                 <button type="button" onClick={() => setActiveView('upload')}><UploadCloud size={16} />Upload presentation</button>
               </div>
             ) : (

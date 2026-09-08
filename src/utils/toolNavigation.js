@@ -1,4 +1,5 @@
 const TOOLS = {
+  'dashboard-cerbyl': 'Dashboard', dashboard: 'Dashboard',
   'ai-chat': 'AI Chat', notes: 'Notes', flashcards: 'Flashcards',
   'quiz-hub': 'Quiz Hub', 'solo-quiz': 'Solo Quiz', 'quiz-battles': 'Quiz Battles',
   'quiz-battle': 'Quiz Battle', challenges: 'Challenges', challenge: 'Challenge',

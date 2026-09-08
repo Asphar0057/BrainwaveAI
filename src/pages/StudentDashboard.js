@@ -433,7 +433,7 @@ function StudentDashboard() {
             <article className="ci-feature ci-feature--classes" id="student-classes">
               <div className="ci-tile-texture" />
               <div className="ci-feature-tag">CLASSES</div>
-              <h2>Stay with<br />your course</h2>
+              <h2>Your Courses</h2>
               <p>Schedules, teachers and progress in one place.</p>
               <div className="ci-feature-list">
                 {courses.slice(0, 3).map((course) => (
@@ -452,7 +452,7 @@ function StudentDashboard() {
             <article className="ci-feature ci-feature--assignments" id="student-assignments">
               <div className="ci-tile-texture" />
               <div className="ci-feature-tag">ASSIGNMENTS</div>
-              <h2>Finish what<br />matters</h2>
+              <h2>Your Assignments</h2>
               <p>Your next submissions, already ordered.</p>
               <div className="ci-feature-list">
                 {assignments.slice(0, 3).map((assignment) => (
@@ -470,7 +470,7 @@ function StudentDashboard() {
               <div className="ci-tile-texture" />
               <span className="ci-feature-arrow"><ArrowUpRight size={16} /></span>
               <div className="ci-feature-tag">COURSE TUTOR</div>
-              <h2>Ask with<br />context</h2>
+              <h2>Class Messages</h2>
               <p>Get help grounded in the class you are taking.</p>
               <div className="ci-tutor-prompt">
                 <Sparkles size={13} />

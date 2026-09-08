@@ -1163,9 +1163,9 @@ const Vault = () => {
     <div className="vlt-deck-layout">
       <div className="vlt-composer-intro">
         <div>
-          <span>01 · SOURCE COMPOSER</span>
-          <h2>Build a grounded working set.</h2>
-          <p>Choose only the material Cerbyl should use for the next output.</p>
+
+          <h2>Source Selection</h2>
+
         </div>
         <div className={`vlt-composer-status ${deckDocs.length ? 'ready' : ''}`}>
           <span>{deckDocs.length ? 'Context online' : 'Waiting for sources'}</span>
@@ -2003,8 +2003,8 @@ const Vault = () => {
         {}
         <section className="vlt-command-header">
           <div className="vlt-command-copy">
-            <span>CONTEXT HUB / {TABS.find(tab => tab.id === activeTab)?.label}</span>
-            <h1>{activeTab === 'deck' ? 'Context, composed.' : activeTab === 'mydocs' ? 'Your source archive.' : activeTab === 'upload' ? 'Bring in new evidence.' : 'Curriculum, ready to use.'}</h1>
+
+            <h1 className="plain-page-title">{activeTab === 'deck' ? 'Context Workspace' : activeTab === 'mydocs' ? 'Document Library' : activeTab === 'upload' ? 'Upload Source' : 'Curriculum Library'}</h1>
           </div>
           <div className="vlt-command-stats" aria-label="Context Hub summary">
             <span><strong>{String(stats.deck).padStart(2, '0')}</strong> active</span>

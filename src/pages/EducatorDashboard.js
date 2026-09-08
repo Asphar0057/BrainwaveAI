@@ -648,7 +648,7 @@ function EducatorDashboard() {
             <article className="ci-feature ci-feature--classes" id="educator-classes">
               <div className="ci-tile-texture" />
               <div className="ci-feature-tag">CLASSES</div>
-              <h2>Run your<br />teaching day</h2>
+              <h2>Teaching Overview</h2>
               <p>Section health and pace at a glance.</p>
               <div className="ci-feature-list">
                 {classHealth.slice(0, 3).map((course) => (
@@ -667,7 +667,7 @@ function EducatorDashboard() {
             <article className="ci-feature ci-feature--create">
               <div className="ci-tile-texture" />
               <div className="ci-feature-tag">CREATE</div>
-              <h2>Build and<br />publish</h2>
+              <h2>Create Assignments</h2>
               <p>Turn course material into the next useful activity.</p>
               <div className="ci-create-visual" aria-hidden>
                 <span><Sparkles size={14} /> Material</span>
@@ -684,7 +684,7 @@ function EducatorDashboard() {
             <article className="ci-feature ci-feature--review" id="educator-review">
               <div className="ci-tile-texture" />
               <div className="ci-feature-tag">REVIEW</div>
-              <h2>Respond with<br />evidence</h2>
+              <h2>Review Submissions</h2>
               <p>Submissions waiting for a teaching decision.</p>
               <div className="ci-feature-list">
                 {reviewWorkload.slice(0, 3).map((item) => (

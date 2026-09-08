@@ -42,7 +42,7 @@ function WorkspaceSelect() {
       <section className="ws-intro ws-routing" aria-labelledby="workspace-title">
         <p>Signing you into Cerbyl</p>
         <h1 id="workspace-title">
-          {error ? 'We could not open your workspace.' : 'Opening the right workspace for your account.'}
+          {error ? 'Workspace Unavailable' : 'Opening Workspace'}
         </h1>
         <span>
           {error || 'Learner, student, and educator access is resolved securely from your account.'}

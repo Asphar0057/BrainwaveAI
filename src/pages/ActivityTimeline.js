@@ -775,7 +775,7 @@ const ActivityTimeline = () => {
         <div className="atl-panel-head">
           <div>
             <p className="atl-eyebrow">Learning ledger</p>
-            <h2>Your work, in sequence</h2>
+            <h2>Activity Timeline</h2>
           </div>
           <span className="atl-panel-index">{String(timelineItemCount).padStart(2, '0')} entries</span>
         </div>
@@ -938,7 +938,7 @@ const ActivityTimeline = () => {
       <div className="atl-panel-head">
         <div>
           <p className="atl-eyebrow">Reminders</p>
-          <h2>Task and Reminder Board</h2>
+          <h2>Task Board</h2>
         </div>
         <button className="atl-btn atl-btn--primary" type="button" onClick={openReminderCreate}>
           <Plus size={15} />
@@ -1090,9 +1090,9 @@ const ActivityTimeline = () => {
         <main ref={mainScrollRef} className="atl-main">
           <section className="atl-hero">
             <div>
-              <span className="atl-kicker">Your learning record</span>
+
               <h1>Activity Timeline</h1>
-              <p>Trace what you studied, return to unfinished work, and place reminders where they belong in time.</p>
+
             </div>
           </section>
 

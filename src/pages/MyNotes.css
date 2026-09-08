@@ -3149,3 +3149,30 @@
   .my-notes-page-full .nt-command-create { justify-self: start; }
   .my-notes-page-full .nt-search-label, .my-notes-page-full .nt-view-controls > span { display: none; }
 }
+
+/* Compact library header; reserve cover space for the type label and preview. */
+.my-notes-page-full .mn-qb-topbar { min-height: 36px; padding: 0; margin-bottom: 8px; }
+.my-notes-page-full .nt-library-command { padding: 20px 24px; gap: 20px; align-items: center; }
+.my-notes-page-full .nt-library-title .view-title { font-size: clamp(26px, 2.4vw, 36px); line-height: 1.15; letter-spacing: -.03em; margin: 0 0 6px; }
+.my-notes-page-full .nt-library-title .view-kicker { display: none; }
+.my-notes-page-full .nt-library-title .view-sub { font-size: 13px; max-width: 60ch; }
+.my-notes-page-full .nt-note-card-cover { box-sizing: border-box; height: 132px; padding: 44px 16px 16px; }
+.my-notes-page-full .nt-note-cover-preview { display: block; height: 72px; max-height: 72px; margin: 0; font-size: 12px; line-height: 1.5; color: var(--text-secondary); opacity: 1; overflow: hidden; }
+.my-notes-page-full .nt-note-cover-preview * { position: static !important; font-size: 12px !important; line-height: 1.5 !important; transform: none !important; }
+@media (max-width: 768px) {
+  .my-notes-page-full .nt-library-command { grid-template-columns: minmax(0, 1fr) auto; padding: 16px; gap: 12px; }
+  .my-notes-page-full .nt-library-stats { display: none; }
+  .my-notes-page-full .nt-library-title .view-sub { display: none; }
+  .my-notes-page-full .nt-command-create { width: auto; }
+}
+@media (max-width: 768px) {
+  .my-notes-page-full .mn-qb-topbar { flex-direction: row; align-items: center; gap: 8px; }
+  .my-notes-page-full .mn-qb-topbar-right { width: auto; flex-shrink: 0; }
+  .my-notes-page-full .mn-qb-context-control, .my-notes-page-full .mn-qb-context-control > * { width: auto; }
+  .my-notes-page-full .tool-navigation-current { display: none; }
+  .my-notes-page-full .mn-qb-sidebar.notes-sidebar-system.mn-qb-sidebar--collapsed { width: 100% !important; min-width: 0 !important; height: 56px !important; max-height: 56px; padding: 4px 8px !important; overflow: auto !important; }
+  .my-notes-page-full .notes-sidebar-system .mn-qb-collapsed-strip { flex-direction: row; justify-content: flex-start; width: max-content; }
+  .my-notes-page-full .mn-qb-strip-btn { min-height: 44px; min-width: 44px; }
+  .my-notes-page-full .mn-qb-strip-logo { margin-bottom: 0; }
+  .my-notes-page-full .mn-qb-shell { grid-template-rows: auto minmax(0, 1fr); }
+}

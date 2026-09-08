@@ -1,3 +1,4 @@
+import './styles/page-titles.css';
 import './components/ToolNavigation.css';
 import NotFound from './pages/NotFound';
 import React, { useEffect, useState, lazy, Suspense } from 'react';

@@ -161,9 +161,9 @@ const CanvasHub = () => {
         <div className="ch-page-header">
           <div className="ch-page-header-left">
             <div>
-              <span className="ch-eyebrow">Visual workspace</span>
-              <h2 className="ch-page-title">Think beyond the page.</h2>
-              <p className="ch-page-subtitle">Saved only in this browser for your account. Export an image from the canvas toolbar, or add it to Notes to save it to your account.</p>
+
+              <h2 className="ch-page-title plain-page-title">Canvas Library</h2>
+
             </div>
             <span className="ch-count">{String(canvases.length).padStart(2, '0')} saved</span>
           </div>

@@ -143,10 +143,8 @@ const SoloQuiz = () => {
                   <div className="sq-generator-heading">
                     <span className="sq-generator-kicker">Solo quiz brief</span>
                     <Brain size={30} className="sq-generator-icon" />
-                    <h1 className="sq-generator-title">Build the test you need right now.</h1>
-                    <p className="sq-generator-subtitle">
-                      Set the topic, pressure and feedback style. Cerbyl will build the questions.
-                    </p>
+                    <h1 className="sq-generator-title plain-page-title">Create Quiz</h1>
+
                   </div>
                   <div className="sq-live-brief" aria-live="polite">
                     <div className="sq-live-topic">
@@ -335,7 +333,7 @@ const SoloQuiz = () => {
             <div className="sq-content sq-content--flush">
               <div className="sq-tab-hero">
                 <div className="sq-tab-kicker">Quiz History</div>
-                <h1 className="sq-tab-title">Completed</h1>
+                <h1 className="sq-tab-title">Completed Quizzes</h1>
                 <p className="sq-tab-desc">Review your past performances and track your growth</p>
               </div>
 
@@ -379,7 +377,7 @@ const SoloQuiz = () => {
             <div className="sq-content sq-content--flush">
               <div className="sq-tab-hero">
                 <div className="sq-tab-kicker">Performance</div>
-                <h1 className="sq-tab-title">Statistics</h1>
+                <h1 className="sq-tab-title">Quiz Statistics</h1>
                 <p className="sq-tab-desc">Track your progress and performance over time</p>
               </div>
 
