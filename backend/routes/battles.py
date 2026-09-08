@@ -129,6 +129,7 @@ async def create_quiz_battle(
 
         opponent_id = payload.get("opponent_id")
         subject = str(payload.get("subject") or "").strip()
+        instructions = str(payload.get("instructions") or "").strip()
         difficulty = str(payload.get("difficulty", "intermediate")).lower()
         game_mode = str(payload.get("game_mode", "classic")).lower()
         try:
@@ -141,6 +142,8 @@ async def create_quiz_battle(
             raise HTTPException(status_code=400, detail="opponent_id and subject are required")
         if len(subject) > 100:
             raise HTTPException(status_code=400, detail="Subject must be 100 characters or fewer")
+        if len(instructions) > 300:
+            raise HTTPException(status_code=400, detail="Instructions must be 300 characters or fewer")
         if difficulty not in VALID_BATTLE_DIFFICULTIES:
             raise HTTPException(status_code=400, detail="Unsupported battle difficulty")
         if game_mode not in VALID_BATTLE_MODES:
@@ -172,6 +175,7 @@ async def create_quiz_battle(
             challenger_id=current_user.id,
             opponent_id=opponent_id,
             subject=subject,
+            instructions=instructions or None,
             difficulty=difficulty,
             question_count=question_count,
             time_limit_seconds=time_limit,
@@ -280,6 +284,7 @@ async def get_quiz_battles(
                     "picture_url": opponent.picture_url or ""
                 },
                 "subject": battle.subject,
+                "instructions": battle.instructions or "",
                 "difficulty": battle.difficulty,
                 "status": battle.status,
                 "question_count": battle.question_count,
@@ -673,6 +678,7 @@ async def get_quiz_battle_detail(
         battle_data = {
             "id": battle.id,
             "subject": battle.subject,
+            "instructions": battle.instructions or "",
             "difficulty": battle.difficulty,
             "status": battle.status,
             "question_count": battle.question_count,
@@ -745,6 +751,7 @@ async def generate_battle_questions(
             raise HTTPException(status_code=403, detail="Not authorized")
 
         subject = battle.subject
+        instructions = (battle.instructions or "").strip()
         difficulty = battle.difficulty
         question_count = battle.question_count
         game_mode = getattr(battle, "game_mode", "classic")
@@ -810,12 +817,18 @@ async def generate_battle_questions(
             "sudden_death": "Order questions from confidently answerable to increasingly discriminating; never rely on ambiguity or trivia traps.",
         }
 
+        instructions_block = (
+            f"\nAdditional instructions from the challenger (follow these unless they conflict "
+            f"with the difficulty or mode rules above): {instructions}\n"
+            if instructions else ""
+        )
+
         prompt = f"""Generate exactly {question_count} multiple choice questions about {subject}.
 Difficulty target: {difficulty_profile["label"]}.
 Difficulty rules: {difficulty_profile["description"]}
 Battle mode: {game_mode}.
 Mode rules: {mode_profiles[game_mode]}
-
+{instructions_block}
 Return ONLY a valid JSON array with this exact structure:
 [
   {{
