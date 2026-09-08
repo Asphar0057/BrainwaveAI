@@ -39,7 +39,7 @@ import MathText from '../components/MathText';
 import AmbientBubbles from '../components/AmbientBubbles';
 import GeoBackground from '../components/GeoBackground';
 import SectionSidebar, { SidebarItem } from '../components/SectionSidebar';
-import PulseCubes from '../components/PulseCubes';
+import PulsingSquares from '../components/PulsingSquares';
 import SpacedRepetitionScreen from './SpacedRepetitionScreen';
 import { AuthUser } from '../services/auth';
 import { useAppTheme } from '../contexts/ThemeContext';
@@ -1528,7 +1528,7 @@ function FlashcardsSets({
 
       {loading ? (
         <View style={{ marginTop: 60, alignItems: 'center' }}>
-          <PulseCubes color={ACCENT} size={12} />
+          <PulsingSquares size="small" />
         </View>
       ) : (
         <View style={s.workspace}>
@@ -1700,7 +1700,7 @@ function FlashcardsSets({
 
       {loadingCards && (
         <View style={s.loadingOverlay}>
-          <PulseCubes color={ACCENT} size={14} />
+          <PulsingSquares size="small" />
           <Text style={[s.emptyHint, { marginTop: 14 }]}>loading cards…</Text>
         </View>
       )}
