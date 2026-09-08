@@ -559,8 +559,7 @@ function createStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'], la
     kicker: { fontFamily: 'Inter_700Bold', fontSize: 10, color: theme.textSecondary, letterSpacing: 2.2, textTransform: 'uppercase' },
     title: { fontFamily: 'Inter_900Black', fontSize: 30, color: theme.accentHover, letterSpacing: -0.8, marginTop: 2 },
     menuBtn: {
-      width: 38, height: 38, borderRadius: 13, alignItems: 'center', justifyContent: 'center',
-      borderWidth: 1, borderColor: border, backgroundColor: rgbaFromHex(surface, 0.72),
+      width: 38, height: 38, alignItems: 'center', justifyContent: 'center',
     },
     sectionStack: { gap: 13 },
 
