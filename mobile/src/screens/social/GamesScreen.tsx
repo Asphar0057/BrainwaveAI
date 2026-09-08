@@ -5,6 +5,7 @@ import {
   RefreshControl, TextInput, Modal, BackHandler, ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthUser } from '../../services/auth';
 import {
@@ -22,7 +23,14 @@ import { useAppTheme } from '../../contexts/ThemeContext';
 import { darkenColor, rgbaFromHex } from '../../utils/theme';
 import { useResponsiveLayout } from '../../hooks/useResponsiveLayout';
 
-const SUBJECTS     = ['Mathematics', 'Biology', 'Chemistry', 'Physics', 'History', 'Literature', 'Computer Science', 'Economics'];
+// Matches web's ALL_SUBJECTS (ProfileNew.js) so the picker covers the same
+// ground without needing a free-text "custom" fallback.
+const SUBJECTS = [
+  'Mathematics', 'Physics', 'Chemistry', 'Biology', 'Computer Science',
+  'History', 'Geography', 'Literature', 'Languages', 'Art',
+  'Music', 'Economics', 'Business', 'Psychology', 'Philosophy',
+  'Engineering', 'Medicine', 'Law', 'Political Science', 'Sociology',
+];
 // Matches web's actual values (QuizBattle.js) -- backend stores difficulty
 // as free text with no validation, but web writes 'beginner'/'intermediate'/
 // 'advanced', not 'easy'/'medium'/'hard', so mobile-created battles should
@@ -50,36 +58,6 @@ function getTimeLimitForMode(mode: string, count: number, classicLimit: number):
 }
 type StatusFilter = 'pending' | 'active' | 'completed' | 'all';
 
-function DotGrid() {
-  const { selectedTheme } = useAppTheme();
-  const { width } = useResponsiveLayout();
-  const dotColor = rgbaFromHex(selectedTheme.accent, 0.16);
-  const dotSpacingX = 24;
-  const dotSpacingY = 30;
-  const cols = Math.floor((width - 56) / dotSpacingX);
-  const rows = 28;
-  return (
-    <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-      {Array.from({ length: rows }).map((_, r) =>
-        Array.from({ length: cols }).map((_, c) => (
-          <View
-            key={`${r}-${c}`}
-            style={{
-              position: 'absolute',
-              left: 56 + c * dotSpacingX,
-              top: r * dotSpacingY,
-              width: 2,
-              height: 2,
-              borderRadius: 1,
-              backgroundColor: dotColor,
-            }}
-          />
-        ))
-      )}
-    </View>
-  );
-}
-
 function Avatar({ name, size = 40 }: { name: string; size?: number }) {
   const { selectedTheme } = useAppTheme();
   const GOLD_L = selectedTheme.accentHover;
@@ -105,6 +83,7 @@ type Props = { user: AuthUser; onBack: () => void };
 
 export default function GamesScreen({ user, onBack }: Props) {
   const { selectedTheme } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const layout = useResponsiveLayout();
   const s = useMemo(() => createStyles(selectedTheme, layout), [selectedTheme, layout]);
   const card = useMemo(() => createCardStyles(selectedTheme), [selectedTheme]);
@@ -122,10 +101,10 @@ export default function GamesScreen({ user, onBack }: Props) {
 
   const [activeBattleId, setActiveBattleId] = useState<number | null>(null);
   const [selectedFriend, setSelectedFriend] = useState<any>(null);
-  const [subject, setSubject]               = useState('Mathematics');
+  const [subject, setSubject]               = useState('');
+  const [showSubjectSuggestions, setShowSubjectSuggestions] = useState(false);
   const [difficulty, setDifficulty]         = useState('intermediate');
-  const [customSubject, setCustomSubject]   = useState('');
-  const [useCustom, setUseCustom]           = useState(false);
+  const [instructions, setInstructions]     = useState('');
   const [questionCount, setQuestionCount]         = useState(10);
   const [questionCountText, setQuestionCountText] = useState('10');
   const [gameMode, setGameMode]                   = useState('classic');
@@ -181,9 +160,8 @@ export default function GamesScreen({ user, onBack }: Props) {
     } catch {}
   };
   const doCreate  = async () => {
-    const sub = useCustom && customSubject.trim() ? customSubject.trim() : subject;
-    if (!selectedFriend || !sub.trim()) {
-      setCreateError('Please select a friend and enter a subject');
+    if (!selectedFriend || !subject.trim()) {
+      setCreateError('Please select a friend and a subject');
       return;
     }
     setCreateError('');
@@ -192,7 +170,8 @@ export default function GamesScreen({ user, onBack }: Props) {
       await createQuizBattle({
         challenger_id: user.username,
         opponent_id: selectedFriend.id,
-        subject: sub,
+        subject,
+        instructions: instructions.trim() || undefined,
         difficulty,
         question_count: questionCount,
         time_limit_seconds: getTimeLimitForMode(gameMode, questionCount, classicTimeLimit),
@@ -204,6 +183,7 @@ export default function GamesScreen({ user, onBack }: Props) {
       setClassicTimeLimit(300);
       setQuestionCount(10);
       setQuestionCountText('10');
+      setInstructions('');
       load();
     } catch {
       setCreateError('Failed to create battle. Please try again.');
@@ -221,6 +201,12 @@ export default function GamesScreen({ user, onBack }: Props) {
   const matchesSearch = (b: any) => !query
     || opponentName(b).toLowerCase().includes(query)
     || String(b.subject ?? '').toLowerCase().includes(query);
+
+  const subjectQuery = subject.trim().toLowerCase();
+  const subjectSuggestions = (subjectQuery
+    ? SUBJECTS.filter(sub => sub.toLowerCase().includes(subjectQuery) && sub.toLowerCase() !== subjectQuery)
+    : SUBJECTS
+  ).slice(0, 6);
 
   const pending  = battles.filter((b: any) => b.status === 'pending' && !isChallenger(b)).filter(matchesSearch);
   const active   = battles.filter((b: any) => b.status === 'active').filter(matchesSearch);
@@ -455,25 +441,24 @@ export default function GamesScreen({ user, onBack }: Props) {
         <View style={{ flex: 1 }}>
           <LinearGradient colors={[selectedTheme.bgTop, selectedTheme.bgPrimary, selectedTheme.bgBottom]} locations={[0, 0.58, 1]} style={StyleSheet.absoluteFillObject} />
           <GeoBackground />
-          <DotGrid />
 
-          <View style={modal.header}>
-            <View>
-              <Text style={modal.title}>new challenge</Text>
-              <Text style={modal.sub}>pick opponent & settings</Text>
-            </View>
+          <View style={[modal.header, { paddingTop: insets.top + 14 }]}>
             <HapticTouchable onPress={() => { setShowCreate(false); setCreateError(''); }} style={modal.closeBtn} haptic="light">
-              <Ionicons name="close" size={18} color={GOLD_M} />
+              <Ionicons name="close" size={22} color={GOLD_M} />
             </HapticTouchable>
+            <View>
+              <Text style={modal.plainTitle}>new challenge</Text>
+              <Text style={[modal.plainSubtitle, { marginBottom: 0 }]}>pick opponent & settings</Text>
+            </View>
           </View>
 
           <ScrollView contentContainerStyle={{ width: '100%', maxWidth: Math.min(layout.contentMaxWidth, 680), alignSelf: 'center', paddingHorizontal: 5, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
 
             <Text style={modal.label}>OPPONENT</Text>
             {friends.length === 0 ? (
-              <Text style={[modal.label, { color: DIM, marginBottom: 24, letterSpacing: 0 }]}>add friends first</Text>
+              <Text style={[modal.label, { color: DIM, marginBottom: 18, letterSpacing: 0 }]}>add friends first</Text>
             ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 24 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 18 }}>
                 <View style={{ flexDirection: 'row', gap: 10 }}>
                   {friends.map((f: any, i: number) => {
                     const sel = selectedFriend?.id === f.id;
@@ -491,33 +476,43 @@ export default function GamesScreen({ user, onBack }: Props) {
             )}
 
             <Text style={modal.label}>SUBJECT</Text>
-            <View style={modal.chipGrid}>
-              {[...SUBJECTS, 'custom'].map(sub => {
-                const isCustSel = sub === 'custom' && useCustom;
-                const sel = sub === 'custom' ? isCustSel : (!useCustom && subject === sub);
-                return (
+            <TextInput
+              style={modal.input}
+              value={subject}
+              onChangeText={(t) => { setSubject(t); setShowSubjectSuggestions(true); }}
+              onFocus={() => setShowSubjectSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSubjectSuggestions(false), 150)}
+              placeholder="e.g., Mathematics, History..."
+              placeholderTextColor={DIM}
+              maxLength={100}
+            />
+            {showSubjectSuggestions && subjectSuggestions.length > 0 && (
+              <View style={modal.suggestList}>
+                {subjectSuggestions.map((sug, i) => (
                   <HapticTouchable
-                    key={sub}
-                    onPress={() => sub === 'custom' ? setUseCustom(true) : (setSubject(sub), setUseCustom(false))}
+                    key={sug}
+                    onPress={() => { setSubject(sug); setShowSubjectSuggestions(false); }}
                     haptic="selection"
                   >
-                    <View style={[modal.chip, sel && modal.chipSel]}>
-                      <Text style={[modal.chipText, sel && modal.chipTextSel]}>{sub}</Text>
+                    <View style={[modal.suggestRow, i === subjectSuggestions.length - 1 && { borderBottomWidth: 0 }]}>
+                      <Ionicons name="search-outline" size={13} color={DIM} />
+                      <Text style={modal.suggestText}>{sug}</Text>
                     </View>
                   </HapticTouchable>
-                );
-              })}
-            </View>
-            {useCustom && (
-              <TextInput
-                style={modal.input}
-                value={customSubject}
-                onChangeText={setCustomSubject}
-                placeholder="enter subject..."
-                placeholderTextColor={DIM}
-                autoFocus
-              />
+                ))}
+              </View>
             )}
+
+            <Text style={modal.label}>INSTRUCTIONS (OPTIONAL)</Text>
+            <TextInput
+              style={[modal.input, modal.instructionsInput]}
+              value={instructions}
+              onChangeText={setInstructions}
+              placeholder="e.g. focus on chapters 3-5, no calculator questions..."
+              placeholderTextColor={DIM}
+              multiline
+              maxLength={300}
+            />
 
             <Text style={modal.label}>DIFFICULTY</Text>
             <View style={modal.diffRow}>
@@ -551,7 +546,7 @@ export default function GamesScreen({ user, onBack }: Props) {
             />
 
             <Text style={modal.label}>GAME MODE</Text>
-            <View style={{ gap: 8, marginBottom: 20 }}>
+            <View style={{ gap: 8, marginBottom: 14 }}>
               {GAME_MODES.map(m => {
                 const sel = gameMode === m.key;
                 return (
@@ -594,7 +589,7 @@ export default function GamesScreen({ user, onBack }: Props) {
                   <Text style={modal.vsLabel}>VS</Text>
                   <Avatar name={friendName(selectedFriend)} size={40} />
                   <View style={{ flex: 1 }}>
-                    <Text style={modal.sumTitle}>{useCustom && customSubject ? customSubject : subject}</Text>
+                    <Text style={modal.sumTitle}>{subject}</Text>
                     <Text style={modal.sumMeta}>
                       {difficulty} · {questionCount}Q · {Math.round(getTimeLimitForMode(gameMode, questionCount, classicTimeLimit) / 60) || 1} min
                     </Text>
@@ -739,15 +734,15 @@ function createModalStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'
   const BORDER = theme.borderStrong;
   const INK = theme.isLight ? darkenColor(theme.accent, 34) : theme.bgPrimary;
   return StyleSheet.create({
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingHorizontal: 20, paddingTop: 24, paddingBottom: 20 },
-    title: { fontFamily: 'Inter_900Black', fontSize: 26, color: theme.accentHover, letterSpacing: -0.6 },
-    sub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM, marginTop: 3 },
-    closeBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: rgbaFromHex(SURFACE, 0.92), borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center' },
-    label: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: DIM, letterSpacing: 2.5, marginBottom: 10 },
+    header: { flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingBottom: 20 },
+    closeBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
+    plainTitle: { fontFamily: 'Inter_900Black', fontSize: 26, color: theme.accentHover, letterSpacing: -0.6, marginBottom: 4, marginTop: 0 },
+    plainSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 13, color: DIM, marginBottom: 22 },
+    label: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: DIM, letterSpacing: 2.5, marginBottom: 8 },
     friendChip: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: rgbaFromHex(SURFACE, 0.84), borderRadius: 12, borderWidth: 1, borderColor: BORDER, paddingHorizontal: 12, paddingVertical: 8 },
     friendChipSel: { borderColor: rgbaFromHex(ACCENT, 0.34), backgroundColor: rgbaFromHex(ACCENT, 0.14) },
     friendName: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: DIM },
-    chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
+    chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
     chip: { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: rgbaFromHex(SURFACE, 0.84), borderRadius: 8, borderWidth: 1, borderColor: BORDER },
     chipSel: { borderColor: rgbaFromHex(ACCENT, 0.34), backgroundColor: rgbaFromHex(ACCENT, 0.14) },
     chipText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: DIM },
@@ -755,19 +750,30 @@ function createModalStyles(theme: ReturnType<typeof useAppTheme>['selectedTheme'
     // Same "pressed into the surface" neumorphic inset as the login screen.
     input: {
       backgroundColor: CB_CARD_TOP, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 14,
-      fontFamily: 'Inter_400Regular', fontSize: 14, color: theme.accentHover, marginBottom: 20,
+      fontFamily: 'Inter_400Regular', fontSize: 14, color: theme.accentHover, marginBottom: 14,
       boxShadow: cbPlainPressedShadow(),
     } as ViewStyle,
-    diffRow: { flexDirection: 'row', gap: 8, marginBottom: 24 },
+    instructionsInput: { minHeight: 64, textAlignVertical: 'top', fontSize: 13 },
+    suggestList: {
+      marginTop: -8, marginBottom: 14, borderRadius: 14, overflow: 'hidden',
+      borderWidth: 1, borderColor: BORDER, backgroundColor: rgbaFromHex(SURFACE, 0.94),
+    },
+    suggestRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      paddingHorizontal: 14, paddingVertical: 11,
+      borderBottomWidth: 1, borderBottomColor: BORDER,
+    },
+    suggestText: { fontFamily: 'Inter_600SemiBold', fontSize: 12.5, color: theme.textPrimary },
+    diffRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
     diffBtn: { alignItems: 'center', paddingVertical: 12, backgroundColor: rgbaFromHex(SURFACE, 0.84), borderRadius: 10, borderWidth: 1, borderColor: BORDER },
     diffBtnSel: { borderColor: rgbaFromHex(ACCENT, 0.34), backgroundColor: rgbaFromHex(ACCENT, 0.14) },
     diffText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: DIM },
-    summary: { borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.22), padding: 16, marginBottom: 20 },
+    summary: { borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: rgbaFromHex(ACCENT, 0.22), padding: 14, marginBottom: 14 },
     vsLabel: { fontFamily: 'Inter_900Black', fontSize: 16, color: darkenColor(theme.accent, theme.isLight ? 12 : 26) },
     sumTitle: { fontFamily: 'Inter_700Bold', fontSize: 14, color: theme.accentHover },
     sumMeta: { fontFamily: 'Inter_400Regular', fontSize: 11, color: DIM, marginTop: 2 },
-    launchBtn: { borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
-    launchText: { fontFamily: 'Inter_700Bold', fontSize: 13, color: INK, textTransform: 'uppercase', letterSpacing: 2 },
+    launchBtn: { borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
+    launchText: { fontFamily: 'Inter_700Bold', fontSize: 11, color: INK, textTransform: 'uppercase', letterSpacing: 1.5 },
 
     gmCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: rgbaFromHex(SURFACE, 0.84), borderRadius: 14, borderWidth: 1, borderColor: BORDER, padding: 12 },
     gmCardSel: { borderColor: rgbaFromHex(ACCENT, 0.4), backgroundColor: rgbaFromHex(ACCENT, 0.12) },

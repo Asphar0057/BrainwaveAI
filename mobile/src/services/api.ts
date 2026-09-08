@@ -2732,6 +2732,7 @@ export async function createQuizBattle(payload: {
   challenger_id: string;
   opponent_id: number;
   subject: string;
+  instructions?: string;
   difficulty?: string;
   question_count?: number;
   time_limit_seconds?: number;
