@@ -3721,9 +3721,9 @@ const Flashcards = () => {
 
                 </div>
 
-                <div className="fc-source-layout">
-                  <section className="fc-source-upload-card">
-                    <div className="fc-source-upload-icon">{FC_ICONS.file}</div>
+                <div className="fcsrc-layout">
+                  <section className="fcsrc-upload">
+                    <div className="fcsrc-upload-icon">{FC_ICONS.file}</div>
                     <h3>Add PDF Source</h3>
                     <p>Uploaded PDFs appear in both Question Hub and Flashcards.</p>
                     <input
@@ -3733,31 +3733,31 @@ const Flashcards = () => {
                       style={{ display: 'none' }}
                       id="fc-pdf-upload-input"
                     />
-                    <label htmlFor="fc-pdf-upload-input" className={`fc-btn fc-btn-primary ${uploadingDocument ? 'disabled' : ''}`}>
+                    <label htmlFor="fc-pdf-upload-input" className={`fcsrc-add-btn ${uploadingDocument ? 'disabled' : ''}`}>
                       {uploadingDocument ? 'Uploading...' : 'Add PDF'}
                     </label>
                   </section>
 
-                  <section className="fc-source-library">
-                    <div className="fc-source-toolbar">
+                  <section className="fcsrc-library">
+                    <div className="fcsrc-toolbar">
                       <div>
                         <h3>Your Sources ({uploadedDocuments.length})</h3>
                         <p>Click PDFs to select multiple sources for flashcard generation.</p>
                       </div>
-                      <div className="fc-source-toolbar-actions">
+                      <div className="fcsrc-toolbar-actions">
                         {selectedPDFs.length > 0 && (
-                          <button className="fc-btn fc-btn-secondary" onClick={clearPDFSelection}>
+                          <button className="fcsrc-toolbar-btn" onClick={clearPDFSelection}>
                             Clear Selection
                           </button>
                         )}
-                        <button className="fc-btn fc-btn-secondary" onClick={loadUploadedDocuments} disabled={loadingDocuments}>
+                        <button className="fcsrc-toolbar-btn" onClick={loadUploadedDocuments} disabled={loadingDocuments}>
                           {loadingDocuments ? 'Refreshing...' : 'Refresh'}
                         </button>
                       </div>
                     </div>
 
                     {loadingDocuments && uploadedDocuments.length === 0 ? (
-                      <div className="fc-source-loading">
+                      <div className="fcsrc-loading">
                         <div className="fc-pulse-loader">
                           <div className="fc-pulse-square fc-pulse-1"></div>
                           <div className="fc-pulse-square fc-pulse-2"></div>
@@ -3766,12 +3766,12 @@ const Flashcards = () => {
                         <p>Loading PDF sources...</p>
                       </div>
                     ) : uploadedDocuments.length === 0 ? (
-                      <div className="fc-source-empty">
+                      <div className="fcsrc-empty">
                         <h3>No PDF Sources Yet</h3>
                         <p>Upload a PDF here or in Question Hub. It will show in both places.</p>
                       </div>
                     ) : (
-                      <div className="fc-source-grid">
+                      <div className="fcsrc-grid">
                         {uploadedDocuments.map((doc) => {
                           const isSelected = selectedPDFs.some((pdf) => pdf.id === doc.id);
                           const topics = doc.analysis?.main_topics || [];
@@ -3780,7 +3780,7 @@ const Flashcards = () => {
                               key={doc.id}
                               role="button"
                               tabIndex={0}
-                              className={`fc-source-card ${isSelected ? 'selected' : ''}`}
+                              className={`fcsrc-card ${isSelected ? 'selected' : ''}`}
                               onClick={() => togglePDFSelection(doc)}
                               onKeyDown={(event) => {
                                 if (event.key === 'Enter' || event.key === ' ') {
@@ -3789,30 +3789,30 @@ const Flashcards = () => {
                                 }
                               }}
                             >
-                              <span className="fc-source-check">{isSelected ? FC_ICONS.check : null}</span>
+                              <span className="fcsrc-card-check">{isSelected ? FC_ICONS.check : null}</span>
                               <button
                                 type="button"
-                                className="fc-source-delete"
+                                className="fcsrc-card-delete"
                                 onClick={(event) => deleteUploadedDocument(doc.id, event)}
                                 aria-label={`Delete ${doc.filename}`}
                               >
                                 {FC_ICONS.trash}
                               </button>
-                              <div className="fc-source-card-head">
-                                <span className="fc-source-file-icon">{FC_ICONS.file}</span>
+                              <div className="fcsrc-card-head">
+                                <span className="fcsrc-file-icon">{FC_ICONS.file}</span>
                                 <div>
-                                  <h4>{doc.filename}</h4>
-                                  <p>{doc.document_type || 'PDF source'}</p>
+                                  <h4 className="fcsrc-card-title">{doc.filename}</h4>
+                                  <p className="fcsrc-card-type">{doc.document_type || 'PDF source'}</p>
                                 </div>
                               </div>
                               {topics.length > 0 && (
-                                <div className="fc-source-topics">
+                                <div className="fcsrc-topics">
                                   {topics.slice(0, 3).map((item, index) => (
-                                    <span key={`${doc.id}-${item}-${index}`}>{item}</span>
+                                    <span key={`${doc.id}-${item}-${index}`} className="fcsrc-topic">{item}</span>
                                   ))}
                                 </div>
                               )}
-                              <div className="fc-source-date">
+                              <div className="fcsrc-date">
                                 {doc.created_at ? new Date(doc.created_at).toLocaleDateString() : 'Uploaded source'}
                               </div>
                             </div>
@@ -3824,25 +3824,25 @@ const Flashcards = () => {
                 </div>
 
                 {selectedPDFs.length > 0 && (
-                  <section className="fc-source-settings">
-                    <div className="fc-source-selected-head">
+                  <section className="fcsrc-settings">
+                    <div className="fcsrc-settings-head">
                       <div>
                         <span className="fc-view-kicker">Selected Sources</span>
                         <h3>{selectedPDFs.length} PDF{selectedPDFs.length === 1 ? '' : 's'} ready to convert</h3>
                       </div>
                     </div>
 
-                    <div className="fc-selected-source-list">
+                    <div className="fcsrc-pill-list">
                       {selectedPDFs.map((doc) => (
-                        <div key={doc.id} className="fc-selected-source-pill">
+                        <div key={doc.id} className="fcsrc-pill">
                           {FC_ICONS.file}
                           <span>{doc.filename}</span>
-                          <button type="button" onClick={() => togglePDFSelection(doc)}>×</button>
+                          <button type="button" className="fcsrc-pill-remove" onClick={() => togglePDFSelection(doc)}>×</button>
                         </div>
                       ))}
                     </div>
 
-                    <div className="fc-form-row fc-source-settings-row">
+                    <div className="fcsrc-form-row">
                       <div className="fc-form-group">
                         <label className="fc-label">Number of Cards</label>
                         <div className="fc-number-input">
@@ -4023,37 +4023,37 @@ const Flashcards = () => {
                       <h2 className="fc-view-title">Explore Public</h2>
 
                     </div>
-                    <div className="fc-explore-search-landing">
+                    <div className="fce-landing">
                       <form
-                        className="fc-explore-searchbar"
+                        className="fce-searchbar"
                         onSubmit={(event) => {
                           event.preventDefault();
                           searchPublicFlashcards();
                         }}
                       >
-                        <span className="fc-explore-search-icon">{FC_ICONS.search}</span>
+                        <span className="fce-search-icon">{FC_ICONS.search}</span>
                         <input
                           type="text"
-                          className="fc-explore-search-input"
+                          className="fce-search-input"
                           aria-label="Search public flashcard sets"
                           placeholder="Search public flashcard sets..."
                           value={publicSearchQuery}
                           onChange={(e) => setPublicSearchQuery(e.target.value)}
                         />
-                        <button className="fc-explore-search-btn" type="submit">
+                        <button className="fce-search-btn" type="submit">
                           Search
                         </button>
                       </form>
 
-                      <div className="fc-explore-secondary-row">
+                      <div className="fce-secondary-row">
                         <span>Search by subject, topic, or deck title</span>
-                        <button className="fc-btn fc-btn-secondary fc-explore-browse-btn" onClick={loadAllPublicFlashcards} type="button">
+                        <button className="fce-browse-btn" onClick={loadAllPublicFlashcards} type="button">
                           Browse All Public Sets
                         </button>
                       </div>
 
-                      <div className="fc-explore-empty-state" role="status">
-                        <div className="fc-explore-empty-icon" aria-hidden="true">
+                      <div className="fce-empty-state" role="status">
+                        <div className="fce-empty-icon" aria-hidden="true">
                           <Layers3 size={24} />
                         </div>
                         <h3>{publicSearchQuery.trim() ? 'No matching public sets' : 'No public sets available yet'}</h3>
@@ -4064,7 +4064,7 @@ const Flashcards = () => {
                         </p>
                         {publicSearchQuery.trim() && (
                           <button
-                            className="fc-btn fc-btn-secondary"
+                            className="fce-clear-btn"
                             type="button"
                             onClick={() => {
                               setPublicSearchQuery('');
@@ -4084,35 +4084,36 @@ const Flashcards = () => {
                       <h2 className="fc-view-title">Explore Public</h2>
 
                     </div>
-                    
-                    <div className="fc-public-search-bar">
+
+                    <div className="fce-results-bar">
                       <form
-                        className="fc-public-search-row"
+                        className="fce-results-row"
                         onSubmit={(event) => {
                           event.preventDefault();
                           searchPublicFlashcards();
                         }}
                       >
-                        <div className="fc-search fc-search-large">
-                          <span className="fc-search-icon">{FC_ICONS.search}</span>
-                          <input 
+                        <div className="fce-results-field">
+                          <span className="fce-results-icon">{FC_ICONS.search}</span>
+                          <input
                             type="text"
+                            className="fce-results-input"
                             aria-label="Search public flashcard sets"
                             placeholder="Search public flashcard sets..."
                             value={publicSearchQuery}
                             onChange={(e) => setPublicSearchQuery(e.target.value)}
                           />
                         </div>
-                        <button className="fc-btn fc-btn-primary" type="submit">
+                        <button className="fce-search-submit" type="submit">
                           Search
                         </button>
-                        <button className="fc-btn fc-btn-secondary" onClick={loadAllPublicFlashcards} type="button">
+                        <button className="fce-show-all-btn" onClick={loadAllPublicFlashcards} type="button">
                           Show All
                         </button>
                       </form>
                     </div>
-                    
-                    <div className="fc-grid">
+
+                    <div className="fce-grid">
                       {publicFlashcards.map((set, index) => {
                       const colors = [
                         '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
