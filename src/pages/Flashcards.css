@@ -684,15 +684,15 @@
   align-items: center;
   gap: 8px;
   padding: 0 14px;
-  background: var(--fc-bg-tertiary);
-  border: 1px solid var(--fc-border-subtle);
+  background: rgba(255, 255, 255, .025);
+  border: 1px solid var(--fc-work-border);
   border-radius: 8px;
   min-width: 200px;
   height: 38px;
 }
 
 .fc-search:focus-within {
-  border-color: var(--fc-accent);
+  border-color: var(--fc-work-border-strong);
 }
 
 .fc-search-icon {
@@ -907,6 +907,7 @@
 }
 
 .fc-content {
+  position: relative;
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
@@ -1225,10 +1226,12 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  flex: 1;
+  width: 100%;
   padding: 20px !important;
   text-align: center !important;
   max-width: 800px !important;
-  margin: 0 !important;
+  margin: 0 auto !important;
   position: relative !important;
   gap: 24px !important;
 }
@@ -1380,6 +1383,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  flex: 1;
+  width: 100%;
   gap: 28px;
   min-height: 300px;
 }
@@ -1668,12 +1673,10 @@
 .fc-source-upload-card,
 .fc-source-library,
 .fc-source-settings {
-  border: 1px solid var(--fc-border-subtle);
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at 0 0, color-mix(in srgb, var(--fc-accent) 10%, transparent), transparent 42%),
-    var(--fc-bg-card);
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.16);
+  border: 1px solid var(--fc-work-border);
+  border-radius: 14px;
+  background: var(--fc-work-wash), var(--fc-work-surface);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .18);
 }
 
 .fc-source-upload-card {
@@ -1692,9 +1695,9 @@
 .fc-source-file-icon {
   display: grid;
   place-items: center;
-  color: var(--fc-accent);
-  background: var(--fc-accent-glow);
-  border: 1px solid color-mix(in srgb, var(--fc-accent) 28%, transparent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  border: 1px solid var(--fc-work-border);
 }
 
 .fc-source-upload-icon {
@@ -1763,20 +1766,22 @@
   flex-direction: column;
   gap: 14px;
   padding: 16px;
-  border: 1px solid var(--fc-border-subtle);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--fc-bg-tertiary) 86%, transparent);
+  border: 1px solid var(--fc-work-border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .025);
   color: var(--fc-text-primary);
   cursor: pointer;
   transition: border-color .18s ease, transform .18s ease, background .18s ease, box-shadow .18s ease;
 }
 
-.fc-source-card:hover,
-.fc-source-card.selected {
-  border-color: var(--fc-accent);
-  background: color-mix(in srgb, var(--fc-accent) 8%, var(--fc-bg-tertiary));
+.fc-source-card:hover {
+  border-color: var(--fc-work-border-strong);
   transform: translateY(-2px);
-  box-shadow: 0 12px 30px color-mix(in srgb, var(--fc-accent) 12%, transparent);
+}
+
+.fc-source-card.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .fc-source-check {
@@ -5046,32 +5051,6 @@
   box-shadow: 0 6px 24px color-mix(in srgb, var(--accent) 50%, transparent);
 }
 
-[data-theme-mode="dark"] .fc-content::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image: radial-gradient(circle at 20% 50%, color-mix(in srgb, var(--accent) 2%, transparent) 0%, transparent 50%),
-                    radial-gradient(circle at 80% 80%, color-mix(in srgb, var(--accent) 2%, transparent) 0%, transparent 50%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-[data-theme-mode="light"] .fc-content::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image: radial-gradient(circle at 20% 50%, color-mix(in srgb, var(--accent) 3%, transparent) 0%, transparent 50%),
-                    radial-gradient(circle at 80% 80%, color-mix(in srgb, var(--accent) 3%, transparent) 0%, transparent 50%);
-  pointer-events: none;
-  z-index: 0;
-}
-
 .fc-content > * {
   position: relative;
   z-index: 1;
@@ -5276,34 +5255,6 @@
 .flashcards-page *[class*="animation"],
 .flashcards-page *[class*="animate"] {
   transition: none;
-}
-
-[data-theme-mode="dark"] .fc-content::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: 
-    radial-gradient(ellipse 80% 50% at 20% 20%, color-mix(in srgb, var(--accent) 4%, transparent) 0%, transparent 50%),
-    radial-gradient(ellipse 80% 50% at 80% 80%, color-mix(in srgb, var(--accent) 3%, transparent) 0%, transparent 50%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-[data-theme-mode="light"] .fc-content::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: 
-    radial-gradient(ellipse 80% 50% at 20% 20%, color-mix(in srgb, var(--accent) 6%, transparent) 0%, transparent 50%),
-    radial-gradient(ellipse 80% 50% at 80% 80%, color-mix(in srgb, var(--accent) 5%, transparent) 0%, transparent 50%);
-  pointer-events: none;
-  z-index: 0;
 }
 
 .fc-header-left {
@@ -9180,18 +9131,17 @@
 
 .flashcards-page .fc-explore-searchbar {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   width: 100%;
-  background: color-mix(in srgb, var(--fc-accent) 5%, var(--fc-bg-secondary));
-  border: 1px solid color-mix(in srgb, var(--fc-accent) 20%, transparent);
+  background: rgba(255, 255, 255, .025);
+  border: 1px solid var(--fc-work-border);
   border-radius: 10px;
   overflow: hidden;
   height: 52px;
   transition: border-color 0.2s;
 }
 .flashcards-page .fc-explore-searchbar:focus-within {
-  border-color: var(--fc-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--fc-accent) 12%, transparent);
+  border-color: var(--fc-work-border-strong);
 }
 
 .fc-explore-search-icon {
@@ -9219,9 +9169,12 @@
 }
 
 .fc-explore-search-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 0 24px;
   height: 100%;
-  background: var(--fc-accent);
+  background: var(--accent);
   color: #000;
   border: none;
   font-size: 11px;
@@ -10060,9 +10013,7 @@
 .flashcards-page .fc-qb-main .fc-content:has(.fc-empty),
 .flashcards-page .fc-qb-main .fc-content:has(.fc-loading) {
   min-height: 0 !important;
-}
-
-.flashcards-page .fc-qb-main .fc-content:has(.fc-generator) {
+  align-items: stretch !important;
   justify-content: flex-start !important;
 }
 
@@ -10091,17 +10042,6 @@
 .flashcards-page .fc-cards-panel .fc-set-card-new {
   height: auto !important;
   min-height: 322px;
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--fc-bg-secondary) 94%, var(--fc-accent) 6%) 0%,
-      color-mix(in srgb, var(--fc-bg-primary) 88%, var(--fc-accent) 4%) 100%
-    ) !important;
-  border-color: color-mix(in srgb, var(--accent) 18%, var(--border)) !important;
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
-}
-
-.flashcards-page .fc-cards-panel .fc-set-card-new > .cb-tile-texture {
-  opacity: 0.18;
 }
 
 .flashcards-page .fc-cards-panel .fc-set-thumbnail {
@@ -10380,48 +10320,20 @@
 }
 
 .flashcards-page .fc-set-card-new {
-  --shc-mx: 50%;
-  --shc-my: 50%;
   position: relative;
-  isolation: isolate;
   display: grid;
   grid-template-rows: 132px minmax(118px, 1fr) auto;
   min-width: 0;
   min-height: 318px;
   height: 100% !important;
   overflow: hidden !important;
-  border: 1px solid color-mix(in srgb, var(--accent) 13%, transparent) !important;
+  border: 1px solid var(--fc-work-border) !important;
   border-radius: 14px !important;
-  background:
-    radial-gradient(ellipse 70% 95% at 100% 100%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 68%),
-    linear-gradient(140deg, color-mix(in srgb, var(--accent) 8%, #1a1b1d), #121315 52%, #0e0f11 100%) !important;
+  background: var(--fc-work-wash), var(--fc-work-surface) !important;
   box-shadow: 0 14px 34px rgba(0, 0, 0, .18) !important;
   cursor: default !important;
   transform: translateY(0);
   transition: transform 180ms cubic-bezier(.23, 1, .32, 1), border-color 180ms ease, box-shadow 180ms ease !important;
-}
-
-.flashcards-page .fc-set-card-new::before,
-.flashcards-page .fc-mode-btn::before,
-.flashcards-page .fc-stat-card::before,
-.flashcards-page .fc-sr-summary-item::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0;
-  background: radial-gradient(
-    270px circle at var(--shc-mx, 50%) var(--shc-my, 50%),
-    color-mix(in srgb, var(--accent) 13%, transparent),
-    transparent 72%
-  );
-  transition: opacity 175ms ease;
-}
-
-.flashcards-page :is(.fc-set-card-new, .fc-mode-btn, .fc-stat-card, .fc-sr-summary-item) > * {
-  position: relative;
-  z-index: 1;
 }
 
 .flashcards-page .fc-set-thumbnail,
@@ -10430,10 +10342,8 @@
   height: 132px !important;
   min-height: 132px !important;
   max-height: 132px !important;
-  border-bottom: 1px solid color-mix(in srgb, var(--accent) 13%, transparent);
-  background:
-    radial-gradient(ellipse 70% 110% at 90% 100%, color-mix(in srgb, var(--accent) 15%, transparent), transparent 67%),
-    linear-gradient(145deg, #202022, #151517 58%, #101012) !important;
+  border-bottom: 1px solid var(--fc-work-border);
+  background: var(--fc-work-surface-soft) !important;
 }
 
 .flashcards-page .fc-set-thumbnail-content {
@@ -10533,30 +10443,23 @@
 }
 
 .flashcards-page .fc-mode-btn {
-  --shc-mx: 50%;
-  --shc-my: 50%;
   position: relative;
-  isolation: isolate;
   min-width: 0;
   min-height: 132px;
   padding: 18px;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--accent) 13%, transparent);
+  border: 1px solid var(--fc-work-border);
   border-radius: 14px;
   color: var(--text-primary);
-  background:
-    radial-gradient(ellipse 70% 95% at 100% 100%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 70%),
-    linear-gradient(140deg, #1a1b1d, #111214);
+  background: rgba(255, 255, 255, .025);
   text-align: left;
   transform: translateY(0);
   transition: transform 180ms cubic-bezier(.23, 1, .32, 1), border-color 180ms ease, background-color 180ms ease;
 }
 
 .flashcards-page .fc-mode-btn.active {
-  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
-  background:
-    radial-gradient(ellipse 70% 95% at 100% 100%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%),
-    linear-gradient(140deg, #202022, #151517);
+  border-color: var(--fc-work-border-strong);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .flashcards-page .fc-mode-btn::after {
@@ -10621,13 +10524,7 @@
   border-color: color-mix(in srgb, var(--accent) 44%, transparent);
 }
 
-.flashcards-page .fc-source-layout {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: stretch;
-  gap: 12px;
-}
-
-.flashcards-page :is(.fc-source-upload-card, .fc-source-library, .fc-source-settings, .fc-source-card, .fc-review-card, .fc-review-card-item) {
+.flashcards-page :is(.fc-review-card, .fc-review-card-item) {
   --shc-mx: 50%;
   --shc-my: 50%;
   position: relative;
@@ -10636,6 +10533,8 @@
   border: 1px solid color-mix(in srgb, var(--accent) 13%, transparent);
   border-radius: 14px;
   background:
+    repeating-linear-gradient(115deg, transparent 0 22px, color-mix(in srgb, var(--accent) 4%, transparent) 22px 23px),
+    repeating-linear-gradient(25deg, transparent 0 26px, color-mix(in srgb, var(--accent) 2.5%, transparent) 26px 27px),
     radial-gradient(ellipse 70% 95% at 100% 100%, color-mix(in srgb, var(--accent) 11%, transparent), transparent 70%),
     linear-gradient(140deg, #1a1b1d, #111214);
   box-shadow: 0 14px 34px rgba(0, 0, 0, .18);
@@ -10643,7 +10542,7 @@
   transition: transform 180ms cubic-bezier(.23, 1, .32, 1), border-color 180ms ease, box-shadow 180ms ease;
 }
 
-.flashcards-page :is(.fc-source-upload-card, .fc-source-card, .fc-review-card-item)::before {
+.flashcards-page .fc-review-card-item::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -10658,15 +10557,9 @@
   transition: opacity 175ms ease;
 }
 
-.flashcards-page :is(.fc-source-upload-card, .fc-source-card, .fc-review-card-item) > * {
+.flashcards-page .fc-review-card-item > * {
   position: relative;
   z-index: 1;
-}
-
-.flashcards-page .fc-source-upload-card {
-  position: relative;
-  top: 0;
-  min-height: 100%;
 }
 
 .flashcards-page .fc-stats-grid {
@@ -10678,31 +10571,24 @@
 
 .flashcards-page .fc-stat-card,
 .flashcards-page .fc-sr-summary-item {
-  --shc-mx: 50%;
-  --shc-my: 50%;
   position: relative;
-  isolation: isolate;
   min-height: 150px;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--accent) 13%, transparent);
+  border: 1px solid var(--fc-work-border);
   border-radius: 14px;
-  background:
-    radial-gradient(ellipse 70% 95% at 100% 100%, color-mix(in srgb, var(--accent) 11%, transparent), transparent 70%),
-    linear-gradient(140deg, #1a1b1d, #111214);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, .18);
+  background: rgba(255, 255, 255, .025);
+  box-shadow: none;
   transform: translateY(0);
-  transition: transform 180ms cubic-bezier(.23, 1, .32, 1), border-color 180ms ease, box-shadow 180ms ease;
+  transition: transform 180ms cubic-bezier(.23, 1, .32, 1), border-color 180ms ease, background-color 180ms ease;
 }
 
 .flashcards-page .fc-empty {
   width: 100%;
   min-height: 360px;
   padding: 42px 28px;
-  border: 1px solid color-mix(in srgb, var(--accent) 13%, transparent);
+  border: 1px solid var(--fc-work-border);
   border-radius: 14px;
-  background:
-    radial-gradient(ellipse 65% 90% at 100% 100%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%),
-    linear-gradient(140deg, #191a1c, #101113);
+  background: var(--fc-work-wash), var(--fc-work-surface-soft);
   box-shadow: 0 14px 34px rgba(0, 0, 0, .18);
 }
 
@@ -10712,22 +10598,18 @@
   }
 
   .flashcards-page :is(.fc-set-card-new, .fc-mode-btn, .fc-stat-card, .fc-sr-summary-item):hover {
-    border-color: color-mix(in srgb, var(--accent) 34%, transparent) !important;
+    border-color: var(--fc-work-border-strong) !important;
     transform: translateY(-2px) !important;
     box-shadow: 0 18px 38px rgba(0, 0, 0, .24) !important;
   }
 
-  .flashcards-page :is(.fc-set-card-new, .fc-mode-btn, .fc-stat-card, .fc-sr-summary-item):hover::before {
-    opacity: 1;
-  }
-
-  .flashcards-page :is(.fc-source-upload-card, .fc-source-card, .fc-review-card-item):hover {
-    border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+  .flashcards-page .fc-review-card-item:hover {
+    border-color: var(--fc-work-border-strong);
     transform: translateY(-2px);
     box-shadow: 0 18px 38px rgba(0, 0, 0, .24);
   }
 
-  .flashcards-page :is(.fc-source-upload-card, .fc-source-card, .fc-review-card-item):hover::before {
+  .flashcards-page .fc-review-card-item:hover::before {
     opacity: 1;
   }
 
@@ -10788,38 +10670,29 @@
   .fc-mode-btn,
   .fc-stat-card,
   .fc-sr-summary-item,
-  .fc-source-upload-card,
-  .fc-source-library,
-  .fc-source-settings,
-  .fc-source-card,
   .fc-review-card-item,
   .fc-empty
 ) {
   color: var(--text-primary);
-  background:
-    radial-gradient(ellipse 70% 95% at 100% 100%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 70%),
-    linear-gradient(140deg, color-mix(in srgb, var(--accent) 5%, #fff), #f5f3ef) !important;
+  background: color-mix(in srgb, var(--accent) 5%, #fff) !important;
   box-shadow: 0 14px 34px rgba(68, 52, 34, .08) !important;
 }
 
 [data-theme-mode="light"] .flashcards-page .fc-set-thumbnail {
-  background:
-    radial-gradient(ellipse 70% 110% at 90% 100%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 67%),
-    linear-gradient(145deg, #f7f3ed, #ece7df) !important;
+  background: #f7f3ed !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .flashcards-page :is(.fc-set-card-new, .fc-mode-btn, .fc-stat-card, .fc-sr-summary-item),
-  .flashcards-page :is(.fc-source-upload-card, .fc-source-card, .fc-review-card-item),
-  .flashcards-page :is(.fc-set-card-new, .fc-mode-btn, .fc-stat-card, .fc-sr-summary-item)::before,
-  .flashcards-page :is(.fc-source-upload-card, .fc-source-card, .fc-review-card-item)::before,
+  .flashcards-page .fc-review-card-item,
+  .flashcards-page .fc-review-card-item::before,
   .flashcards-page .fc-side-generate,
   .flashcards-page .fc-action-btn-new {
     transition-duration: .01ms !important;
   }
 
   .flashcards-page :is(.fc-set-card-new, .fc-mode-btn, .fc-stat-card, .fc-sr-summary-item):hover,
-  .flashcards-page :is(.fc-source-upload-card, .fc-source-card, .fc-review-card-item):hover,
+  .flashcards-page .fc-review-card-item:hover,
   .flashcards-page :is(.fc-side-generate, .fc-action-btn-new):active {
     transform: none !important;
   }
