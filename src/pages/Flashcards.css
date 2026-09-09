@@ -9842,6 +9842,8 @@
 .flashcards-page .fc-content,
 .flashcards-page .fc-qb-main .fc-content,
 .flashcards-page .fc-cards-panel,
+.flashcards-page .fc-sources-panel,
+.flashcards-page .fc-sr-panel,
 [data-theme-mode="dark"] .flashcards-page .fc-content,
 [data-theme-mode="light"] .flashcards-page .fc-content {
   width: 100%;
@@ -9850,10 +9852,14 @@
   height: auto;
   padding: 0 !important;
   overflow: visible;
-  border: 0;
-  border-radius: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
   background: transparent !important;
-  box-shadow: none;
+  /* neumorphism.css matches any class ending in -panel/-card/-tile via an
+     #root :where(...) selector — the #root ID beats any class-only rule
+     here, so this MUST be !important or the global raised shadow silently
+     wins and renders a shadow around this otherwise-invisible wrapper. */
+  box-shadow: none !important;
 }
 
 .flashcards-page .fc-content::before,
@@ -10180,7 +10186,9 @@
   border: 1px solid var(--fc-work-border);
   border-radius: 14px;
   background: rgba(255, 255, 255, .025);
-  box-shadow: none;
+  /* fc-stat-card ends in "-card"; fc-sr-summary-item ends in "-item" — both
+     are targeted globally by neumorphism.css. Must stay !important. */
+  box-shadow: none !important;
   transform: translateY(0);
   transition: transform 180ms cubic-bezier(.23, 1, .32, 1), border-color 180ms ease, background-color 180ms ease;
 }
@@ -10539,6 +10547,8 @@
   align-items: stretch;
   gap: 12px;
   margin: 0 0 12px;
+  /* "-row" is matched globally by neumorphism.css (inset shadow). */
+  box-shadow: none !important;
 }
 
 .flashcards-page .fc-sr-summary-item {
@@ -11552,6 +11562,8 @@
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 18px;
+  /* "-toolbar" is matched globally by neumorphism.css (inset shadow). */
+  box-shadow: none !important;
 }
 
 .fcsrc-toolbar h3 {
@@ -11635,6 +11647,9 @@
   color: var(--text-primary);
   cursor: pointer;
   transition: border-color 180ms ease, background-color 180ms ease, transform 180ms ease;
+  /* class name ends in "-card" which neumorphism.css's #root :where(...)
+     rule (ID-specificity) targets globally — must stay !important. */
+  box-shadow: none !important;
 }
 
 .fcsrc-card:hover {
@@ -11811,6 +11826,8 @@
   flex-wrap: wrap;
   gap: 16px;
   margin-bottom: 16px;
+  /* "-row" is matched globally by neumorphism.css (inset shadow). */
+  box-shadow: none !important;
 }
 
 @media (max-width: 1100px) {
@@ -11906,6 +11923,8 @@
   gap: 16px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--fc-work-border);
+  /* "-row" is matched globally by neumorphism.css (inset shadow). */
+  box-shadow: none !important;
 }
 
 .fce-secondary-row span {
@@ -11994,6 +12013,8 @@
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 8px;
   width: 100%;
+  /* "-row" is matched globally by neumorphism.css (inset shadow). */
+  box-shadow: none !important;
 }
 
 .fce-results-field {
