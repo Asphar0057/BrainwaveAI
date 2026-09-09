@@ -239,6 +239,7 @@ const Flashcards = () => {
   
   const [popup, setPopup] = useState({ isOpen: false, message: '', title: '' });
   const autoGenerateKeyRef = useRef('');
+  const sourcesLoadedRef = useRef(false);
   const getSelectedContextDocIds = () => {
     try {
       const raw = JSON.parse(localStorage.getItem(CONTEXT_SELECTION_KEY) || '[]');
@@ -1377,9 +1378,14 @@ const Flashcards = () => {
   }, [userName, location.search, loadChatSessions, loadFlashcardStats, loadReviewCards, loadFlashcardSetByCode, loadDueCards, loadSrStats]);
 
   useEffect(() => {
-    if (activePanel !== 'sources' || !userName || loadingDocuments || uploadedDocuments.length > 0) return;
+    sourcesLoadedRef.current = false;
+  }, [userName]);
+
+  useEffect(() => {
+    if (activePanel !== 'sources' || !userName || sourcesLoadedRef.current) return;
+    sourcesLoadedRef.current = true;
     loadUploadedDocuments();
-  }, [activePanel, userName, loadingDocuments, uploadedDocuments.length, loadUploadedDocuments]);
+  }, [activePanel, userName, loadUploadedDocuments]);
 
   useEffect(() => {
     const openPanel = location.state?.openPanel;
@@ -3181,7 +3187,7 @@ const Flashcards = () => {
           {
             label: 'Library',
             items: [
-              { icon: FileText, label: 'PDF Sources', active: activePanel === 'sources', onClick: () => { setActivePanel('sources'); loadUploadedDocuments(); } },
+              { icon: FileText, label: 'PDF Sources', active: activePanel === 'sources', onClick: () => setActivePanel('sources') },
               { icon: Search, label: 'Explore Public', active: activePanel === 'explore', onClick: () => { setActivePanel('explore'); loadAllPublicFlashcards(); } },
               { icon: BarChart3, label: 'Statistics', active: activePanel === 'statistics', onClick: () => setActivePanel('statistics') },
             ],
