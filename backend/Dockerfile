@@ -1,4 +1,4 @@
-# Backend Dockerfile — production (Azure Container Apps)
+# Backend Dockerfile — production (AWS EC2)
 FROM python:3.11-slim
 
 WORKDIR /app

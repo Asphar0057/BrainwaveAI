@@ -7,7 +7,6 @@ set -e
 
 # ── CONFIGURE THESE BEFORE RUNNING ───────────────────────────────────────────
 EC2_DOMAIN="YOUR_EC2_DOMAIN"          # e.g. ec2.cerbyl.com or api.cerbyl.com
-AZURE_BACKEND_URL="http://AZURE_VM_IP:8000"  # Azure VM public IP, port 8000
 GITHUB_REPO="https://github.com/AdityaLanka04/L1"
 GITHUB_BRANCH="main"
 APP_DIR="/home/ubuntu/brainwave"
@@ -19,11 +18,9 @@ warn() { echo -e "${YELLOW}⚠${NC} $1"; }
 fail() { echo -e "${RED}✗${NC} $1"; exit 1; }
 
 [ "$EC2_DOMAIN" = "YOUR_EC2_DOMAIN" ]       && fail "Set EC2_DOMAIN before running"
-[ "$AZURE_BACKEND_URL" = "http://AZURE_VM_IP:8000" ] && fail "Set AZURE_BACKEND_URL before running"
 
 echo "=== Brainwave EC2 Load Balancer Setup ==="
-echo "Domain:        $EC2_DOMAIN"
-echo "Azure backend: $AZURE_BACKEND_URL"
+echo "Domain: $EC2_DOMAIN"
 echo ""
 
 # ── System deps ──────────────────────────────────────────────────────────────
@@ -58,7 +55,7 @@ fi
 
 cd "$APP_DIR"
 
-[ -f "backend/.env.production" ] || fail "Missing backend/.env.production — copy from Azure and edit"
+[ -f "backend/.env.production" ] || fail "Missing backend/.env.production"
 
 # ── Certbot / Let's Encrypt ───────────────────────────────────────────────────
 # Temporarily allow port 80 through Nginx for ACME challenge
@@ -87,7 +84,6 @@ sudo cp "$APP_DIR/aws-deployment/nginx.lb.conf" /etc/nginx/nginx.conf
 
 # Substitute placeholders
 sudo sed -i "s|EC2_DOMAIN|$EC2_DOMAIN|g" /etc/nginx/nginx.conf
-sudo sed -i "s|AZURE_BACKEND_URL|$AZURE_BACKEND_URL|g" /etc/nginx/nginx.conf
 
 # Remove the temp certbot site
 sudo rm -f /etc/nginx/sites-enabled/certbot-temp /etc/nginx/sites-available/certbot-temp
@@ -120,9 +116,8 @@ ok "Certbot auto-renew cron set (3am daily)"
 echo ""
 echo "=== Setup complete ==="
 echo ""
-echo "Load balancer:   https://$EC2_DOMAIN"
-echo "  20% → EC2 local backend   (http://127.0.0.1:8000)"
-echo "  80% → Azure backend       ($AZURE_BACKEND_URL)"
+echo "Load balancer: https://$EC2_DOMAIN"
+echo "  100% → EC2 local backend  (http://127.0.0.1:8000)"
 echo "  100% → EC2 local frontend (http://127.0.0.1:3000)"
 echo ""
 echo "Useful commands:"
@@ -130,8 +125,4 @@ echo "  Logs:    docker-compose -f $APP_DIR/aws-deployment/docker-compose.lb.yml
 echo "  Restart: docker-compose -f $APP_DIR/aws-deployment/docker-compose.lb.yml restart"
 echo "  Nginx:   sudo nginx -t && sudo systemctl reload nginx"
 echo ""
-echo "To adjust the traffic split, edit /etc/nginx/nginx.conf:"
-echo "  split_clients block — change '20%' and restart Nginx"
-echo ""
-warn "Azure NSG: ensure port 8000 is open inbound from EC2's public IP"
 warn "DNS: point $EC2_DOMAIN to this EC2 instance's public IP"
