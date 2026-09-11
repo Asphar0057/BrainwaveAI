@@ -13,6 +13,13 @@ COPY requirements.txt .
 RUN python -m pip install --no-cache-dir --upgrade "pip>=26.1.2" "setuptools>=78.1.1"
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Pre-download embedding models at build time: HF_HUB_OFFLINE=1/TRANSFORMERS_OFFLINE=1
+# are set at runtime for reliability, so these must already be cached in the image
+# or vector_store's lazy init fails permanently (no network fallback in prod).
+RUN python -c "from sentence_transformers import SentenceTransformer; \
+    SentenceTransformer('BAAI/bge-small-en-v1.5'); \
+    SentenceTransformer('all-MiniLM-L6-v2')"
+
 COPY . .
 
 RUN mkdir -p uploads attachments exports .chroma_data cache/transcripts
