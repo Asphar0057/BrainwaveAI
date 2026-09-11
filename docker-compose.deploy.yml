@@ -1,0 +1,53 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../aws-deployment/Dockerfile.production
+    container_name: brainwave-backend-prod
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env.production
+    environment:
+      - BACKEND_ID=ec2-production
+      - ENVIRONMENT=production
+      - UPLOAD_DIR=/app/uploads
+      - PYTHONUNBUFFERED=1
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+    volumes:
+      - backend_uploads:/app/uploads
+      - backend_exports:/app/exports
+      - backend_attachments:/app/attachments
+      - backend_cache:/app/cache
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/ready"]
+      interval: 30s
+      timeout: 5s
+      start_period: 90s
+      retries: 3
+    stop_grace_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    container_name: brainwave-redis-prod
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  backend_uploads:
+  backend_exports:
+  backend_attachments:
+  backend_cache:
+  redis_data:
