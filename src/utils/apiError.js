@@ -14,6 +14,10 @@ export const getApiErrorMessage = (payload, fallback = 'Something went wrong.') 
     return messages.length > 0 ? messages.join(' ') : fallback;
   }
 
+  if (detail && typeof detail === 'object' && typeof detail.message === 'string') {
+    return detail.message.trim() || fallback;
+  }
+
   if (detail && typeof detail === 'object' && typeof detail.msg === 'string') {
     return detail.msg.trim() || fallback;
   }

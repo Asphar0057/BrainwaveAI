@@ -15,6 +15,7 @@ from services.ai_usage import (
     extract_usage_from_gemini_payload,
 )
 from services.api_key_pool import ApiKeyPool, ApiKeyPoolExhausted
+from services.ai_result import AIProviderBusyError
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ class UnifiedAIClient:
         openai_compat_key_pool: ApiKeyPool = None,
         openai_compat_base_url: str = "https://api.openai.com/v1",
         openai_compat_model: str = "gpt-4o-mini",
-        groq_vision_model: str = "meta-llama/llama-4-scout-17b-16e-instruct",
+        groq_vision_model: str = "qwen/qwen3.8-27b",
         fallback_ai_client=None,
     ):
         self.gemini_module = gemini_client
@@ -186,7 +187,31 @@ class UnifiedAIClient:
                 raise
         raise Exception("Gemini request failed after all configured keys were exhausted")
 
-    def _call_groq(self, prompt: str, max_tokens: int, temperature: float) -> str:
+    def generate_json(self, prompt: str, max_tokens: int = 2000, temperature: float = 0.2) -> str:
+        """Use provider-enforced JSON for tutor contracts when supported.
+
+        Other providers retain their existing routing, quota accounting and
+        fallback behavior; callers still validate the returned contract.
+        """
+        prompt = "Return only valid JSON.\n\n" + prompt
+        if self.primary_ai != "groq":
+            return self.generate(prompt, max_tokens, temperature)
+        try:
+            return self._call_groq(prompt, max_tokens, temperature, json_mode=True)
+        except AIProviderBusyError:
+            raise
+        except Exception as exc:
+            logger.warning("Structured tutor generation failed; using configured fallback")
+            try:
+                return self._fallback(prompt, max_tokens, temperature)
+            except Exception:
+                raise exc
+
+    def _call_groq(self, prompt: str, max_tokens: int, temperature: float, json_mode: bool = False) -> str:
+        structured_options = {"response_format": {"type": "json_object"}} if json_mode else {}
+        if json_mode and self.groq_model in {"openai/gpt-oss-120b", "openai/gpt-oss-20b"}:
+            effort = os.getenv("TUTOR_REASONING_EFFORT", "low").strip().lower()
+            structured_options["reasoning_effort"] = effort if effort in {"low", "medium", "high"} else "low"
         for _ in range(self._pool_attempts(self.groq_key_pool)):
             lease = None
             try:
@@ -195,18 +220,35 @@ class UnifiedAIClient:
                     lease, api_key = self._reserve_key(self.groq_key_pool, None, prompt, max_tokens)
                     from groq import Groq
                     client = Groq(api_key=api_key)
+                if json_mode and hasattr(client, "with_options"):
+                    # Interactive turns must not sleep through SDK retries on
+                    # minute-level provider throttles. Surface a retry instead.
+                    client = client.with_options(timeout=12.0, max_retries=0)
+                started = time.perf_counter()
                 resp = client.chat.completions.create(
                     model=self.groq_model,
                     messages=[{"role": "user", "content": prompt}],
                     temperature=temperature,
                     max_tokens=max_tokens,
+                    **structured_options,
                 )
                 usage = extract_usage_from_openai_like(resp)
+                if json_mode and os.getenv("TUTOR_PROFILE") == "1":
+                    logger.warning("[TUTOR PROVIDER] elapsed=%.3f server=%.3f tokens=%s",
+                        time.perf_counter() - started,
+                        float(getattr(getattr(resp, "usage", None), "total_time", 0) or 0),
+                        (usage or {}).get("total_tokens", 0))
                 self._record_key_success(self.groq_key_pool, lease, usage)
                 text = resp.choices[0].message.content.strip()
                 self._log_usage(usage, model=self.groq_model, provider="groq", prompt=prompt, completion=text)
                 return text
             except Exception as exc:
+                transient_limit = getattr(exc, "status_code", None) == 429 and not any(
+                    label in str(exc).lower() for label in ("per day", "daily", "insufficient_quota")
+                )
+                if json_mode and (transient_limit or "timeout" in type(exc).__name__.lower()):
+                    self._release_key(self.groq_key_pool, lease)
+                    raise AIProviderBusyError() from exc
                 if self._is_quota_error(exc) and lease:
                     self._mark_key_exhausted(self.groq_key_pool, lease)
                     continue

@@ -5,7 +5,7 @@ import './CodeBlock.css';
 const LANGUAGES = [
   'javascript', 'python', 'java', 'cpp', 'c', 'csharp', 'php', 'ruby', 'go',
   'rust', 'swift', 'kotlin', 'typescript', 'html', 'css', 'sql', 'bash', 'shell',
-  'json', 'xml', 'yaml', 'markdown', 'plaintext'
+  'json', 'xml', 'yaml', 'markdown', 'plaintext', 'mermaid', 'diagram', 'mindmap', 'graphjson', 'chartjson', 'datachart'
 ];
 
 const CodeBlock = ({ code, language = 'javascript', onChange, readOnly = false }) => {
@@ -76,6 +76,7 @@ const CodeBlock = ({ code, language = 'javascript', onChange, readOnly = false }
           {getLineNumbers()}
         </div>
         <textarea
+          rows={Math.min(24, Math.max(3, code.split("\n").length))}
           ref={codeRef}
           className={`code-block-textarea language-${selectedLang}`}
           value={code}

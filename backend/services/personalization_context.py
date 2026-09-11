@@ -55,7 +55,7 @@ def get_personalization_context(db, user_id: str) -> PersonalizationContext:
     try:
         weak_areas = (
             db.query(UserWeakArea)
-            .filter(UserWeakArea.user_id == uid)
+            .filter(UserWeakArea.user_id == uid, UserWeakArea.status != "mastered")
             .order_by(UserWeakArea.weakness_score.desc())
             .limit(5)
             .all()

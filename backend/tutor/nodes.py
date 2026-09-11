@@ -12,7 +12,9 @@ from tutor.state import TutorState, StudentState, EvalResult, AttemptEvaluation,
 from tutor import chroma_store
 from tutor.prompt import build_tutor_prompt
 from tutor.evaluator import evaluate
-from services.ai_result import require_ai_success
+from tutor.difficulty import resolve_level
+from tutor.contract import TUTOR_RESPONSE_SCHEMA
+from services.ai_result import AIProviderBusyError, require_ai_success
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +29,10 @@ _TUTOR_CONTRACT_LEAK_MARKERS = [
     "\"options\"",
 ]
 
-async def _agenerate(ai_client, prompt: str, max_tokens: int = 2000, temperature: float = 0.7) -> str:
+async def _agenerate(ai_client, prompt: str, max_tokens: int = 2000, temperature: float = 0.7, json_mode: bool = False) -> str:
+    generate = getattr(ai_client, "generate_json", ai_client.generate) if json_mode else ai_client.generate
     return await run_in_threadpool(
-        ai_client.generate,
+        generate,
         prompt,
         max_tokens,
         temperature,
@@ -326,7 +329,7 @@ Rules:
 
 Return only JSON with keys: answer, tutor_state, options.
 """.strip()
-    return await _agenerate(ai_client, repair_prompt, max_tokens=900, temperature=0.2)
+    return await _agenerate(ai_client, repair_prompt, max_tokens=2000, temperature=0.2, json_mode=True)
 
 
 def _project_response_needs_repair(response: str) -> bool:
@@ -456,6 +459,10 @@ def detect_intent(state: TutorState) -> dict:
     if _is_repetitive(text, chat_history):
         return {"intent": "repetitive"}
 
+    # A self-contained first-turn answer deserves a verdict, even without a prior check.
+    if state.get("tutor_mode") and re.search(r"\b(?:i think|my answer|i got|i calculated|my reasoning)\b", text) and re.search(r"\b(?:correct|check|right|wrong)\b", text):
+        return {"intent": "comprehension_answer", "comprehension_check": "Evaluate the answer and reasoning in this self-contained student question: " + state.get("user_input", "")}
+
     # An explicit request for help is not an attempt to grade, even if the
     # previous tutor turn ended with a comprehension question.
     if state.get("tutor_mode") and _requests_tutor_help(state.get("user_input", "")):
@@ -574,7 +581,8 @@ async def fetch_student_state(state: TutorState) -> dict:
                         student.weaknesses = [s.strip() for s in profile.weak_areas.split(",") if s.strip()]
 
                 weak_areas = db.query(UserWeakArea).filter(
-                    UserWeakArea.user_id == uid
+                    UserWeakArea.user_id == uid,
+                    UserWeakArea.status != "mastered",
                 ).order_by(UserWeakArea.weakness_score.desc()).limit(5).all()
                 for wa in weak_areas:
                     topic = wa.topic or ""
@@ -1555,9 +1563,13 @@ def _build_instructional_task(state: TutorState) -> str:
             f"{choice_context}"
             "Respond like a tutor evaluating understanding:\n"
             "- Start with a direct verdict in **Verdict**: correct, partly correct, or not yet.\n"
-            "- Use these compact labels when relevant: **Verdict**, **What you got**, **Missing point**, **Better answer**, **Quick check**.\n"
+            "- Use these compact labels when relevant: **Verdict**, **Why**, **Your turn**. Give the correction once; do not restate it under several labels.\n"
             "- Omit empty labels and keep each section to 1-2 short sentences.\n"
-            "- Do not simply re-explain the whole topic unless the answer is empty or says they do not know."
+            "- Do not simply re-explain the whole topic unless the answer is empty or says they do not know.\n"
+            "- Clearly distinguish a wrong result from any valid part of its reasoning.\n"
+            "- After explaining the correction, ask one NEW transfer question with changed values or a new application. "
+            "Never ask the student to repeat an answer you just supplied, even after a wrong attempt.\n"
+            f"- Teach at the resolved {resolve_level(state)} level."
         )
 
     if hint and not tutor_mode and signal_type not in ("neutral", "neutral_question"):
@@ -1581,6 +1593,7 @@ def _build_instructional_task(state: TutorState) -> str:
     style      = student.preferred_style if student else "balanced"
     difficulty = student.difficulty_level if student else "intermediate"
     if tutor_mode:
+        difficulty = resolve_level(state)
         reply_style = (state.get("tutor_reply_style") or "guided").strip().lower()
         style_guidance = {
             "hint": (
@@ -1603,14 +1616,15 @@ def _build_instructional_task(state: TutorState) -> str:
         }.get(reply_style, "Guide one step at a time and ask a short check question.")
         return (
             f"Tutor mode is active. Teach at a {difficulty} level using a {style} style. "
-            "Use the recent chat context to judge what the student already understands. "
+            "Use the recent chat context to judge what the student already understands. Set tutor_state.level to this requested level. "
             f"{style_guidance} "
             "Use natural Markdown with 1-3 short, descriptively labeled sections. Use bullets only for a genuine list. "
             "Keep the final section as the student-owned action/check. "
             "Never ask the student to calculate or answer something you already calculated in this response. "
             "Show at most one setup/rule, then leave the requested operation for the student. "
             "If the student asks directly for an answer, provide a hint first unless they have already made a serious attempt. "
-            "End with exactly one focused check or next-step question."
+            "End with exactly one focused check or next-step question. If correcting an attempted answer, explicitly identify what was wrong, then ask a different transfer question instead of repeating a calculation you just solved. "
+            "Keep examples internally consistent. In probability examples, state outcome probabilities or sampling weights explicitly; never infer selection chances from an object being heavier or larger, and never describe unequal sampling as uniform."
         )
 
     return (
@@ -1782,51 +1796,12 @@ async def plan_tutor_steps(state: TutorState) -> dict:
     if existing_plan and state.get("intent") == "comprehension_answer":
         return {"tutor_plan": existing_plan}
 
-    ai_client = state.get("_ai_client")
-    user_input = state.get("user_input", "")
-    if not ai_client:
-        fallback = _normalize_tutor_plan({
-            "goal": user_input[:140] or "Build understanding step by step",
-            "steps": [
-                {"id": 1, "title": "Understand the target", "expected": "State what is being asked", "skill": "problem framing"},
-                {"id": 2, "title": "Apply the key idea", "expected": "Use the relevant rule or concept", "skill": "core concept"},
-                {"id": 3, "title": "Check the result", "expected": "Verify the answer or reasoning", "skill": "verification"},
-            ],
-            "current_step": 1,
-        })
-        return {"tutor_plan": fallback}
-
-    prompt = f"""
-Create a hidden tutoring lesson plan. This plan is for the tutor graph only; it must not be shown fully to the student.
-
-Requirements:
-- Work for any subject: math, science, coding, language, history, reasoning, writing, definitions, and MCQ checks.
-- Break the learning task into 2-6 small teachable steps.
-- Each step needs an expected answer/key idea for grading.
-- Include a final_answer when the task has a clear final answer; otherwise leave it empty.
-- Include skills_used and likely misconceptions.
-- Set current_step to 1 unless continuing an existing plan.
-
-Student request:
-{user_input}
-
-Recent conversation:
-{_format_recent_history_for_grading(state.get("chat_history", []))}
-
-Existing tutor state:
-{json.dumps(session_state, ensure_ascii=False)[:1500]}
-
-Return only JSON:
-{{"goal":"short learning goal","current_step":1,"total_steps":3,"steps":[{{"id":1,"title":"short title","expected":"accepted answer or key idea","skill":"skill name","misconception":"likely mistake"}}],"final_answer":"optional final answer","skills_used":["skill"],"misconceptions":["mistake"],"mastery_score":0.0}}
-""".strip()
-
-    try:
-        raw = await _agenerate(ai_client, prompt, max_tokens=900, temperature=0.1)
-        parsed = _extract_json_dict(raw)
-        return {"tutor_plan": _normalize_tutor_plan(parsed, fallback_goal=user_input)}
-    except Exception as exc:
-        logger.warning(f"[TUTOR PLAN] planning skipped: {exc}")
-        return {"tutor_plan": existing_plan or _normalize_tutor_plan({"goal": user_input[:140]})}
+    # The response already contains the pending question and its hidden answer.
+    # Plan that move in the same generation call, rather than spending another
+    # provider round trip planning steps the tutor may not actually ask.
+    if existing_plan and state.get("intent") in {"confusion", "re_ask", "followup"}:
+        return {"tutor_plan": existing_plan}
+    return {"tutor_plan": TutorPlan()}
 
 async def evaluate_tutor_attempt(state: TutorState) -> dict:
     if not state.get("tutor_mode") or state.get("context_only_no_match"):
@@ -1883,6 +1858,8 @@ Rules:
 - For math, accept forms like (3x^2)/2 and 3x^2/2 as the same.
 - For an intermediate integration term, do not require +C; require it only for the completed indefinite integral.
 - Example: x^3 is the correct integrated term for ∫3x^2 dx because the coefficient 3 cancels the power-rule denominator 3. Never claim that answer dropped the coefficient.
+- The actual Previous tutor step to grade is authoritative. Hidden plan answers are only aids; ignore them if they refer to a different question.
+- For a self-contained first-turn attempt, grade the claim the student asked you to check, not a newly invented introductory step.
 - Grade against the CURRENT STEP first, not against the whole original problem.
 - If the previous tutor step asked for only one sub-step, grade only that sub-step.
 - If the answer is right for the requested sub-step, verdict must be "correct" even if the full original problem is unfinished.
@@ -1891,6 +1868,7 @@ Rules:
 - Use "partly_correct" when the core direction is right but an important piece is missing.
 - Use "not_yet" only when the attempt is materially wrong or does not answer the step.
 - Use "needs_attempt" when the student asks for help instead of attempting.
+- next_action is a suggestion for a NEW unsolved move, not a repeat of a result in your correction. If correcting a numerical answer, change the values for a transfer check.
 - Do not reveal hidden reasoning. Return only JSON.
 
 Recent conversation:
@@ -1928,12 +1906,14 @@ Return JSON with this exact shape:
 """.strip()
 
     try:
-        raw = await _agenerate(ai_client, prompt, max_tokens=550, temperature=0.0)
+        raw = await _agenerate(ai_client, prompt, max_tokens=1000, temperature=0.0, json_mode=True)
         parsed = _extract_json_dict(raw)
         evaluation = _attempt_evaluation_from_dict(parsed)
         if evaluation.confidence < 0.8:
             return {"attempt_evaluation": AttemptEvaluation()}
         return {"attempt_evaluation": evaluation}
+    except AIProviderBusyError:
+        raise
     except Exception as exc:
         logger.warning(f"[TUTOR ATTEMPT] grading skipped: {exc}")
         return {"attempt_evaluation": AttemptEvaluation()}
@@ -1997,6 +1977,7 @@ async def build_prompt_and_respond(state: TutorState) -> dict:
     else:
         logger.info("[TUTOR GEN] Using main AI client (no RAG or HS client unavailable)")
 
+    level = resolve_level(state)
     task = _build_instructional_task(state)
     state_with_task = {**state, "instructional_task": task}
     prompt = build_tutor_prompt(state_with_task)
@@ -2031,7 +2012,7 @@ async def build_prompt_and_respond(state: TutorState) -> dict:
         system += f"\n\nThe student's name is {student_name}. Address them by name naturally (not every sentence)."
 
     intelligence_ctx = state.get("intelligence_context", "")
-    if intelligence_ctx and intent not in ("greeting", "returning_greeting") and not context_only:
+    if intelligence_ctx and intent not in ("greeting", "returning_greeting") and not context_only and not state.get("tutor_mode"):
         system = intelligence_ctx + "\n\n" + system
 
     if context_only:
@@ -2065,22 +2046,20 @@ async def build_prompt_and_respond(state: TutorState) -> dict:
         and intent not in ("greeting", "returning_greeting", "project_build")
     ):
         system += (
-            "\n\nTUTOR MODE — HARD RULES:\n"
-            "1. Prioritize guided learning over complete answer dumps.\n"
-            "2. Use chat history to estimate the student's current level from attempts, mistakes, and confidence.\n"
-            "3. Evaluate student replies before moving ahead when they appear to answer a prior check.\n"
-            "4. Ask for one small student action at the end, not multiple tasks.\n"
-            "5. Sometimes provide an MCQ when it lowers friction or checks a misconception.\n"
-            "6. Never solve the exact step you ask the student to do next.\n"
-            "7. For math, show one rule/setup, then stop before the student-owned calculation.\n"
-            "8. Do not reveal final answers on the first tutor turn unless the student already attempted the problem.\n"
-            "9. Format the answer as natural Markdown with 1-3 compact sections and descriptive labels.\n"
-            "10. Use bullets only for genuine lists; do not put every sentence in its own bullet.\n"
-            "11. The final section must be the student-owned action/check, not a solved answer.\n"
-            "12. Return ONLY valid JSON. Do not use markdown fences or any prose outside JSON.\n"
-            "13. JSON schema: {\"answer\":\"concise student-facing markdown answer\",\"tutor_state\":{\"level\":\"beginner|intermediate|advanced\",\"phase\":\"diagnose|teach|practice|check|review\",\"verdict\":\"correct|partly_correct|not_yet|needs_attempt|not_applicable\",\"confidence\":0.0,\"objective\":\"short current skill\",\"next_action\":\"short student action\",\"hint_level\":1,\"current_step\":1,\"total_steps\":3,\"expected_step_answer\":\"hidden expected answer\",\"final_answer\":\"hidden final answer if known\",\"skills_used\":[\"skill\"],\"misconceptions\":[\"mistake\"],\"mastery_score\":0.0},\"options\":[{\"label\":\"A\",\"text\":\"option text\"}]}.\n"
-            "14. Put any MCQ choices only in the options array. Use [] when no options are needed.\n"
-            "15. The answer field is the only visible tutor response; keep it concise and student-facing."
+            "\n\nTUTOR MODE — RESPONSE CONTRACT:\n"
+            f"Resolved difficulty: {level}; this overrides all profile defaults.\n"
+            "Teach one small move at this level. Follow the requested length and format. "
+            "A first-turn attempt needs a clear verdict too. Distinguish a wrong result from any valid reasoning. "
+            "After correcting an attempt, ask one NEW transfer question with changed values or a new application. "
+            "Never ask for an answer already supplied in your explanation or a prior correct student reply. "
+            "If no attempt was made, withhold the original final answer. A requested worked example or counterexample is allowed; finish with a different check. "
+            "Use one short explanation/correction and one unsolved question. Skip redundant labels, repeated corrections and unsolicited analogies. "
+            "Probability examples must give explicit probabilities or sampling weights with correct totals. "
+            "Plan just the next move in this response. The hidden plan is provisional: skip steps already demonstrated. "
+            "next_action must be the exact final question in answer. expected_step_answer must answer THAT question, never the old attempt. "
+            "Keep hidden answers out of visible prose. MCQ choices belong only in options. "
+            "Return ONLY valid JSON, no fences or schema text. Choose actual values for enum fields.\n"
+            f"Schema: {TUTOR_RESPONSE_SCHEMA}"
         )
         attempt_evaluation = state.get("attempt_evaluation")
         attempt_verdict = getattr(attempt_evaluation, "verdict", "not_applicable") if attempt_evaluation else "not_applicable"
@@ -2114,12 +2093,13 @@ async def build_prompt_and_respond(state: TutorState) -> dict:
 
     try:
         max_tokens = 3200 if intent == "project_build" else 2000
-        temperature = 0.45 if intent == "project_build" else 0.7
+        temperature = 0.35 if state.get("tutor_mode") else (0.45 if intent == "project_build" else 0.7)
         response = await _agenerate(
             ai_client,
             full_prompt,
             max_tokens=max_tokens,
             temperature=temperature,
+            json_mode=bool(state.get("tutor_mode") and intent not in {"project_build", "greeting", "returning_greeting"}),
         )
         if intent == "project_build" and _project_response_needs_repair(response):
             logger.warning("[TUTOR GEN] Project response was too vague; rewriting to delivery contract")
@@ -2137,7 +2117,7 @@ async def build_prompt_and_respond(state: TutorState) -> dict:
             )
         require_ai_success({"response": response}, answer_key="response")
         response = _append_rag_citations(response, state.get("rag_sources") or [])
-        return {"response": response, "instructional_task": task}
+        return _completed_tutor_response(state, response, task)
     except Exception as e:
         main_ai = state.get("_ai_client")
         if ai_client is hs_ai and main_ai and main_ai is not ai_client:
@@ -2167,16 +2147,127 @@ async def build_prompt_and_respond(state: TutorState) -> dict:
                     )
                 require_ai_success({"response": response}, answer_key="response")
                 response = _append_rag_citations(response, state.get("rag_sources") or [])
-                return {"response": response, "instructional_task": task}
+                return _completed_tutor_response(state, response, task)
             except Exception as fallback_error:
                 logger.error(f"Fallback LLM generation failed: {fallback_error}")
                 raise RuntimeError("AI provider temporarily unavailable") from fallback_error
         logger.error(f"LLM generation failed: {e}")
         raise RuntimeError("AI provider temporarily unavailable") from e
 
+def _completed_tutor_response(state: TutorState, response: str, task: str) -> dict:
+    result = {"response": response, "instructional_task": task}
+    if not state.get("tutor_mode"):
+        return result
+    level = resolve_level(state)
+    result["tutor_level"] = level
+    payload = _extract_json_dict(response)
+    pending = payload.get("tutor_state")
+    if not isinstance(pending, dict):
+        return result
+    pending["level"] = level
+    if isinstance(payload.get("answer"), str):
+        payload["answer"] = _render_pending_action(payload["answer"], pending.get("next_action"))
+        payload["answer"] = _append_rag_citations(payload["answer"], state.get("rag_sources") or [])
+    result["response"] = json.dumps(payload, ensure_ascii=False)
+    # Persist the move actually asked, not a speculative plan or the previous
+    # attempt's answer. The semantic grader still checks the conversation too.
+    step = _safe_int(pending.get("current_step"), 1, 1, 99)
+    expected = _trim_plan_text(pending.get("expected_step_answer"), "", 300)
+    previous = state.get("tutor_plan")
+    steps = [item for item in getattr(previous, "steps", []) if item.get("id", 0) < step]
+    steps.append({"id": step, "title": pending.get("next_action"), "expected": expected})
+    result["tutor_plan"] = _normalize_tutor_plan({
+        **pending,
+        "goal": pending.get("objective"),
+        "steps": steps,
+    })
+    return result
+
+def _render_pending_action(answer: str, action: str | None) -> str:
+    """Render the pending move once, using the same action that will be saved.
+
+    Models sometimes expand a final 'Your turn' into several questions. Keep
+    the teaching intact and replace that labeled section with the one pending
+    action; the independent reviewer checks whether it is genuinely unsolved.
+    """
+    if not isinstance(action, str) or not action.strip():
+        return answer
+    marker = re.search(
+        r"(?im)^\s*(?:#{1,6}\s*)?(?:\*\*)?(?:step\s+\d+\s*[-–—:]\s*)?"
+        r"(?:your turn|quick check|check your understanding|check|next step)\b",
+        answer,
+    )
+    if not marker:
+        return answer
+    section = answer[marker.start():]
+    # Keep a new problem's setup. Replacing a spinner's probabilities with
+    # "Calculate P(B)" would make the exercise impossible to answer.
+    if re.search(r"\b(?:suppose|if|imagine|consider|contains|where)\b|\d", section[section.find(":") + 1:], re.I):
+        return answer
+    teaching = answer[:marker.start()].rstrip()
+    return f"{teaching}\n\n**Your turn:** {action.strip()}".strip()
+
+async def review_tutor_response(state: TutorState) -> dict:
+    """Check the visible teaching and its pending question in a compact second pass.
+
+    This is response QA, not evidence that the student learned. No grades or
+    mastery are inferred from the tutor's own answer.
+    """
+    if not state.get("tutor_mode") or state.get("context_only_no_match") or state.get("intent") in {"greeting", "returning_greeting", "project_build"}:
+        return {}
+    payload = _extract_json_dict(state.get("response", ""))
+    if not isinstance(payload.get("answer"), str) or not isinstance(payload.get("tutor_state"), dict):
+        raise RuntimeError("Tutor response could not be validated; please retry")
+    prompt = f"""Review this tutor response independently before it reaches a student.
+Check arithmetic, factual accuracy, stated assumptions, clarity, and the final question.
+Recompute any numerical example; totals, counts, fractions and probabilities must agree.
+Never assume that a heavier object or bigger slice has a higher chance without an explicit sampling mechanism.
+The final question must be unsolved: neither this explanation nor a previously correct student reply may already supply its answer. After correcting an attempt, use changed values or a new application, not rote repetition.
+The hidden expected_step_answer must answer the actual final question, NOT the attempt just graded.
+The final question must include all needed problem data. Reject references to a spinner, diagram, probabilities or quantities that were never specified. next_action must be self-contained, with those values included.
+Respect the requested level ({resolve_level(state)}), length, and a request to withhold the original answer.
+Avoid redundant sections: give one clear explanation/correction and one check.
+When context-only is true, every teaching claim must be supported by the supplied sources; do not invent citations.
+Bad example: "There are 4 counters. Your turn: how many counters are there?" MUST be corrected; it asks for the just-given 4.
+Good correction: "There are 4 counters, including 1 gold. Your turn: write P(gold) as a fraction." Do not include the fraction in the teaching text.
+Return only {{"ok":true}} if all checks pass.
+Otherwise return {{"ok":false,"answer":"complete corrected student-facing Markdown ending with one unsolved question","next_action":"that exact final question","expected_step_answer":"hidden answer to that question","options":[]}}.
+Correct silently; no review commentary. Keep corrections under 180 words. For MCQs preserve 3-4 choices in options only and hide the solution.
+
+Student request: {state.get('user_input', '')}
+Recent exchange: {_format_recent_history_for_grading(state.get('chat_history', [])[-2:])}
+Context-only: {bool(state.get('context_only'))}
+Sources: {json.dumps(state.get('rag_sources') or state.get('rag_context') or [], ensure_ascii=False)[:6000]}
+Candidate: {json.dumps({'answer': payload['answer'], 'next_action': payload['tutor_state'].get('next_action'), 'expected_step_answer': payload['tutor_state'].get('expected_step_answer'), 'options': payload.get('options', [])}, ensure_ascii=False)}
+"""
+    raw = await _agenerate(state.get("_ai_client"), prompt, max_tokens=2000, temperature=0.0, json_mode=True)
+    review = _extract_json_dict(raw)
+    if review.get("ok") is True:
+        return {}
+    required = ("answer", "next_action", "expected_step_answer")
+    if review.get("ok") is not False or not all(isinstance(review.get(key), str) and review[key].strip() for key in required):
+        raise RuntimeError("Tutor quality check could not finish; please retry")
+    payload["answer"] = review["answer"]
+    payload["tutor_state"].update({key: review[key] for key in required[1:]})
+    if isinstance(review.get("options"), list):
+        payload["options"] = review["options"]
+    logger.info("[TUTOR QA] Response corrected before delivery")
+    return _completed_tutor_response(state, json.dumps(payload, ensure_ascii=False), state.get("instructional_task", ""))
+
 async def evaluate_response(state: TutorState) -> dict:
     if state.get("error"):
         return {"evaluation": EvalResult()}
+    if state.get("tutor_mode"):
+        # The student's response is the evidence of learning, not our newly
+        # generated explanation. Reuse verified grading; do not ask a second
+        # model to infer that an explanation worked before the student replies.
+        attempt = state.get("attempt_evaluation")
+        verified = attempt and getattr(attempt, "confidence", 0) >= 0.8
+        verdict = getattr(attempt, "verdict", "not_applicable")
+        return {"evaluation": EvalResult(
+            confusion_persists=bool(verified and verdict in {"not_yet", "partly_correct"}),
+            distilled_memory=getattr(attempt, "rationale", None) if verified else None,
+        )}
     ai_client = state.get("_ai_client")
     if not ai_client or state.get("intent") in ("greeting", "returning_greeting", "off_topic", "repetitive"):
         return {"evaluation": EvalResult()}

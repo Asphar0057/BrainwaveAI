@@ -6,6 +6,13 @@ class AIWorkflowError(RuntimeError):
     pass
 
 
+class AIProviderBusyError(AIWorkflowError):
+    """Transient capacity limit; distinct from an exhausted daily allowance."""
+    def __init__(self, retry_after: int = 10):
+        super().__init__("The tutor is busy. Please retry shortly.")
+        self.retry_after = max(1, min(60, retry_after))
+
+
 def require_ai_success(result: dict, *, answer_key: str | None = None) -> dict:
     if not isinstance(result, dict):
         raise AIWorkflowError("AI returned an invalid result")

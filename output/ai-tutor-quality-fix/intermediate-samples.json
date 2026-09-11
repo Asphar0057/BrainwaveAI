@@ -1,0 +1,177 @@
+[
+  {
+    "case": "beginner",
+    "prompt": "I am new to probability. A bag has three blue counters and one gold. Each counter is equally likely to be chosen. Help me find the probability of gold, one small step at a time. Do not give me the answer yet.",
+    "http_status": 200,
+    "elapsed_seconds": 7.97,
+    "response": {
+      "message_id": null,
+      "answer": "**Step 1 \u2013 Count outcomes**\nThere are four counters in the bag: three blue and one gold. Each counter is equally likely to be drawn, so the total number of possible outcomes is **4**. The outcome we want (drawing a gold counter) occurs in **1** case.\n\n**Your turn:** Write the probability of drawing a gold counter as a fraction of the favorable outcomes over the total outcomes.",
+      "ai_confidence": 0.67,
+      "intent_class": "REVIEW",
+      "active_rules": [],
+      "topics_discussed": [],
+      "frustration_score": 0.13333333333333333,
+      "response_strategy": "WORKED_EXAMPLE",
+      "query_type": "conversational_learning",
+      "tutor_mode": true,
+      "tutor_reply_style": "guided",
+      "tutor_options": [],
+      "tutor_state": {
+        "level": "beginner",
+        "phase": "teach",
+        "verdict": "not_applicable",
+        "confidence": 1.0,
+        "objective": "express probability of gold as a fraction",
+        "next_action": "Write the probability of drawing a gold counter as a fraction (favorable/total).",
+        "hint_level": 1,
+        "current_step": 1,
+        "total_steps": 1,
+        "expected_step_answer": "\\frac{1}{4}",
+        "final_answer": "\\frac{1}{4}",
+        "skills_used": [
+          "basic probability"
+        ],
+        "misconceptions": [],
+        "mastery_score": 0.0,
+        "correct_streak": 0,
+        "wrong_streak": 0,
+        "lesson_plan": {
+          "goal": "express probability of gold as a fraction",
+          "steps": [
+            {
+              "id": 1,
+              "title": "Write the probability of drawing a gold counter as a fraction (favorable/total).",
+              "expected": "\\frac{1}{4}",
+              "skill": "",
+              "misconception": ""
+            }
+          ],
+          "current_step": 1,
+          "final_answer": "\\frac{1}{4}"
+        },
+        "_attempt_verified": false
+      },
+      "sources": []
+    }
+  },
+  {
+    "case": "misconception",
+    "prompt": "I think P(gold) is 1/3 because there are three blue counters and one gold. Each counter is equally likely. Is my reasoning correct? Explain simply and ask one question to help me fix it.",
+    "http_status": 200,
+    "elapsed_seconds": 4.25,
+    "response": {
+      "message_id": null,
+      "answer": "**Verdict:** Partly correct.\n\n**What you got:** You noted that each counter is equally likely.\n\n**Missing point:** The denominator must be the total number of counters (4), not just the blue ones, so \\(P(\\text{gold}) = \\frac{1}{4}\\).\n\n**Better answer:** \\(P(\\text{gold}) = \\frac{1}{4}\\) because there is 1 gold out of 4 total counters.\n\n**Quick check:** If a bag contains 2 red, 3 green, and 5 yellow counters, what is the probability of drawing a red counter?",
+      "ai_confidence": 0.785,
+      "intent_class": "REVIEW",
+      "active_rules": [],
+      "topics_discussed": [],
+      "frustration_score": 0.13333333333333333,
+      "response_strategy": "WORKED_EXAMPLE",
+      "query_type": "conversational_learning",
+      "tutor_mode": true,
+      "tutor_reply_style": "guided",
+      "tutor_options": [],
+      "tutor_state": {
+        "level": "beginner",
+        "phase": "check",
+        "verdict": "not_applicable",
+        "confidence": 0.9,
+        "objective": "identify correct denominator in probability",
+        "next_action": "If a bag contains 2 red, 3 green, and 5 yellow counters, what is the probability of drawing a red counter?",
+        "hint_level": 1,
+        "current_step": 1,
+        "total_steps": 1,
+        "expected_step_answer": "1/5",
+        "final_answer": "1/5",
+        "skills_used": [
+          "probability basics",
+          "counting outcomes"
+        ],
+        "misconceptions": [
+          "using wrong denominator"
+        ],
+        "mastery_score": 0.2,
+        "correct_streak": 0,
+        "wrong_streak": 0,
+        "lesson_plan": {
+          "goal": "identify correct denominator in probability",
+          "steps": [
+            {
+              "id": 1,
+              "title": "If a bag contains 2 red, 3 green, and 5 yellow counters, what is the probability",
+              "expected": "1/5",
+              "skill": "",
+              "misconception": ""
+            }
+          ],
+          "current_step": 1,
+          "final_answer": "1/5"
+        },
+        "_attempt_verified": false
+      },
+      "sources": []
+    }
+  },
+  {
+    "case": "advanced",
+    "prompt": "I understand basic probability. Explain why favourable outcomes divided by total outcomes fails when outcomes are not equally likely. Give one short numerical counterexample and a question to check my understanding.",
+    "http_status": 200,
+    "elapsed_seconds": 9.69,
+    "response": {
+      "message_id": null,
+      "answer": "**Analogy \u2013 Unequal slices of a pizza**: Imagine a pizza cut into slices of different sizes. Picking a random slice means larger slices are more likely to be chosen than tiny ones.\n\n- **Mapping**: each slice = a possible outcome; slice size = the outcome's likelihood. When slices differ, counting slices (favorable/total) ignores size differences.\n\n**Formal principle**: Probability of an event is the sum of the probabilities of its individual outcomes, \\(P(E)=\\sum_{w\\in E}P(w)\\). The simple ratio \\(\\frac{\\text{favorable outcomes}}{\\text{total outcomes}}\\) works only when every outcome is equally likely.\n\n**Counterexample**: A spinner has four 1\u2011unit sectors (A, B, C, D) and one 2\u2011unit sector (E). Total weight = 5. \\(P(E)=\\frac{2}{5}=0.4\\), but the na\u00efve count gives \\(\\frac{1}{4}=0.25\\).\n\n**Check your understanding**: Suppose a six\u2011sided die is weighted so that face\u202f6 appears twice as often as each of the other faces. What is the probability of rolling an even number?",
+      "ai_confidence": 0.707,
+      "intent_class": "CASUAL",
+      "active_rules": [],
+      "topics_discussed": [],
+      "frustration_score": 0.0,
+      "response_strategy": "WORKED_EXAMPLE",
+      "query_type": "conversational_learning",
+      "tutor_mode": true,
+      "tutor_reply_style": "guided",
+      "tutor_options": [],
+      "tutor_state": {
+        "level": "advanced",
+        "phase": "teach",
+        "verdict": "not_applicable",
+        "confidence": 0.93,
+        "objective": "recognize when simple outcome ratio fails due to unequal likelihoods",
+        "next_action": "Compute the probability of rolling an even number on the weighted die described.",
+        "hint_level": 1,
+        "current_step": 1,
+        "total_steps": 1,
+        "expected_step_answer": "4/7",
+        "final_answer": "",
+        "skills_used": [
+          "probability",
+          "sample space",
+          "weighted outcomes"
+        ],
+        "misconceptions": [
+          "assuming equal likelihood when outcomes differ"
+        ],
+        "mastery_score": 0.0,
+        "correct_streak": 0,
+        "wrong_streak": 0,
+        "lesson_plan": {
+          "goal": "recognize when simple outcome ratio fails due to unequal likelihoods",
+          "steps": [
+            {
+              "id": 1,
+              "title": "Compute the probability of rolling an even number on the weighted die described.",
+              "expected": "4/7",
+              "skill": "",
+              "misconception": ""
+            }
+          ],
+          "current_step": 1,
+          "final_answer": ""
+        },
+        "_attempt_verified": false
+      },
+      "sources": []
+    }
+  }
+]

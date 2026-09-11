@@ -1,4 +1,6 @@
+import CerbylSidebar from '../components/CerbylSidebar';
 import useModalFocus from '../hooks/useModalFocus';
+import useCerbylCardMotion from '../hooks/useCerbylCardMotion';
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowUpRight, Plus, ChevronLeft, ChevronRight, FileText, Mic, Library, Search, Pencil, X, Check, User, Bell, Sparkles, Trash2, LogOut } from 'lucide-react';
@@ -516,26 +518,7 @@ const DashboardCerbyl = () => {
   const moduleDragMovedRef = useRef(false);
   const [isModuleDragging, setIsModuleDragging] = useState(false);
 
-  // exact copy of Home.js's handleTileMove/handleTileLeave, driving the same
-  // --mx/--my/--rx/--ry tilt + spotlight custom properties on the bento cards
-  const handleTileMove = useCallback((e) => {
-    const card = e.currentTarget;
-    const rect = card.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const cx = x / rect.width - 0.5;
-    const cy = y / rect.height - 0.5;
-    card.style.setProperty('--mx', `${x}px`);
-    card.style.setProperty('--my', `${y}px`);
-    card.style.setProperty('--rx', `${(-cy * 7).toFixed(2)}deg`);
-    card.style.setProperty('--ry', `${(cx * 9).toFixed(2)}deg`);
-  }, []);
-
-  const handleTileLeave = useCallback((e) => {
-    const card = e.currentTarget;
-    card.style.setProperty('--rx', '0deg');
-    card.style.setProperty('--ry', '0deg');
-  }, []);
+  const { onMouseMove: handleTileMove, onMouseLeave: handleTileLeave } = useCerbylCardMotion();
 
   const normalizeModuleOffset = (offset) => {
     const segmentWidth = moduleSegmentWidthRef.current;
@@ -1818,118 +1801,19 @@ const DashboardCerbyl = () => {
 
       <div className={`cb-shell ${isSidebarOpen ? '' : 'cb-shell--collapsed'}`}>
         {}
-        <div className={`cb-side-slot ${isSidebarOpen ? '' : 'cb-side-slot--collapsed'}`}>
-        <aside className={`cb-side ${isSidebarOpen ? '' : 'cb-side--collapsed'}`}>
-          <div className="cb-tile-texture" />
-          {isSidebarOpen ? (
-          <>
-            <div className="cb-brand">
-              <span className="cb-brand-name">cerbyl</span>
-              <span className="cb-brand-kicker">Dashboard</span>
-              <button
-                className="cb-sidebar-collapse"
-                type="button"
-                onClick={() => setIsSidebarOpen(false)}
-                title="Collapse"
-                aria-label="Collapse dashboard sidebar"
-                aria-expanded="true"
-              >
-                <ChevronLeft size={12} />
-              </button>
-            </div>
+        <CerbylSidebar
+          open={isSidebarOpen} onOpenChange={setIsSidebarOpen}
+          displayName={displayName} profilePhoto={profilePhoto} initial={initial}
+          profileSubtitle={`Level ${stats.level} · ${stats.xp} XP`}
+          onProfile={() => navigate('/profile')} onEditProfile={openPfpModal}
+          quickLinks={[
+            { label: 'AI Chat', onClick: () => navigate('/ai-chat') },
+            { label: 'Flashcards', onClick: () => navigate('/flashcards') },
+            { label: 'Notes', onClick: () => navigate('/notes') },
+          ]}
+          workspaceLinks={SIDE_LINKS.map(item => ({ label: item.label, onClick: () => navigate(item.route) }))}
+        />
 
-          <div className="cb-logo-wrap">
-            {profilePhoto ? (
-              <img
-                src={profilePhoto}
-                alt={`${displayName} profile`}
-                className="cb-brand-pfp"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <div className="cb-brand-pfp cb-brand-pfp--fallback" aria-label="Profile avatar">
-                {initial}
-              </div>
-            )}
-            <button
-              className="cb-pfp-edit-btn"
-              onClick={openPfpModal}
-              aria-label="Edit profile picture"
-              title="Choose profile picture"
-            >
-              <Pencil size={12} />
-              Edit PFP
-            </button>
-          </div>
-
-          <div className="cb-side-sections">
-            {[
-              { label: 'AI Chat',    route: '/ai-chat' },
-              { label: 'Flashcards', route: '/flashcards' },
-              { label: 'Notes',      route: '/notes' }
-            ].map((s) => (
-              <button key={s.label} className="cb-side-section" type="button" onClick={() => navigate(s.route)}>
-                <span className="cb-side-dot" />
-                <span className="cb-side-label">{s.label}</span>
-                <span className="cb-side-plus" aria-hidden="true">
-                  <Plus size={12} strokeWidth={2.4} />
-                </span>
-              </button>
-            ))}
-          </div>
-
-          <nav className="cb-side-nav">
-            {SIDE_LINKS.map(l => (
-              <button
-                key={l.label}
-                className="cb-side-link"
-                onClick={() => navigate(l.route)}
-              >
-                <span className="cb-side-link-dot" />
-                {l.label}
-              </button>
-            ))}
-          </nav>
-
-          <button className="cb-user-chip" onClick={() => navigate('/profile')}>
-            <span className="cb-user-meta">
-              <span className="cb-user-name">{displayName}</span>
-              <span className="cb-user-sub">Level {stats.level} · {stats.xp} XP</span>
-            </span>
-          </button>
-          </>
-          ) : (
-            <div className="cb-side-strip">
-              <button
-                className="cb-side-strip-btn"
-                type="button"
-                onClick={() => setIsSidebarOpen(true)}
-                aria-label="Expand dashboard sidebar"
-                aria-expanded="false"
-                data-tip="Expand"
-              >
-                <ChevronRight size={15} />
-              </button>
-              <div className="cb-side-strip-rule" />
-              <button
-                className="cb-side-strip-btn cb-side-strip-btn--profile"
-                type="button"
-                onClick={() => navigate('/profile')}
-                aria-label="Open profile"
-                data-tip="Profile"
-              >
-                {profilePhoto ? (
-                  <img src={profilePhoto} alt="" className="cb-side-strip-avatar" referrerPolicy="no-referrer" />
-                ) : (
-                  <User size={15} />
-                )}
-              </button>
-            </div>
-          )}
-        </aside>
-        </div>
-
-        {}
         <main className="cb-main">
           {dashboardError && (
             <div className="cb-dashboard-error-banner" role="alert">

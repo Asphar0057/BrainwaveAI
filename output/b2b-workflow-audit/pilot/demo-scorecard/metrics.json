@@ -1,0 +1,46 @@
+{
+  "generated_at": "2026-09-11T07:55:04.912787+00:00",
+  "class": {
+    "id": 13,
+    "name": "Workflow audit 3246742",
+    "code": "QA3246742",
+    "title": "QA Probability foundations",
+    "company": "Northstar Coaching \u00b7 Demo"
+  },
+  "window_days": 14,
+  "active_students": 2,
+  "assignments": [
+    {
+      "assignment_id": 17,
+      "title": "QA \u2014 Explain the probability of gold 3246742",
+      "eligible_students": 2,
+      "submitted": 1,
+      "graded": 1,
+      "completion_percent": 50.0
+    }
+  ],
+  "assignment_completion": {
+    "submitted": 1,
+    "eligible": 2,
+    "percent": 50.0
+  },
+  "repeat_learning_activity": {
+    "active_learners": 1,
+    "learners_on_multiple_days": 0,
+    "percent_of_active": 0.0
+  },
+  "teacher_time": {
+    "source": "instructor self-report; comparable tasks only",
+    "measured_tasks": 0,
+    "baseline_minutes": null,
+    "cerbyl_minutes": null,
+    "minutes_saved": null,
+    "percent_saved": null
+  },
+  "limits": [
+    "Completion uses currently active enrolments and currently published, available assignments; this is not a historical roster snapshot.",
+    "Repeat activity means meaningful learning actions on two or more UTC dates within the window; it does not measure passive browsing.",
+    "Time savings require real instructor measurements and are not inferred from request latency.",
+    "Demo and QA classes are not evidence of customer adoption."
+  ]
+}

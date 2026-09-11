@@ -12,6 +12,8 @@ from services.access_control import normalize_account_role, require_account_role
 from services.storage_service import StorageService
 
 from .helpers import (
+    _active_section_ids,
+    _snapshot_submission,
     _accessible_section,
     _assignment_row,
     _display_name,
@@ -26,6 +28,20 @@ from .helpers import (
 from .schemas import AssignmentCreate, AssignmentUpdate, GradeSubmission, SubmissionCreate, SubmissionDraft
 
 router = APIRouter()
+
+
+def _validate_assignment_dates(start, due):
+    def utc(value):
+        return value.replace(tzinfo=timezone.utc) if value and value.tzinfo is None else value
+    if start and due and utc(due) <= utc(start):
+        raise HTTPException(422, "Due date must be after the available-from date.")
+
+
+def _refresh_class_progress(db, section):
+    db.flush()
+    for enrollment in section.enrollments:
+        if enrollment.status == "active":
+            _recalculate_enrollment(db, section, enrollment.student_id, record_activity=False)
 
 
 @router.put("/student/assignments/{assignment_id}/draft")
@@ -122,12 +138,19 @@ def submit_assignment(
     )
     now = datetime.now(timezone.utc)
     if submission:
+        db.query(models.Submission).filter_by(id=submission.id).with_for_update().one()
+        db.refresh(submission)
+        # A lost response followed by Retry must not consume another attempt.
+        if submission.status == "submitted" and submission.content_text == payload.content_text.strip() and (submission.attachment_url or None) == (str(payload.attachment_url) if payload.attachment_url else None):
+            return {"id": submission.id, "assignment_id": assignment.id, "status": submission.status,
+                    "attempt_number": submission.attempt_number, "submitted_at": submission.submitted_at}
         was_submitted = submission.status in {"submitted", "graded"}
         if was_submitted:
             if not assignment.allow_resubmission:
                 raise HTTPException(status_code=409, detail="Resubmission is disabled for this assignment.")
             if submission.attempt_number >= assignment.max_attempts:
                 raise HTTPException(status_code=409, detail=f"Maximum of {assignment.max_attempts} attempts reached.")
+            _snapshot_submission(db, submission, current_user.id, "before_resubmit")
             submission.attempt_number = (submission.attempt_number or 1) + 1
         submission.score = None
         submission.feedback = None
@@ -147,6 +170,7 @@ def submit_assignment(
     submission.status = "submitted"
     submission.submitted_at = now
     db.flush()
+    _snapshot_submission(db, submission, current_user.id, "submitted")
     _record_activity(
         db,
         section_id=section.id,
@@ -200,15 +224,16 @@ def get_assignment_submissions(
         if enrollment.status != "active":
             continue
         submission = submissions_by_student.get(enrollment.student_id)
+        submitted = submission and submission.status in {"submitted", "graded"}
         submission_rows.append(
             {
                 "student": _user_summary(enrollment.student),
                 "submission_id": submission.id if submission else None,
                 "status": submission.status if submission else "not_started",
-                "content_text": submission.content_text if submission else None,
-                "attachment_url": submission.attachment_url if submission else None,
-                "attachment_name": submission.attachment_name if submission else None,
-                "attachment_size": submission.attachment_size if submission else None,
+                "content_text": submission.content_text if submitted else None,
+                "attachment_url": submission.attachment_url if submitted else None,
+                "attachment_name": submission.attachment_name if submitted else None,
+                "attachment_size": submission.attachment_size if submitted else None,
                 "score": submission.score if submission else None,
                 "feedback": submission.feedback if submission else None,
                 "submitted_at": submission.submitted_at if submission else None,
@@ -264,11 +289,18 @@ def grade_submission(
             status_code=422,
             detail=f"Score cannot exceed {submission.assignment.points_possible:g}.",
         )
+    db.query(models.Submission).filter_by(id=submission.id).with_for_update().one()
+    db.refresh(submission)
+    if submission.status == "graded" and submission.score == payload.score and submission.feedback == payload.feedback.strip():
+        return {"id": submission.id, "status": submission.status, "score": submission.score,
+                "feedback": submission.feedback, "graded_at": submission.graded_at}
+    _snapshot_submission(db, submission, current_user.id, "before_grade")
     submission.score = payload.score
     submission.feedback = payload.feedback.strip()
     submission.status = "graded"
     submission.graded_at = datetime.now(timezone.utc)
     submission.graded_by = current_user.id
+    _snapshot_submission(db, submission, current_user.id, "graded")
     _notify(
         db,
         submission.student_id,
@@ -312,6 +344,7 @@ def create_assignment(
         .filter(
             models.ClassSection.id == payload.section_id,
             models.ClassSection.instructor_id == current_user.id,
+            models.ClassSection.id.in_(_active_section_ids(db, current_user)),
             models.ClassSection.status == "active",
         )
         .first()
@@ -322,6 +355,7 @@ def create_assignment(
             detail="Class section not found or not assigned to you.",
         )
 
+    _validate_assignment_dates(payload.start_at, payload.due_at)
     assignment = models.Assignment(
         section_id=section.id,
         title=payload.title.strip(),
@@ -361,6 +395,7 @@ def create_assignment(
             + (f" due {assignment.due_at.strftime('%d %b')}" if assignment.due_at else "."),
             "class_assignment",
         )
+    _refresh_class_progress(db, section)
     db.commit()
     db.refresh(assignment)
     return {
@@ -386,7 +421,7 @@ def list_educator_assignments(
             joinedload(models.Assignment.submissions),
         )
         .join(models.ClassSection)
-        .filter(models.ClassSection.instructor_id == current_user.id)
+        .filter(models.ClassSection.instructor_id == current_user.id, models.ClassSection.id.in_(_active_section_ids(db, current_user)))
     )
     if section_id:
         query = query.filter(models.Assignment.section_id == section_id)
@@ -422,6 +457,11 @@ def update_assignment(
         raise HTTPException(status_code=404, detail="Assignment not found.")
     section = _accessible_section(db, assignment.section_id, current_user)
     changes = payload.model_dump(exclude_unset=True)
+    _validate_assignment_dates(changes.get("start_at", assignment.start_at), changes.get("due_at", assignment.due_at))
+    if "points_possible" in changes and any(
+        row.score is not None and row.score > changes["points_possible"] for row in assignment.submissions
+    ):
+        raise HTTPException(422, "Points cannot be lower than a score already awarded. Regrade affected submissions first.")
     for field, value in changes.items():
         if field in {"title", "description", "rubric_text"} and isinstance(value, str):
             value = value.strip()
@@ -434,6 +474,7 @@ def update_assignment(
             f"{section.course.code} coursework has changed.",
             "class_assignment",
         )
+    _refresh_class_progress(db, section)
     db.commit()
     db.refresh(assignment)
     return {**_assignment_row(assignment), "published_status": assignment.status, "section_id": assignment.section_id}
@@ -448,8 +489,9 @@ def archive_assignment(
     assignment = db.query(models.Assignment).filter(models.Assignment.id == assignment_id).first()
     if not assignment:
         raise HTTPException(status_code=404, detail="Assignment not found.")
-    _accessible_section(db, assignment.section_id, current_user)
+    section = _accessible_section(db, assignment.section_id, current_user)
     assignment.status = "archived"
+    _refresh_class_progress(db, section)
     db.commit()
     return {"id": assignment.id, "status": "archived"}
 
@@ -570,6 +612,8 @@ def download_submission_file(
     _accessible_section(db, submission.assignment.section_id, current_user)
     if normalize_account_role(current_user.account_role) == "student" and submission.student_id != current_user.id:
         raise HTTPException(status_code=403, detail="You cannot access another student's file.")
+    if current_user.id != submission.student_id and submission.status not in {"submitted", "graded"}:
+        raise HTTPException(404, detail="Submission file not found.")
     storage = StorageService.get_storage()
     if getattr(storage, "storage_type", "local") != "local":
         return RedirectResponse(storage.get_private_file_url(submission.attachment_storage_path))

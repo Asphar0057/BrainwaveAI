@@ -1,0 +1,114 @@
+INFO: setup plugin alembic.autogenerate.schemas
+INFO: setup plugin alembic.autogenerate.tables
+INFO: setup plugin alembic.autogenerate.types
+INFO: setup plugin alembic.autogenerate.constraints
+INFO: setup plugin alembic.autogenerate.defaults
+INFO: setup plugin alembic.autogenerate.comments
+INFO: Context impl SQLiteImpl.
+INFO: Will assume non-transactional DDL.
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+WARNI [__main__] ENVIRONMENT env var is not set — defaulting to DEVELOPMENT mode. Set ENVIRONMENT=production in production deployments.
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+WARNI [main] ENVIRONMENT env var is not set — defaulting to DEVELOPMENT mode. Set ENVIRONMENT=production in production deployments.
+INFO:     Started server process [26513]
+INFO:     Waiting for application startup.
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNI [huggingface_hub.utils._http] Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 17501.92it/s]
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loading weights: 100%|██████████| 103/103 [00:00<00:00, 13102.83it/s]
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+/Users/adityalanka/miniconda3/envs/brainwave311/lib/python3.11/site-packages/fastapi/openapi/utils.py:258: UserWarning: Duplicate Operation ID admin_api_key_usage_api_admin_api_key_usage_get for function admin_api_key_usage at /Users/adityalanka/BrainwaveAI/backend/routes/analytics.py
+  warnings.warn(message, stacklevel=1)
+WARNI [tutor.graph] [TUTOR TIMING] node=detect_intent seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=analyze_message seconds=0.016
+WARNI [tutor.graph] [TUTOR TIMING] node=fetch_student_state seconds=0.005
+WARNI [tutor.graph] [TUTOR TIMING] node=gate_and_retrieve seconds=0.001
+WARNI [tutor.graph] [TUTOR TIMING] node=plan_tutor_steps seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=evaluate_tutor_attempt seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=update_tutor_plan_progress seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=select_teaching_style seconds=0.007
+WARNI [services.ai_utils] [TUTOR PROVIDER] elapsed=1.264 server=0.653 tokens=1980
+WARNI [tutor.graph] [TUTOR TIMING] node=build_prompt_and_respond seconds=1.275
+WARNI [services.ai_utils] [TUTOR PROVIDER] elapsed=0.686 server=0.188 tokens=709
+WARNI [tutor.graph] [TUTOR TIMING] node=review_tutor_response seconds=0.699
+WARNI [tutor.graph] [TUTOR TIMING] node=evaluate_response seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=persist_updates seconds=0.067
+WARNI [activity_middleware] Slow API request: POST /api/ask_simple/ status=200 duration=2.25s
+WARNI [tutor.graph] [TUTOR TIMING] node=detect_intent seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=analyze_message seconds=0.014
+WARNI [tutor.graph] [TUTOR TIMING] node=fetch_student_state seconds=0.002
+WARNI [tutor.graph] [TUTOR TIMING] node=gate_and_retrieve seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=plan_tutor_steps seconds=0.000
+WARNI [services.ai_utils] [TUTOR PROVIDER] elapsed=0.823 server=0.579 tokens=1115
+WARNI [tutor.graph] [TUTOR TIMING] node=evaluate_tutor_attempt seconds=0.832
+WARNI [tutor.graph] [TUTOR TIMING] node=update_tutor_plan_progress seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=select_teaching_style seconds=0.015
+WARNI [services.ai_utils] Structured tutor generation failed; using configured fallback
+ERROR [tutor.nodes] LLM generation failed: groq API usage limit exhausted
+WARNI [tutor.graph] [TUTOR TIMING] node=build_prompt_and_respond seconds=0.007
+ERROR [tutor.graph] Tutor graph failed: AI provider temporarily unavailable
+WARNI [tutor.graph] [TUTOR TIMING] node=detect_intent seconds=0.002
+WARNI [tutor.graph] [TUTOR TIMING] node=analyze_message seconds=0.015
+WARNI [tutor.graph] [TUTOR TIMING] node=fetch_student_state seconds=0.002
+WARNI [tutor.graph] [TUTOR TIMING] node=gate_and_retrieve seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=plan_tutor_steps seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=evaluate_tutor_attempt seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=update_tutor_plan_progress seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=select_teaching_style seconds=0.006
+WARNI [services.ai_utils] Structured tutor generation failed; using configured fallback
+ERROR [tutor.nodes] LLM generation failed: groq API usage limit exhausted
+WARNI [tutor.graph] [TUTOR TIMING] node=build_prompt_and_respond seconds=0.004
+ERROR [tutor.graph] Tutor graph failed: AI provider temporarily unavailable
+WARNI [tutor.graph] [TUTOR TIMING] node=detect_intent seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=analyze_message seconds=0.013
+WARNI [tutor.graph] [TUTOR TIMING] node=fetch_student_state seconds=0.002
+WARNI [tutor.graph] [TUTOR TIMING] node=gate_and_retrieve seconds=0.011
+WARNI [tutor.graph] [TUTOR TIMING] node=plan_tutor_steps seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=evaluate_tutor_attempt seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=update_tutor_plan_progress seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=select_teaching_style seconds=0.006
+WARNI [services.ai_utils] Structured tutor generation failed; using configured fallback
+ERROR [tutor.nodes] LLM generation failed: groq API usage limit exhausted
+WARNI [tutor.graph] [TUTOR TIMING] node=build_prompt_and_respond seconds=0.004
+ERROR [tutor.graph] Tutor graph failed: AI provider temporarily unavailable
+WARNI [tutor.graph] [TUTOR TIMING] node=detect_intent seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=analyze_message seconds=0.013
+WARNI [tutor.graph] [TUTOR TIMING] node=fetch_student_state seconds=0.002
+WARNI [tutor.graph] [TUTOR TIMING] node=gate_and_retrieve seconds=0.010
+WARNI [tutor.graph] [TUTOR TIMING] node=plan_tutor_steps seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=evaluate_tutor_attempt seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=update_tutor_plan_progress seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=select_teaching_style seconds=0.006
+WARNI [services.ai_utils] Structured tutor generation failed; using configured fallback
+ERROR [tutor.nodes] LLM generation failed: groq API usage limit exhausted
+WARNI [tutor.graph] [TUTOR TIMING] node=build_prompt_and_respond seconds=0.003
+ERROR [tutor.graph] Tutor graph failed: AI provider temporarily unavailable
+WARNI [tutor.graph] [TUTOR TIMING] node=detect_intent seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=analyze_message seconds=0.014
+WARNI [tutor.graph] [TUTOR TIMING] node=fetch_student_state seconds=0.002
+WARNI [tutor.graph] [TUTOR TIMING] node=gate_and_retrieve seconds=0.009
+WARNI [tutor.graph] [TUTOR TIMING] node=plan_tutor_steps seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=evaluate_tutor_attempt seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=update_tutor_plan_progress seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=select_teaching_style seconds=0.007
+WARNI [services.ai_utils] Structured tutor generation failed; using configured fallback
+ERROR [tutor.nodes] LLM generation failed: groq API usage limit exhausted
+WARNI [tutor.graph] [TUTOR TIMING] node=build_prompt_and_respond seconds=0.003
+ERROR [tutor.graph] Tutor graph failed: AI provider temporarily unavailable
+WARNI [tutor.graph] [TUTOR TIMING] node=detect_intent seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=analyze_message seconds=0.014
+WARNI [tutor.graph] [TUTOR TIMING] node=fetch_student_state seconds=0.002
+WARNI [tutor.graph] [TUTOR TIMING] node=gate_and_retrieve seconds=0.011
+WARNI [tutor.graph] [TUTOR TIMING] node=plan_tutor_steps seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=evaluate_tutor_attempt seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=update_tutor_plan_progress seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=select_teaching_style seconds=0.006
+WARNI [services.ai_utils] Structured tutor generation failed; using configured fallback
+ERROR [tutor.nodes] LLM generation failed: groq API usage limit exhausted
+WARNI [tutor.graph] [TUTOR TIMING] node=build_prompt_and_respond seconds=0.003
+ERROR [tutor.graph] Tutor graph failed: AI provider temporarily unavailable

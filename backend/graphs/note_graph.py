@@ -70,7 +70,7 @@ async def fetch_context(state: NoteGenState) -> dict:
 
                 weak_areas = (
                     db.query(UserWeakArea)
-                    .filter(UserWeakArea.user_id == uid)
+                    .filter(UserWeakArea.user_id == uid, UserWeakArea.status != "mastered")
                     .order_by(UserWeakArea.weakness_score.desc())
                     .limit(5)
                     .all()

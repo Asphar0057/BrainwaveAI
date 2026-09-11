@@ -1,0 +1,85 @@
+FFFF                                                                     [100%]
+=================================== FAILURES ===================================
+______ test_material_draft_submission_message_grade_refresh_and_isolation ______
+
+world = (<sqlalchemy.orm.session.Session object at 0x111304810>, [<models.user.User object at 0x1113d2bd0>, <models.user.User ...>], <starlette.testclient.TestClient object at 0x112ce2a50>, <function world.<locals>.login at 0x112b17c40>, 1, 1, ...)
+
+    def test_material_draft_submission_message_grade_refresh_and_isolation(world):
+        db, users, c, login, org, sid, _ = world
+        login(1)
+        material = c.post(f'/api/institution/educator/sections/{sid}/materials', json={'title': 'Probability reading', 'material_type': 'link', 'source_url': 'https://example.com/probability'})
+        assert material.status_code == 201, material.text
+        aid = assignment(c, sid)
+        login(2)
+        section = c.get(f'/api/institution/sections/{sid}').json()
+        assert section['materials'][0]['id'] == material.json()['id']
+        body = {'content_text': 'I think the denominator is three because there are three blue counters.'}
+        draft = c.put(f'/api/institution/student/assignments/{aid}/draft', json=body)
+        assert draft.status_code == 200
+>       assert c.get(f'/api/institution/sections/{sid}').json()['assignments'][0]['submission']['content_text'] == body['content_text']
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'submission'
+
+backend/tests/test_b2b_workflow_audit.py:37: KeyError
+____________ test_progress_recalculates_when_assignment_set_changes ____________
+
+world = (<sqlalchemy.orm.session.Session object at 0x1113e1250>, [<models.user.User object at 0x1133be710>, <models.user.User ...>], <starlette.testclient.TestClient object at 0x1133ceb50>, <function world.<locals>.login at 0x113418a40>, 1, 1, ...)
+
+    def test_progress_recalculates_when_assignment_set_changes(world):
+        db, users, c, login, org, sid, _ = world; login(1)
+        a = assignment(c, sid); submit_grade(c, login, a)
+        b = assignment(c, sid, title='Second assignment')
+        login(2)
+>       assert c.get('/api/institution/student/dashboard').json()['courses'][0]['progress_percent'] == 50
+E       assert 100 == 50
+
+backend/tests/test_b2b_workflow_audit.py:69: AssertionError
+________________ test_weighted_grade_matches_student_dashboard _________________
+
+world = (<sqlalchemy.orm.session.Session object at 0x113616f90>, [<models.user.User object at 0x1135f76d0>, <models.user.User ...>], <starlette.testclient.TestClient object at 0x11392fcd0>, <function world.<locals>.login at 0x1138aad40>, 1, 1, ...)
+
+    def test_weighted_grade_matches_student_dashboard(world):
+        db, users, c, login, org, sid, _ = world; login(1)
+        a = assignment(c, sid, weight_percent=80); submit_grade(c, login, a, 10)
+        b = assignment(c, sid, title='Second assignment', weight_percent=20); submit_grade(c, login, b, 0)
+        book = c.get(f'/api/institution/educator/sections/{sid}/gradebook').json()
+        row = next(r for r in book['rows'] if r['student']['id'] == users[2].id)
+        login(2)
+>       assert c.get('/api/institution/student/dashboard').json()['courses'][0]['mastery_percent'] == row['average_percent'] == 80
+E       assert 50 == 80
+
+backend/tests/test_b2b_workflow_audit.py:85: AssertionError
+__________ test_reject_blank_feedback_and_invalid_assignment_changes ___________
+
+world = (<sqlalchemy.orm.session.Session object at 0x11385a1d0>, [<models.user.User object at 0x1135acd50>, <models.user.User ...>], <starlette.testclient.TestClient object at 0x113431810>, <function world.<locals>.login at 0x113d8c4a0>, 1, 1, ...)
+
+    def test_reject_blank_feedback_and_invalid_assignment_changes(world):
+        db, users, c, login, org, sid, _ = world; login(1)
+        a = assignment(c, sid); sub = submit_grade(c, login, a)
+>       assert c.patch(f'/api/institution/educator/submissions/{sub}/grade', json={'score':8,'feedback':'   '}).status_code == 422
+E       AssertionError: assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E        +    where <Response [200 OK]> = patch('/api/institution/educator/submissions/1/grade', json={'score': 8, 'feedback': '   '})
+E        +      where patch = <starlette.testclient.TestClient object at 0x113431810>.patch
+
+backend/tests/test_b2b_workflow_audit.py:91: AssertionError
+=============================== warnings summary ===============================
+../miniconda3/envs/brainwave311/lib/python3.11/site-packages/fastapi/testclient.py:1
+  /Users/adityalanka/miniconda3/envs/brainwave311/lib/python3.11/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/database.py:146
+  /Users/adityalanka/BrainwaveAI/backend/database.py:146: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+backend/models/schemas.py:37
+  /Users/adityalanka/BrainwaveAI/backend/models/schemas.py:37: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class ComprehensiveProfileUpdate(BaseModel):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/test_b2b_workflow_audit.py::test_material_draft_submission_message_grade_refresh_and_isolation
+FAILED backend/tests/test_b2b_workflow_audit.py::test_progress_recalculates_when_assignment_set_changes
+FAILED backend/tests/test_b2b_workflow_audit.py::test_weighted_grade_matches_student_dashboard
+FAILED backend/tests/test_b2b_workflow_audit.py::test_reject_blank_feedback_and_invalid_assignment_changes
+4 failed, 3 warnings in 1.04s

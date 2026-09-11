@@ -415,6 +415,10 @@ async def submit_practice_answer(
             )
             db.add(mastery)
 
+        from services.adaptive_quiz import _get_or_create_weak_area, _apply_answer_to_weak_area
+        weak_area = _get_or_create_weak_area(db, session.user_id, session.topic)
+        _apply_answer_to_weak_area(weak_area, is_correct)
+
         from services.product_events import record_event
         record_event(db, "practice_answered", session.user_id, key=f"practice:{delivery.id}")
         session_complete = session.questions_answered >= session.target_question_count

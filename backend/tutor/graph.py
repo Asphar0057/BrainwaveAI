@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 import logging
+import inspect
+import os
+from time import perf_counter
 from typing import Any, Optional
+
+from starlette.concurrency import run_in_threadpool
 
 from langgraph.graph import StateGraph, END
 
@@ -10,6 +15,19 @@ from tutor import nodes
 from services.ai_result import AIWorkflowError, require_ai_success
 
 logger = logging.getLogger(__name__)
+
+def _timed_node(name, node):
+    async def run(state):
+        started = perf_counter()
+        try:
+            if inspect.iscoroutinefunction(node):
+                return await node(state)
+            return await run_in_threadpool(node, state)
+        finally:
+            # Log timings only; never student content or provider credentials.
+            log = logger.warning if os.getenv("TUTOR_PROFILE") == "1" else logger.debug
+            log("[TUTOR TIMING] node=%s seconds=%.3f", name, perf_counter() - started)
+    return run
 
 class TutorGraph:
 
@@ -22,13 +40,11 @@ class TutorGraph:
     def _build(self):
         g = StateGraph(TutorState)
 
-        g.add_node("detect_intent",          nodes.detect_intent)
-        g.add_node("analyze_message",         nodes.analyze_message)
-        g.add_node("fetch_student_state",     nodes.fetch_student_state)
-        g.add_node("gate_and_retrieve",       nodes.gate_and_retrieve)
-        g.add_node("plan_tutor_steps",        nodes.plan_tutor_steps)
-        g.add_node("evaluate_tutor_attempt",  nodes.evaluate_tutor_attempt)
-        g.add_node("update_tutor_plan_progress", nodes.update_tutor_plan_progress)
+        for name in ("detect_intent", "analyze_message", "fetch_student_state",
+                     "gate_and_retrieve", "plan_tutor_steps", "evaluate_tutor_attempt",
+                     "update_tutor_plan_progress", "select_teaching_style",
+                     "build_prompt_and_respond", "review_tutor_response", "evaluate_response", "persist_updates"):
+            g.add_node(name, _timed_node(name, getattr(nodes, name)))
         # Was defined in nodes.py but never registered here, so it never ran: state["selected_style"]
         # stayed permanently "" and both the STYLE_INSTRUCTIONS prompt injection (tutor/prompt.py's
         # _style_section) and the reward-closing half in persist_updates (gated on `if selected_style`)
@@ -36,10 +52,6 @@ class TutorGraph:
         # language_analysis (analyze_message), and student_state/session_gap_days/decayed_concepts
         # (fetch_student_state) -- everything select_teaching_style reads -- are all already
         # populated, and before build_prompt_and_respond, the only consumer of selected_style.
-        g.add_node("select_teaching_style",   nodes.select_teaching_style)
-        g.add_node("build_prompt_and_respond",nodes.build_prompt_and_respond)
-        g.add_node("evaluate_response",       nodes.evaluate_response)
-        g.add_node("persist_updates",         nodes.persist_updates)
 
         g.set_entry_point("detect_intent")
         g.add_edge("detect_intent",           "analyze_message")
@@ -53,8 +65,9 @@ class TutorGraph:
         g.add_conditional_edges(
             "build_prompt_and_respond",
             lambda state: "failed" if state.get("error") else "ready",
-            {"failed": END, "ready": "evaluate_response"},
+            {"failed": END, "ready": "review_tutor_response"},
         )
+        g.add_edge("review_tutor_response", "evaluate_response")
         g.add_edge("evaluate_response",       "persist_updates")
         g.add_edge("persist_updates",         END)
 
@@ -101,6 +114,7 @@ class TutorGraph:
                 "intent": result.get("intent", ""),
                 "tutor_plan": result.get("tutor_plan"),
                 "attempt_evaluation": result.get("attempt_evaluation"),
+                "tutor_level": result.get("tutor_level"),
                 "evaluation": result.get("evaluation"),
                 "chroma_writes": result.get("chroma_writes", []),
                 "rag_sources": result.get("rag_sources", []),

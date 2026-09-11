@@ -88,10 +88,10 @@
   box-sizing: border-box;
 }
 
-.notes-redesign > :not(.shc-shell):not(.context-panel):not(.context-panel-overlay):not(.ai-assistant-modal),
+:where(.notes-redesign > :not(.shc-shell):not(.context-panel):not(.context-panel-overlay):not(.ai-assistant-modal),
 .notes-redesign > :not(.shc-shell):not(.context-panel):not(.context-panel-overlay):not(.ai-assistant-modal) *,
 .notes-redesign .nr-body,
-.notes-redesign .nr-body * {
+.notes-redesign .nr-body *) {
   margin: 0;
   padding: 0;
 }

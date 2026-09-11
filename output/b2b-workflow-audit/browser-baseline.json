@@ -1,0 +1,562 @@
+[
+  {
+    "route": "educator",
+    "overflow": {
+      "width": 390,
+      "scroll": 390,
+      "offenders": [
+        {
+          "tag": "DIV",
+          "cls": "ci-bg-grain",
+          "width": 468
+        },
+        {
+          "tag": "BUTTON",
+          "cls": "ci-module",
+          "width": 180
+        },
+        {
+          "tag": "DIV",
+          "cls": "ci-tile-texture",
+          "width": 178
+        },
+        {
+          "tag": "STRONG",
+          "cls": "",
+          "width": 73
+        },
+        {
+          "tag": "SMALL",
+          "cls": "",
+          "width": 73
+        },
+        {
+          "tag": "svg",
+          "cls": {},
+          "width": 14
+        },
+        {
+          "tag": "path",
+          "cls": {},
+          "width": 4
+        },
+        {
+          "tag": "BUTTON",
+          "cls": "ci-module",
+          "width": 180
+        },
+        {
+          "tag": "DIV",
+          "cls": "ci-tile-texture",
+          "width": 178
+        },
+        {
+          "tag": "SPAN",
+          "cls": "",
+          "width": 12
+        },
+        {
+          "tag": "svg",
+          "cls": {},
+          "width": 15
+        },
+        {
+          "tag": "path",
+          "cls": {},
+          "width": 11
+        },
+        {
+          "tag": "STRONG",
+          "cls": "",
+          "width": 73
+        },
+        {
+          "tag": "SMALL",
+          "cls": "",
+          "width": 73
+        },
+        {
+          "tag": "svg",
+          "cls": {},
+          "width": 14
+        }
+      ]
+    },
+    "errors": []
+  },
+  {
+    "route": "educator/classes",
+    "overflow": {
+      "width": 390,
+      "scroll": 390,
+      "offenders": [
+        {
+          "tag": "DIV",
+          "cls": "ci-bg-grain",
+          "width": 468
+        }
+      ]
+    },
+    "errors": []
+  },
+  {
+    "route": "educator/assignments",
+    "overflow": {
+      "width": 390,
+      "scroll": 390,
+      "offenders": [
+        {
+          "tag": "DIV",
+          "cls": "ci-bg-grain",
+          "width": 468
+        }
+      ]
+    },
+    "errors": []
+  },
+  {
+    "route": "educator/messages",
+    "overflow": {
+      "width": 390,
+      "scroll": 390,
+      "offenders": [
+        {
+          "tag": "DIV",
+          "cls": "ci-bg-grain",
+          "width": 468
+        }
+      ]
+    },
+    "errors": []
+  },
+  {
+    "route": "educator/learning",
+    "overflow": {
+      "width": 390,
+      "scroll": 390,
+      "offenders": [
+        {
+          "tag": "DIV",
+          "cls": "ci-bg-grain",
+          "width": 468
+        }
+      ]
+    },
+    "errors": []
+  },
+  {
+    "route": "educator/gradebook",
+    "overflow": {
+      "width": 390,
+      "scroll": 390,
+      "offenders": [
+        {
+          "tag": "DIV",
+          "cls": "ci-bg-grain",
+          "width": 468
+        },
+        {
+          "tag": "TABLE",
+          "cls": "",
+          "width": 640
+        },
+        {
+          "tag": "THEAD",
+          "cls": "",
+          "width": 640
+        },
+        {
+          "tag": "TR",
+          "cls": "",
+          "width": 640
+        },
+        {
+          "tag": "TH",
+          "cls": "",
+          "width": 233
+        },
+        {
+          "tag": "SMALL",
+          "cls": "",
+          "width": 209
+        },
+        {
+          "tag": "TH",
+          "cls": "",
+          "width": 154
+        },
+        {
+          "tag": "TBODY",
+          "cls": "",
+          "width": 640
+        },
+        {
+          "tag": "TR",
+          "cls": "",
+          "width": 640
+        },
+        {
+          "tag": "TD",
+          "cls": "",
+          "width": 233
+        },
+        {
+          "tag": "SMALL",
+          "cls": "",
+          "width": 209
+        },
+        {
+          "tag": "TD",
+          "cls": "",
+          "width": 154
+        },
+        {
+          "tag": "STRONG",
+          "cls": "",
+          "width": 16
+        },
+        {
+          "tag": "TR",
+          "cls": "",
+          "width": 640
+        },
+        {
+          "tag": "TD",
+          "cls": "",
+          "width": 233
+        }
+      ]
+    },
+    "errors": []
+  },
+  {
+    "route": "educator/profile",
+    "overflow": {
+      "width": 390,
+      "scroll": 390,
+      "offenders": [
+        {
+          "tag": "DIV",
+          "cls": "shc-bg-orb shc-bg-orb--one",
+          "width": 640
+        },
+        {
+          "tag": "DIV",
+          "cls": "shc-bg-orb shc-bg-orb--two",
+          "width": 561
+        },
+        {
+          "tag": "g",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        }
+      ]
+    },
+    "errors": []
+  },
+  {
+    "route": "student",
+    "overflow": {
+      "width": 390,
+      "scroll": 390,
+      "offenders": [
+        {
+          "tag": "DIV",
+          "cls": "ci-bg-grain",
+          "width": 468
+        },
+        {
+          "tag": "BUTTON",
+          "cls": "ci-module",
+          "width": 180
+        },
+        {
+          "tag": "DIV",
+          "cls": "ci-tile-texture",
+          "width": 178
+        },
+        {
+          "tag": "STRONG",
+          "cls": "",
+          "width": 73
+        },
+        {
+          "tag": "SMALL",
+          "cls": "",
+          "width": 73
+        },
+        {
+          "tag": "svg",
+          "cls": {},
+          "width": 14
+        },
+        {
+          "tag": "path",
+          "cls": {},
+          "width": 4
+        },
+        {
+          "tag": "BUTTON",
+          "cls": "ci-module",
+          "width": 180
+        },
+        {
+          "tag": "DIV",
+          "cls": "ci-tile-texture",
+          "width": 178
+        },
+        {
+          "tag": "SPAN",
+          "cls": "",
+          "width": 12
+        },
+        {
+          "tag": "svg",
+          "cls": {},
+          "width": 15
+        },
+        {
+          "tag": "path",
+          "cls": {},
+          "width": 3
+        },
+        {
+          "tag": "STRONG",
+          "cls": "",
+          "width": 73
+        },
+        {
+          "tag": "SMALL",
+          "cls": "",
+          "width": 73
+        },
+        {
+          "tag": "svg",
+          "cls": {},
+          "width": 14
+        }
+      ]
+    },
+    "errors": []
+  },
+  {
+    "route": "student/classes",
+    "overflow": {
+      "width": 390,
+      "scroll": 390,
+      "offenders": [
+        {
+          "tag": "DIV",
+          "cls": "ci-bg-grain",
+          "width": 468
+        }
+      ]
+    },
+    "errors": []
+  },
+  {
+    "route": "student/assignments",
+    "overflow": {
+      "width": 390,
+      "scroll": 390,
+      "offenders": [
+        {
+          "tag": "DIV",
+          "cls": "ci-bg-grain",
+          "width": 468
+        }
+      ]
+    },
+    "errors": []
+  },
+  {
+    "route": "student/messages",
+    "overflow": {
+      "width": 390,
+      "scroll": 390,
+      "offenders": [
+        {
+          "tag": "DIV",
+          "cls": "ci-bg-grain",
+          "width": 468
+        }
+      ]
+    },
+    "errors": []
+  },
+  {
+    "route": "student/learning",
+    "overflow": {
+      "width": 390,
+      "scroll": 390,
+      "offenders": [
+        {
+          "tag": "DIV",
+          "cls": "ci-bg-grain",
+          "width": 468
+        }
+      ]
+    },
+    "errors": []
+  },
+  {
+    "route": "student/library",
+    "overflow": {
+      "width": 390,
+      "scroll": 390,
+      "offenders": [
+        {
+          "tag": "DIV",
+          "cls": "ci-bg-grain",
+          "width": 468
+        }
+      ]
+    },
+    "errors": []
+  },
+  {
+    "route": "student/profile",
+    "overflow": {
+      "width": 390,
+      "scroll": 390,
+      "offenders": [
+        {
+          "tag": "DIV",
+          "cls": "shc-bg-orb shc-bg-orb--one",
+          "width": 640
+        },
+        {
+          "tag": "DIV",
+          "cls": "shc-bg-orb shc-bg-orb--two",
+          "width": 561
+        },
+        {
+          "tag": "g",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        },
+        {
+          "tag": "line",
+          "cls": {},
+          "width": 1350
+        }
+      ]
+    },
+    "errors": []
+  }
+]

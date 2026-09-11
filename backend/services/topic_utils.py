@@ -63,3 +63,9 @@ def clean_topic(text: str) -> Optional[str]:
         return None
     cleaned = re.sub(r'^[\s\-–—:,;|•]+|[\s\-–—:,;|•]+$', '', text.strip())
     return cleaned if cleaned else None
+
+
+def is_placeholder_topic(value: str) -> bool:
+    return str(value or "").strip().lower() in {
+        "", "none", "null", "unknown", "n/a", "unclassified concept", "ai tutor mistake"
+    }

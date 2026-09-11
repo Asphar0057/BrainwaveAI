@@ -556,6 +556,7 @@ class ConversionAgentService {
         const formData = new FormData();
         formData.append('chat_id', sessionId);
         formData.append('user_id', userId);
+        formData.append('format_style', options.formatStyle || 'structured');
 
         const response = await queuedAIFormFetch('/convert_chat_to_note_content/', Object.fromEntries(formData.entries()));
 
@@ -566,9 +567,10 @@ class ConversionAgentService {
           throw new Error(message);
         }
 
-        if (data.content) {
-          sections.push({ sessionId, content: data.content, status: data.status });
+        if (data.success === false || data.status === 'error' || !String(data.content || '').trim()) {
+          throw new Error(`No content returned for chat session ${sessionId}; no partial note was created`);
         }
+        sections.push({ sessionId, content: data.content, status: data.status });
       }
 
       if (!sections.length) {
@@ -584,7 +586,7 @@ class ConversionAgentService {
           if (sessions.length === 1) {
             return section.content;
           }
-          return `<h2>Chat Session ${index + 1}</h2>\n${section.content}`;
+          return `## Chat Session ${index + 1}\n\n${section.content}`;
         })
         .join('\n\n');
 

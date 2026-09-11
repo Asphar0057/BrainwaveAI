@@ -62,3 +62,6 @@ QUIZ_FIXES_SUMMARY.md
 /playwright/.cache/
 /playwright/.auth/
 backend/uploads/
+
+# Local B2B demo database and generated credentials
+.local/

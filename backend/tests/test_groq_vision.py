@@ -31,7 +31,6 @@ def test_groq_vision_uses_multimodal_model_and_data_url(monkeypatch):
     )
     client = UnifiedAIClient(
         groq_client=fake_client,
-        groq_vision_model="meta-llama/llama-4-scout-17b-16e-instruct",
     )
     monkeypatch.setattr(client, "_log_usage", lambda *args, **kwargs: None)
 
@@ -43,7 +42,7 @@ def test_groq_vision_uses_multimodal_model_and_data_url(monkeypatch):
     )
 
     assert answer == "A person is sitting indoors."
-    assert captured["model"] == "meta-llama/llama-4-scout-17b-16e-instruct"
+    assert captured["model"] == "qwen/qwen3.8-27b"
     content = captured["messages"][0]["content"]
     assert content[0] == {"type": "text", "text": "Describe the image."}
     assert content[1]["image_url"]["url"].startswith("data:image/jpeg;base64,")

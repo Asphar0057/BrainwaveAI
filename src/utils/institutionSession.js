@@ -37,7 +37,7 @@ const normalizeSession = (session, { legacyBackend = false } = {}) => {
   return {
     ...session,
     role,
-    landing_route: ROLE_LANDING_ROUTES[role],
+    landing_route: role === 'educator' && session?.memberships?.some(m => m.role === 'owner') ? '/company' : ROLE_LANDING_ROUTES[role],
     memberships: Array.isArray(session?.memberships) ? session.memberships : [],
     ...(legacyBackend && { legacy_backend: true }),
   };

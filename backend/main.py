@@ -378,6 +378,12 @@ async def lifespan(app: FastAPI):
             else:
                 reg.load()
                 logger.info("ML ModelRegistry initialized (sentence-transformers)")
+            # Warm the tutor's separate classifier and prototype vectors too;
+            # otherwise its first student request pays another model-load cost.
+            from dkt.language_analyzer import _get_proto_embeddings, _get_style_embeddings
+            from starlette.concurrency import run_in_threadpool
+            await run_in_threadpool(_get_proto_embeddings)
+            await run_in_threadpool(_get_style_embeddings)
         except Exception as e:
             logger.warning(f"ModelRegistry init failed: {e}")
     else:

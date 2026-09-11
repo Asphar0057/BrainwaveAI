@@ -307,3 +307,35 @@ def test_cancelled_delivery_cannot_be_claimed(db):
     user = db.get(models.User, job.user_id)
     assert ai_jobs.cancel_ai_job(job.id, db, user).status == "cancelled"
     assert lifecycle.claim_job(db, job.id) is None
+
+
+def test_chat_conversion_preserves_source_even_when_summary_omits_it(db, monkeypatch):
+    user, conversation = user_and_chat(db)
+    source = '```python\n  print("<tag>")\n```\n\n```mermaid\ngraph TD\nA-->B\n```'
+    db.add(models.ChatMessage(chat_session_id=conversation.id, user_id=user.id, user_message='Explain', ai_response=source))
+    db.commit()
+    monkeypatch.setattr(chat, 'call_ai_async', AsyncMock(return_value='# Summary\nOverview'))
+    monkeypatch.setattr(chat.StorageService, 'get_storage', lambda: SimpleNamespace(storage_type='local'))
+    result = asyncio.run(chat.convert_chat_to_note_content(str(conversation.id), user.username, db, user))
+    assert result['status'] == 'success'
+    assert source in result['content']
+    monkeypatch.setattr(chat, 'call_ai_async', AsyncMock(return_value=''))
+    result = asyncio.run(chat.convert_chat_to_note_content(str(conversation.id), user.username, db, user))
+    assert result['status'] == 'fallback'
+    assert source in result['content']
+
+
+def test_tutor_verified_correct_answer_updates_matching_weakness_only(db):
+    user, _ = user_and_chat(db)
+    for topic in ['Fractions', 'Geometry']:
+        db.add(models.UserWeakArea(user_id=user.id, topic=topic, total_questions=1, correct_count=0, incorrect_count=1, accuracy=0, weakness_score=60, status='needs_practice'))
+    db.commit()
+    state = {'_attempt_verified':True, 'verdict':'correct', 'skills_used':['fractions'], 'objective':'Fractions'}
+    chat._record_tutor_weakness_signals(db, user.id, state)
+    db.commit(); db.expire_all()
+    fraction = db.query(models.UserWeakArea).filter_by(topic='Fractions').one()
+    assert fraction.total_questions == 2 and fraction.correct_count == 1 and fraction.accuracy == 50
+    assert db.query(models.UserWeakArea).filter_by(topic='Geometry').one().total_questions == 1
+    state['_attempt_verified'] = False
+    chat._record_tutor_weakness_signals(db, user.id, state)
+    assert fraction.total_questions == 2

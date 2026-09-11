@@ -41,7 +41,7 @@ def get_class_leaderboard(
         "formula": "45% mastery + 30% course progress + 20% grade average + 5% completion",
         "student_count": len(leaderboard),
         "current_rank": current_row["rank"] if current_row else None,
-        "leaderboard": leaderboard,
+        "leaderboard": ([current_row] if current_row else []) if current_user.account_role == "student" else leaderboard,
     }
 
 

@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 
 
 def load_backend_env() -> None:
+    if os.getenv("CERBYL_NO_ENV_FILES") == "1":
+        return
     backend_dir = Path(__file__).resolve().parent
     load_dotenv()
     load_dotenv(backend_dir / ".env.ai.local", override=True)

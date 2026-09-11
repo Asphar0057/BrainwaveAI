@@ -1,0 +1,168 @@
+[
+  {
+    "case": "beginner-1",
+    "expected_level": "beginner",
+    "prompt": "I am new to probability. A bag has three blue counters and one gold. Each counter is equally likely to be chosen. Help me find the probability of gold, one small step at a time. Do not give me the answer yet.",
+    "http_status": 200,
+    "elapsed_seconds": 2.25,
+    "chat_id": null,
+    "response": {
+      "message_id": null,
+      "answer": "**Step 1 \u2013 Identify the sample space:**\nThe bag contains 4 counters total (3 blue, 1 gold). Since each counter is equally likely, the sample space has 4 equally likely outcomes.\n\n**Your turn:** What fraction represents the probability of drawing the gold counter?",
+      "ai_confidence": 0.665,
+      "intent_class": "REVIEW",
+      "active_rules": [],
+      "topics_discussed": [],
+      "frustration_score": 0.13333333333333333,
+      "response_strategy": "WORKED_EXAMPLE",
+      "query_type": "conversational_learning",
+      "tutor_mode": true,
+      "tutor_reply_style": "guided",
+      "tutor_options": [],
+      "tutor_state": {
+        "level": "beginner",
+        "phase": "practice",
+        "verdict": "not_applicable",
+        "confidence": 0.9,
+        "objective": "express probability as a fraction",
+        "next_action": "What fraction represents the probability of drawing the gold counter?",
+        "hint_level": 1,
+        "current_step": 1,
+        "total_steps": 3,
+        "expected_step_answer": "1/4",
+        "final_answer": "",
+        "skills_used": [
+          "basic probability"
+        ],
+        "misconceptions": [],
+        "mastery_score": 0.0,
+        "correct_streak": 0,
+        "wrong_streak": 0,
+        "lesson_plan": {
+          "goal": "express probability as a fraction",
+          "steps": [
+            {
+              "id": 1,
+              "title": "What fraction represents the probability of drawing the gold counter?",
+              "expected": "1/4",
+              "skill": "",
+              "misconception": ""
+            }
+          ],
+          "current_step": 1,
+          "final_answer": ""
+        },
+        "_attempt_verified": false
+      },
+      "sources": []
+    }
+  },
+  {
+    "case": "misconception-1",
+    "expected_level": "beginner",
+    "prompt": "I think P(gold) is 1/3 because there are three blue counters and one gold. Each counter is equally likely. Is my reasoning correct? Explain simply and ask one question to help me fix it.",
+    "http_status": 429,
+    "elapsed_seconds": 0.98,
+    "chat_id": null,
+    "response": {
+      "detail": {
+        "detail": "You've reached your usage limit.",
+        "code": "ai_provider_limit_exceeded",
+        "provider": "groq",
+        "reset_at": "2026-09-12T00:00:00+00:00",
+        "reset_after_seconds": 56096,
+        "reset_after_hours": 15.6
+      }
+    }
+  },
+  {
+    "case": "advanced-1",
+    "expected_level": "advanced",
+    "prompt": "I understand basic probability. Explain why favourable outcomes divided by total outcomes fails when outcomes are not equally likely. Give one short numerical counterexample and a question to check my understanding.",
+    "http_status": 429,
+    "elapsed_seconds": 0.15,
+    "chat_id": null,
+    "response": {
+      "detail": {
+        "detail": "You've reached your usage limit.",
+        "code": "ai_provider_limit_exceeded",
+        "provider": "groq",
+        "reset_at": "2026-09-12T00:00:00+00:00",
+        "reset_after_seconds": 56096,
+        "reset_after_hours": 15.6
+      }
+    }
+  },
+  {
+    "case": "conversation-start",
+    "expected_level": "beginner",
+    "prompt": "I am new to probability. A bag has three blue counters and one gold. Each counter is equally likely to be chosen. Help me find the probability of gold, one small step at a time. Do not give me the answer yet.",
+    "http_status": 429,
+    "elapsed_seconds": 0.12,
+    "chat_id": 55,
+    "response": {
+      "detail": {
+        "detail": "You've reached your usage limit.",
+        "code": "ai_provider_limit_exceeded",
+        "provider": "groq",
+        "reset_at": "2026-09-12T00:00:00+00:00",
+        "reset_after_seconds": 56096,
+        "reset_after_hours": 15.6
+      }
+    }
+  },
+  {
+    "case": "conversation-correct-answer",
+    "expected_level": "beginner",
+    "prompt": "There are 4 counters in total, and P(gold)=1/4.",
+    "http_status": 429,
+    "elapsed_seconds": 0.14,
+    "chat_id": 55,
+    "response": {
+      "detail": {
+        "detail": "You've reached your usage limit.",
+        "code": "ai_provider_limit_exceeded",
+        "provider": "groq",
+        "reset_at": "2026-09-12T00:00:00+00:00",
+        "reset_after_seconds": 56096,
+        "reset_after_hours": 15.6
+      }
+    }
+  },
+  {
+    "case": "conversation-increase-level",
+    "expected_level": "advanced",
+    "prompt": "Please make it advanced: give one short counterexample using unequal probabilities, then one new check question.",
+    "http_status": 429,
+    "elapsed_seconds": 0.13,
+    "chat_id": 55,
+    "response": {
+      "detail": {
+        "detail": "You've reached your usage limit.",
+        "code": "ai_provider_limit_exceeded",
+        "provider": "groq",
+        "reset_at": "2026-09-12T00:00:00+00:00",
+        "reset_after_seconds": 56096,
+        "reset_after_hours": 15.6
+      }
+    }
+  },
+  {
+    "case": "conversation-help",
+    "expected_level": "beginner",
+    "prompt": "I am stuck; explain simply and give me a small hint.",
+    "http_status": 429,
+    "elapsed_seconds": 0.12,
+    "chat_id": 55,
+    "response": {
+      "detail": {
+        "detail": "You've reached your usage limit.",
+        "code": "ai_provider_limit_exceeded",
+        "provider": "groq",
+        "reset_at": "2026-09-12T00:00:00+00:00",
+        "reset_after_seconds": 56095,
+        "reset_after_hours": 15.6
+      }
+    }
+  }
+]

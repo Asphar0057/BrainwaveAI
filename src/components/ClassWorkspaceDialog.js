@@ -1,3 +1,4 @@
+import { institutionDate } from '../utils/institutionDate';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
@@ -30,7 +31,7 @@ const formatDate = (value, options = {}) => (
       day: 'numeric',
       month: 'short',
       ...options,
-    }).format(new Date(value))
+    }).format(institutionDate(value))
     : 'No date'
 );
 
@@ -46,6 +47,9 @@ function EmptyState({ children }) {
 function ClassWorkspaceDialog({
   role,
   sectionId,
+  initialTab = 'overview',
+  sections = [],
+  onSectionChange,
   onClose,
   onAssignmentOpen,
   onReviewOpen,
@@ -55,7 +59,10 @@ function ClassWorkspaceDialog({
   const returnFocusRef = useRef(document.activeElement);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(() => (
+    TABS.some((tab) => tab.id === initialTab && (role === 'educator' || tab.id !== 'people'))
+      ? initialTab : 'overview'
+  ));
   const [state, setState] = useState({ status: 'loading', data: null, error: '' });
   const [attendanceDate, setAttendanceDate] = useState(todayValue());
   const [attendanceDrafts, setAttendanceDrafts] = useState({});
@@ -148,6 +155,7 @@ function ClassWorkspaceDialog({
 
   const createMaterial = async (event) => {
     event.preventDefault();
+    if (!materialFile && !materialForm.source_url.trim()) { setMaterialStatus({ saving: false, message: '', error: 'Add a resource URL or upload a file before publishing.' }); return; }
     setMaterialStatus({ saving: true, message: '', error: '' });
     try {
       if (materialFile) {
@@ -198,6 +206,17 @@ function ClassWorkspaceDialog({
           <div>
             <span>{role === 'educator' ? 'TEACHING WORKSPACE' : 'CLASS WORKSPACE'}</span>
             <h2 id="class-workspace-title">{data ? `${data.course_code} · ${data.course_title}` : 'Opening class…'}</h2>
+            {sections.length > 1 && onSectionChange && (
+              <label className="ci-workspace-class-picker">Class
+                <select value={sectionId} onChange={(event) => onSectionChange(Number(event.target.value), activeTab)}>
+                  {sections.map((section) => (
+                    <option key={section.section_id} value={section.section_id}>
+                      {section.course_code} · {section.section_name || section.course_title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
           </div>
           <button type="button" aria-label="Close class workspace" onClick={onClose}><X size={18} /></button>
         </header>
@@ -214,7 +233,7 @@ function ClassWorkspaceDialog({
           <>
             <nav className="ci-workspace-tabs" aria-label="Class workspace sections">
               {TABS.filter((tab) => role === 'educator' || tab.id !== 'people').map(({ id, label, icon: Icon }) => (
-                <button className={activeTab === id ? 'is-active' : ''} type="button" key={id} onClick={() => setActiveTab(id)}>
+                <button className={activeTab === id ? 'is-active' : ''} aria-current={activeTab === id ? 'page' : undefined} type="button" key={id} onClick={() => setActiveTab(id)}>
                   <Icon size={14} />{label}
                 </button>
               ))}
@@ -307,7 +326,7 @@ function ClassWorkspaceDialog({
                         <label>Material title<input value={materialForm.title} minLength={3} maxLength={180} required onChange={(event) => setMaterialForm({ ...materialForm, title: event.target.value })} placeholder="e.g. Week 4 revision guide" /></label>
                         <label>Type<select value={materialForm.material_type} onChange={(event) => setMaterialForm({ ...materialForm, material_type: event.target.value })}><option value="document">Document</option><option value="video">Video</option><option value="slides">Slides</option><option value="link">Link</option></select></label>
                       </div>
-                      <label>Resource URL <small>optional</small><input type="url" value={materialForm.source_url} onChange={(event) => setMaterialForm({ ...materialForm, source_url: event.target.value })} placeholder="https://…" /></label>
+                      <label>Resource URL <small>or upload a file below</small><input type="url" required={!materialFile} value={materialForm.source_url} onChange={(event) => setMaterialForm({ ...materialForm, source_url: event.target.value })} placeholder="https://…" /></label>
                       <label>Or upload a file <small>maximum 50 MB</small><input type="file" onChange={(event) => setMaterialFile(event.target.files?.[0] || null)} /></label>
                       {materialStatus.error && <p className="ci-form-error" role="alert">{materialStatus.error}</p>}
                       {materialStatus.message && <p className="ci-form-success" role="status">{materialStatus.message}</p>}

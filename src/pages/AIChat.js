@@ -1,3 +1,5 @@
+import { isTopicExplanationRequest } from '../utils/chatStudyActions';
+import useFileDrop from '../hooks/useFileDrop';
 import AnswerFeedback from '../components/AnswerFeedback';
 import ToolNavigation from '../components/ToolNavigation';
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -520,6 +522,7 @@ const EDUCATIONAL_INTENT_CLASSES = new Set(['LEARN_CONCEPT', 'ASSESS', 'REVIEW']
 
 function pickSmartActions({ userMessage, aiResponse, recentActionIds = [], intentClass = null, contextSummary = '', contextLabel = '' }) {
   const userMsg = (userMessage || '').trim();
+  if (!isTopicExplanationRequest(userMsg)) return [];
   const userOnlyIntents = detectIntents(userMsg);
   const hasSpecificIntent = userOnlyIntents.some((i) => i !== 'general');
 
@@ -888,7 +891,6 @@ const AIChat = ({ sharedMode = false }) => {
     clearChatDragState();
   };
   const [fileProcessing, setFileProcessing] = useState(false);
-  const [dragActive, setDragActive] = useState(false);
   const [processedFiles, setProcessedFiles] = useState([]);
   
   const messagesEndRef = useRef(null);
@@ -1140,29 +1142,7 @@ const AIChat = ({ sharedMode = false }) => {
     handleFileSelect(files);
   };
 
-  const isFileDragEvent = (event) => {
-    const types = Array.from(event.dataTransfer?.types || []);
-    return types.includes('Files');
-  };
-
-  const handleDrop = (e) => {
-    if (!isFileDragEvent(e)) return;
-    e.preventDefault();
-    setDragActive(false);
-    if (e.dataTransfer.files) handleFileSelect(e.dataTransfer.files);
-  };
-
-  const handleDragOver = (e) => {
-    if (!isFileDragEvent(e)) return;
-    e.preventDefault();
-    setDragActive(true);
-  };
-
-  const handleDragLeave = (e) => {
-    if (!isFileDragEvent(e)) return;
-    e.preventDefault();
-    setDragActive(false);
-  };
+  const { dragActive, ...fileDropHandlers } = useFileDrop(handleFileSelect);
 
   const removeFile = (index) => {
     setSelectedFiles(prev => {
@@ -1675,8 +1655,10 @@ const AIChat = ({ sharedMode = false }) => {
 
         if (!response.ok) {
           await throwIfUsageLimitResponse(response);
-          const errorText = await response.text();
-          throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+          const payload = await response.json().catch(() => null);
+          const error = new Error(getApiErrorMessage(payload, 'The request could not be completed. Please retry.'));
+          error.retryable = response.status === 503;
+          throw error;
         }
 
         data = await response.json();
@@ -1774,13 +1756,15 @@ const AIChat = ({ sharedMode = false }) => {
       if (requestVersion !== conversationVersionRef.current) return;
       const usageLimit = getUsageLimitFromError(error);
       const errorText = error?.message || 'The request could not be completed.';
+      if (error.retryable) setInputMessage(current => current || messageText);
       const isAttachmentError = /(?:received|process|analy[sz]e).*(?:image|attachment)|(?:image|attachment).*(?:received|process|analy[sz]e)/i.test(errorText);
       const errorMessage = {
         id: `error_${Date.now()}`,
         type: 'ai',
+        isError: true,
         content: usageLimit
           ? formatUsageLimitMessage(usageLimit)
-          : isAttachmentError
+          : isAttachmentError || error.retryable
           ? errorText
           : `Sorry, I encountered an error: ${errorText}. Please try again.`,
         timestamp: new Date().toISOString(),
@@ -1882,17 +1866,19 @@ const AIChat = ({ sharedMode = false }) => {
   }, [activeChatId, chatSessions, messages]);
 
   const getSmartActionsForMessage = useCallback((message, messageIndex) => {
-    if (message.type !== 'ai') return [];
+    if (message.type !== 'ai' || message.isError || message.usageLimit) return [];
     if (message.tutorMode || message.tutorState || (Array.isArray(message.tutorOptions) && message.tutorOptions.length > 0)) {
       return [];
     }
+
+    const previousMessages = messages.slice(0, messageIndex);
+    const previousUserMessage = [...previousMessages].reverse().find((entry) => entry.type === 'user');
+    if (!isTopicExplanationRequest(previousUserMessage?.content)) return [];
 
     if (Array.isArray(message.smartActions) && message.smartActions.length) {
       return message.smartActions;
     }
 
-    const previousMessages = messages.slice(0, messageIndex);
-    const previousUserMessage = [...previousMessages].reverse().find((entry) => entry.type === 'user');
     const previousUserIntents = detectIntents(previousUserMessage?.content || '');
     const previousUserHasSpecificIntent = previousUserIntents.some((intent) => intent !== 'general');
 
@@ -2876,7 +2862,10 @@ const AIChat = ({ sharedMode = false }) => {
 
                 if (!response.ok) {
                   await throwIfUsageLimitResponse(response);
-                  throw new Error(`HTTP error! status: ${response.status}`);
+                  const payload = await response.json().catch(() => null);
+                  const error = new Error(getApiErrorMessage(payload, 'The tutor could not respond. Please retry.'));
+                  error.retryable = response.status === 503;
+                  throw error;
                 }
 
                 return response.json();
@@ -2916,12 +2905,14 @@ const AIChat = ({ sharedMode = false }) => {
         } catch (error) {
           if (requestVersion !== conversationVersionRef.current) return;
           const usageLimit = getUsageLimitFromError(error);
+          if (error.retryable) setInputMessage(current => current || initialMsg);
           const errorMessage = {
             id: `error_${Date.now()}`,
             type: 'ai',
+            isError: true,
             content: usageLimit
               ? formatUsageLimitMessage(usageLimit)
-              : `Sorry, I encountered an error: ${error.message}. Please try again.`,
+              : error.retryable ? error.message : `Sorry, I encountered an error: ${error.message}. Please try again.`,
             timestamp: new Date().toISOString(),
             usageLimit: Boolean(usageLimit),
           };
@@ -3482,7 +3473,8 @@ const AIChat = ({ sharedMode = false }) => {
         )}
 
         {/* Main Content */}
-        <main className={`ac-main ${messages.length === 0 && !isChatSwitching ? 'empty-state' : ''}`}>
+        <main className={`ac-main ${messages.length === 0 && !isChatSwitching ? 'empty-state' : ''}`} {...fileDropHandlers}>
+          {dragActive && <div className="ac-file-drop-overlay" role="status"><strong>Drop files to attach</strong><span>Images, PDF, Word, or text files</span></div>}
           {courseScope && <aside aria-label="Course context" style={{padding: '12px 20px'}}><strong>{courseScope.label}</strong><p>{courseScope.materials.length} published material references. Attach material content for source-specific answers.</p><details><summary>Course materials</summary><ul>{courseScope.materials.map(item => <li key={item.id}>{item.title}</li>)}</ul></details></aside>}
           {historyError && <div role="alert"><p>{historyError}</p><button type="button" onClick={() => loadChatMessages(activeChatId)}>Retry loading conversation</button></div>}
           <div className="cb-tile-texture" aria-hidden />
@@ -3532,9 +3524,6 @@ const AIChat = ({ sharedMode = false }) => {
 
                 <div
                   className={`ac-input-wrapper ${dragActive ? 'drag-active' : ''} ${selectedFiles.length > 0 ? 'has-attachments' : ''}`}
-                  onDrop={handleDrop}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
                 >
                   <input
                     ref={fileInputRef}
@@ -3590,7 +3579,8 @@ const AIChat = ({ sharedMode = false }) => {
                   const isTutorMessage = Boolean(message.tutorMode || tutorState || tutorOptions.length > 0);
                   const smartActions = isTutorMessage ? [] : getSmartActionsForMessage(message, messageIndex);
                   const tutorActions = isTutorMessage ? getTutorActionsForMessage(message) : [];
-                  const hasBackendActions = !isTutorMessage && smartActions.length === 0 && message.actionButtons && message.actionButtons.length > 0;
+                  const precedingPrompt = messages.slice(0, messageIndex).reverse().find(entry => entry.type === 'user')?.content;
+                  const hasBackendActions = !isTutorMessage && isTopicExplanationRequest(precedingPrompt) && smartActions.length === 0 && message.actionButtons && message.actionButtons.length > 0;
                   const messageClasses = [
                     'ac-message',
                     message.type,
@@ -3977,9 +3967,6 @@ const AIChat = ({ sharedMode = false }) => {
           {messages.length > 0 && (
             <div
               className={`ac-input-wrapper ${dragActive ? 'drag-active' : ''} ${selectedFiles.length > 0 ? 'has-attachments' : ''}`}
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
             >
               <input
                 ref={fileInputRef}

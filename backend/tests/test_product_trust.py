@@ -120,6 +120,11 @@ def test_practice_issued_once_no_answer_leak_no_replay(setup):
     assert result.json()['is_correct'] is True
     assert client.post('/api/weakness-practice/submit-answer', json=body).status_code == 409
     assert db.query(models.PracticeAnswer).count() == 1
+    area = db.query(models.UserWeakArea).filter_by(user_id=owner.id, topic='Counting').one()
+    assert area.total_questions == 1
+    assert area.correct_count == 1
+    assert area.accuracy == 100
+    assert area.last_practiced is not None
     assert db.query(models.ProductEvent).filter_by(name='practice_completed').count() == 1
 
 def test_grading_failure_cannot_count_as_success(monkeypatch):
@@ -137,7 +142,10 @@ def test_costs_are_unknown_until_exact_model_price_configured(monkeypatch):
 
 def test_teacher_evidence_is_section_scoped(setup):
     db, (owner, other, teacher), client = setup
-    course = models.Course(organization_id=1, code='MATH', title='Math')
+    organization = models.Organization(name='Evidence test company', slug='evidence-test')
+    db.add(organization); db.flush()
+    db.add(models.OrganizationMembership(organization_id=organization.id, user_id=teacher.id, role='educator'))
+    course = models.Course(organization_id=organization.id, code='MATH', title='Math')
     db.add(course); db.flush()
     section = models.ClassSection(course_id=course.id, academic_term_id=1, instructor_id=teacher.id)
     db.add(section); db.flush()
@@ -299,3 +307,40 @@ def test_due_cards_use_the_spaced_review_queue(setup):
     cards=models.FlashcardSet(user_id=owner.id,title='Probability');db.add(cards);db.flush()
     db.add(models.Flashcard(set_id=cards.id,question='Q',answer='A',next_review_date=datetime.now(timezone.utc)-timedelta(days=1)));db.commit()
     assert client.get('/api/product/practice-next').json()['href']=='/flashcards?review=due'
+
+
+def test_weakness_analysis_does_not_overwrite_verified_practice_with_old_cards(setup):
+    from services.comprehensive_weakness_analyzer import get_comprehensive_weakness_analysis
+    db, (owner, _, _), _client = setup
+    area = models.UserWeakArea(user_id=owner.id, topic='fractions', total_questions=10, correct_count=9, incorrect_count=1, accuracy=90, weakness_score=7, status='mastered')
+    cards = models.FlashcardSet(user_id=owner.id, title='Old cards')
+    db.add_all([area, cards]); db.flush()
+    db.add(models.Flashcard(set_id=cards.id, question='Old question', answer='Answer', category='fractions', times_reviewed=4, correct_count=1))
+    db.commit()
+    get_comprehensive_weakness_analysis(db, owner.id, models)
+    db.expire_all()
+    assert area.accuracy == 90 and area.status == 'mastered'
+    assert area.total_questions == 10
+
+
+def test_starter_prompts_use_percentage_scale_and_skip_mastered(setup):
+    from services.chat_starter_prompts import _weak_area_candidates
+    db, (owner, _, _), _client = setup
+    db.add_all([
+        models.UserWeakArea(user_id=owner.id, topic='Fractions', total_questions=5, accuracy=60, weakness_score=40, status='improving'),
+        models.UserWeakArea(user_id=owner.id, topic='Geometry', total_questions=5, accuracy=95, weakness_score=80, status='mastered'),
+    ]); db.commit()
+    candidates = _weak_area_candidates(db, owner.id)
+    assert len(candidates) == 1
+    assert candidates[0].text.startswith('Explain')
+    assert candidates[0].rank == 0.4
+
+
+def test_placeholder_weaknesses_are_not_displayed_as_real_learning_gaps(setup):
+    from services.comprehensive_weakness_analyzer import get_comprehensive_weakness_analysis
+    db, (owner, _, _), _client = setup
+    db.add(models.UserWeakArea(user_id=owner.id, topic='none', total_questions=3, incorrect_count=3, accuracy=0, status='needs_practice'))
+    db.commit()
+    result = get_comprehensive_weakness_analysis(db, owner.id, models)
+    assert result['summary']['total_topics'] == 0
+    assert db.query(models.UserWeakArea).filter_by(user_id=owner.id).count() == 1

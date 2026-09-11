@@ -20,3 +20,6 @@ jobs:
         run: PYTHONPATH=backend pytest backend/tests/test_product_trust.py -q
       - name: Answer and authorization invariants
         run: PYTHONPATH=backend pytest backend/tests/test_answer_validation.py backend/tests/test_security_invariants.py backend/tests/test_solo_quiz_option_shuffle.py -q
+
+      - name: Company isolation and complete classroom journey
+        run: PYTHONPATH=backend pytest backend/tests/test_b2b_journey.py backend/tests/test_b2b_migration.py -q

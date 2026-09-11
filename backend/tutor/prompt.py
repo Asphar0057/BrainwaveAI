@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import logging
+import re
 
 from tutor.contract import TUTOR_BASE_RULES, tutor_reply_style_rules
 from tutor.state import TutorState, StudentState
+from tutor.difficulty import resolve_level
 from dkt.style_bandit import STYLE_INSTRUCTIONS
 
 logger = logging.getLogger(__name__)
@@ -23,6 +25,9 @@ def build_tutor_prompt(state: TutorState) -> str:
     context_only       = bool(state.get("context_only"))
     tutor_mode         = bool(state.get("tutor_mode")) and intent != "project_build"
     tutor_reply_style  = (state.get("tutor_reply_style") or "guided").strip().lower()
+    # A requested format wins over the bandit's generic analogy/worked-example
+    # template. In particular, don't add an analogy to a numerical counterexample.
+    explicit_format = bool(re.search(r"\b(?:short|brief|simply|counterexample|numerical|rigorous|one small step)\b", user_input, re.I))
 
     is_greeting = intent in ("greeting", "returning_greeting")
 
@@ -42,7 +47,7 @@ def build_tutor_prompt(state: TutorState) -> str:
                 sections.append(_rag_section(rag_sources or rag_context))
             else:
                 logger.info("[TUTOR PROMPT] CONTEXT-ONLY mode with no RAG chunks")
-            if tutor_mode and tutor_reply_style == "guided" and selected_style and intent != "project_build":
+            if tutor_mode and tutor_reply_style == "guided" and selected_style and intent != "project_build" and not explicit_format:
                 sections.append(_style_section(selected_style))
         else:
             if chat_history:
@@ -60,7 +65,7 @@ def build_tutor_prompt(state: TutorState) -> str:
                 conf_section = _confidence_section(analysis)
                 if conf_section:
                     sections.append(conf_section)
-            if tutor_mode and tutor_reply_style == "guided" and selected_style and intent != "project_build":
+            if tutor_mode and tutor_reply_style == "guided" and selected_style and intent != "project_build" and not explicit_format:
                 sections.append(_style_section(selected_style))
 
     if tutor_mode and not is_greeting:
@@ -218,6 +223,7 @@ def _tutor_mode_section(state: TutorState) -> str:
 
     lines = [
         "[TUTOR MODE ACTIVE]",
+        f"- Resolved difficulty for this response: {resolve_level(state)}. This overrides the profile and previous level.",
         "- Bad: solving all terms in an integral and then asking the student to calculate a term already shown.",
         "- Good: state the power rule, identify the first term, then ask the student to integrate only that first term.",
         "- Good format: - **Step 1 - Identify the rule:** ... then - **Step 2 - Your turn:** ... on the next line.",
@@ -238,7 +244,7 @@ def _tutor_mode_section(state: TutorState) -> str:
             f"- Current step title: {current.get('title', 'Current step')}",
             f"- Expected current-step answer/key idea: {getattr(tutor_plan, 'expected_step_answer', '') or current.get('expected', '')}",
             f"- Known final answer: {getattr(tutor_plan, 'final_answer', '') or 'none'}",
-            "- Do not reveal the full hidden plan. Only teach the current step and the immediate next student action.",
+            "- The plan is provisional. Follow the actual conversation; skip steps already answered or explained. Keep the next question unsolved.",
         ])
     if attempt_evaluation:
         verdict = getattr(attempt_evaluation, "verdict", "not_applicable")

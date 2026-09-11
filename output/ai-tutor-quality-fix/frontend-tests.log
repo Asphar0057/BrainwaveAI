@@ -1,0 +1,15 @@
+
+> learning@0.1.0 test
+> react-scripts test --watchAll=false --runInBand src/__tests__/utils/apiError.test.js
+
+PASS src/__tests__/utils/apiError.test.js
+  ✓ reads attachment error messages from structured FastAPI detail
+  getApiErrorMessage
+    ✓ turns FastAPI validation details into render-safe text (1 ms)
+    ✓ uses the fallback for unknown structured errors
+
+Test Suites: 1 passed, 1 total
+Tests:       3 passed, 3 total
+Snapshots:   0 total
+Time:        0.382 s, estimated 1 s
+Ran all test suites matching /src\/__tests__\/utils\/apiError.test.js/i.

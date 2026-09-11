@@ -1,0 +1,25 @@
+/* ProfileWorkspace owns the visual system. These are B2B content adjustments. */
+.b2bp-root .pnw-status-band { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.b2bp-root .pnw-identity h1 { overflow-wrap: anywhere; letter-spacing: -.04em; }
+.b2bp-root .pnw-portrait .b2bp-portrait { cursor: default; }
+.b2bp-root .b2bp-record { padding: 16px 0; border-bottom: 1px solid var(--pnw-line); }
+.b2bp-root .b2bp-record:first-of-type { padding-top: 0; }
+.b2bp-root .b2bp-record:last-of-type { border-bottom: 0; }
+.b2bp-root .b2bp-record h3 { margin: 0 0 8px; font-size: 16px; line-height: 1.4; overflow-wrap: anywhere; }
+.b2bp-root .b2bp-record p, .b2bp-root .b2bp-note { color: var(--pnw-muted); font-size: 13px; line-height: 1.65; max-width: 72ch; overflow-wrap: anywhere; }
+.b2bp-root .b2bp-record p { margin: 4px 0; }
+.b2bp-root .b2bp-class { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.b2bp-root .b2bp-class > div { min-width: 0; }
+.b2bp-root .b2bp-class > button { flex-shrink: 0; }
+.b2bp-root .b2bp-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.b2bp-root .b2bp-error { color: var(--pnw-danger); font-size: 13px; line-height: 1.5; }
+.b2bp-root .b2bp-notice { color: var(--pnw-accent); font-size: 13px; line-height: 1.5; }
+.b2bp-root .pnw-form-grid label, .b2bp-root .pnw-status-band > div > span { color: var(--pnw-muted); }
+.b2bp-root button:disabled { opacity: .5; cursor: not-allowed; }
+.b2bp-root :focus-visible { outline: 2px solid var(--pnw-accent); outline-offset: 3px; }
+@media (max-width: 640px) {
+  .b2bp-root .pnw-status-band { grid-template-columns: 1fr; }
+  .b2bp-root .pnw-status-band > div { border-right: 0; border-bottom: 1px solid var(--pnw-line); }
+  .b2bp-root .b2bp-class { align-items: flex-start; flex-direction: column; }
+  .b2bp-root .pnw-form-grid input { font-size: 16px; }
+}

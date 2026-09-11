@@ -250,7 +250,7 @@ def test_comprehension_answer_task_uses_tutor_feedback_rubric():
 
     assert "answering your previous comprehension check" in task
     assert "direct verdict" in task
-    assert "**Better answer**" in task
+    assert "**Why**" in task
     assert "compact labels" in task
     assert "Omit empty labels" in task
     assert "generic hint" not in task

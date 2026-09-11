@@ -1,0 +1,352 @@
+[
+  {
+    "case": "beginner-1",
+    "expected_level": "beginner",
+    "prompt": "I am new to probability. A bag has three blue counters and one gold. Each counter is equally likely to be chosen. Help me find the probability of gold, one small step at a time. Do not give me the answer yet.",
+    "http_status": 200,
+    "elapsed_seconds": 5.93,
+    "chat_id": null,
+    "response": {
+      "message_id": null,
+      "answer": "**Step 1 \u2013 Count the possible draws**\nThe bag holds 3 blue counters and 1 gold counter. Each counter is a distinct, equally likely outcome, so the number of possible outcomes is:\n\n- total outcomes = 3\u202f+\u202f1 = **4**\n\n**Your turn:** Write down the total number of outcomes you just found.",
+      "ai_confidence": 0.668,
+      "intent_class": "REVIEW",
+      "active_rules": [],
+      "topics_discussed": [],
+      "frustration_score": 0.13333333333333333,
+      "response_strategy": "WORKED_EXAMPLE",
+      "query_type": "conversational_learning",
+      "tutor_mode": true,
+      "tutor_reply_style": "guided",
+      "tutor_options": [],
+      "tutor_state": {
+        "level": "beginner",
+        "phase": "teach",
+        "verdict": "not_applicable",
+        "confidence": 0.9,
+        "objective": "count total outcomes",
+        "next_action": "Ask the student to state the total number of outcomes.",
+        "hint_level": 1,
+        "current_step": 1,
+        "total_steps": 2,
+        "expected_step_answer": "4",
+        "final_answer": "",
+        "skills_used": [
+          "basic probability",
+          "counting"
+        ],
+        "misconceptions": [],
+        "mastery_score": 0.0,
+        "correct_streak": 0,
+        "wrong_streak": 0,
+        "lesson_plan": {
+          "goal": "count total outcomes",
+          "steps": [
+            {
+              "id": 1,
+              "title": "Ask the student to state the total number of outcomes.",
+              "expected": "4",
+              "skill": "",
+              "misconception": ""
+            }
+          ],
+          "current_step": 1,
+          "final_answer": ""
+        },
+        "_attempt_verified": false
+      },
+      "sources": []
+    }
+  },
+  {
+    "case": "misconception-1",
+    "expected_level": "beginner",
+    "prompt": "I think P(gold) is 1/3 because there are three blue counters and one gold. Each counter is equally likely. Is my reasoning correct? Explain simply and ask one question to help me fix it.",
+    "http_status": 200,
+    "elapsed_seconds": 23.57,
+    "chat_id": null,
+    "response": {
+      "message_id": null,
+      "answer": "**Verdict:** Not correct.\n\n**Why:** You counted only the blue counters. Probability must consider every counter. There are 4 counters total, so \\(P(\\text{gold}) = \\frac{1}{4}\\).\n\n**Check:** If there are 2 red counters and 1 green counter, what is the probability of picking a red counter?",
+      "ai_confidence": 0.791,
+      "intent_class": "REVIEW",
+      "active_rules": [],
+      "topics_discussed": [],
+      "frustration_score": 0.13333333333333333,
+      "response_strategy": "WORKED_EXAMPLE",
+      "query_type": "conversational_learning",
+      "tutor_mode": true,
+      "tutor_reply_style": "guided",
+      "tutor_options": [],
+      "tutor_state": {
+        "level": "beginner",
+        "phase": "check",
+        "verdict": "not_applicable",
+        "confidence": 0.9,
+        "objective": "calculate correct probability",
+        "next_action": "What is the probability of picking a red counter when there are two red and one green counters?",
+        "hint_level": 1,
+        "current_step": 1,
+        "total_steps": 1,
+        "expected_step_answer": "2/3",
+        "final_answer": "",
+        "skills_used": [
+          "probability basics"
+        ],
+        "misconceptions": [
+          "ignoring total number of outcomes"
+        ],
+        "mastery_score": 0.4,
+        "correct_streak": 0,
+        "wrong_streak": 0,
+        "lesson_plan": {
+          "goal": "calculate correct probability",
+          "steps": [
+            {
+              "id": 1,
+              "title": "What is the probability of picking a red counter when there are two red and one",
+              "expected": "2/3",
+              "skill": "",
+              "misconception": ""
+            }
+          ],
+          "current_step": 1,
+          "final_answer": ""
+        },
+        "_attempt_verified": false
+      },
+      "sources": []
+    }
+  },
+  {
+    "case": "advanced-1",
+    "expected_level": "advanced",
+    "prompt": "I understand basic probability. Explain why favourable outcomes divided by total outcomes fails when outcomes are not equally likely. Give one short numerical counterexample and a question to check my understanding.",
+    "http_status": 429,
+    "elapsed_seconds": 0.0,
+    "chat_id": null,
+    "response": {
+      "detail": "You have reached the Starter AI token limit for the current 30 day usage window.",
+      "code": "ai_token_limit_exceeded",
+      "current_plan_id": "starter",
+      "current_plan_name": "Starter",
+      "used_tokens": 103281,
+      "included_tokens": 100000,
+      "remaining_tokens": 0,
+      "window_days": 30,
+      "reset_at": "2026-10-11T07:10:43.794344+00:00",
+      "reset_after_seconds": 2588299,
+      "reset_after_hours": 719.0
+    }
+  },
+  {
+    "case": "beginner-2",
+    "expected_level": "beginner",
+    "prompt": "I am new to probability. A bag has three blue counters and one gold. Each counter is equally likely to be chosen. Help me find the probability of gold, one small step at a time. Do not give me the answer yet.",
+    "http_status": 429,
+    "elapsed_seconds": 0.0,
+    "chat_id": null,
+    "response": {
+      "detail": "You have reached the Starter AI token limit for the current 30 day usage window.",
+      "code": "ai_token_limit_exceeded",
+      "current_plan_id": "starter",
+      "current_plan_name": "Starter",
+      "used_tokens": 103281,
+      "included_tokens": 100000,
+      "remaining_tokens": 0,
+      "window_days": 30,
+      "reset_at": "2026-10-11T07:10:43.794344+00:00",
+      "reset_after_seconds": 2588299,
+      "reset_after_hours": 719.0
+    }
+  },
+  {
+    "case": "misconception-2",
+    "expected_level": "beginner",
+    "prompt": "I think P(gold) is 1/3 because there are three blue counters and one gold. Each counter is equally likely. Is my reasoning correct? Explain simply and ask one question to help me fix it.",
+    "http_status": 429,
+    "elapsed_seconds": 0.0,
+    "chat_id": null,
+    "response": {
+      "detail": "You have reached the Starter AI token limit for the current 30 day usage window.",
+      "code": "ai_token_limit_exceeded",
+      "current_plan_id": "starter",
+      "current_plan_name": "Starter",
+      "used_tokens": 103281,
+      "included_tokens": 100000,
+      "remaining_tokens": 0,
+      "window_days": 30,
+      "reset_at": "2026-10-11T07:10:43.794344+00:00",
+      "reset_after_seconds": 2588299,
+      "reset_after_hours": 719.0
+    }
+  },
+  {
+    "case": "advanced-2",
+    "expected_level": "advanced",
+    "prompt": "I understand basic probability. Explain why favourable outcomes divided by total outcomes fails when outcomes are not equally likely. Give one short numerical counterexample and a question to check my understanding.",
+    "http_status": 429,
+    "elapsed_seconds": 0.0,
+    "chat_id": null,
+    "response": {
+      "detail": "You have reached the Starter AI token limit for the current 30 day usage window.",
+      "code": "ai_token_limit_exceeded",
+      "current_plan_id": "starter",
+      "current_plan_name": "Starter",
+      "used_tokens": 103281,
+      "included_tokens": 100000,
+      "remaining_tokens": 0,
+      "window_days": 30,
+      "reset_at": "2026-10-11T07:10:43.794344+00:00",
+      "reset_after_seconds": 2588299,
+      "reset_after_hours": 719.0
+    }
+  },
+  {
+    "case": "beginner-3",
+    "expected_level": "beginner",
+    "prompt": "I am new to probability. A bag has three blue counters and one gold. Each counter is equally likely to be chosen. Help me find the probability of gold, one small step at a time. Do not give me the answer yet.",
+    "http_status": 429,
+    "elapsed_seconds": 0.0,
+    "chat_id": null,
+    "response": {
+      "detail": "You have reached the Starter AI token limit for the current 30 day usage window.",
+      "code": "ai_token_limit_exceeded",
+      "current_plan_id": "starter",
+      "current_plan_name": "Starter",
+      "used_tokens": 103281,
+      "included_tokens": 100000,
+      "remaining_tokens": 0,
+      "window_days": 30,
+      "reset_at": "2026-10-11T07:10:43.794344+00:00",
+      "reset_after_seconds": 2588299,
+      "reset_after_hours": 719.0
+    }
+  },
+  {
+    "case": "misconception-3",
+    "expected_level": "beginner",
+    "prompt": "I think P(gold) is 1/3 because there are three blue counters and one gold. Each counter is equally likely. Is my reasoning correct? Explain simply and ask one question to help me fix it.",
+    "http_status": 429,
+    "elapsed_seconds": 0.0,
+    "chat_id": null,
+    "response": {
+      "detail": "You have reached the Starter AI token limit for the current 30 day usage window.",
+      "code": "ai_token_limit_exceeded",
+      "current_plan_id": "starter",
+      "current_plan_name": "Starter",
+      "used_tokens": 103281,
+      "included_tokens": 100000,
+      "remaining_tokens": 0,
+      "window_days": 30,
+      "reset_at": "2026-10-11T07:10:43.794344+00:00",
+      "reset_after_seconds": 2588299,
+      "reset_after_hours": 719.0
+    }
+  },
+  {
+    "case": "advanced-3",
+    "expected_level": "advanced",
+    "prompt": "I understand basic probability. Explain why favourable outcomes divided by total outcomes fails when outcomes are not equally likely. Give one short numerical counterexample and a question to check my understanding.",
+    "http_status": 429,
+    "elapsed_seconds": 0.0,
+    "chat_id": null,
+    "response": {
+      "detail": "You have reached the Starter AI token limit for the current 30 day usage window.",
+      "code": "ai_token_limit_exceeded",
+      "current_plan_id": "starter",
+      "current_plan_name": "Starter",
+      "used_tokens": 103281,
+      "included_tokens": 100000,
+      "remaining_tokens": 0,
+      "window_days": 30,
+      "reset_at": "2026-10-11T07:10:43.794344+00:00",
+      "reset_after_seconds": 2588299,
+      "reset_after_hours": 719.0
+    }
+  },
+  {
+    "case": "conversation-start",
+    "expected_level": "beginner",
+    "prompt": "I am new to probability. A bag has three blue counters and one gold. Each counter is equally likely to be chosen. Help me find the probability of gold, one small step at a time. Do not give me the answer yet.",
+    "http_status": 429,
+    "elapsed_seconds": 0.0,
+    "chat_id": 53,
+    "response": {
+      "detail": "You have reached the Starter AI token limit for the current 30 day usage window.",
+      "code": "ai_token_limit_exceeded",
+      "current_plan_id": "starter",
+      "current_plan_name": "Starter",
+      "used_tokens": 103281,
+      "included_tokens": 100000,
+      "remaining_tokens": 0,
+      "window_days": 30,
+      "reset_at": "2026-10-11T07:10:43.794344+00:00",
+      "reset_after_seconds": 2588299,
+      "reset_after_hours": 719.0
+    }
+  },
+  {
+    "case": "conversation-correct-answer",
+    "expected_level": "beginner",
+    "prompt": "There are 4 counters in total, and P(gold)=1/4.",
+    "http_status": 429,
+    "elapsed_seconds": 0.0,
+    "chat_id": 53,
+    "response": {
+      "detail": "You have reached the Starter AI token limit for the current 30 day usage window.",
+      "code": "ai_token_limit_exceeded",
+      "current_plan_id": "starter",
+      "current_plan_name": "Starter",
+      "used_tokens": 103281,
+      "included_tokens": 100000,
+      "remaining_tokens": 0,
+      "window_days": 30,
+      "reset_at": "2026-10-11T07:10:43.794344+00:00",
+      "reset_after_seconds": 2588299,
+      "reset_after_hours": 719.0
+    }
+  },
+  {
+    "case": "conversation-increase-level",
+    "expected_level": "advanced",
+    "prompt": "Please make it advanced: give one short counterexample using unequal probabilities, then one new check question.",
+    "http_status": 429,
+    "elapsed_seconds": 0.0,
+    "chat_id": 53,
+    "response": {
+      "detail": "You have reached the Starter AI token limit for the current 30 day usage window.",
+      "code": "ai_token_limit_exceeded",
+      "current_plan_id": "starter",
+      "current_plan_name": "Starter",
+      "used_tokens": 103281,
+      "included_tokens": 100000,
+      "remaining_tokens": 0,
+      "window_days": 30,
+      "reset_at": "2026-10-11T07:10:43.794344+00:00",
+      "reset_after_seconds": 2588299,
+      "reset_after_hours": 719.0
+    }
+  },
+  {
+    "case": "conversation-help",
+    "expected_level": "beginner",
+    "prompt": "I am stuck; explain simply and give me a small hint.",
+    "http_status": 429,
+    "elapsed_seconds": 0.0,
+    "chat_id": 53,
+    "response": {
+      "detail": "You have reached the Starter AI token limit for the current 30 day usage window.",
+      "code": "ai_token_limit_exceeded",
+      "current_plan_id": "starter",
+      "current_plan_name": "Starter",
+      "used_tokens": 103281,
+      "included_tokens": 100000,
+      "remaining_tokens": 0,
+      "window_days": 30,
+      "reset_at": "2026-10-11T07:10:43.794344+00:00",
+      "reset_after_seconds": 2588299,
+      "reset_after_hours": 719.0
+    }
+  }
+]

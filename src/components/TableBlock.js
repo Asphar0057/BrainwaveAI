@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, ChevronDown, ChevronUp, GripVertical, Download, Upload } from 'lucide-react';
 import './TableBlock.css';
+import MathRenderer from './MathRenderer';
+import { markdownToNoteHtml } from '../utils/noteContent';
 
 const getDefaultRows = () => ([
   ['Header 1', 'Header 2', 'Header 3'],
@@ -171,7 +173,7 @@ const TableBlock = ({ data, onChange, readOnly = false }) => {
 
   const handleCellKeyDown = (event, rowIndex, colIndex) => {
     if (readOnly) return;
-    if (event.key === 'Enter') {
+    if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       const nextRow = rowIndex + 1;
       if (nextRow >= rows.length) {
@@ -327,6 +329,17 @@ const TableBlock = ({ data, onChange, readOnly = false }) => {
     event.target.value = '';
   };
 
+  useEffect(() => {
+    const resize = () => tableRef.current?.querySelectorAll('textarea').forEach(cell => {
+      cell.style.height = 'auto';
+      cell.style.height = `${cell.scrollHeight}px`;
+    });
+    resize();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(resize);
+    if (tableRef.current) observer?.observe(tableRef.current);
+    return () => observer?.disconnect();
+  }, [rows, readOnly]);
+
   return (
     <div className={`table-block ${readOnly ? 'read-only' : ''}`}>
       <div className="table-wrapper" ref={tableRef}>
@@ -342,8 +355,8 @@ const TableBlock = ({ data, onChange, readOnly = false }) => {
                   onDrop={(event) => handleColumnDrop(event, colIndex)}
                 >
                   <div className="table-cell-content">
-                    <input
-                      type="text"
+                    {readOnly ? <MathRenderer className="table-cell-rendered" content={markdownToNoteHtml(cell)} /> : <textarea
+                      rows={1}
                       value={cell}
                       onChange={(e) => updateCell(0, colIndex, e.target.value)}
                       placeholder={`Column ${colIndex + 1}`}
@@ -352,7 +365,7 @@ const TableBlock = ({ data, onChange, readOnly = false }) => {
                       data-row={0}
                       data-col={colIndex}
                       onKeyDown={(event) => handleCellKeyDown(event, 0, colIndex)}
-                    />
+                    />}
                     <button
                       className="column-drag-handle"
                       title="Drag column"
@@ -450,8 +463,8 @@ const TableBlock = ({ data, onChange, readOnly = false }) => {
                     key={colIndex}
                     className={selectedCell?.row === rowIndex + 1 && selectedCell?.col === colIndex ? 'selected' : ''}
                   >
-                    <input
-                      type="text"
+                    {readOnly ? <MathRenderer className="table-cell-rendered" content={markdownToNoteHtml(cell)} /> : <textarea
+                      rows={1}
                       value={cell}
                       onChange={(e) => updateCell(rowIndex + 1, colIndex, e.target.value)}
                       onFocus={() => setSelectedCell({ row: rowIndex + 1, col: colIndex })}
@@ -462,7 +475,7 @@ const TableBlock = ({ data, onChange, readOnly = false }) => {
                       data-row={rowIndex + 1}
                       data-col={colIndex}
                       onKeyDown={(event) => handleCellKeyDown(event, rowIndex + 1, colIndex)}
-                    />
+                    />}
                   </td>
                 ))}
               </tr>

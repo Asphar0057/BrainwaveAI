@@ -69,7 +69,7 @@ def activation(payload: Activation = Body(default=Activation()), db: Session = D
 
 
 class ReportInput(BaseModel):
-    resource_type: str = Field(pattern="^(chat_message|practice_answer|flashcard|question_result|solo_question)$")
+    resource_type: str = Field(pattern="^(chat_message|practice_answer|flashcard|question_result|solo_question|checkpoint_attempt)$")
     resource_id: int = Field(gt=0)
     reason: str = Field(pattern="^(incorrect_answer|unclear_explanation|missing_source|other)$")
     detail: str = Field(default="", max_length=3000)
@@ -94,6 +94,13 @@ def owned_snapshot(db, user, kind, resource_id):
         if row:
             options = json.loads(row.options)
             return {"question": row.question, "answer": options[row.correct_answer], "explanation": row.explanation}
+    elif kind == "checkpoint_attempt":
+        row = db.query(models.CheckpointAttempt).filter_by(id=resource_id, student_id=user.id).first()
+        if row:
+            checkpoint = db.get(models.LearningCheckpoint, row.checkpoint_id)
+            from routes.institution.helpers import _accessible_section
+            _accessible_section(db, checkpoint.section_id, user)
+            return {"question": checkpoint.title, "answer": row.results, "section_id": checkpoint.section_id, "checkpoint_id": checkpoint.id, "score_percent": row.score_percent}
     elif kind == "question_result":
         row = db.query(models.QuestionResult).join(models.QuestionAttempt).filter(models.QuestionResult.id == resource_id, models.QuestionAttempt.user_id == user.id).first()
         if row:
@@ -177,7 +184,7 @@ def learning_evidence(section_id: int, db: Session = Depends(get_db), user=Depen
         if attempts:
             groups.append({"assignment_id": assignment.id, "title": assignment.title, "graded_count": len(graded), "attempts": attempts})
     return {"section_id": section.id, "groups": groups,
-            "interpretation": "Possible learning gaps: graded submissions below 70%. Read the attempts and teacher feedback before naming a misconception. Only the latest submitted attempt is retained."}
+            "interpretation": "Possible learning gaps: graded submissions below 70%. Read the attempts and teacher feedback before naming a misconception. This view shows the latest submission; the assignment history retains new submission and grading revisions."}
 
 
 @router.get("/admin/metrics", dependencies=[Depends(check_admin)])

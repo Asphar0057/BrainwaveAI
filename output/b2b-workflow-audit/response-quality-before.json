@@ -1,0 +1,208 @@
+[
+  {
+    "case": "beginner",
+    "prompt": "I am new to probability. A bag has three blue counters and one gold. Each counter is equally likely to be chosen. Help me find the probability of gold, one small step at a time. Do not give me the answer yet.",
+    "http_status": 200,
+    "elapsed_seconds": 10.88,
+    "response": {
+      "message_id": null,
+      "answer": "**Step 1 \u2013 Count the counters:** There are three blue counters and one gold counter.\n\n**Your turn:** How many counters are there in total?",
+      "ai_confidence": 0.678,
+      "intent_class": "REVIEW",
+      "active_rules": [],
+      "topics_discussed": [
+        "thinking_that_particles_can_only_be_one_or_the_other",
+        "omitting_or_misordering_the_phases",
+        "confusing_macroeconomics_with_microeconomics"
+      ],
+      "frustration_score": 0.13333333333333333,
+      "response_strategy": "GUIDED_DISCOVERY",
+      "query_type": "conversational_learning",
+      "tutor_mode": true,
+      "tutor_reply_style": "guided",
+      "tutor_options": [],
+      "tutor_state": {
+        "level": "intermediate",
+        "phase": "teach",
+        "verdict": "not_applicable",
+        "confidence": 0.9,
+        "objective": "Count total counters",
+        "next_action": "State the total number of counters",
+        "hint_level": 1,
+        "current_step": 1,
+        "total_steps": 3,
+        "expected_step_answer": "4",
+        "final_answer": "1/4",
+        "skills_used": [
+          "counting",
+          "basic probability"
+        ],
+        "misconceptions": [
+          "Ignoring one of the counters and saying there are 3 total.",
+          "Counting all counters as favorable or counting the blue counters as favorable.",
+          "Flipping the fraction (thinking 4/1) or simplifying incorrectly to 1/3."
+        ],
+        "mastery_score": 0.5,
+        "correct_streak": 0,
+        "wrong_streak": 0,
+        "lesson_plan": {
+          "goal": "Determine the probability of drawing the gold counter from the bag",
+          "steps": [
+            {
+              "id": 1,
+              "title": "Count the total number of counters",
+              "expected": "There are 4 counters in total (3 blue + 1 gold).",
+              "skill": "counting",
+              "misconception": "Ignoring one of the counters and saying there are 3 total."
+            },
+            {
+              "id": 2,
+              "title": "Identify the favorable outcomes for gold",
+              "expected": "Only 1 counter (the gold one) is a favorable outcome.",
+              "skill": "identifying favorable outcomes",
+              "misconception": "Counting all counters as favorable or counting the blue counters as favorable."
+            },
+            {
+              "id": 3,
+              "title": "Compute the probability as a fraction",
+              "expected": "Probability = favorable outcomes / total outcomes = 1/4.",
+              "skill": "basic probability",
+              "misconception": "Flipping the fraction (thinking 4/1) or simplifying incorrectly to 1/3."
+            }
+          ],
+          "current_step": 1,
+          "final_answer": "1/4"
+        },
+        "_attempt_verified": false
+      },
+      "sources": []
+    }
+  },
+  {
+    "case": "misconception",
+    "prompt": "I think P(gold) is 1/3 because there are three blue counters and one gold. Each counter is equally likely. Is my reasoning correct? Explain simply and ask one question to help me fix it.",
+    "http_status": 200,
+    "elapsed_seconds": 5.98,
+    "response": {
+      "message_id": null,
+      "answer": "1. List all counters in the bag: three blue and one gold.\n2. Count how many counters there are altogether.\n3. **Your turn:** How many counters are in the bag total?\n**Key point:** Probability = (number of favorable outcomes) \u00f7 (total number of outcomes).",
+      "ai_confidence": 0.791,
+      "intent_class": "REVIEW",
+      "active_rules": [],
+      "topics_discussed": [
+        "omitting_or_misordering_the_phases",
+        "incorrect_application_of_the_power_rule",
+        "confusing_it_with_classical_mechanics"
+      ],
+      "frustration_score": 0.13333333333333333,
+      "response_strategy": "GUIDED_DISCOVERY",
+      "query_type": "conversational_learning",
+      "tutor_mode": true,
+      "tutor_reply_style": "guided",
+      "tutor_options": [],
+      "tutor_state": {
+        "level": "intermediate",
+        "phase": "teach",
+        "verdict": "not_applicable",
+        "confidence": 0.92,
+        "objective": "count total counters",
+        "next_action": "state total number of counters",
+        "hint_level": 1,
+        "current_step": 1,
+        "total_steps": 3,
+        "expected_step_answer": "4",
+        "final_answer": "1/4",
+        "skills_used": [
+          "counting",
+          "basic probability"
+        ],
+        "misconceptions": [
+          "confusing number of favorable outcomes with total outcomes"
+        ],
+        "mastery_score": 0.5,
+        "correct_streak": 0,
+        "wrong_streak": 0,
+        "lesson_plan": {
+          "goal": "Determine the correct probability of selecting the gold counter",
+          "steps": [
+            {
+              "id": 1,
+              "title": "Count all counters",
+              "expected": "There are 4 counters in total (3 blue + 1 gold).",
+              "skill": "Counting and representation",
+              "misconception": "Forgetting to include the gold counter when counting total items"
+            },
+            {
+              "id": 2,
+              "title": "Apply the probability formula",
+              "expected": "Probability = favorable outcomes / total outcomes = 1/4.",
+              "skill": "Basic probability calculation",
+              "misconception": "Using the number of non\u2011gold counters instead of total counters"
+            },
+            {
+              "id": 3,
+              "title": "Compare with your reasoning",
+              "expected": "Your reasoning missed the gold counter in the denominator; the correct probability is 1/4, not 1/3.",
+              "skill": "Error analysis and conceptual understanding",
+              "misconception": "Thinking the probability of gold equals the proportion of blue counters"
+            }
+          ],
+          "current_step": 1,
+          "final_answer": "1/4"
+        },
+        "_attempt_verified": false
+      },
+      "sources": []
+    }
+  },
+  {
+    "case": "advanced",
+    "prompt": "I understand basic probability. Explain why favourable outcomes divided by total outcomes fails when outcomes are not equally likely. Give one short numerical counterexample and a question to check my understanding.",
+    "http_status": 200,
+    "elapsed_seconds": 43.34,
+    "response": {
+      "message_id": null,
+      "answer": "**Why the simple ratio can fail**\nThe formula *favourable\u202f\u00f7\u202ftotal* works only when every outcome is equally likely. When some outcomes have higher or lower chances, counting them the same misrepresents the true probability.\n\n**Counterexample**\nA bag has 1 red marble and 3 blue marbles. The red marble is twice as likely to be drawn as each blue marble. Weighted total = 2\u202f(red)\u202f+\u202f3\u00b71\u202f(blue)\u202f=\u202f5, so\n\\[P(\\text{red}) = \\frac{2}{5},\\]\nnot \\(\\frac{1}{4}\\).\n\n**Check your understanding**\nIf the red marble were three times as likely as each blue marble, what unsimplified fraction gives the probability of drawing a red marble?\n\n*Your task:* Write the unsimplified fraction.",
+      "ai_confidence": 0.706,
+      "intent_class": "CASUAL",
+      "active_rules": [],
+      "topics_discussed": [
+        "confusing_economics_with_other_social_sciences",
+        "not_understanding_the_difference_between_nominal_and_real_gdp",
+        "confusing_macroeconomics_with_microeconomics"
+      ],
+      "frustration_score": 0.0,
+      "response_strategy": "GUIDED_DISCOVERY",
+      "query_type": "conversational_learning",
+      "tutor_mode": true,
+      "tutor_reply_style": "guided",
+      "tutor_options": [],
+      "tutor_state": {
+        "level": "intermediate",
+        "phase": "teach",
+        "verdict": "not_applicable",
+        "confidence": 0.65,
+        "objective": "Build understanding step by step",
+        "next_action": "Try the next small step",
+        "hint_level": 2,
+        "current_step": 1,
+        "total_steps": 0,
+        "expected_step_answer": "",
+        "final_answer": "",
+        "skills_used": [],
+        "misconceptions": [],
+        "mastery_score": 0.0,
+        "correct_streak": 0,
+        "wrong_streak": 0,
+        "lesson_plan": {
+          "goal": "I understand basic probability. Explain why favourable outcomes divided by total outcomes fails when outcomes are not equally likely. Give o",
+          "steps": [],
+          "current_step": 1,
+          "final_answer": ""
+        },
+        "_attempt_verified": false
+      },
+      "sources": []
+    }
+  }
+]

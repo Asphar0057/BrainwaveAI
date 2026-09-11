@@ -1,0 +1,296 @@
+[
+  {
+    "case": "beginner-1",
+    "expected_level": "beginner",
+    "prompt": "I am new to probability. A bag has three blue counters and one gold. Each counter is equally likely to be chosen. Help me find the probability of gold, one small step at a time. Do not give me the answer yet.",
+    "http_status": 200,
+    "elapsed_seconds": 3.77,
+    "chat_id": null,
+    "response": {
+      "message_id": null,
+      "answer": "**Step 1 \u2013 Count outcomes:** There are 4 counters in the bag (3 blue and 1 gold).\n\n**Step 2 \u2013 Your turn:** How many of those counters are gold? Write the probability as \\(\\frac{\\text{favorable}}{\\text{total}}\\). What is the probability of drawing the gold counter?",
+      "ai_confidence": 0.678,
+      "intent_class": "REVIEW",
+      "active_rules": [],
+      "topics_discussed": [],
+      "frustration_score": 0.13333333333333333,
+      "response_strategy": "WORKED_EXAMPLE",
+      "query_type": "conversational_learning",
+      "tutor_mode": true,
+      "tutor_reply_style": "guided",
+      "tutor_options": [],
+      "tutor_state": {
+        "level": "beginner",
+        "phase": "practice",
+        "verdict": "not_applicable",
+        "confidence": 0.9,
+        "objective": "compute probability of a single event",
+        "next_action": "Calculate the probability of drawing the gold counter using the fraction \\(\\frac{\\text{favorable}}{\\text{total}}\\).",
+        "hint_level": 1,
+        "current_step": 1,
+        "total_steps": 3,
+        "expected_step_answer": "1/4",
+        "final_answer": "1/4",
+        "skills_used": [
+          "basic probability"
+        ],
+        "misconceptions": [],
+        "mastery_score": 0.0,
+        "correct_streak": 0,
+        "wrong_streak": 0,
+        "lesson_plan": {
+          "goal": "compute probability of a single event",
+          "steps": [
+            {
+              "id": 1,
+              "title": "Calculate the probability of drawing the gold counter using the fraction \\(\\frac",
+              "expected": "1/4",
+              "skill": "",
+              "misconception": ""
+            }
+          ],
+          "current_step": 1,
+          "final_answer": "1/4"
+        },
+        "_attempt_verified": false
+      },
+      "sources": []
+    }
+  },
+  {
+    "case": "misconception-1",
+    "expected_level": "beginner",
+    "prompt": "I think P(gold) is 1/3 because there are three blue counters and one gold. Each counter is equally likely. Is my reasoning correct? Explain simply and ask one question to help me fix it.",
+    "http_status": 200,
+    "elapsed_seconds": 8.25,
+    "chat_id": null,
+    "response": {
+      "message_id": null,
+      "answer": "**Verdict:** Partly correct.  \n**What you got:** You recognized that each counter is equally likely.  \n**Missing point:** The probability is the number of favorable outcomes (1 gold) divided by the total number of counters (4), so \\(P(\\text{gold}) = \\frac{1}{4}\\).  \n**Better answer:** \\(P(\\text{gold}) = \\frac{1}{4}\\) because there are four counters in total.  \n**Quick check:** If a bag contains 5 red counters and 2 green counters, what is the probability of drawing a green counter?",
+      "ai_confidence": 0.785,
+      "intent_class": "REVIEW",
+      "active_rules": [],
+      "topics_discussed": [],
+      "frustration_score": 0.13333333333333333,
+      "response_strategy": "WORKED_EXAMPLE",
+      "query_type": "conversational_learning",
+      "tutor_mode": true,
+      "tutor_reply_style": "guided",
+      "tutor_options": [],
+      "tutor_state": {
+        "level": "beginner",
+        "phase": "check",
+        "verdict": "needs_attempt",
+        "confidence": 0.96,
+        "objective": "evaluate probability reasoning",
+        "next_action": "Calculate the probability of drawing a green counter when there are 5 red counters and 2 green counters.",
+        "hint_level": 1,
+        "current_step": 1,
+        "total_steps": 3,
+        "expected_step_answer": "2/7",
+        "final_answer": "",
+        "skills_used": [
+          "probability basics"
+        ],
+        "misconceptions": [
+          "counting total outcomes incorrectly"
+        ],
+        "mastery_score": 0.0,
+        "correct_streak": 0,
+        "wrong_streak": 0,
+        "lesson_plan": {
+          "goal": "evaluate probability reasoning",
+          "steps": [
+            {
+              "id": 1,
+              "title": "Calculate the probability of drawing a green counter when there are 5 red counte",
+              "expected": "2/7",
+              "skill": "",
+              "misconception": ""
+            }
+          ],
+          "current_step": 1,
+          "final_answer": ""
+        },
+        "_attempt_verified": false
+      },
+      "sources": []
+    }
+  },
+  {
+    "case": "advanced-1",
+    "expected_level": "advanced",
+    "prompt": "I understand basic probability. Explain why favourable outcomes divided by total outcomes fails when outcomes are not equally likely. Give one short numerical counterexample and a question to check my understanding.",
+    "http_status": 200,
+    "elapsed_seconds": 25.19,
+    "chat_id": null,
+    "response": {
+      "message_id": null,
+      "answer": "**Why the simple ratio can fail**\nWhen outcomes have different chances, counting them equally misrepresents the true likelihood. The classical formula \\(\\frac{\\text{favourable outcomes}}{\\text{total outcomes}}\\) assumes each outcome is equally probable.\n\n**Counterexample**\nA biased coin lands heads with probability 0.7 and tails with 0.3. There is 1 favourable outcome (heads) out of 2 possible outcomes, so the ratio gives \\(\\frac{1}{2}=0.5\\), which is not the true probability of heads.\n\n**Your turn**\nA bag contains 1 gold coin and 3 silver coins. The gold coin is twice as likely to be drawn as any single silver coin. What is the probability of drawing the gold coin?",
+      "ai_confidence": 0.706,
+      "intent_class": "CASUAL",
+      "active_rules": [],
+      "topics_discussed": [],
+      "frustration_score": 0.0,
+      "response_strategy": "WORKED_EXAMPLE",
+      "query_type": "conversational_learning",
+      "tutor_mode": true,
+      "tutor_reply_style": "guided",
+      "tutor_options": [],
+      "tutor_state": {
+        "level": "advanced",
+        "phase": "teach",
+        "verdict": "not_applicable",
+        "confidence": 1.0,
+        "objective": "understand limitation of classical probability formula",
+        "next_action": "Compute the probability of drawing the gold coin given the weighting described.",
+        "hint_level": 1,
+        "current_step": 1,
+        "total_steps": 2,
+        "expected_step_answer": "0.4",
+        "final_answer": "",
+        "skills_used": [
+          "probability"
+        ],
+        "misconceptions": [],
+        "mastery_score": 0.0,
+        "correct_streak": 0,
+        "wrong_streak": 0,
+        "lesson_plan": {
+          "goal": "understand limitation of classical probability formula",
+          "steps": [
+            {
+              "id": 1,
+              "title": "Compute the probability of drawing the gold coin given the weighting described.",
+              "expected": "0.4",
+              "skill": "",
+              "misconception": ""
+            }
+          ],
+          "current_step": 1,
+          "final_answer": ""
+        },
+        "_attempt_verified": false
+      },
+      "sources": []
+    }
+  },
+  {
+    "case": "beginner-2",
+    "expected_level": "beginner",
+    "prompt": "I am new to probability. A bag has three blue counters and one gold. Each counter is equally likely to be chosen. Help me find the probability of gold, one small step at a time. Do not give me the answer yet.",
+    "http_status": 200,
+    "elapsed_seconds": 22.09,
+    "chat_id": null,
+    "response": {
+      "message_id": null,
+      "answer": "**Step 1 \u2013 Count the outcomes:** There are 4 counters in total (3 blue + 1 gold). Each is equally likely.\n\n**Step 2 \u2013 Your turn:** How many of those outcomes give you a gold counter? Use that count to write the probability as a fraction.\n\n**Step 3 \u2013 Your answer:** Write the probability of drawing the gold counter as a fraction.",
+      "ai_confidence": 0.735,
+      "intent_class": "REVIEW",
+      "active_rules": [],
+      "topics_discussed": [],
+      "frustration_score": 0.13333333333333333,
+      "response_strategy": "WORKED_EXAMPLE",
+      "query_type": "conversational_learning",
+      "tutor_mode": true,
+      "tutor_reply_style": "guided",
+      "tutor_options": [],
+      "tutor_state": {
+        "level": "beginner",
+        "phase": "practice",
+        "verdict": "not_applicable",
+        "confidence": 0.9,
+        "objective": "Identify total and favorable outcomes for a simple probability",
+        "next_action": "State the probability of drawing the gold counter as a fraction",
+        "hint_level": 1,
+        "current_step": 1,
+        "total_steps": 1,
+        "expected_step_answer": "1/4",
+        "final_answer": "",
+        "skills_used": [
+          "basic probability"
+        ],
+        "misconceptions": [],
+        "mastery_score": 0.0,
+        "correct_streak": 0,
+        "wrong_streak": 0,
+        "lesson_plan": {
+          "goal": "Identify total and favorable outcomes for a simple probability",
+          "steps": [
+            {
+              "id": 1,
+              "title": "State the probability of drawing the gold counter as a fraction",
+              "expected": "1/4",
+              "skill": "",
+              "misconception": ""
+            }
+          ],
+          "current_step": 1,
+          "final_answer": ""
+        },
+        "_attempt_verified": false
+      },
+      "sources": []
+    }
+  },
+  {
+    "case": "misconception-2",
+    "expected_level": "beginner",
+    "prompt": "I think P(gold) is 1/3 because there are three blue counters and one gold. Each counter is equally likely. Is my reasoning correct? Explain simply and ask one question to help me fix it.",
+    "http_status": 200,
+    "elapsed_seconds": 51.88,
+    "chat_id": null,
+    "response": {
+      "message_id": null,
+      "answer": "**Verdict:** not yet\n\n**What you got:** You said \\(P(\\text{gold}) = \\frac{1}{3}\\) because there are three blue counters and one gold.\n\n**Missing point:** Probability must compare the number of favorable outcomes to the total number of equally likely outcomes. Here there are 4 counters total, so \\(P(\\text{gold}) = \\frac{1}{4}\\).\n\n**Better answer:** The correct probability is \\(\\frac{1}{4}\\).\n\n**Quick check:** What would the probability be if there were two gold counters instead of one?",
+      "ai_confidence": 0.785,
+      "intent_class": "REVIEW",
+      "active_rules": [],
+      "topics_discussed": [],
+      "frustration_score": 0.13333333333333333,
+      "response_strategy": "WORKED_EXAMPLE",
+      "query_type": "conversational_learning",
+      "tutor_mode": true,
+      "tutor_reply_style": "guided",
+      "tutor_options": [],
+      "tutor_state": {
+        "level": "beginner",
+        "phase": "check",
+        "verdict": "needs_attempt",
+        "confidence": 0.99,
+        "objective": "understand basic probability with equally likely outcomes",
+        "next_action": "What would the probability be if there were two gold counters instead of one?",
+        "hint_level": 1,
+        "current_step": 1,
+        "total_steps": 3,
+        "expected_step_answer": "2/5",
+        "final_answer": "",
+        "skills_used": [
+          "basic probability"
+        ],
+        "misconceptions": [
+          "ignoring total number of outcomes"
+        ],
+        "mastery_score": 0.0,
+        "correct_streak": 0,
+        "wrong_streak": 0,
+        "lesson_plan": {
+          "goal": "understand basic probability with equally likely outcomes",
+          "steps": [
+            {
+              "id": 1,
+              "title": "What would the probability be if there were two gold counters instead of one?",
+              "expected": "2/5",
+              "skill": "",
+              "misconception": ""
+            }
+          ],
+          "current_step": 1,
+          "final_answer": ""
+        },
+        "_attempt_verified": false
+      },
+      "sources": []
+    }
+  }
+]

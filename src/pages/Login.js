@@ -67,6 +67,7 @@ function Login() {
     try {
       const accountSession = await fetchAccountSession({ force: true });
       if (!accountIsStillActive()) return;
+      if (sessionStorage.getItem('cerbyl.pendingInvite')) { window.location.replace('/join-company'); return; }
       const returnTo = consumeReturnPath();
       if (returnTo) { window.location.replace(returnTo); return; }
 

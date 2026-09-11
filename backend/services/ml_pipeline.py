@@ -202,18 +202,20 @@ class MessageMLPipeline:
         self._registry = ModelRegistry.get()
         self._concept_cache: Dict[str, List[float]] = {}
 
-    def _load_concept_cache(self, db) -> None:
-        if self._concept_cache:
-            return
+    def _load_concept_cache(self, db, user_id: int) -> dict:
+        # Request-local concepts: never mix another learner or company into this response.
+        concepts = {}
+        if db is None:
+            return concepts
         try:
             import models
             rows = db.query(models.StudentKnowledgeState.concept_id,
-                            models.StudentKnowledgeState.concept_name).distinct().limit(500).all()
+                            models.StudentKnowledgeState.concept_name).filter(models.StudentKnowledgeState.user_id == user_id).distinct().limit(500).all()
             for cid, cname in rows:
-                if cname and cid not in self._concept_cache:
+                if cname and cid not in concepts:
                     vec = self._registry.embed(cname)
                     if vec:
-                        self._concept_cache[cid] = vec
+                        concepts[cid] = vec
         except Exception as e:
             logger.debug(f"[ML] concept cache load partial: {e}")
 
@@ -226,19 +228,21 @@ class MessageMLPipeline:
         try:
             import models
             topic_names = set(
-                t for (t,) in db.query(models.TopicMastery.topic_name).distinct().limit(300).all() if t
+                t for (t,) in db.query(models.TopicMastery.topic_name).filter(models.TopicMastery.user_id == user_id).distinct().limit(300).all() if t
             )
             topic_names |= set(
-                t for (t,) in db.query(models.UserWeakArea.topic).distinct().limit(300).all() if t
+                t for (t,) in db.query(models.UserWeakArea.topic).filter(models.UserWeakArea.user_id == user_id).distinct().limit(300).all() if t
             )
             for topic in topic_names:
                 cid = topic.strip().lower().replace(" ", "_")
-                if cid and cid not in self._concept_cache:
+                if cid and cid not in concepts:
                     vec = self._registry.embed(topic)
                     if vec:
-                        self._concept_cache[cid] = vec
+                        concepts[cid] = vec
         except Exception as e:
             logger.debug(f"[ML] concept cache topic-seed partial: {e}")
+
+        return concepts
 
     def _get_archetype(self, db, user_id: int) -> str:
         try:
@@ -297,11 +301,19 @@ class MessageMLPipeline:
 
         concepts: List[str] = []
         msg_vec = self._registry.embed(message)
-        if msg_vec and self._concept_cache:
+        concept_cache = self._load_concept_cache(db, user_id)
+        if msg_vec and concept_cache:
             import numpy as np
             scored: List[Tuple[float, str]] = []
-            for cid, cvec in list(self._concept_cache.items())[:200]:
-                sim = float(np.dot(msg_vec, cvec))
+            for cid, cvec in list(concept_cache.items())[:200]:
+                # Embedding proximity alone matched unrelated misconceptions.
+                # Require a meaningful topic word in the student's actual message.
+                generic = {'thinking', 'confusing', 'understanding', 'incorrect', 'application', 'difference', 'between', 'only', 'other', 'with', 'that', 'this', 'does', 'have', 'from', 'what', 'which', 'about', 'answer', 'question'}
+                anchors = {w for w in re.findall(r'[a-z]+', cid.lower()) if len(w) >= 4 and w not in generic}
+                if not any(_keyword_hit(msg_lower, word) for word in anchors):
+                    continue
+                norm = float(np.linalg.norm(msg_vec) * np.linalg.norm(cvec))
+                sim = float(np.dot(msg_vec, cvec)) / norm if norm else 0.0
                 if sim >= 0.45:
                     scored.append((sim, cid))
             scored.sort(reverse=True)
@@ -524,7 +536,6 @@ class MessageMLPipeline:
         user_id = int(student_id)
 
         try:
-            self._load_concept_cache(db)
             archetype = self._get_archetype(db, user_id)
             out.archetype = archetype
 
@@ -674,9 +685,9 @@ class MessageMLPipeline:
         concept cache) plus a real quoted snippet from ChatConceptSignal as
         evidence, so the model sees the actual moment the struggle showed up.
 
-        Anti-nagging: rows are excluded once weakness_score decays below 0.15
-        (already decremented on correct signals elsewhere -- see
-        tutor/nodes.py::persist_updates) or once last_updated is >30 days old
+        Anti-nagging: rows are excluded once weakness_score falls below 15
+        on the persisted 0..100 scale, status is mastered, or last_updated
+        is >30 days old
         with no reinforcement, so an old, resolved, or since-forgotten mention
         does not get repeated forever. Long-dormant concepts are instead
         surfaced once at session start via dkt/temporal_decay.get_decayed_concepts
@@ -691,7 +702,8 @@ class MessageMLPipeline:
                 db.query(models.UserWeakArea)
                 .filter(
                     models.UserWeakArea.user_id == user_id,
-                    models.UserWeakArea.weakness_score >= 0.15,
+                    models.UserWeakArea.weakness_score >= 15,
+                    models.UserWeakArea.status != "mastered",
                     models.UserWeakArea.last_updated >= cutoff,
                 )
                 .order_by(models.UserWeakArea.weakness_score.desc())

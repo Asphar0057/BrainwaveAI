@@ -1,3 +1,4 @@
+import { htmlToBlocks, blocksToHtml, markdownToNoteHtml } from '../utils/noteContent';
 import useUnsavedChanges from '../hooks/useUnsavedChanges';
 import { readDraft, writeDraft, clearDraft } from '../utils/draftStorage';
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
@@ -5,6 +6,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import ReactQuill, { Quill } from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
 import "./NotesRedesign.css";
+import "../components/NoteRichContent.css";
 import "./NotesRedesignSmartFolders.css";
 import "./NotesRedesignChatImport.css";
 import "./NotesRedesignConvert.css";
@@ -80,232 +82,6 @@ const noteIsInFolder = (note, folderId) => noteFolderIds(note).includes(folderId
 const formatDateTime = (value) => {
   const date = new Date(value);
   return value && !Number.isNaN(date.getTime()) ? date.toLocaleString() : '';
-};
-
-const encodeBlockPayload = (value) => {
-  if (!value) return '';
-  try {
-    return btoa(unescape(encodeURIComponent(value)));
-  } catch (e) {
-    return '';
-  }
-};
-
-const decodeBlockPayload = (value) => {
-  if (!value) return '';
-  try {
-    return decodeURIComponent(escape(atob(value)));
-  } catch (e) {
-    return '';
-  }
-};
-
-const htmlToBlocks = (html) => {
-  if (!html || html.trim() === '') {
-    return [{
-      id: Date.now(),
-      type: 'paragraph',
-      content: '',
-      properties: {}
-    }];
-  }
-  
-  const blocks = [];
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-  
-  
-  const processNode = (node) => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      const text = node.textContent.trim();
-      if (text) {
-        blocks.push({
-          id: Date.now() + Math.random(),
-          type: 'paragraph',
-          content: text,
-          properties: {}
-        });
-      }
-      return;
-    }
-    
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      const tagName = node.tagName.toLowerCase();
-      const dataBlockType = node.getAttribute('data-block-type');
-      if (dataBlockType === 'canvas') {
-        const canvasData = decodeBlockPayload(node.getAttribute('data-canvas') || '');
-        const canvasPreview = decodeBlockPayload(node.getAttribute('data-thumb') || '');
-        blocks.push({
-          id: Date.now() + Math.random(),
-          type: 'canvas',
-          content: '',
-          properties: {
-            canvasData,
-            canvasPreview
-          }
-        });
-        return;
-      }
-      const content = node.innerHTML || node.textContent || '';
-      const textContent = node.textContent.trim();
-      
-      if (!textContent) return;
-      
-      switch (tagName) {
-        case 'h1':
-          blocks.push({
-            id: Date.now() + Math.random(),
-            type: 'heading1',
-            content: textContent,
-            properties: {}
-          });
-          break;
-        case 'h2':
-          blocks.push({
-            id: Date.now() + Math.random(),
-            type: 'heading2',
-            content: textContent,
-            properties: {}
-          });
-          break;
-        case 'h3':
-          blocks.push({
-            id: Date.now() + Math.random(),
-            type: 'heading3',
-            content: textContent,
-            properties: {}
-          });
-          break;
-        case 'ul':
-          
-          Array.from(node.querySelectorAll('li')).forEach(li => {
-            blocks.push({
-              id: Date.now() + Math.random(),
-              type: 'bulletList',
-              content: li.textContent.trim(),
-              properties: {}
-            });
-          });
-          break;
-        case 'ol':
-          
-          Array.from(node.querySelectorAll('li')).forEach(li => {
-            blocks.push({
-              id: Date.now() + Math.random(),
-              type: 'numberedList',
-              content: li.textContent.trim(),
-              properties: {}
-            });
-          });
-          break;
-        case 'blockquote':
-          blocks.push({
-            id: Date.now() + Math.random(),
-            type: 'quote',
-            content: textContent,
-            properties: {}
-          });
-          break;
-        case 'pre':
-        case 'code':
-          blocks.push({
-            id: Date.now() + Math.random(),
-            type: 'code',
-            content: textContent,
-            properties: {}
-          });
-          break;
-        case 'hr':
-          blocks.push({
-            id: Date.now() + Math.random(),
-            type: 'divider',
-            content: '',
-            properties: {}
-          });
-          break;
-        case 'p':
-          if (textContent) {
-            blocks.push({
-              id: Date.now() + Math.random(),
-              type: 'paragraph',
-              content: content,
-              properties: {}
-            });
-          }
-          break;
-        case 'div':
-        case 'section':
-        case 'article':
-          
-          Array.from(node.childNodes).forEach(processNode);
-          break;
-        default:
-          
-          if (textContent && !['ul', 'ol', 'li'].includes(tagName)) {
-            blocks.push({
-              id: Date.now() + Math.random(),
-              type: 'paragraph',
-              content: content,
-              properties: {}
-            });
-          }
-      }
-    }
-  };
-  
-  
-  Array.from(doc.body.childNodes).forEach(processNode);
-  
-  
-  if (blocks.length === 0) {
-    blocks.push({
-      id: Date.now(),
-      type: 'paragraph',
-      content: html.replace(/<[^>]*>/g, ''),
-      properties: {}
-    });
-  }
-  
-  return blocks;
-};
-
-const blocksToHtml = (blocks) => {
-  if (!blocks || blocks.length === 0) return '';
-  
-  return blocks.map(block => {
-    const content = block.content || '';
-    
-    switch (block.type) {
-      case 'heading1':
-        return `<h1>${content}</h1>`;
-      case 'heading2':
-        return `<h2>${content}</h2>`;
-      case 'heading3':
-        return `<h3>${content}</h3>`;
-      case 'bulletList':
-        return `<ul><li>${content}</li></ul>`;
-      case 'numberedList':
-        return `<ol><li>${content}</li></ol>`;
-      case 'quote':
-        return `<blockquote>${content}</blockquote>`;
-      case 'code':
-        return `<pre><code>${content}</code></pre>`;
-      case 'divider':
-        return '<hr/>';
-      case 'todo':
-        return `<div><input type="checkbox" ${block.properties?.checked ? 'checked' : ''}/> ${content}</div>`;
-      case 'callout':
-      case 'info':
-      case 'warning':
-      case 'success':
-      case 'tip':
-        return `<div class="callout ${block.type}">${content}</div>`;
-      case 'canvas':
-        return `<div class="canvas-block" data-block-type="canvas" data-canvas="${encodeBlockPayload(block.properties?.canvasData || '')}" data-thumb="${encodeBlockPayload(block.properties?.canvasPreview || '')}"></div>`;
-      default:
-        return `<p>${content}</p>`;
-    }
-  }).join('\n');
 };
 
 const MAX_DIFF_TOKENS = 600;
@@ -792,7 +568,7 @@ const NotesRedesign = ({ sharedMode = false }) => {
         } catch (e) { /* silenced */ }
       }
     }
-  }, [userName, isSharedContent]);
+  }, [userName, isSharedContent, noteId]);
 
   const loadNotes = async () => {
     try {
@@ -1612,17 +1388,11 @@ const NotesRedesign = ({ sharedMode = false }) => {
     return (
       /(^|\n)\s{0,3}(#{1,6}\s+|[-*+]\s+|\d+\.\s+|>\s+|```)/.test(content) ||
       /(\*\*|__)(.*?)\1/.test(content) ||
-      /`[^`]+`/.test(content)
+      /`[^`]+`/.test(content) || /!\[[^\]]*\]\(/.test(content)
     );
   };
 
-  const normalizeNoteContent = (content) => {
-    if (!content) return '';
-    const text = String(content);
-    if (isLikelyHtml(text)) return text;
-    if (isLikelyMarkdown(text)) return convertMarkdownToHTML(text);
-    return text;
-  };
+  const normalizeNoteContent = markdownToNoteHtml;
 
   const formatAiOutput = (content) => {
     const text = normalizeAiText(content);
@@ -2084,7 +1854,7 @@ const NotesRedesign = ({ sharedMode = false }) => {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            note_id: targetNoteId,
+            note_id: String(targetNoteId),
             title: noteTitle,
             content: noteContent,
             canvas_data: canvasData,
@@ -2390,57 +2160,7 @@ const NotesRedesign = ({ sharedMode = false }) => {
     }
   };
 
-  const convertMarkdownToHTML = (markdown) => {
-    let html = markdown || '';
-
-    html = html.replace(/\r\n/g, '\n');
-    html = html.replace(/^[=\-*]{3,}\s*$/gim, '<hr>');
-    html = html.replace(/\n{3,}/g, '\n\n');
-    html = html.replace(/^######\s+(.*$)/gim, '<h6>$1</h6>');
-    html = html.replace(/^#####\s+(.*$)/gim, '<h5>$1</h5>');
-    html = html.replace(/^####\s+(.*$)/gim, '<h4>$1</h4>');
-    html = html.replace(/^###\s+(.*$)/gim, '<h3>$1</h3>');
-    html = html.replace(/^##\s+(.*$)/gim, '<h2>$1</h2>');
-    html = html.replace(/^#\s+(.*$)/gim, '<h1>$1</h1>');
-    html = html.replace(/^>\s+(.*$)/gim, '<blockquote>$1</blockquote>');
-    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    html = html.replace(/__(.*?)__/g, '<strong>$1</strong>');
-    html = html.replace(/(?<!\*)\*(?!\*)([^\*]+?)\*(?!\*)/g, '<em>$1</em>');
-    html = html.replace(/(?<!_)_(?!_)([^_]+?)_(?!_)/g, '<em>$1</em>');
-    html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
-    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
-    html = html.replace(/^\s*(\d+)\.\s+(.*)$/gim, '<li data-ol="true">$2</li>');
-    html = html.replace(/^\s*[-*+]\s+(.*)$/gim, '<li data-ul="true">$1</li>');
-    html = html.replace(/(<li data-ol="true">.*?<\/li>\s*)+/gis, (match) =>
-      `<ol>${match.replace(/ data-ol="true"/g, '')}</ol>`
-    );
-    html = html.replace(/(<li data-ul="true">.*?<\/li>\s*)+/gis, (match) =>
-      `<ul>${match.replace(/ data-ul="true"/g, '')}</ul>`
-    );
-
-    const blocks = html.split(/\n\n+/);
-    
-    html = blocks.map(block => {
-      block = block.trim();
-      if (!block) return '';
-      if (block.startsWith('<h') || 
-          block.startsWith('<ul>') || 
-          block.startsWith('<ol>') || 
-          block.startsWith('<pre>') ||
-          block.startsWith('<blockquote>') ||
-          block === '<li>' ||
-          block.startsWith('<div>')) {
-        return block;
-      }
-      return `<p>${block.replace(/\n/g, '<br>')}</p>`;
-    }).filter(block => block).join('\n\n');
-
-    html = html.replace(/\n{3,}/g, '\n\n');
-    html = html.trim();
-
-    return html;
-  };
+  const convertMarkdownToHTML = markdownToNoteHtml;
 
   const startVoiceRecording = async () => {
     if (isSharedContent && !canEdit) return;
@@ -3603,7 +3323,7 @@ const NotesRedesign = ({ sharedMode = false }) => {
                   <span className="saving-indicator">Saving...</span>
                 ) : saveError ? (
                   <span className="save-error-indicator">Save interrupted — edit to retry</span>
-                ) : autoSaved ? (
+                ) : !hasUnsavedEdits ? (
                   <span className="saved-indicator">Saved <Check size={14} /></span>
                 ) : (
                   <span className="unsaved-indicator">Unsaved</span>

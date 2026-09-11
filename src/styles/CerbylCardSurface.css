@@ -1,0 +1,197 @@
+/* One material and motion recipe for Cerbyl's main and institution templates.
+   Angles, easing, border spotlight and shadows come from DashboardCerbyl.
+   Keep the institution surface list in sync with INSTITUTION_CARDS. */
+:is(.cbd-root, .ci-root) {
+  /* exact tokens copied from Home.css's .cb-root, used by the tile recipe below */
+  --cb-card: #0b0c0f;
+  --cb-shadow-lo: rgba(0, 0, 0, 0.62);
+  --cb-shadow-hi: rgba(255, 255, 255, 0.03);
+  --cb-accent: #d8b38d;
+  --cb-neo-surface: linear-gradient(155deg, #0b0c0f 0%, #050506 100%);
+  --cb-neo-raised:
+    11px 13px 26px rgba(0, 0, 0, 0.64),
+    -6px -6px 16px rgba(255, 255, 255, 0.03),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.04),
+    inset -1px -1px 0 rgba(0, 0, 0, 0.5);
+  --cb-neo-hover:
+    15px 17px 32px rgba(0, 0, 0, 0.7),
+    -7px -7px 18px rgba(255, 255, 255, 0.042),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.06),
+    inset -1px -1px 0 rgba(0, 0, 0, 0.58),
+    inset 0 0 0 1px rgba(216, 179, 141, 0.14);
+  --cb-neo-pressed:
+    inset 7px 8px 16px rgba(0, 0, 0, 0.64),
+    inset -4px -4px 10px rgba(255, 255, 255, 0.025),
+    0 1px 0 rgba(255, 255, 255, 0.025);
+  --cb-neo-inset:
+    inset 5px 6px 12px rgba(0, 0, 0, 0.48),
+    inset -3px -3px 8px rgba(255, 255, 255, 0.022),
+    0 1px 0 rgba(255, 255, 255, 0.025);
+
+}
+
+/* exact copy of Home.css :is(.cb-tile-texture, .ci-tile-texture), used by every bento card below */
+:is(.cb-tile-texture, .ci-tile-texture) {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+:is(.cb-tile-texture, .ci-tile-texture)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 88% 94%, rgba(216, 179, 141, 0.18), transparent 55%),
+    repeating-linear-gradient(115deg, transparent 0 22px, rgba(216, 179, 141, 0.055) 22px 23px),
+    repeating-linear-gradient(25deg, transparent 0 26px, rgba(216, 179, 141, 0.035) 26px 27px);
+}
+
+:is(.cb-tile-texture, .ci-tile-texture)::after {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  width: 140%;
+  height: 140%;
+  opacity: 0.16;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+}
+
+:is(.cbd-root, .ci-root) :is(.cb-stat, .cb-feat, .cb-mod, .cb-panel, .ci-feature, .ci-module, .ci-metric, .ci-lower-panel, .ci-focus-panel, .ci-leaderboard-panel, .b2b-panel, :where(.icp-class-list > button), :where(.icp-notification-list > article), .ci-workspace-brief) {
+  --rx: 0deg;
+  --ry: 0deg;
+  --mx: 50%;
+  --my: 50%;
+  position: relative;
+  background: var(--cb-neo-surface);
+  border: 1px solid rgba(216, 179, 141, 0.085);
+  box-shadow: var(--cb-neo-raised);
+  transform: perspective(1000px) rotateX(var(--rx)) rotateY(var(--ry));
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
+}
+
+:is(.cbd-root, .ci-root) :is(.cb-stat, .cb-feat, .cb-mod, .cb-panel, .ci-feature, .ci-module, .ci-metric, .ci-lower-panel, .ci-focus-panel, .ci-leaderboard-panel, .b2b-panel, :where(.icp-class-list > button), :where(.icp-notification-list > article), .ci-workspace-brief)::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--cb-accent), transparent);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 2;
+  pointer-events: none;
+}
+
+:is(.cbd-root, .ci-root) :is(.cb-stat, .cb-feat, .cb-mod, .cb-panel, .ci-feature, .ci-module, .ci-metric, .ci-lower-panel, .ci-focus-panel, .ci-leaderboard-panel, .b2b-panel, :where(.icp-class-list > button), :where(.icp-notification-list > article), .ci-workspace-brief)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: radial-gradient(240px circle at var(--mx) var(--my), rgba(216, 179, 141, 0.95), transparent 68%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  :is(.cbd-root, .ci-root) :is(.cb-stat, .cb-feat, .cb-mod, .cb-panel, .ci-feature, .ci-module, .ci-metric, .ci-lower-panel, .ci-focus-panel, .ci-leaderboard-panel, .b2b-panel, :where(.icp-class-list > button), :where(.icp-notification-list > article), .ci-workspace-brief)[data-cerbyl-hover="true"] {
+    transform: perspective(1000px) rotateX(var(--rx)) rotateY(var(--ry)) translateY(-3px);
+    box-shadow: var(--cb-neo-hover);
+  }
+  :is(.cbd-root, .ci-root) :is(.cb-stat, .cb-feat, .cb-mod, .cb-panel, .ci-feature, .ci-module, .ci-metric, .ci-lower-panel, .ci-focus-panel, .ci-leaderboard-panel, .b2b-panel, :where(.icp-class-list > button), :where(.icp-notification-list > article), .ci-workspace-brief)[data-cerbyl-hover="true"]::before { transform: scaleX(1); }
+  :is(.cbd-root, .ci-root) :is(.cb-stat, .cb-feat, .cb-mod, .cb-panel, .ci-feature, .ci-module, .ci-metric, .ci-lower-panel, .ci-focus-panel, .ci-leaderboard-panel, .b2b-panel, :where(.icp-class-list > button), :where(.icp-notification-list > article), .ci-workspace-brief)[data-cerbyl-hover="true"]::after { opacity: 1; }
+  :is(.cbd-root, .ci-root) :is(.cb-stat, .cb-feat, .cb-mod, .cb-panel, .ci-feature, .ci-module, .ci-metric, .ci-lower-panel, .ci-focus-panel, .ci-leaderboard-panel, .b2b-panel, :where(.icp-class-list > button), :where(.icp-notification-list > article), .ci-workspace-brief):active:not(:disabled) {
+    transform: perspective(1000px) rotateX(var(--rx)) rotateY(var(--ry)) translateY(0) scale(0.985);
+    box-shadow: var(--cb-neo-pressed);
+  }
+}
+
+:is(.cbd-root, .ci-root) :is(.cb-stat, .cb-feat, .cb-mod, .cb-panel, .ci-feature, .ci-module, .ci-metric, .ci-lower-panel, .ci-focus-panel, .ci-leaderboard-panel, .b2b-panel, :where(.icp-class-list > button), :where(.icp-notification-list > article), .ci-workspace-brief):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--cb-accent) 72%, white 28%);
+  outline-offset: 3px;
+  box-shadow: var(--cb-neo-hover);
+}
+:is(.cbd-root, .ci-root) :is(.cb-stat, .cb-feat, .cb-mod, .cb-panel, .ci-feature, .ci-module, .ci-metric, .ci-lower-panel, .ci-focus-panel, .ci-leaderboard-panel, .b2b-panel, :where(.icp-class-list > button), :where(.icp-notification-list > article), .ci-workspace-brief):focus-visible::before { transform: scaleX(1); }
+:is(.cbd-root, .ci-root) :is(.cb-stat, .cb-feat, .cb-mod, .cb-panel, .ci-feature, .ci-module, .ci-metric, .ci-lower-panel, .ci-focus-panel, .ci-leaderboard-panel, .b2b-panel, :where(.icp-class-list > button), :where(.icp-notification-list > article), .ci-workspace-brief):focus-visible::after { opacity: 1; }
+
+/* Inputs and long data tables stay anchored while their gold edge responds. */
+.ci-root :is(.b2b-panel, .ci-feature, .ci-workspace-brief):is(form, :has(input, textarea, select, table, [role="dialog"])),
+.ci-root :is(.b2b-panel, .ci-feature, .ci-workspace-brief):is(form, :has(input, textarea, select, table, [role="dialog"])):is(:hover, :active, :focus-within) {
+  transform: none;
+}
+
+/* Match the main dashboard's feature and tool-card dimensions and type. */
+.ci-root .ci-feature {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 240px;
+  padding: 18px 22px 16px;
+  border-radius: 16px;
+}
+/* Follow the main card's content flow; class lists can contain several rows. */
+.ci-root .ci-feature :is(.ci-feature-list, .ci-create-visual, .ci-inline-action, .ci-tutor-prompt, .ci-tutor-answer) {
+  position: relative !important;
+  inset: auto;
+}
+.ci-root .ci-feature :is(.ci-feature-list, .ci-create-visual, .ci-tutor-prompt) {
+  margin-top: auto;
+}
+.ci-root .ci-feature-list { padding-top: 12px; }
+.ci-root .ci-feature h2 {
+  font-size: 36px;
+  line-height: 1.02;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.ci-root .ci-module {
+  min-height: 110px;
+  padding: 16px 20px 14px;
+  border-radius: 12px;
+}
+.ci-root .ci-metric { border-radius: 10px; }
+.ci-root :is(.ci-lower-panel, .ci-focus-panel, .ci-leaderboard-panel) { border-radius: 14px; }
+.ci-root .ci-module-track { padding: 10px 6px 18px; gap: 12px; }
+.ci-root .ci-feature-grid { padding-top: 4px; }
+
+/* Buttons use the same raised, hover and pressed material as dashboard tools. */
+.ci-root .ci-action {
+  box-shadow: var(--cb-neo-raised);
+  transition: color .15s, background .15s, border-color .15s, transform .15s, box-shadow .15s;
+}
+.ci-root .ci-action:hover:not(:disabled) { box-shadow: var(--cb-neo-hover); }
+.ci-root .ci-action:active:not(:disabled) { transform: translateY(0) scale(.985); box-shadow: var(--cb-neo-pressed); }
+.ci-root :is(.ci-action, .ci-side-nav a, .ci-side-nav button, .ci-side-primary button):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--cb-accent) 72%, white 28%);
+  outline-offset: 3px;
+}
+.ci-root :is(.ci-side-nav a, .ci-side-nav button, .ci-side-primary button) {
+  transition: color .15s ease, transform .2s ease;
+}
+.ci-root .ci-side-nav a:hover { transform: translateX(2px); }
+
+@media (hover: none), (prefers-reduced-motion: reduce) {
+  :is(.cbd-root, .ci-root) :is(.cb-stat, .cb-feat, .cb-mod, .cb-panel, .ci-feature, .ci-module, .ci-metric, .ci-lower-panel, .ci-focus-panel, .ci-leaderboard-panel, .b2b-panel, :where(.icp-class-list > button), :where(.icp-notification-list > article), .ci-workspace-brief), :is(.cbd-root, .ci-root) :is(.cb-stat, .cb-feat, .cb-mod, .cb-panel, .ci-feature, .ci-module, .ci-metric, .ci-lower-panel, .ci-focus-panel, .ci-leaderboard-panel, .b2b-panel, :where(.icp-class-list > button), :where(.icp-notification-list > article), .ci-workspace-brief):hover, :is(.cbd-root, .ci-root) :is(.cb-stat, .cb-feat, .cb-mod, .cb-panel, .ci-feature, .ci-module, .ci-metric, .ci-lower-panel, .ci-focus-panel, .ci-leaderboard-panel, .b2b-panel, :where(.icp-class-list > button), :where(.icp-notification-list > article), .ci-workspace-brief):active, :is(.cbd-root, .ci-root) :is(.cb-stat, .cb-feat, .cb-mod, .cb-panel, .ci-feature, .ci-module, .ci-metric, .ci-lower-panel, .ci-focus-panel, .ci-leaderboard-panel, .b2b-panel, :where(.icp-class-list > button), :where(.icp-notification-list > article), .ci-workspace-brief):focus-visible {
+    transform: none;
+  }
+  .ci-root :is(.ci-action, .ci-side-nav a, .ci-side-nav button, .ci-side-primary button):hover,
+  .ci-root .ci-action:active { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.cbd-root, .ci-root) :is(.cb-stat, .cb-feat, .cb-mod, .cb-panel, .ci-feature, .ci-module, .ci-metric, .ci-lower-panel, .ci-focus-panel, .ci-leaderboard-panel, .b2b-panel, :where(.icp-class-list > button), :where(.icp-notification-list > article), .ci-workspace-brief), :is(.cbd-root, .ci-root) :is(.cb-stat, .cb-feat, .cb-mod, .cb-panel, .ci-feature, .ci-module, .ci-metric, .ci-lower-panel, .ci-focus-panel, .ci-leaderboard-panel, .b2b-panel, :where(.icp-class-list > button), :where(.icp-notification-list > article), .ci-workspace-brief)::before, :is(.cbd-root, .ci-root) :is(.cb-stat, .cb-feat, .cb-mod, .cb-panel, .ci-feature, .ci-module, .ci-metric, .ci-lower-panel, .ci-focus-panel, .ci-leaderboard-panel, .b2b-panel, :where(.icp-class-list > button), :where(.icp-notification-list > article), .ci-workspace-brief)::after { transition: none; }
+  :is(.cbd-root, .ci-root) :is(.cb-stat, .cb-feat, .cb-mod, .cb-panel, .ci-feature, .ci-module, .ci-metric, .ci-lower-panel, .ci-focus-panel, .ci-leaderboard-panel, .b2b-panel, :where(.icp-class-list > button), :where(.icp-notification-list > article), .ci-workspace-brief):hover { box-shadow: var(--cb-neo-hover); }
+  :is(.cbd-root, .ci-root) :is(.cb-stat, .cb-feat, .cb-mod, .cb-panel, .ci-feature, .ci-module, .ci-metric, .ci-lower-panel, .ci-focus-panel, .ci-leaderboard-panel, .b2b-panel, :where(.icp-class-list > button), :where(.icp-notification-list > article), .ci-workspace-brief):hover::before { transform: scaleX(1); }
+  :is(.cbd-root, .ci-root) :is(.cb-stat, .cb-feat, .cb-mod, .cb-panel, .ci-feature, .ci-module, .ci-metric, .ci-lower-panel, .ci-focus-panel, .ci-leaderboard-panel, .b2b-panel, :where(.icp-class-list > button), :where(.icp-notification-list > article), .ci-workspace-brief):hover::after { opacity: 1; }
+  .ci-root :is(.ci-action, .ci-side-nav a, .ci-side-nav button, .ci-side-primary button) { transition: none; }
+}

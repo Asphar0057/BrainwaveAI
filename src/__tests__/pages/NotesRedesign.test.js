@@ -14,11 +14,12 @@ import {
 } from '../../testUtils';
 
 const mockNavigate = jest.fn();
+let mockRouteParams = {};
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: () => mockNavigate,
   useBlocker: () => ({ state: 'unblocked' }),
-  useParams: () => ({}),
+  useParams: () => mockRouteParams,
   useLocation: () => ({ pathname: '/notes', search: '' }),
 }));
 
@@ -120,6 +121,7 @@ const renderNotes = async () => {
 describe('NotesRedesign', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRouteParams = {};
     clearLocalStorage();
     global.fetch = buildFetchMock(FETCH_ROUTES);
     
@@ -134,6 +136,21 @@ describe('NotesRedesign', () => {
   afterEach(() => clearLocalStorage());
 
   
+  it('loads the new note when the editor route changes without remounting', async () => {
+    setupLocalStorage();
+    const notes = [
+      { ...MOCK_NOTES.notes[0], id: 901, title: 'First route note' },
+      { ...MOCK_NOTES.notes[0], id: 902, title: 'Converted route note' },
+    ];
+    global.fetch = buildFetchMock({ ...FETCH_ROUTES, get_notes: notes });
+    mockRouteParams = { noteId: '901' };
+    const view = await renderNotes();
+    expect(await screen.findByPlaceholderText('Untitled Note')).toHaveValue('First route note');
+    mockRouteParams = { noteId: '902' };
+    view.rerender(<MemoryRouter><NotesRedesign /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByPlaceholderText('Untitled Note')).toHaveValue('Converted route note'));
+  });
+
   it('restores a note title after leaving before the autosave debounce', async () => {
     setupLocalStorage();
     global.fetch = buildFetchMock({ ...FETCH_ROUTES, get_notes: MOCK_NOTES.notes });
@@ -163,6 +180,8 @@ describe('NotesRedesign', () => {
     expect(blocked()).toBe(true);
     await waitFor(() => expect(finishSave).toBeDefined(), { timeout: 2500 });
     expect(blocked()).toBe(true);
+    const saveCall = global.fetch.mock.calls.find(([url]) => String(url).includes('/update_note'));
+    expect(typeof JSON.parse(saveCall[1].body).note_id).toBe('string');
     await act(async () => { finishSave({ ok: false, status: 500 }); });
     expect(blocked()).toBe(true);
     finishSave = undefined;

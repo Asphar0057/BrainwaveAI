@@ -1,0 +1,109 @@
+02
+03
+04
+05
+06
+07
+08
+09
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+Dashboard
+Profile
+Overview
+cerbyl
+STUDENT PROFILE
+Edit profile
+PROFILE
+Overview
+Identity
+Organizations
+My classes
+SIGN OUT
+Dashboard
+Classroom
+Aarav Northstar
+
+YOUR STUDENT IDENTITY
+
+Aarav Northstar.
+
+Your name, classroom access, and enrolled classes.
+
+Edit identity
+View my classes
+AN
+Classroom identity
+STUDENT
+Account role
+Student
+Organizations
+1
+Enrolled classes
+3
+Profile details
+ACCOUNT IDENTITY
+FIRST NAME
+LAST NAME
+USERNAME
+SIGN-IN EMAIL
+
+Your name appears on classwork and messages. Your sign-in details and organization role are managed separately.
+
+Save changes
+Discard changes
+Organizations & access
+Northstar Coaching · Demo
+
+Student · Active membership
+
+Roles and class access are managed by your company owner.
+
+Accept an invitation
+My classes
+Probability foundations
+
+FOUND101 · Evening cohort · Northstar Coaching · Demo
+
+Teacher: Maya Northstar · Tue & Thu · 6 pm IST
+
+Open classwork
+QA Probability foundations
+
+QA1404669 · Workflow audit 1404669 · Northstar Coaching · Demo
+
+Teacher: Maya Northstar
+
+Open classwork
+QA Probability foundations
+
+QA3133905 · Workflow audit 3133905 · Northstar Coaching · Demo
+
+Teacher: Maya Northstar
+
+Open classwork

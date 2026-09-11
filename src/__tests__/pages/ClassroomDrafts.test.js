@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ReviewDialog, AssignmentDialog } from '../../pages/EducatorDashboard';
+import { SubmissionDialog } from '../../pages/StudentDashboard';
 import { apiRequest } from '../../config/api';
 jest.mock('../../config/api', () => ({ apiRequest: jest.fn() }));
 jest.mock('../../components/ClassWorkspaceDialog', () => () => null);
@@ -29,4 +30,46 @@ it('keeps focus while typing and restores an assignment draft after closing', ()
   expect(title).toHaveFocus(); first.unmount();
   render(<AssignmentDialog {...props}/>);
   expect(screen.getByRole('textbox',{name:/title/i})).toHaveValue('Cell division');
+});
+
+it('saves assignment settings through the footer and preserves them after an error', async () => {
+  const onCreated = jest.fn();
+  apiRequest.mockRejectedValueOnce(new Error('Connection interrupted')).mockResolvedValueOnce({});
+  render(<AssignmentDialog sections={[{section_id:4,course_code:'BIO',course_title:'Biology'}]} onClose={() => {}} onCreated={onCreated} />);
+  fireEvent.change(screen.getByRole('textbox', {name:'Assignment title'}), {target:{value:'Cell division'}});
+  fireEvent.change(screen.getByRole('combobox', {name:'Publishing'}), {target:{value:'draft'}});
+  fireEvent.click(screen.getByRole('checkbox', {name:'Allow resubmission'}));
+  fireEvent.click(screen.getByRole('button', {name:'Save draft'}));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Connection interrupted');
+  expect(screen.getByRole('textbox', {name:'Assignment title'})).toHaveValue('Cell division');
+  expect(screen.getByRole('checkbox', {name:'Allow resubmission'})).not.toBeChecked();
+  fireEvent.click(screen.getByRole('button', {name:'Save draft'}));
+  await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
+  expect(apiRequest).toHaveBeenLastCalledWith('/institution/educator/assignments', expect.objectContaining({
+    method:'POST', body:expect.any(String),
+  }));
+  expect(JSON.parse(apiRequest.mock.calls[1][1].body)).toMatchObject({section_id:4, title:'Cell division', status:'draft', allow_resubmission:false});
+});
+
+it('submits a response through the separate submission action footer', async () => {
+  const onSubmitted = jest.fn();
+  render(<SubmissionDialog assignment={{id: 31, title: 'Explain your reasoning', status: 'not_started'}} onClose={() => {}} onSubmitted={onSubmitted}/>);
+  fireEvent.change(screen.getByRole('textbox', {name: 'Your response'}), {target: {value: 'There are four equally likely outcomes in the bag.'}});
+  fireEvent.click(screen.getByRole('button', {name: 'Submit work'}));
+  await waitFor(() => expect(onSubmitted).toHaveBeenCalledTimes(1));
+  expect(apiRequest).toHaveBeenCalledWith('/institution/student/assignments/31/submit', expect.objectContaining({method: 'POST', body: expect.stringContaining('four equally likely outcomes')}));
+});
+
+it('keeps the response and allows saving a draft after a failed submission', async () => {
+  const onSubmitted = jest.fn();
+  apiRequest.mockRejectedValueOnce(new Error('Connection interrupted'));
+  render(<SubmissionDialog assignment={{id: 32, title: 'Explain your reasoning', status: 'not_started'}} onClose={() => {}} onSubmitted={onSubmitted}/>);
+  const response = screen.getByRole('textbox', {name: 'Your response'});
+  fireEvent.change(response, {target: {value: 'Count every possible outcome before dividing.'}});
+  fireEvent.click(screen.getByRole('button', {name: 'Submit work'}));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Connection interrupted');
+  expect(response).toHaveValue('Count every possible outcome before dividing.');
+  fireEvent.click(screen.getByRole('button', {name: 'Save draft'}));
+  await waitFor(() => expect(onSubmitted).toHaveBeenCalledTimes(1));
+  expect(apiRequest).toHaveBeenCalledWith('/institution/student/assignments/32/draft', expect.objectContaining({method: 'PUT'}));
 });

@@ -64,14 +64,8 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 # model, which avoids re-breaking every time a pinned snapshot is retired.
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
 GROQ_MODEL = "openai/gpt-oss-120b"
-# meta-llama/llama-4-scout-17b-16e-instruct was decommissioned by Groq (404s as
-# of 2026-09) and Groq currently has no vision-capable model on this account's
-# plan -- Gemini is the working vision provider. Keep this overridable so a
-# future Groq vision model can be enabled via env without a code change.
-GROQ_VISION_MODEL = os.getenv(
-    "GROQ_VISION_MODEL",
-    "meta-llama/llama-4-scout-17b-16e-instruct",
-)
+# Use a currently available multimodal model; allow deployment overrides.
+GROQ_VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "qwen/qwen3.8-27b")
 
 HS_CONTEXT_API_KEY  = os.getenv("HS_CONTEXT_API_KEY")
 HS_AI_BASE_URL      = os.getenv("HS_AI_BASE_URL", "https://api.groq.com/openai/v1")
@@ -120,8 +114,23 @@ def _init_hs_context_ai(fallback_client: UnifiedAIClient | None = None) -> Unifi
         fallback_ai_client=fallback_client,
     )
 
-unified_ai    = _init_ai_client()
-hs_context_ai = _init_hs_context_ai(unified_ai)
+class _LazyAIClient:
+    """Classroom/auth endpoints can start without provisioning an AI provider."""
+    def __init__(self, factory):
+        self._factory = factory
+        self._client = None
+        self._lock = Lock()
+
+    def __getattr__(self, name):
+        if self._client is None:
+            with self._lock:
+                if self._client is None:
+                    self._client = self._factory()
+        return getattr(self._client, name)
+
+
+unified_ai = _LazyAIClient(_init_ai_client)
+hs_context_ai = _LazyAIClient(lambda: _init_hs_context_ai(unified_ai))
 
 def call_ai(prompt: str, max_tokens: int = 2000, temperature: float = 0.7,
             use_cache: bool = False, conversation_id: str = None) -> str:

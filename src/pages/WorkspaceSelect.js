@@ -14,8 +14,9 @@ function WorkspaceSelect() {
     setError('');
     try {
       const session = await fetchAccountSession({ force: true });
+      if (sessionStorage.getItem('cerbyl.pendingInvite')) { navigate('/join-company', { replace: true }); return; }
       navigate(
-        getRoleRoute(session.role, getWorkspaceDestination('learn')),
+        session.landing_route === '/company' ? '/company' : getRoleRoute(session.role, getWorkspaceDestination('learn')),
         { replace: true }
       );
     } catch (requestError) {

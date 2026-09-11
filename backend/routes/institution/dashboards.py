@@ -13,6 +13,7 @@ from services.access_control import (
 )
 
 from .helpers import (
+    _active_section_ids,
     _assignment_row,
     _attendance_summary,
     _datetime_sort_key,
@@ -33,7 +34,7 @@ def get_institution_session(
     memberships = _membership_query(db, current_user.id).all()
     return {
         "role": role,
-        "landing_route": landing_route_for_role(role),
+        "landing_route": "/company" if any(m.role == "owner" for m in memberships) else landing_route_for_role(role),
         "user": _user_summary(current_user),
         "memberships": [
             {
@@ -74,6 +75,7 @@ def get_student_dashboard(
         )
         .filter(
             models.Enrollment.student_id == current_user.id,
+            models.Enrollment.section_id.in_(_active_section_ids(db, current_user)),
             models.Enrollment.status == "active",
         )
         .all()
@@ -132,6 +134,8 @@ def get_student_dashboard(
             {
                 "id": section.course.id,
                 "section_id": section.id,
+                "section_name": section.name,
+                "organization_name": section.course.organization.name,
                 "code": section.course.code,
                 "title": section.course.title,
                 "teacher": _display_name(section.instructor),
@@ -276,11 +280,13 @@ def get_educator_dashboard(
         )
         .filter(
             models.ClassSection.instructor_id == current_user.id,
+            models.ClassSection.id.in_(_active_section_ids(db, current_user)),
             models.ClassSection.status == "active",
         )
         .all()
     )
 
+    now = datetime.now(timezone.utc)
     organization = sections[0].course.organization if sections else None
     term = sections[0].academic_term if sections else None
     attention_queue = []
@@ -310,6 +316,8 @@ def get_educator_dashboard(
         class_health.append(
             {
                 "section_id": section.id,
+                "section_name": section.name,
+                "organization_name": section.course.organization.name,
                 "course_code": section.course.code,
                 "course_title": section.course.title,
                 "students": enrollment_count,
@@ -348,12 +356,13 @@ def get_educator_dashboard(
                     ),
                     None,
                 )
-                if not submission or submission.status not in {"submitted", "graded"}:
+                if assignment.due_at and assignment.due_at < now.replace(tzinfo=None) and (not submission or submission.status not in {"submitted", "graded"}):
                     missing += 1
 
-            if missing or enrollment.mastery_percent < 65:
-                if enrollment.mastery_percent < 55:
-                    signal = "Prerequisite gap"
+            has_grade = any(s.student_id == enrollment.student_id and s.status == "graded" for a in section.assignments for s in a.submissions)
+            if missing or (has_grade and enrollment.mastery_percent < 65):
+                if has_grade and enrollment.mastery_percent < 55:
+                    signal = "Low assignment score"
                 elif missing:
                     signal = f"{missing} missing submission{'s' if missing != 1 else ''}"
                 else:

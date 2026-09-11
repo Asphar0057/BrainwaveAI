@@ -40,6 +40,7 @@ def get_subject_focus(db: Session, user_id: int, subject: str, limit: int = 5) -
         db.query(models.UserWeakArea)
         .filter(
             models.UserWeakArea.user_id == user_id,
+            models.UserWeakArea.status != "mastered",
             or_(
                 models.UserWeakArea.topic.ilike(like),
                 models.UserWeakArea.subtopic.ilike(like),

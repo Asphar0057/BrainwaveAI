@@ -1,5 +1,7 @@
 # Cerbyl B2B Student and Teacher/Professor Features
 
+> Implementation update (11 September 2026): [the delivered B2B inventory and verification](output/B2B_BUILD_2026-09-11.md) distinguish shipped workflows from future scope. The broad feature catalogue below is a product roadmap, not a statement that every listed capability is implemented.
+
 ## Implemented Connected Classroom Architecture
 
 ### Role entry and isolation

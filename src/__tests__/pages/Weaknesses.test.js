@@ -1,0 +1,23 @@
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import Weaknesses from '../../pages/Weaknesses';
+import { queuedAIJsonFetch } from '../../services/aiJobService';
+import { getRecentMistakes } from '../../services/weaknessMistakeService';
+jest.mock('../../config',()=>({API_URL:'http://localhost/api'}));
+jest.mock('../../services/aiJobService',()=>({queuedAIJsonFetch:jest.fn()}));
+jest.mock('../../services/weaknessMistakeService',()=>({getRecentMistakes:jest.fn(),explainMistake:jest.fn()}));
+jest.mock('../../components/WeaknessTracker/WeaknessTracker',()=>()=>null);
+jest.mock('../../components/RLInsights/RLInsights',()=>()=>null);
+jest.mock('../../components/SocialHubChrome',()=>({children})=><div>{children}</div>);
+test('diagnosis uses current weaknesses rather than historical mistake topics, and refreshes both',async()=>{
+ localStorage.setItem('token','test'); localStorage.setItem('username','learner');
+ queuedAIJsonFetch.mockResolvedValue({ok:true,json:async()=>({weak_areas:{critical:[{topic:'Fractions',accuracy:20,total_attempts:5}]}})});
+ getRecentMistakes.mockResolvedValue({mistakes:[],topics:[{topic:'none',accuracy:0},{topic:'Mastered topic',accuracy:95}]});
+ render(<MemoryRouter><Weaknesses/></MemoryRouter>);
+ await screen.findByText('Fractions');
+ expect(screen.queryByText('Unclassified concept')).not.toBeInTheDocument();
+ expect(screen.queryByText('Mastered topic')).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Refresh Priority diagnosis'}));
+ await waitFor(()=>expect(queuedAIJsonFetch).toHaveBeenCalledTimes(2));
+ expect(getRecentMistakes).toHaveBeenCalledTimes(2);
+});

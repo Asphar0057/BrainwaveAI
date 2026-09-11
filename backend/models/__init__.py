@@ -210,3 +210,4 @@ if __name__ == "__main__":
     logger.info(" Database tables created successfully!")
 
 from models.product import ProductEvent, AnswerReport, PracticeDelivery, BillingEvent
+from models.b2b import (OrganizationLicense, OrganizationInvite, OrganizationAudit, LearningLesson, LessonCompletion, LearningCheckpoint, CheckpointAttempt, LearningIntervention, SubmissionRevision)

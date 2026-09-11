@@ -1,3 +1,5 @@
+import GraphRenderer, { isGraphLanguage } from './GraphRenderer';
+import DOMPurify from 'dompurify';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { sanitizeHtml, sanitizeUrl } from '../utils/sanitize';
 import { createPortal } from 'react-dom';
@@ -89,7 +91,9 @@ const MermaidBlock = ({ block, updateBlock, readOnly, darkMode }) => {
       instance.initialize({ 
         startOnLoad: false,
         theme: darkMode ? 'dark' : 'default',
-        securityLevel: 'loose',
+        securityLevel: 'strict',
+      htmlLabels: false,
+      flowchart: { htmlLabels: false },
       });
       setMermaid(instance);
     });
@@ -101,7 +105,9 @@ const MermaidBlock = ({ block, updateBlock, readOnly, darkMode }) => {
     mermaid.initialize({
       startOnLoad: false,
       theme: darkMode ? 'dark' : 'default',
-      securityLevel: 'loose',
+      securityLevel: 'strict',
+      htmlLabels: false,
+      flowchart: { htmlLabels: false },
     });
   }, [mermaid, darkMode]);
 
@@ -124,7 +130,7 @@ const MermaidBlock = ({ block, updateBlock, readOnly, darkMode }) => {
           throw new Error('Invalid Mermaid syntax');
         }
         if (cancelled) return;
-        mermaidRef.current.innerHTML = sanitizeHtml(svg);
+        mermaidRef.current.innerHTML = DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true, svgFilters: true } });
         setRenderedSvg(svg);
       } catch (error) {
         if (cancelled) return;
@@ -965,6 +971,9 @@ const SimpleBlockEditor = ({
 
   const renderBlockContent = (block) => {
     
+    if (block.type === 'code' && isGraphLanguage(block.properties?.language || '')) {
+      return <div className="note-graph-block"><GraphRenderer darkMode={darkMode} language={block.properties.language} content={block.content || ''} /><details className="note-graph-source"><summary>{readOnly ? 'View diagram source' : 'Edit diagram source'}</summary><CodeBlock code={block.content || ''} language={block.properties.language} readOnly={readOnly} onChange={(content, language) => updateBlock(block.id, { content, properties: { ...block.properties, language } })} /></details></div>;
+    }
     if (block.type === 'code') {
       return (
         <CodeBlock

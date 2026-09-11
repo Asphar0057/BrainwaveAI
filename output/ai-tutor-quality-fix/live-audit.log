@@ -1,0 +1,8 @@
+beginner-1 200 2.25 beginner
+misconception-1 429 0.98 None
+advanced-1 429 0.15 None
+conversation-start 429 0.12 None
+conversation-correct-answer 429 0.14 None
+conversation-increase-level 429 0.13 None
+conversation-help 429 0.12 None
+Failed HTTP/difficulty checks: misconception-1, advanced-1, conversation-start, conversation-correct-answer, conversation-increase-level, conversation-help

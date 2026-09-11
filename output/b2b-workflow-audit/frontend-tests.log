@@ -1,0 +1,281 @@
+
+> learning@0.1.0 test
+> react-scripts test --watchAll=false --runInBand src/__tests__/pages/B2BPortal.test.js src/__tests__/pages/ClassroomDrafts.test.js src/__tests__/pages/InstitutionClassroomNavigation.test.js src/__tests__/pages/EducatorToolNavigation.test.js src/__tests__/pages/StudentLearningNavigation.test.js src/__tests__/pages/InstitutionProfile.test.js src/__tests__/components/CerbylSidebar.test.js
+
+PASS src/__tests__/pages/EducatorToolNavigation.test.js
+PASS src/__tests__/pages/InstitutionClassroomNavigation.test.js
+  ● Console
+
+    console.warn
+      ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+
+      37 |
+      38 | function open(role, view) {
+    > 39 |   return render(<MemoryRouter initialEntries={[`/${role}/${view}`]}><InstitutionClassroomPage role={role} view={view} /></MemoryRouter>);
+         |                ^
+      40 | }
+      41 |
+      42 | it.each([
+
+      at warnOnce (node_modules/react-router/lib/deprecations.ts:9:13)
+      at logDeprecation (node_modules/react-router/lib/deprecations.ts:14:3)
+      at logV6DeprecationWarnings (node_modules/react-router/lib/deprecations.ts:26:5)
+      at node_modules/react-router/lib/components.tsx:257:25
+      at commitHookEffectListMount (node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+      at commitPassiveMountEffects_complete (node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+      at commitPassiveMountEffects_begin (node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+      at commitPassiveMountEffects (node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+      at flushPassiveEffectsImpl (node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+      at flushPassiveEffects (node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+      at node_modules/react-dom/cjs/react-dom.development.js:26808:9
+      at flushActQueue (node_modules/react/cjs/react.development.js:2667:24)
+      at act (node_modules/react/cjs/react.development.js:2582:11)
+      at node_modules/@testing-library/react/dist/act-compat.js:47:25
+      at renderRoot (node_modules/@testing-library/react/dist/pure.js:190:26)
+      at render (node_modules/@testing-library/react/dist/pure.js:292:10)
+      at open (src/__tests__/pages/InstitutionClassroomNavigation.test.js:39:16)
+      at src/__tests__/pages/InstitutionClassroomNavigation.test.js:49:3
+
+    console.warn
+      ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+      37 |
+      38 | function open(role, view) {
+    > 39 |   return render(<MemoryRouter initialEntries={[`/${role}/${view}`]}><InstitutionClassroomPage role={role} view={view} /></MemoryRouter>);
+         |                ^
+      40 | }
+      41 |
+      42 | it.each([
+
+      at warnOnce (node_modules/react-router/lib/deprecations.ts:9:13)
+      at logDeprecation (node_modules/react-router/lib/deprecations.ts:14:3)
+      at logV6DeprecationWarnings (node_modules/react-router/lib/deprecations.ts:37:5)
+      at node_modules/react-router/lib/components.tsx:257:25
+      at commitHookEffectListMount (node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+      at commitPassiveMountEffects_complete (node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+      at commitPassiveMountEffects_begin (node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+      at commitPassiveMountEffects (node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+      at flushPassiveEffectsImpl (node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+      at flushPassiveEffects (node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+      at node_modules/react-dom/cjs/react-dom.development.js:26808:9
+      at flushActQueue (node_modules/react/cjs/react.development.js:2667:24)
+      at act (node_modules/react/cjs/react.development.js:2582:11)
+      at node_modules/@testing-library/react/dist/act-compat.js:47:25
+      at renderRoot (node_modules/@testing-library/react/dist/pure.js:190:26)
+      at render (node_modules/@testing-library/react/dist/pure.js:292:10)
+      at open (src/__tests__/pages/InstitutionClassroomNavigation.test.js:39:16)
+      at src/__tests__/pages/InstitutionClassroomNavigation.test.js:49:3
+
+PASS src/__tests__/pages/ClassroomDrafts.test.js
+PASS src/__tests__/pages/InstitutionProfile.test.js
+  ● Console
+
+    console.warn
+      ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+
+      20 |   institution.mockImplementation((path,body) => Promise.resolve(body ? {...profile,user:{...profile.user,...body,display_name:`${body.first_name} ${body.last_name}`}} : profile));
+      21 | });
+    > 22 | function page(role='educator') { return render(<MemoryRouter><InstitutionProfile role={role}/></MemoryRouter>); }
+         |                                               ^
+      23 |
+      24 | it('shows classroom identity and saves only editable names', async () => {
+      25 |   page();fireEvent.change(await screen.findByLabelText('First name'),{target:{value:'Maya Jane'}});
+
+      at warnOnce (node_modules/react-router/lib/deprecations.ts:9:13)
+      at logDeprecation (node_modules/react-router/lib/deprecations.ts:14:3)
+      at logV6DeprecationWarnings (node_modules/react-router/lib/deprecations.ts:26:5)
+      at node_modules/react-router/lib/components.tsx:257:25
+      at commitHookEffectListMount (node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+      at commitPassiveMountEffects_complete (node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+      at commitPassiveMountEffects_begin (node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+      at commitPassiveMountEffects (node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+      at flushPassiveEffectsImpl (node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+      at flushPassiveEffects (node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+      at node_modules/react-dom/cjs/react-dom.development.js:26808:9
+      at flushActQueue (node_modules/react/cjs/react.development.js:2667:24)
+      at act (node_modules/react/cjs/react.development.js:2582:11)
+      at node_modules/@testing-library/react/dist/act-compat.js:47:25
+      at renderRoot (node_modules/@testing-library/react/dist/pure.js:190:26)
+      at render (node_modules/@testing-library/react/dist/pure.js:292:10)
+      at page (src/__tests__/pages/InstitutionProfile.test.js:22:47)
+      at Object.<anonymous> (src/__tests__/pages/InstitutionProfile.test.js:25:3)
+
+    console.warn
+      ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+      20 |   institution.mockImplementation((path,body) => Promise.resolve(body ? {...profile,user:{...profile.user,...body,display_name:`${body.first_name} ${body.last_name}`}} : profile));
+      21 | });
+    > 22 | function page(role='educator') { return render(<MemoryRouter><InstitutionProfile role={role}/></MemoryRouter>); }
+         |                                               ^
+      23 |
+      24 | it('shows classroom identity and saves only editable names', async () => {
+      25 |   page();fireEvent.change(await screen.findByLabelText('First name'),{target:{value:'Maya Jane'}});
+
+      at warnOnce (node_modules/react-router/lib/deprecations.ts:9:13)
+      at logDeprecation (node_modules/react-router/lib/deprecations.ts:14:3)
+      at logV6DeprecationWarnings (node_modules/react-router/lib/deprecations.ts:37:5)
+      at node_modules/react-router/lib/components.tsx:257:25
+      at commitHookEffectListMount (node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+      at commitPassiveMountEffects_complete (node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+      at commitPassiveMountEffects_begin (node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+      at commitPassiveMountEffects (node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+      at flushPassiveEffectsImpl (node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+      at flushPassiveEffects (node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+      at node_modules/react-dom/cjs/react-dom.development.js:26808:9
+      at flushActQueue (node_modules/react/cjs/react.development.js:2667:24)
+      at act (node_modules/react/cjs/react.development.js:2582:11)
+      at node_modules/@testing-library/react/dist/act-compat.js:47:25
+      at renderRoot (node_modules/@testing-library/react/dist/pure.js:190:26)
+      at render (node_modules/@testing-library/react/dist/pure.js:292:10)
+      at page (src/__tests__/pages/InstitutionProfile.test.js:22:47)
+      at Object.<anonymous> (src/__tests__/pages/InstitutionProfile.test.js:25:3)
+
+PASS src/__tests__/components/CerbylSidebar.test.js
+PASS src/__tests__/pages/B2BPortal.test.js
+  ● Console
+
+    console.warn
+      ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+
+      11 | const learning={section:{id:1,organization_name:'Example Academy'},lessons:[],followups:[],roster:[],checkpoints:[{id:7,title:'Counting checkpoint',status:'published',questions:[{prompt:'Which number counts every outcome?',options:['Three','Four']}]}]};
+      12 | beforeEach(()=>{localStorage.clear();localStorage.setItem('username','student-one');institution.mockReset();});
+    > 13 | function student(){institution.mockImplementation(path=>Promise.resolve(path==='/student/dashboard'?{courses:[course],assignments:[]}:path==='/student/plan'?{tasks:[],total_tasks:0}:learning));render(<MemoryRouter initialEntries={['/student/learning?section=1&view=Checkpoints']}><InstitutionLearning role="student"/></MemoryRouter>);}
+         |                                                                                                                                                                                                        ^
+      14 | it('keeps checkpoint choices and confidence when changing tabs',async()=>{
+      15 |  student();const answer=await screen.findByLabelText('Four');fireEvent.click(answer);fireEvent.change(screen.getByLabelText('How sure are you?'),{target:{value:'3'}});
+      16 |  fireEvent.click(screen.getByRole('button',{name:'Lessons',exact:true}));fireEvent.click(screen.getByRole('button',{name:'Practice',exact:true}));
+
+      at warnOnce (node_modules/react-router/lib/deprecations.ts:9:13)
+      at logDeprecation (node_modules/react-router/lib/deprecations.ts:14:3)
+      at logV6DeprecationWarnings (node_modules/react-router/lib/deprecations.ts:26:5)
+      at node_modules/react-router/lib/components.tsx:257:25
+      at commitHookEffectListMount (node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+      at commitPassiveMountEffects_complete (node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+      at commitPassiveMountEffects_begin (node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+      at commitPassiveMountEffects (node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+      at flushPassiveEffectsImpl (node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+      at flushPassiveEffects (node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+      at node_modules/react-dom/cjs/react-dom.development.js:26808:9
+      at flushActQueue (node_modules/react/cjs/react.development.js:2667:24)
+      at act (node_modules/react/cjs/react.development.js:2582:11)
+      at node_modules/@testing-library/react/dist/act-compat.js:47:25
+      at renderRoot (node_modules/@testing-library/react/dist/pure.js:190:26)
+      at render (node_modules/@testing-library/react/dist/pure.js:292:10)
+      at student (src/__tests__/pages/B2BPortal.test.js:13:200)
+      at Object.<anonymous> (src/__tests__/pages/B2BPortal.test.js:15:2)
+
+    console.warn
+      ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+      11 | const learning={section:{id:1,organization_name:'Example Academy'},lessons:[],followups:[],roster:[],checkpoints:[{id:7,title:'Counting checkpoint',status:'published',questions:[{prompt:'Which number counts every outcome?',options:['Three','Four']}]}]};
+      12 | beforeEach(()=>{localStorage.clear();localStorage.setItem('username','student-one');institution.mockReset();});
+    > 13 | function student(){institution.mockImplementation(path=>Promise.resolve(path==='/student/dashboard'?{courses:[course],assignments:[]}:path==='/student/plan'?{tasks:[],total_tasks:0}:learning));render(<MemoryRouter initialEntries={['/student/learning?section=1&view=Checkpoints']}><InstitutionLearning role="student"/></MemoryRouter>);}
+         |                                                                                                                                                                                                        ^
+      14 | it('keeps checkpoint choices and confidence when changing tabs',async()=>{
+      15 |  student();const answer=await screen.findByLabelText('Four');fireEvent.click(answer);fireEvent.change(screen.getByLabelText('How sure are you?'),{target:{value:'3'}});
+      16 |  fireEvent.click(screen.getByRole('button',{name:'Lessons',exact:true}));fireEvent.click(screen.getByRole('button',{name:'Practice',exact:true}));
+
+      at warnOnce (node_modules/react-router/lib/deprecations.ts:9:13)
+      at logDeprecation (node_modules/react-router/lib/deprecations.ts:14:3)
+      at logV6DeprecationWarnings (node_modules/react-router/lib/deprecations.ts:37:5)
+      at node_modules/react-router/lib/components.tsx:257:25
+      at commitHookEffectListMount (node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+      at commitPassiveMountEffects_complete (node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+      at commitPassiveMountEffects_begin (node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+      at commitPassiveMountEffects (node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+      at flushPassiveEffectsImpl (node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+      at flushPassiveEffects (node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+      at node_modules/react-dom/cjs/react-dom.development.js:26808:9
+      at flushActQueue (node_modules/react/cjs/react.development.js:2667:24)
+      at act (node_modules/react/cjs/react.development.js:2582:11)
+      at node_modules/@testing-library/react/dist/act-compat.js:47:25
+      at renderRoot (node_modules/@testing-library/react/dist/pure.js:190:26)
+      at render (node_modules/@testing-library/react/dist/pure.js:292:10)
+      at student (src/__tests__/pages/B2BPortal.test.js:13:200)
+      at Object.<anonymous> (src/__tests__/pages/B2BPortal.test.js:15:2)
+
+PASS src/__tests__/pages/StudentLearningNavigation.test.js
+  ● Console
+
+    console.warn
+      ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+
+      29 |
+      30 | function renderLearning() {
+    > 31 |   render(<MemoryRouter initialEntries={['/student/learning']}><InstitutionLearning role="student" /></MemoryRouter>);
+         |         ^
+      32 | }
+      33 |
+      34 | it('shows the class and deadline on Today and opens the named assignment', async () => {
+
+      at warnOnce (node_modules/react-router/lib/deprecations.ts:9:13)
+      at logDeprecation (node_modules/react-router/lib/deprecations.ts:14:3)
+      at logV6DeprecationWarnings (node_modules/react-router/lib/deprecations.ts:26:5)
+      at node_modules/react-router/lib/components.tsx:257:25
+      at commitHookEffectListMount (node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+      at commitPassiveMountEffects_complete (node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+      at commitPassiveMountEffects_begin (node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+      at commitPassiveMountEffects (node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+      at flushPassiveEffectsImpl (node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+      at flushPassiveEffects (node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+      at node_modules/react-dom/cjs/react-dom.development.js:26808:9
+      at flushActQueue (node_modules/react/cjs/react.development.js:2667:24)
+      at act (node_modules/react/cjs/react.development.js:2582:11)
+      at node_modules/@testing-library/react/dist/act-compat.js:47:25
+      at renderRoot (node_modules/@testing-library/react/dist/pure.js:190:26)
+      at render (node_modules/@testing-library/react/dist/pure.js:292:10)
+      at renderLearning (src/__tests__/pages/StudentLearningNavigation.test.js:31:9)
+      at Object.<anonymous> (src/__tests__/pages/StudentLearningNavigation.test.js:35:3)
+      at TestScheduler.scheduleTests (node_modules/@jest/core/build/TestScheduler.js:333:13)
+      at runJest (node_modules/@jest/core/build/runJest.js:404:19)
+      at _run10000 (node_modules/@jest/core/build/cli/index.js:320:7)
+      at runCLI (node_modules/@jest/core/build/cli/index.js:173:3)
+
+    console.warn
+      ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+      29 |
+      30 | function renderLearning() {
+    > 31 |   render(<MemoryRouter initialEntries={['/student/learning']}><InstitutionLearning role="student" /></MemoryRouter>);
+         |         ^
+      32 | }
+      33 |
+      34 | it('shows the class and deadline on Today and opens the named assignment', async () => {
+
+      at warnOnce (node_modules/react-router/lib/deprecations.ts:9:13)
+      at logDeprecation (node_modules/react-router/lib/deprecations.ts:14:3)
+      at logV6DeprecationWarnings (node_modules/react-router/lib/deprecations.ts:37:5)
+      at node_modules/react-router/lib/components.tsx:257:25
+      at commitHookEffectListMount (node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+      at commitPassiveMountEffects_complete (node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+      at commitPassiveMountEffects_begin (node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+      at commitPassiveMountEffects (node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+      at flushPassiveEffectsImpl (node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+      at flushPassiveEffects (node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+      at node_modules/react-dom/cjs/react-dom.development.js:26808:9
+      at flushActQueue (node_modules/react/cjs/react.development.js:2667:24)
+      at act (node_modules/react/cjs/react.development.js:2582:11)
+      at node_modules/@testing-library/react/dist/act-compat.js:47:25
+      at renderRoot (node_modules/@testing-library/react/dist/pure.js:190:26)
+      at render (node_modules/@testing-library/react/dist/pure.js:292:10)
+      at renderLearning (src/__tests__/pages/StudentLearningNavigation.test.js:31:9)
+      at Object.<anonymous> (src/__tests__/pages/StudentLearningNavigation.test.js:35:3)
+      at TestScheduler.scheduleTests (node_modules/@jest/core/build/TestScheduler.js:333:13)
+      at runJest (node_modules/@jest/core/build/runJest.js:404:19)
+      at _run10000 (node_modules/@jest/core/build/cli/index.js:320:7)
+      at runCLI (node_modules/@jest/core/build/cli/index.js:173:3)
+
+
+Test Suites: 7 passed, 7 total
+Tests:       48 passed, 48 total
+Snapshots:   0 total
+Time:        3.178 s
+Ran all test suites matching /src\/__tests__\/pages\/B2BPortal.test.js|src\/__tests__\/pages\/ClassroomDrafts.test.js|src\/__tests__\/pages\/InstitutionClassroomNavigation.test.js|src\/__tests__\/pages\/EducatorToolNavigation.test.js|src\/__tests__\/pages\/StudentLearningNavigation.test.js|src\/__tests__\/pages\/InstitutionProfile.test.js|src\/__tests__\/components\/CerbylSidebar.test.js/i.

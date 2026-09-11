@@ -6,7 +6,7 @@ from database import get_db
 from deps import get_current_user
 from services.access_control import normalize_account_role
 
-from .helpers import _accessible_section, _display_name, _notify, _user_summary
+from .helpers import _active_section_ids, _accessible_section, _display_name, _notify, _user_summary
 from .schemas import ClassroomMessageCreate
 
 router = APIRouter()
@@ -79,6 +79,7 @@ def list_classroom_messages(
         (models.ClassroomMessage.sender_id == current_user.id)
         | (models.ClassroomMessage.recipient_id == current_user.id)
     )
+    query = query.filter(models.ClassroomMessage.section_id.in_(_active_section_ids(db, current_user)))
     if section_id:
         _accessible_section(db, section_id, current_user)
         query = query.filter(models.ClassroomMessage.section_id == section_id)

@@ -1153,3 +1153,9 @@
   .wa-intelligence-accuracy { display: none; }
   .wa-intelligence-signal p { white-space: normal; }
 }
+
+/* Keyboard users can read the same full topic exposed by the hover title. */
+.wa-topic-row:focus-visible .wa-topic-body span {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

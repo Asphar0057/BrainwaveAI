@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "course": "QA3246742",
+  "section_id": 13,
+  "assignment_id": 17,
+  "assignmentTitle": "QA — Explain the probability of gold 3246742",
+  "answer": "There are four equally likely counters altogether: three blue and one gold. Only one is gold, so the probability of choosing gold is 1/4. For a fair six-sided die, the probability of rolling a 2 is 1/6.",
+  "feedback": "You correctly counted all four outcomes and found 1/4. Your die example also uses equally likely outcomes correctly. Next, explain what would change if the counter were chosen without looking but the counters had different sizes.",
+  "checks": [
+    "Teacher creates own class and enrolls two existing company students",
+    "Protected material upload and authenticated student download",
+    "Assignment publish on mobile",
+    "Failed draft request preserves text",
+    "Saved draft restored after reload",
+    "Student submits on mobile",
+    "Private message received by teacher",
+    "Failed grade request preserves feedback",
+    "Grade published and student sees exact feedback",
+    "Gradebook 100%",
+    "Mobile sidebar starts collapsed"
+  ]
+}

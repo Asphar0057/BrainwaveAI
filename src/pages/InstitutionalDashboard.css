@@ -1,3 +1,5 @@
+@import "../styles/CerbylCardSurface.css";
+
 /*
 THESIS: Cerbyl institution workspaces are the same learning instrument tuned to a different operator—not generic LMS dashboards.
 OWN-WORLD: Near-black atmospheric field, warm gold calibration lines, tactile graphite modules, circular identity portrait, compact metrics, and large typographic tool tiles inherited from Cerbyl Learn.
@@ -7,10 +9,10 @@ FORM: Established Cerbyl Learn composition extended into student and educator op
 */
 
 .ci-root {
-  --ci-bg: #050504;
-  --ci-bg-2: #0a0a08;
+  --ci-bg: #050506;
+  --ci-bg-2: #08090b;
   --ci-panel: #0b0c0f;
-  --ci-panel-2: #12110f;
+  --ci-panel-2: #101114;
   --ci-accent: var(--accent, #d8b38d);
   --ci-text: var(--text-primary, #f3f1ed);
   --ci-muted: color-mix(in srgb, var(--ci-text) 58%, transparent);
@@ -78,34 +80,6 @@ FORM: Established Cerbyl Learn composition extended into student and educator op
   background:
     linear-gradient(180deg, rgba(0, 0, 0, 0.25), transparent 28%, transparent 72%, rgba(0, 0, 0, 0.55)),
     radial-gradient(ellipse at center, transparent 35%, rgba(0, 0, 0, 0.34));
-}
-
-.ci-tile-texture {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  border-radius: inherit;
-  pointer-events: none;
-}
-
-.ci-tile-texture::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image:
-    radial-gradient(circle at 88% 94%, rgba(216, 179, 141, 0.17), transparent 55%),
-    repeating-linear-gradient(115deg, transparent 0 22px, rgba(216, 179, 141, 0.052) 22px 23px),
-    repeating-linear-gradient(25deg, transparent 0 26px, rgba(216, 179, 141, 0.032) 26px 27px);
-}
-
-.ci-tile-texture::after {
-  content: '';
-  position: absolute;
-  inset: -20%;
-  opacity: 0.13;
-  mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 .ci-topbar {
@@ -212,9 +186,11 @@ FORM: Established Cerbyl Learn composition extended into student and educator op
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
+  grid-template-columns: 280px minmax(0, 1fr);
   gap: 24px;
-  padding: 8px 28px 28px;
+  padding: 8px 20px 20px;
+  width: min(1640px, 100%);
+  margin: 0 auto;
 }
 
 .ci-side {
@@ -223,7 +199,7 @@ FORM: Established Cerbyl Learn composition extended into student and educator op
   display: flex;
   flex-direction: column;
   gap: 17px;
-  padding: 20px 18px;
+  padding: 28px 22px;
   overflow: hidden;
   border: 1px solid var(--ci-line-strong);
   border-radius: 18px;
@@ -475,7 +451,7 @@ FORM: Established Cerbyl Learn composition extended into student and educator op
   max-width: 800px;
   margin: 7px 0 20px;
   color: var(--ci-text);
-  font-size: clamp(3.9rem, 7vw, 6rem);
+  font-size: clamp(44px, 5.4vw, 72px);
   font-weight: 900;
   line-height: 0.92;
   letter-spacing: -0.04em;
@@ -667,8 +643,6 @@ FORM: Established Cerbyl Learn composition extended into student and educator op
 
 .ci-feature:hover {
   z-index: 2;
-  border-color: var(--ci-line-strong);
-  transform: translateY(-4px);
 }
 
 .ci-feature > *:not(.ci-tile-texture) {
@@ -803,6 +777,13 @@ FORM: Established Cerbyl Learn composition extended into student and educator op
 .ci-feature--tutor,
 .ci-feature--create {
   cursor: pointer;
+}
+
+.ci-feature--tutor {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
 }
 
 .ci-tutor-prompt {
@@ -982,7 +963,6 @@ FORM: Established Cerbyl Learn composition extended into student and educator op
 
 .ci-module:hover {
   color: var(--ci-accent);
-  border-color: var(--ci-line-strong);
 }
 
 .ci-lower-grid {
@@ -1276,6 +1256,21 @@ button.ci-focus-panel {
   padding: 24px;
 }
 
+.ci-teaching-schedule {
+  display: grid;
+  gap: 12px;
+  padding: 24px;
+}
+
+.ci-teaching-schedule > p {
+  color: var(--ci-muted);
+  line-height: 1.6;
+}
+
+.ci-modal .ci-workspace-class-picker {
+  margin-top: 12px;
+}
+
 .ci-modal label {
   display: grid;
   gap: 7px;
@@ -1423,8 +1418,129 @@ button.ci-focus-panel {
   line-height: 1.5;
 }
 
-.ci-modal--submission {
-  width: min(680px, calc(100vw - 32px));
+.ci-modal--submission,
+.ci-modal--assignment {
+  width: min(680px, 100%);
+  max-height: calc(100dvh - 40px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ci-modal--submission > header,
+.ci-modal--assignment > header {
+  flex: 0 0 auto;
+  gap: 20px;
+  max-height: 30dvh;
+  overflow-y: auto;
+}
+
+.ci-modal--submission > header > div,
+.ci-modal--assignment > header > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ci-modal--submission > header button,
+.ci-modal--assignment > header button {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+}
+
+.ci-modal--submission > form,
+.ci-modal--assignment > form {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.ci-submission-body,
+.ci-assignment-body {
+  display: grid;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 16px;
+  padding: 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ci-line-strong) transparent;
+}
+
+.ci-submission-body > *,
+.ci-assignment-body > * {
+  min-width: 0;
+}
+
+.ci-modal--submission footer,
+.ci-modal--assignment footer {
+  flex: 0 0 auto;
+  padding: 16px 24px;
+  border-top: 1px solid var(--ci-line);
+  background: var(--ci-panel);
+}
+
+.ci-modal--submission > form > .ci-form-error,
+.ci-modal--assignment > form > .ci-form-error {
+  flex: 0 0 auto;
+  padding: 12px 24px;
+  background: var(--ci-panel);
+}
+
+.ci-modal--submission .ci-field-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ci-modal--submission .ci-field-title small,
+.ci-modal--submission .ci-upload-help {
+  color: var(--ci-muted);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.ci-modal--submission .ci-upload-help {
+  margin: -9px 0 0;
+}
+
+.ci-modal--submission :is(input, textarea) {
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.ci-modal--submission input[type="file"] {
+  padding: 6px;
+  font-size: 13px;
+}
+
+.ci-modal--submission input[type="file"]::file-selector-button {
+  min-height: 32px;
+  margin-inline-end: 12px;
+  padding: 6px 12px;
+  border: 1px solid var(--ci-line-strong);
+  border-radius: 6px;
+  background: var(--ci-panel-2);
+  color: var(--ci-accent);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ci-modal--submission input[type="file"]:disabled {
+  opacity: .55;
+}
+
+.ci-modal--submission input[type="file"]:disabled::file-selector-button {
+  cursor: not-allowed;
 }
 
 .ci-modal--review {
@@ -2374,3 +2490,103 @@ button.ci-focus-panel {
 .ci-root :is(input, textarea, select), .ci-modal :is(input, textarea, select) { font-size: 16px; }
 .ci-modal :is(label, p, small), .ci-root :is(.ci-feature-list-row small, .ci-ranking-note, .ci-student-row small, .ci-grade-fields label) { font-size: 14px; line-height: 1.5; }
 .ci-modal :is(button, input, select) { min-height: 44px; }
+
+@media (max-width: 600px) {
+  .ci-modal--submission > header,
+  .ci-submission-body { padding: 16px; }
+  .ci-modal--submission > header h2 { font-size: 24px; }
+  .ci-modal--submission footer {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 12px 16px;
+  }
+  .ci-modal--submission footer .ci-action--primary,
+  .ci-modal--submission footer .ci-submission-locked { grid-column: 1 / -1; }
+  .ci-modal--submission footer .ci-action { white-space: normal; }
+}
+
+/* Long authoring forms share the submission dialog's fixed header/footer shell. */
+.ci-modal.ci-modal--assignment {
+  width: min(760px, 100%);
+  background: var(--cb-neo-surface, linear-gradient(155deg, #0b0c0f, #050506));
+}
+
+.ci-assignment-body {
+  align-content: start;
+  scroll-padding-block: 24px;
+}
+
+.ci-modal--assignment .ci-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px;
+}
+
+.ci-modal--assignment label {
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 650;
+}
+
+.ci-modal--assignment :is(input, select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+  color-scheme: dark;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.ci-modal label.ci-checkbox-label {
+  display: flex;
+  align-items: center;
+  align-self: end;
+  gap: 10px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.ci-modal .ci-checkbox-label input[type="checkbox"] {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--ci-accent);
+  cursor: pointer;
+}
+
+.ci-modal--assignment footer {
+  flex-direction: row;
+  align-items: center;
+}
+
+.ci-modal--assignment footer .ci-action {
+  width: auto;
+  white-space: normal;
+}
+
+@media (max-width: 600px) {
+  .ci-modal--assignment .ci-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .ci-modal--assignment > header { padding: 18px; }
+  .ci-modal--assignment > header h2 { font-size: 24px; }
+  .ci-assignment-body { padding: 18px; }
+  .ci-modal--assignment footer { padding: 14px 18px; }
+  .ci-modal--assignment footer .ci-action--primary { flex: 1; }
+}
+
+/* Dialogs opened from classroom pages must cover the shell's context bar. */
+.ci-shell:has(.ci-modal-backdrop) { z-index: 20; }
+.ci-modal--review .ci-grade-fields textarea { width: 100%; min-width: 0; min-height: 100px; font-size: 16px; font-weight: 400; line-height: 1.5; }
+.ci-modal--review .ci-review-list > article { grid-template-columns: minmax(0, 1fr); align-items: start; padding: 20px; gap: 16px; }
+.ci-modal--review .ci-review-response { display: block; overflow: visible; -webkit-line-clamp: unset; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 15px; line-height: 1.65; max-width: 75ch; color: var(--ci-text); }
+.ci-modal--review .ci-grade-fields { grid-template-columns: 110px minmax(0, 1fr); align-items: start; gap: 14px; }
+.ci-modal--review .ci-grade-fields > label:nth-child(2) { min-width: 0; }
+.ci-modal--review .ci-grade-fields > details { grid-column: 1 / -1; }
+.ci-modal--review .ci-grade-fields > button { grid-column: 2; justify-self: end; min-height: 44px; }
+@media (max-width: 600px) {
+  .ci-modal--review .ci-grade-fields { grid-template-columns: minmax(0, 1fr); }
+  .ci-modal--review .ci-grade-fields > button { grid-column: 1; width: 100%; }
+}

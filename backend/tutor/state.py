@@ -60,6 +60,7 @@ class TutorState(TypedDict, total=False):
     context_doc_ids: list[str]
     context_only: bool
     tutor_mode: bool
+    tutor_level: str
     tutor_reply_style: str
     tutor_choice: Optional[str]
     tutor_session_state: Optional[dict]

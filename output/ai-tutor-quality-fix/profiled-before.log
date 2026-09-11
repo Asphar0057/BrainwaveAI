@@ -1,0 +1,63 @@
+INFO: setup plugin alembic.autogenerate.schemas
+INFO: setup plugin alembic.autogenerate.tables
+INFO: setup plugin alembic.autogenerate.types
+INFO: setup plugin alembic.autogenerate.constraints
+INFO: setup plugin alembic.autogenerate.defaults
+INFO: setup plugin alembic.autogenerate.comments
+INFO: Context impl SQLiteImpl.
+INFO: Will assume non-transactional DDL.
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+WARNI [__main__] ENVIRONMENT env var is not set — defaulting to DEVELOPMENT mode. Set ENVIRONMENT=production in production deployments.
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+WARNI [main] ENVIRONMENT env var is not set — defaulting to DEVELOPMENT mode. Set ENVIRONMENT=production in production deployments.
+INFO:     Started server process [25963]
+INFO:     Waiting for application startup.
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNI [huggingface_hub.utils._http] Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 7575.14it/s]
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+WARNI [tutor.graph] [TUTOR TIMING] node=detect_intent seconds=0.000
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loading weights: 100%|██████████| 103/103 [00:00<00:00, 6118.22it/s]
+WARNI [tutor.graph] [TUTOR TIMING] node=analyze_message seconds=6.011
+WARNI [tutor.graph] [TUTOR TIMING] node=fetch_student_state seconds=0.005
+WARNI [tutor.graph] [TUTOR TIMING] node=gate_and_retrieve seconds=0.001
+WARNI [tutor.graph] [TUTOR TIMING] node=plan_tutor_steps seconds=1.861
+WARNI [tutor.graph] [TUTOR TIMING] node=evaluate_tutor_attempt seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=update_tutor_plan_progress seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=select_teaching_style seconds=0.014
+WARNI [tutor.graph] [TUTOR TIMING] node=build_prompt_and_respond seconds=1.609
+WARNI [tutor.graph] [TUTOR TIMING] node=evaluate_response seconds=1.424
+WARNI [tutor.graph] [TUTOR TIMING] node=persist_updates seconds=0.065
+WARNI [activity_middleware] Slow API request: POST /api/ask_simple/ status=200 duration=11.25s
+WARNI [tutor.graph] [TUTOR TIMING] node=detect_intent seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=analyze_message seconds=0.014
+WARNI [tutor.graph] [TUTOR TIMING] node=fetch_student_state seconds=0.002
+WARNI [tutor.graph] [TUTOR TIMING] node=gate_and_retrieve seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=plan_tutor_steps seconds=2.046
+WARNI [tutor.graph] [TUTOR TIMING] node=evaluate_tutor_attempt seconds=1.709
+WARNI [tutor.graph] [TUTOR TIMING] node=update_tutor_plan_progress seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=select_teaching_style seconds=0.012
+WARNI [tutor.nodes] [TUTOR GEN] Contract/schema leakage detected; retrying tutor response repair
+WARNI [tutor.graph] [TUTOR TIMING] node=build_prompt_and_respond seconds=22.419
+WARNI [tutor.evaluator] Evaluation failed, defaulting to no-op: Expecting value: line 1 column 1 (char 0)
+WARNI [tutor.graph] [TUTOR TIMING] node=evaluate_response seconds=3.065
+WARNI [tutor.graph] [TUTOR TIMING] node=persist_updates seconds=0.065
+WARNI [activity_middleware] Slow API request: POST /api/ask_simple/ status=200 duration=29.46s
+WARNI [tutor.graph] [TUTOR TIMING] node=detect_intent seconds=0.001
+WARNI [tutor.graph] [TUTOR TIMING] node=analyze_message seconds=0.014
+WARNI [tutor.graph] [TUTOR TIMING] node=fetch_student_state seconds=0.001
+WARNI [tutor.graph] [TUTOR TIMING] node=gate_and_retrieve seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=plan_tutor_steps seconds=10.541
+WARNI [tutor.graph] [TUTOR TIMING] node=evaluate_tutor_attempt seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=update_tutor_plan_progress seconds=0.000
+WARNI [tutor.graph] [TUTOR TIMING] node=select_teaching_style seconds=0.015
+WARNI [tutor.graph] [TUTOR TIMING] node=build_prompt_and_respond seconds=24.002
+WARNI [tutor.evaluator] Evaluation failed, defaulting to no-op: Expecting value: line 1 column 1 (char 0)
+WARNI [tutor.graph] [TUTOR TIMING] node=evaluate_response seconds=6.347
+WARNI [tutor.graph] [TUTOR TIMING] node=persist_updates seconds=0.069
+WARNI [activity_middleware] Slow API request: POST /api/ask_simple/ status=200 duration=41.10s

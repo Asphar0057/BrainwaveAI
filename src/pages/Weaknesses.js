@@ -260,7 +260,7 @@ const Weaknesses = () => {
               <span><strong>{totalCount}</strong>signals</span>
               <span><strong>{allAreas.reduce((sum, area) => sum + (area.total_attempts || 0), 0)}</strong>attempts</span>
               {['weak-areas', 'topics-hub', 'activity'].includes(activeView) ? (
-                <button type="button" onClick={activeView === 'weak-areas' ? loadRecentMistakes : activeView === 'topics-hub' ? loadTopicsHub : loadActivityFeed} aria-label={`Refresh ${activeNav?.label}`}>
+                <button type="button" onClick={activeView === 'weak-areas' ? () => { loadWeakAreas(); loadRecentMistakes(); } : activeView === 'topics-hub' ? loadTopicsHub : loadActivityFeed} aria-label={`Refresh ${activeNav?.label}`}>
                   <RefreshCw size={16} />
                 </button>
               ) : null}
@@ -272,11 +272,11 @@ const Weaknesses = () => {
           <div className="wa-stage" key={activeView}>
             {activeView === 'weak-areas' && (
               <DiagnosisView
-                loading={mistakesLoading}
-                failed={Boolean(error) && !mistakeTopics.length && !mistakes.length}
-                areas={mistakeTopics}
+                loading={loading || mistakesLoading}
+                failed={Boolean(error) && !allAreas.length}
+                areas={allAreas}
                 onStartLearning={() => navigate('/ai-chat')}
-                onRetry={loadRecentMistakes}
+                onRetry={() => { loadWeakAreas(); loadRecentMistakes(); }}
                 mistakes={mistakes}
                 mistakesLoading={mistakesLoading}
                 onExplainMistake={openMistakeExplanation}
@@ -472,7 +472,7 @@ const DiagnosisView = ({
           const accuracy = Math.max(0, Math.min(100, Math.round(area.accuracy || 0)));
           return (
             <div key={key} className="wa-topic-group">
-              <button type="button" className="wa-topic-row" onClick={() => toggle(key)} aria-expanded={isOpen}>
+              <button type="button" className="wa-topic-row" title={displayTopic(area.topic)} onClick={() => toggle(key)} aria-expanded={isOpen}>
                 <div className="wa-topic-body">
                   <span>{displayTopic(area.topic)}</span>
                   <div className="wa-topic-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={accuracy}>

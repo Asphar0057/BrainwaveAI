@@ -22,7 +22,7 @@ export function getToolNavigation(pathname = '/', workspace = null) {
   let parentLabel = 'Dashboard';
   if (root === 'student' || root === 'educator') {
     parentPath = `/${root}`;
-    label = ({classes:'Classes',assignments:'Assignments',gradebook:'Gradebook',messages:'Messages',notifications:'Notifications'})[parts[1]] || 'Classroom';
+    label = ({classes:'Classes',assignments:'Assignments',gradebook:'Gradebook',messages:'Messages',notifications:'Notifications',profile:'Profile',library:'Study Library',learning:'Learning'})[parts[1]] || 'Classroom';
   } else if (root === 'notes' && parts.length > 1) {
     parentPath = '/notes'; parentLabel = 'Notes';
     label = ({dashboard:'Note library',editor:'Note editor','ai-media':'Media notes','audio-video':'Media workspace',podcast:'Podcast','my-notes':'Note library'})[parts[1]] || 'Notes';

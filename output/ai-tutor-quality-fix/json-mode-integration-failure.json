@@ -1,0 +1,100 @@
+[
+  {
+    "case": "beginner-1",
+    "expected_level": "beginner",
+    "prompt": "I am new to probability. A bag has three blue counters and one gold. Each counter is equally likely to be chosen. Help me find the probability of gold, one small step at a time. Do not give me the answer yet.",
+    "http_status": 503,
+    "elapsed_seconds": 2.09,
+    "chat_id": null,
+    "response": {
+      "detail": {
+        "code": "ai_generation_failed",
+        "message": "AI is temporarily unavailable. Please retry."
+      }
+    }
+  },
+  {
+    "case": "misconception-1",
+    "expected_level": "beginner",
+    "prompt": "I think P(gold) is 1/3 because there are three blue counters and one gold. Each counter is equally likely. Is my reasoning correct? Explain simply and ask one question to help me fix it.",
+    "http_status": 503,
+    "elapsed_seconds": 4.38,
+    "chat_id": null,
+    "response": {
+      "detail": {
+        "code": "ai_generation_failed",
+        "message": "AI is temporarily unavailable. Please retry."
+      }
+    }
+  },
+  {
+    "case": "advanced-1",
+    "expected_level": "advanced",
+    "prompt": "I understand basic probability. Explain why favourable outcomes divided by total outcomes fails when outcomes are not equally likely. Give one short numerical counterexample and a question to check my understanding.",
+    "http_status": 503,
+    "elapsed_seconds": 14.62,
+    "chat_id": null,
+    "response": {
+      "detail": {
+        "code": "ai_generation_failed",
+        "message": "AI is temporarily unavailable. Please retry."
+      }
+    }
+  },
+  {
+    "case": "beginner-2",
+    "expected_level": "beginner",
+    "prompt": "I am new to probability. A bag has three blue counters and one gold. Each counter is equally likely to be chosen. Help me find the probability of gold, one small step at a time. Do not give me the answer yet.",
+    "http_status": 503,
+    "elapsed_seconds": 20.39,
+    "chat_id": null,
+    "response": {
+      "detail": {
+        "code": "ai_generation_failed",
+        "message": "AI is temporarily unavailable. Please retry."
+      }
+    }
+  },
+  {
+    "case": "misconception-2",
+    "expected_level": "beginner",
+    "prompt": "I think P(gold) is 1/3 because there are three blue counters and one gold. Each counter is equally likely. Is my reasoning correct? Explain simply and ask one question to help me fix it.",
+    "http_status": 503,
+    "elapsed_seconds": 32.69,
+    "chat_id": null,
+    "response": {
+      "detail": {
+        "code": "ai_generation_failed",
+        "message": "AI is temporarily unavailable. Please retry."
+      }
+    }
+  },
+  {
+    "case": "advanced-2",
+    "expected_level": "advanced",
+    "prompt": "I understand basic probability. Explain why favourable outcomes divided by total outcomes fails when outcomes are not equally likely. Give one short numerical counterexample and a question to check my understanding.",
+    "http_status": 503,
+    "elapsed_seconds": 17.93,
+    "chat_id": null,
+    "response": {
+      "detail": {
+        "code": "ai_generation_failed",
+        "message": "AI is temporarily unavailable. Please retry."
+      }
+    }
+  },
+  {
+    "case": "beginner-3",
+    "expected_level": "beginner",
+    "prompt": "I am new to probability. A bag has three blue counters and one gold. Each counter is equally likely to be chosen. Help me find the probability of gold, one small step at a time. Do not give me the answer yet.",
+    "http_status": 503,
+    "elapsed_seconds": 2.08,
+    "chat_id": null,
+    "response": {
+      "detail": {
+        "code": "ai_generation_failed",
+        "message": "AI is temporarily unavailable. Please retry."
+      }
+    }
+  }
+]

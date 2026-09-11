@@ -1,5 +1,12 @@
+import { institutionDate } from '../utils/institutionDate';
+import TeacherClassDialog from '../components/TeacherClassDialog';
+import CerbylSidebar from '../components/CerbylSidebar';
+import useInstitutionSidebar from '../hooks/useInstitutionSidebar';
+import InstitutionNextStep from '../components/InstitutionNextStep';
+import SubmissionHistory from '../components/SubmissionHistory';
 import LearningEvidence from '../components/LearningEvidence';
 import useAccountDraft from '../hooks/useAccountDraft';
+import useCerbylCardMotion, { INSTITUTION_CARDS } from '../hooks/useCerbylCardMotion';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -106,7 +113,7 @@ function LearnerEvidenceDialog({ student, sectionId, onClose, onReview }) {
     <section ref={dialogRef} className="ci-modal ci-modal--review" role="dialog" aria-modal="true" aria-labelledby="learner-evidence-title">
       <header><div><h2 id="learner-evidence-title">{student.student_name}</h2><p>{student.course_code} · {student.signal}</p></div><button onClick={onClose} aria-label="Close learner evidence"><X size={18}/></button></header>
       <p>Mastery {student.mastery_percent}% · Progress {student.progress_percent}%</p>
-      <p>Last active: {student.last_active_at ? new Date(student.last_active_at).toLocaleString() : 'No activity recorded'}</p>
+      <p>Last active: {student.last_active_at ? institutionDate(student.last_active_at).toLocaleString() : 'No activity recorded'}</p>
       {state.loading && <p role="status">Loading this learner’s work…</p>}
       {state.error && <p role="alert">{state.error} <button onClick={load}>Retry</button></p>}
       {!state.loading && !state.error && (state.rows.length ? state.rows.map(({ assignment, submission }) => <article key={assignment.id || assignment.assignment_id}>
@@ -164,76 +171,82 @@ export function AssignmentDialog({ sections, onClose, onCreated }) {
 
   return (
     <div className="ci-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !status.saving && onClose()}>
-      <section ref={dialogRef} className="ci-modal" role="dialog" aria-modal="true" aria-labelledby="assignment-dialog-title">
-        <div className="ci-tile-texture" />
+      <section ref={dialogRef} className="ci-modal ci-modal--assignment" role="dialog" aria-modal="true" aria-labelledby="assignment-dialog-title">
+        <div className="ci-tile-texture" aria-hidden="true" />
         <header>
           <div><span>CREATE FOR A CLASS</span><h2 id="assignment-dialog-title">New assignment.</h2></div>
           <button type="button" aria-label="Close" onClick={() => { if (!status.saving) onClose(); }}><X size={18} /></button>
         </header>
         <form onSubmit={submit}>
-          <label>Class
-            <select value={form.section_id} onChange={(event) => setForm({ ...form, section_id: event.target.value })} required>
-              {sections.map((section) => <option value={section.section_id} key={section.section_id}>{section.course_code} · {section.course_title}</option>)}
-            </select>
-          </label>
-          <label>Assignment title
-            <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} minLength={3} maxLength={180} required placeholder="e.g. Graph traversal checkpoint" />
-          </label>
-          <label>Instructions
-            <textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} rows={3} placeholder="What should students complete?" />
-          </label>
-          <label>Rubric and success criteria
-            <textarea value={form.rubric_text} onChange={(event) => setForm({ ...form, rubric_text: event.target.value })} rows={3} placeholder="Describe what excellent, satisfactory, and incomplete work looks like." />
-          </label>
-          <div className="ci-form-grid">
-            <label>Available from
-              <input type="datetime-local" value={form.start_at} onChange={(event) => setForm({ ...form, start_at: event.target.value })} />
-            </label>
-            <label>Due date
-              <input type="datetime-local" value={form.due_at} onChange={(event) => setForm({ ...form, due_at: event.target.value })} />
-            </label>
-            <label>Estimated minutes
-              <input type="number" min="5" max="600" value={form.estimated_minutes} onChange={(event) => setForm({ ...form, estimated_minutes: event.target.value })} />
-            </label>
-          </div>
-          <div className="ci-form-grid ci-form-grid--three">
-            <label>Activity type
-              <select value={form.assignment_type} onChange={(event) => setForm({ ...form, assignment_type: event.target.value })}>
-                <option value="practice">Practice</option>
-                <option value="quiz">Quiz</option>
-                <option value="problem_set">Problem set</option>
-                <option value="reflection">Reflection</option>
-                <option value="writing">Writing</option>
+          <div className="ci-assignment-body">
+            <label>Class
+              <select value={form.section_id} onChange={(event) => setForm({ ...form, section_id: event.target.value })} required>
+                {sections.map((section) => <option value={section.section_id} key={section.section_id}>{section.course_code} · {section.course_title}</option>)}
               </select>
             </label>
-            <label>Points
-              <input type="number" min="1" max="1000" value={form.points_possible} onChange={(event) => setForm({ ...form, points_possible: event.target.value })} />
+            <label>Assignment title
+              <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} minLength={3} maxLength={180} required placeholder="e.g. Graph traversal checkpoint" />
             </label>
-            <label>Grade weight %
-              <input type="number" min="0" max="100" step="0.5" value={form.weight_percent} onChange={(event) => setForm({ ...form, weight_percent: event.target.value })} />
+            <label>Instructions
+              <textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} rows={3} placeholder="What should students complete?" />
             </label>
-            <label>AI policy
-              <select value={form.ai_policy} onChange={(event) => setForm({ ...form, ai_policy: event.target.value })}>
-                <option value="guided">Guided help</option>
-                <option value="open">Open use</option>
-                <option value="restricted">Restricted</option>
-              </select>
+            <label>Rubric and success criteria
+              <textarea value={form.rubric_text} onChange={(event) => setForm({ ...form, rubric_text: event.target.value })} rows={3} placeholder="Describe what excellent, satisfactory, and incomplete work looks like." />
             </label>
-          </div>
-          <div className="ci-form-grid ci-form-grid--three">
-            <label>Attempts
-              <input type="number" min="1" max="20" value={form.max_attempts} onChange={(event) => setForm({ ...form, max_attempts: event.target.value })} />
-            </label>
-            <label>Publishing
-              <select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>
-                <option value="published">Publish now</option>
-                <option value="draft">Save as draft</option>
-              </select>
-            </label>
-            <label className="ci-checkbox-label">
-              <input type="checkbox" checked={form.allow_resubmission} onChange={(event) => setForm({ ...form, allow_resubmission: event.target.checked })} />
-              Allow resubmission
-            </label>
+            <div className="ci-form-grid">
+              <label>Available from
+                <input type="datetime-local" value={form.start_at} onChange={(event) => setForm({ ...form, start_at: event.target.value })} />
+              </label>
+              <label>Due date
+                <input type="datetime-local" value={form.due_at} onChange={(event) => setForm({ ...form, due_at: event.target.value })} />
+              </label>
+            </div>
+            <div className="ci-form-grid">
+              <label>Estimated minutes
+                <input type="number" min="5" max="600" value={form.estimated_minutes} onChange={(event) => setForm({ ...form, estimated_minutes: event.target.value })} />
+              </label>
+              <label>Activity type
+                <select value={form.assignment_type} onChange={(event) => setForm({ ...form, assignment_type: event.target.value })}>
+                  <option value="practice">Practice</option>
+                  <option value="quiz">Quiz</option>
+                  <option value="problem_set">Problem set</option>
+                  <option value="reflection">Reflection</option>
+                  <option value="writing">Writing</option>
+                </select>
+              </label>
+            </div>
+            <div className="ci-form-grid">
+              <label>Points
+                <input type="number" min="1" max="1000" value={form.points_possible} onChange={(event) => setForm({ ...form, points_possible: event.target.value })} />
+              </label>
+              <label>Grade weight %
+                <input type="number" min="0" max="100" step="0.5" value={form.weight_percent} onChange={(event) => setForm({ ...form, weight_percent: event.target.value })} />
+              </label>
+            </div>
+            <div className="ci-form-grid">
+              <label>AI policy
+                <select value={form.ai_policy} onChange={(event) => setForm({ ...form, ai_policy: event.target.value })}>
+                  <option value="guided">Guided help</option>
+                  <option value="open">Open use</option>
+                  <option value="restricted">Restricted</option>
+                </select>
+              </label>
+              <label>Attempts
+                <input type="number" min="1" max="20" value={form.max_attempts} onChange={(event) => setForm({ ...form, max_attempts: event.target.value })} />
+              </label>
+            </div>
+            <div className="ci-form-grid">
+              <label>Publishing
+                <select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>
+                  <option value="published">Publish now</option>
+                  <option value="draft">Save as draft</option>
+                </select>
+              </label>
+              <label className="ci-checkbox-label">
+                <input type="checkbox" checked={form.allow_resubmission} onChange={(event) => setForm({ ...form, allow_resubmission: event.target.checked })} />
+                Allow resubmission
+              </label>
+            </div>
           </div>
           {status.error && <p className="ci-form-error" role="alert">{status.error}</p>}
           <footer>
@@ -363,7 +376,7 @@ export function ReviewDialog({ assignment, onClose, onChanged }) {
           <button type="button" aria-label="Close review" onClick={onClose}><X size={18} /></button>
         </header>
         {state.status === 'loading' && <div className="ci-inline-state"><span className="ci-loader" /> Loading student work…</div>}
-        {state.status === 'error' && !state.data && <div className="ci-inline-state ci-inline-state--error">{state.error}</div>}
+        {state.status === 'error' && !state.data && <div className="ci-inline-state ci-inline-state--error" role="alert">{state.error}<button className="ci-action" onClick={load}>Retry loading submissions</button></div>}
         {state.data && (
           <div className="ci-review-list">
             {state.data.submissions.filter(row => !assignment.student_id || row.student.id === assignment.student_id).map((row) => {
@@ -390,8 +403,9 @@ export function ReviewDialog({ assignment, onClose, onChanged }) {
                       <input type="number" min="0" max={state.data.assignment.points_possible} value={draft.score} disabled={!canGrade} onChange={(event) => setDrafts({ ...drafts, [row.student.id]: { ...draft, score: event.target.value } })} />
                     </label>
                     <label>Feedback
-                      <input value={draft.feedback} disabled={!canGrade} onChange={(event) => setDrafts({ ...drafts, [row.student.id]: { ...draft, feedback: event.target.value } })} placeholder={canGrade ? 'Specific next step for this student' : 'Available after submission'} />
+                      <textarea rows={3} maxLength={5000} value={draft.feedback} disabled={!canGrade} onChange={(event) => setDrafts({ ...drafts, [row.student.id]: { ...draft, feedback: event.target.value } })} placeholder={canGrade ? 'What was correct? What needs work? Give one concrete next step.' : 'Available after submission'} />
                     </label>
+                    <SubmissionHistory submissionId={row.submission_id} />
                     <button className="ci-action ci-action--primary" type="button" disabled={!canGrade || savingId === row.submission_id || draft.score === '' || draft.feedback.trim().length < 3} onClick={() => saveGrade(row)}>
                       {row.submission_id && savingId === row.submission_id ? 'Saving…' : row.status === 'graded' ? 'Update grade' : 'Publish grade'}
                     </button>
@@ -407,10 +421,37 @@ export function ReviewDialog({ assignment, onClose, onChanged }) {
   );
 }
 
+function TeachingScheduleDialog({ agenda, onClose, onOpenClass }) {
+  const dialogRef = useDialogFocus(onClose);
+  return (
+    <div className="ci-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section ref={dialogRef} className="ci-modal" role="dialog" aria-modal="true" aria-labelledby="teaching-schedule-title">
+        <div className="ci-tile-texture" />
+        <header>
+          <div><span>YOUR CLASSES</span><h2 id="teaching-schedule-title">Teaching schedule.</h2></div>
+          <button type="button" aria-label="Close teaching schedule" onClick={onClose}><X size={18} /></button>
+        </header>
+        <div className="ci-teaching-schedule">
+          {agenda.length ? agenda.map((item) => (
+            <article className="ci-workspace-brief" key={item.id}>
+              <div><span>{item.time}</span><h3>{item.title}</h3><p>{item.meta}</p></div>
+              <button className="ci-action" type="button" onClick={() => onOpenClass(item.id)}>Open class <ArrowUpRight size={15} /></button>
+            </article>
+          )) : <p>No class times have been set yet. Your organization can add a schedule to each class.</p>}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function EducatorDashboard() {
+  const [sidebarOpen, setSidebarOpen] = useInstitutionSidebar();
+  const cardMotion = useCerbylCardMotion(INSTITUTION_CARDS);
   const navigate = useNavigate();
+  const [classCreateOpen, setClassCreateOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [announcementOpen, setAnnouncementOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [reviewAssignment, setReviewAssignment] = useState(null);
   const [state, setState] = useState({ status: 'loading', data: null, error: '' });
   const [query, setQuery] = useState('');
@@ -418,6 +459,7 @@ function EducatorDashboard() {
   const [selectedSectionId, setSelectedSectionId] = useState(null);
   const [evidenceStudent, setEvidenceStudent] = useState(null);
   const [classWorkspaceId, setClassWorkspaceId] = useState(null);
+  const [classWorkspaceTab, setClassWorkspaceTab] = useState('overview');
   const [leaderboard, setLeaderboard] = useState({ status: 'idle', data: null, error: '' });
 
   const loadDashboard = async () => {
@@ -464,6 +506,18 @@ function EducatorDashboard() {
     navigate('/login', { replace: true });
   };
 
+  const openClassWorkspace = (sectionId, tab = 'overview') => {
+    const sections = state.data?.class_health || [];
+    const section = sections.find((item) => item.section_id === sectionId) || sections[0];
+    if (!section) {
+      navigate('/educator/classes');
+      return;
+    }
+    setSelectedSectionId(section.section_id);
+    setClassWorkspaceTab(tab);
+    setClassWorkspaceId(section.section_id);
+  };
+
   const openEducatorTool = (label) => {
     if (label === 'Classes') {
       navigate('/educator/classes');
@@ -477,8 +531,12 @@ function EducatorDashboard() {
       setAnnouncementOpen(true);
       return;
     }
-    if (label === 'Content') {
-      if (selectedSectionId) setClassWorkspaceId(selectedSectionId);
+    if (label === 'Content' || label === 'Students') {
+      openClassWorkspace(selectedSectionId, label === 'Content' ? 'materials' : 'people');
+      return;
+    }
+    if (label === 'Schedule') {
+      setScheduleOpen(true);
       return;
     }
     if (label === 'Gradebook') {
@@ -491,8 +549,6 @@ function EducatorDashboard() {
     }
     const sectionIds = {
       Review: 'educator-review',
-      Students: 'educator-students',
-      Schedule: 'educator-schedule',
     };
     const sectionId = sectionIds[label];
     if (sectionId) {
@@ -537,7 +593,7 @@ function EducatorDashboard() {
   const agenda = data.agenda || [];
 
   return (
-    <div className="ci-root ci-root--educator">
+    <div className="cbd-root ci-root ci-root--educator" {...cardMotion}>
       <div className="ci-bg" aria-hidden>
         <div className="ci-bg-wash" />
         <div className="ci-bg-dots" />
@@ -555,48 +611,20 @@ function EducatorDashboard() {
         <div className="ci-topbar-right">
           <span className="ci-date">{formatToday()}</span>
           <button className="ci-round-button" type="button" aria-label="Open teaching notifications" onClick={() => navigate('/educator/notifications')}><Bell size={15} /></button>
-          <button className="ci-profile-button" type="button" aria-label="Open educator profile" onClick={() => navigate('/profile')}>{initials}</button>
+          <button className="ci-profile-button" type="button" aria-label="Open educator profile" onClick={() => navigate('/educator/profile')}>{initials}</button>
         </div>
       </header>
 
-      <div className="ci-shell">
-        <aside className="ci-side">
-          <div className="ci-tile-texture" />
-          <div className="ci-brand">cerbyl <span>educator</span></div>
-          <div className="ci-identity-orbit">
-            <div className="ci-identity-avatar">{initials}</div>
-            <span className="ci-orbit ci-orbit--one" />
-            <span className="ci-orbit ci-orbit--two" />
-          </div>
-
-          <div className="ci-side-primary">
-            {EDUCATOR_TOOLS.slice(0, 3).map(({ label }) => (
-              <button type="button" key={label} onClick={() => openEducatorTool(label)}>
-                <span className="ci-side-dot" />{label}<span>+</span>
-              </button>
-            ))}
-          </div>
-
-          <nav className="ci-side-nav" aria-label="Educator tools">
-            {EDUCATOR_TOOLS.slice(3).map(({ label }) => (
-              <button
-                type="button"
-                key={label}
-                onClick={() => openEducatorTool(label)}
-              >
-                <span className="ci-side-dot" />{label}
-              </button>
-            ))}
-          </nav>
-
-          <div className="ci-side-bottom">
-            <button className="ci-user-chip" type="button" onClick={() => navigate('/profile')}>
-              <strong>{firstName}</strong>
-              <span>{data.summary.active_sections} sections · {data.summary.active_students} students</span>
-            </button>
-            <button className="ci-signout" type="button" onClick={signOutAndSwitch} aria-label="Sign out and switch account"><LogOut size={14} /></button>
-          </div>
-        </aside>
+      <div className={`ci-shell ci-shell--standard-sidebar ${sidebarOpen ? '' : 'ci-shell--collapsed'}`}>
+        <CerbylSidebar
+          open={sidebarOpen} onOpenChange={setSidebarOpen} brandKicker="educator"
+          displayName={data.user?.display_name || firstName} profilePhoto={data.user?.picture_url} initial={initials}
+          profileTo="/educator/profile" profileSubtitle={`${data.summary.active_sections} sections · ${data.summary.active_students} students`} profileLabel="My profile"
+          onEditProfile={() => navigate('/educator/profile')} editProfileLabel="Open my profile" editProfileText="Profile"
+          navigationLabel="Educator tools"
+          quickLinks={EDUCATOR_TOOLS.slice(0, 3).map(({ label }) => ({ label, onClick: () => openEducatorTool(label) }))}
+          workspaceLinks={[...EDUCATOR_TOOLS.slice(3).map(({ label }) => ({ label, onClick: () => openEducatorTool(label) })), { label: 'Sign out', onClick: signOutAndSwitch }]}
+        />
 
         <main className="ci-main">
           <section className="ci-hero">
@@ -645,19 +673,17 @@ function EducatorDashboard() {
             <div className="ci-progress-line"><span style={{ width: `${data.summary.average_mastery}%` }} /></div>
           </section>
 
-          <LearningEvidence sections={classHealth} />
+          <InstitutionNextStep role="educator" />
+          <details className="b2b-panel b2b-detail"><summary>Review assignment evidence</summary><LearningEvidence sections={classHealth} /></details>
           <section className="ci-feature-grid" aria-label="Educator workspace">
             <article className="ci-feature ci-feature--classes" id="educator-classes">
               <div className="ci-tile-texture" />
-              <div className="ci-feature-tag">CLASSES</div>
+              <div className="ci-feature-tag">CLASSES</div><button type="button" className="ci-action" onClick={() => setClassCreateOpen(true)}>Create class</button>
               <h2>Teaching Overview</h2>
               <p>Section health and pace at a glance.</p>
               <div className="ci-feature-list">
                 {classHealth.slice(0, 3).map((course) => (
-                  <button className={`ci-feature-list-row ${selectedSectionId === course.section_id ? 'is-selected' : ''}`} type="button" key={course.section_id} onClick={() => {
-                    setSelectedSectionId(course.section_id);
-                    setClassWorkspaceId(course.section_id);
-                  }}>
+                  <button className={`ci-feature-list-row ${selectedSectionId === course.section_id ? 'is-selected' : ''}`} type="button" key={course.section_id} onClick={() => openClassWorkspace(course.section_id)}>
                     <span className="ci-list-icon"><GraduationCap size={12} /></span>
                     <span><strong>{course.course_code}</strong>{course.course_title}</span>
                     <em>{course.on_track_percent}%</em>
@@ -701,7 +727,7 @@ function EducatorDashboard() {
             </article>
           </section>
 
-          <section className="ci-module-strip">
+          <section className="ci-module-strip" aria-label="Teaching tools">
             <div className="ci-strip-title">YOUR TEACHING TOOLS</div>
             <div className="ci-module-track">
               {EDUCATOR_TOOLS.slice(3).map(({ label, sub, icon: Icon }, index) => (
@@ -769,6 +795,13 @@ function EducatorDashboard() {
       </div>
 
       {evidenceStudent && <LearnerEvidenceDialog student={evidenceStudent} sectionId={evidenceStudent.sectionId} onClose={() => setEvidenceStudent(null)} onReview={assignment => { setEvidenceStudent(null); setReviewAssignment(assignment); }} />}
+      {scheduleOpen && (
+        <TeachingScheduleDialog agenda={agenda} onClose={() => setScheduleOpen(false)} onOpenClass={(sectionId) => {
+          setScheduleOpen(false);
+          openClassWorkspace(sectionId);
+        }} />
+      )}
+      {classCreateOpen && <TeacherClassDialog onClose={() => setClassCreateOpen(false)} onCreated={() => { setClassCreateOpen(false); loadDashboard(); }} />}
       {dialogOpen && (
         <AssignmentDialog
           sections={classHealth}
@@ -798,8 +831,12 @@ function EducatorDashboard() {
       )}
       {classWorkspaceId && (
         <ClassWorkspaceDialog
+          key={`${classWorkspaceId}:${classWorkspaceTab}`}
           role="educator"
           sectionId={classWorkspaceId}
+          initialTab={classWorkspaceTab}
+          sections={classHealth}
+          onSectionChange={openClassWorkspace}
           onClose={() => setClassWorkspaceId(null)}
           onReviewOpen={(assignment) => {
             setClassWorkspaceId(null);

@@ -96,7 +96,9 @@
   overflow-x: auto;
   overflow-y: auto;
   white-space: pre;
-  min-height: 200px;
+  min-height: 0;
+  width: 100%;
+  min-width: 0;
 }
 
 .code-block-textarea::placeholder {

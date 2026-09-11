@@ -38,6 +38,7 @@ def _weak_area_candidates(db: Session, user_id: int) -> List[_Candidate]:
         .filter(
             models.UserWeakArea.user_id == user_id,
             models.UserWeakArea.total_questions >= 3,
+            models.UserWeakArea.status != "mastered",
         )
         .order_by(models.UserWeakArea.weakness_score.desc())
         .limit(5)
@@ -49,11 +50,11 @@ def _weak_area_candidates(db: Session, user_id: int) -> List[_Candidate]:
         topic = clean_topic(row.subtopic or row.topic or "")
         if not topic or not is_valid_topic(topic):
             continue
-        if row.weakness_score >= 0.55 or row.accuracy < 55:
+        if (row.weakness_score or 0) >= 55 or row.accuracy < 55:
             text = f"Quiz me on {topic}"
         else:
             text = f"Explain {topic} simply"
-        candidates.append(_Candidate(text, topic, row.weakness_score))
+        candidates.append(_Candidate(text, topic, (row.weakness_score or 0) / 100))
     return candidates
 
 

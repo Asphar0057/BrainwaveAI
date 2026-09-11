@@ -1,4 +1,10 @@
+import { institutionDate } from '../utils/institutionDate';
+import CerbylSidebar from '../components/CerbylSidebar';
+import useInstitutionSidebar from '../hooks/useInstitutionSidebar';
+import InstitutionNextStep from '../components/InstitutionNextStep';
+import SubmissionHistory from '../components/SubmissionHistory';
 import useAccountDraft from '../hooks/useAccountDraft';
+import useCerbylCardMotion, { INSTITUTION_CARDS } from '../hooks/useCerbylCardMotion';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -30,9 +36,9 @@ const STUDENT_TOOLS = [
   { label: 'Assignments', sub: 'DEADLINES', route: '/student/assignments', icon: ClipboardList },
   { label: 'Course Tutor', sub: 'ASK WITH CONTEXT', route: '/ai-chat', icon: MessageCircle },
   { label: 'Messages', sub: 'PRIVATE CLASS CHAT', route: '/student/messages', icon: MessageCircle },
-  { label: 'Practice', sub: 'STRENGTHEN', route: '/quiz-hub', icon: Target },
-  { label: 'Study Library', sub: 'MATERIALS', route: '/notes', icon: Library },
-  { label: 'Progress', sub: 'MASTERY', route: '/analytics', icon: TrendingUp },
+  { label: 'Practice', sub: 'CLASS CHECKPOINTS', route: '/student/learning', icon: Target },
+  { label: 'Study Library', sub: 'MATERIALS', route: '/student/library', icon: Library },
+  { label: 'Progress', sub: 'CLASS OUTCOMES', route: '/student/learning?view=Progress', icon: TrendingUp },
   { label: 'Flashcards', sub: 'RECALL', route: '/flashcards', icon: BookOpen },
   { label: 'Knowledge Map', sub: 'CONNECTIONS', route: '/knowledge-map', icon: CircleHelp },
 ];
@@ -42,7 +48,7 @@ const formatDate = (value) => {
   return new Intl.DateTimeFormat('en-IN', {
     day: 'numeric',
     month: 'short',
-  }).format(new Date(value)).toUpperCase();
+  }).format(institutionDate(value)).toUpperCase();
 };
 
 const formatToday = () => new Intl.DateTimeFormat('en-IN', {
@@ -165,40 +171,44 @@ export function SubmissionDialog({ assignment, onClose, onSubmitted }) {
           <button type="button" aria-label="Close submission" onClick={() => { if (!status.saving && (!attachmentFile || window.confirm('The selected file is not saved yet. Close this draft?'))) onClose(); }}><X size={18} /></button>
         </header>
         <form onSubmit={submit}>
-          <div className="ci-assignment-brief">
-            <p>{assignment.description || 'Complete the assigned work and explain your reasoning clearly.'}</p>
-            <span>{assignment.points_possible} points</span>
-            <span>{assignment.estimated_minutes} minutes</span>
-            <span>AI: {assignment.ai_policy}</span>
+          <div className="ci-submission-body">
+            {assignment.feedback && (
+              <div className="ci-feedback-note">
+                <strong>Teacher feedback · {assignment.score}/{assignment.points_possible}</strong>
+                <p>{assignment.feedback}</p>
+              </div>
+            )}
+            <div className="ci-assignment-brief">
+              <p>{assignment.description || 'Complete the assigned work and explain your reasoning clearly.'}</p>
+              <span>{assignment.points_possible} points</span>
+              <span>{assignment.estimated_minutes} minutes</span>
+              <span>AI: {assignment.ai_policy}</span>
+            </div>
+            {assignment.rubric_text && (
+              <div className="ci-rubric-note">
+                <strong>Success criteria</strong>
+                <p>{assignment.rubric_text}</p>
+              </div>
+            )}
+            <label>Your response
+              <textarea
+                value={content}
+                onChange={(event) => setContent(event.target.value)}
+                rows={8}
+                maxLength={20000}
+                placeholder="Show your reasoning, answer, and what you checked…"
+              />
+            </label>
+            <label><span className="ci-field-title">Supporting link <small>(optional)</small></span>
+              <input type="url" value={attachmentUrl} onChange={(event) => setAttachmentUrl(event.target.value)} placeholder="https://docs.example.com/your-work" />
+            </label>
+            <label><span className="ci-field-title">Upload work</span>
+              <input type="file" aria-describedby="submission-upload-help" disabled={wasSubmitted} onChange={(event) => setAttachmentFile(event.target.files?.[0] || null)} />
+            </label>
+            <p id="submission-upload-help" className="ci-upload-help">PDF, document, image or archive · maximum 25 MB</p>
+            {wasSubmitted && <p className="ci-upload-note">Submitted files are locked for academic integrity. You can resubmit revised text or a new supporting link.</p>}
+            <SubmissionHistory submissionId={assignment.submission_id} />
           </div>
-          {assignment.rubric_text && (
-            <div className="ci-rubric-note">
-              <strong>Success criteria</strong>
-              <p>{assignment.rubric_text}</p>
-            </div>
-          )}
-          <label>Your response
-            <textarea
-              value={content}
-              onChange={(event) => setContent(event.target.value)}
-              rows={8}
-              maxLength={20000}
-              placeholder="Show your reasoning, answer, and what you checked…"
-            />
-          </label>
-          <label>Supporting link <small>optional</small>
-            <input type="url" value={attachmentUrl} onChange={(event) => setAttachmentUrl(event.target.value)} placeholder="https://docs.example.com/your-work" />
-          </label>
-          <label>Upload work <small>PDF, document, image or archive · maximum 25 MB</small>
-            <input type="file" disabled={wasSubmitted} onChange={(event) => setAttachmentFile(event.target.files?.[0] || null)} />
-          </label>
-          {wasSubmitted && <p className="ci-upload-note">Submitted files are locked for academic integrity. You can resubmit revised text or a new supporting link.</p>}
-          {assignment.feedback && (
-            <div className="ci-feedback-note">
-              <strong>Teacher feedback · {assignment.score}/{assignment.points_possible}</strong>
-              <p>{assignment.feedback}</p>
-            </div>
-          )}
           {status.error && <p className="ci-form-error" role="alert">{status.error}</p>}
           <footer>
             <button className="ci-action" type="button" onClick={() => { if (!status.saving && (!attachmentFile || window.confirm('The selected file is not saved yet. Close this draft?'))) onClose(); }}>Cancel</button>
@@ -224,6 +234,8 @@ export function SubmissionDialog({ assignment, onClose, onSubmitted }) {
 }
 
 function StudentDashboard() {
+  const [sidebarOpen, setSidebarOpen] = useInstitutionSidebar();
+  const cardMotion = useCerbylCardMotion(INSTITUTION_CARDS);
   const navigate = useNavigate();
   const [state, setState] = useState({ status: 'loading', data: null, error: '' });
   const [query, setQuery] = useState('');
@@ -323,7 +335,7 @@ function StudentDashboard() {
   const announcements = data.announcements || [];
 
   return (
-    <div className="ci-root ci-root--student">
+    <div className="cbd-root ci-root ci-root--student" {...cardMotion}>
       <div className="ci-bg" aria-hidden>
         <div className="ci-bg-wash" />
         <div className="ci-bg-dots" />
@@ -341,44 +353,20 @@ function StudentDashboard() {
         <div className="ci-topbar-right">
           <span className="ci-date">{formatToday()}</span>
           <button className="ci-round-button" type="button" aria-label="Open class notifications" onClick={() => navigate('/student/notifications')}><Bell size={15} /></button>
-          <button className="ci-profile-button" type="button" aria-label="Open student profile" onClick={() => navigate('/profile')}>{initials}</button>
+          <button className="ci-profile-button" type="button" aria-label="Open student profile" onClick={() => navigate('/student/profile')}>{initials}</button>
         </div>
       </header>
 
-      <div className="ci-shell">
-        <aside className="ci-side">
-          <div className="ci-tile-texture" />
-          <div className="ci-brand">cerbyl <span>student</span></div>
-          <div className="ci-identity-orbit">
-            <div className="ci-identity-avatar">{initials}</div>
-            <span className="ci-orbit ci-orbit--one" />
-            <span className="ci-orbit ci-orbit--two" />
-          </div>
-
-          <div className="ci-side-primary">
-            {STUDENT_TOOLS.slice(0, 3).map(({ label, route }) => (
-              <button type="button" key={label} onClick={() => openStudentTool(label, route)}>
-                <span className="ci-side-dot" />{label}<span>+</span>
-              </button>
-            ))}
-          </div>
-
-          <nav className="ci-side-nav" aria-label="Student tools">
-            {STUDENT_TOOLS.slice(3).map(({ label, route }) => (
-              <button type="button" key={label} onClick={() => navigate(route)}>
-                <span className="ci-side-dot" />{label}
-              </button>
-            ))}
-          </nav>
-
-          <div className="ci-side-bottom">
-            <button className="ci-user-chip" type="button" onClick={() => navigate('/profile')}>
-              <strong>{firstName}</strong>
-              <span>{courses.length} classes · {data.summary.average_mastery}% mastery</span>
-            </button>
-            <button className="ci-signout" type="button" onClick={signOutAndSwitch} aria-label="Sign out and switch account"><LogOut size={14} /></button>
-          </div>
-        </aside>
+      <div className={`ci-shell ci-shell--standard-sidebar ${sidebarOpen ? '' : 'ci-shell--collapsed'}`}>
+        <CerbylSidebar
+          open={sidebarOpen} onOpenChange={setSidebarOpen} brandKicker="student"
+          displayName={data.user?.display_name || firstName} profilePhoto={data.user?.picture_url} initial={initials}
+          profileTo="/student/profile" profileSubtitle={`${courses.length} classes · ${data.summary.average_mastery}% mastery`} profileLabel="My profile"
+          onEditProfile={() => navigate('/student/profile')} editProfileLabel="Open my profile" editProfileText="Profile"
+          navigationLabel="Student tools"
+          quickLinks={STUDENT_TOOLS.slice(0, 3).map(({ label, route }) => ({ label, onClick: () => openStudentTool(label, route) }))}
+          workspaceLinks={[...STUDENT_TOOLS.slice(3).map(({ label, route }) => ({ label, onClick: () => navigate(route) })), { label: 'Sign out', onClick: signOutAndSwitch }]}
+        />
 
         <main className="ci-main">
           <section className="ci-hero">
@@ -423,13 +411,13 @@ function StudentDashboard() {
               {data.summary.attendance_percent !== null && (
                 <div className="ci-metric"><strong>{data.summary.attendance_percent}%</strong><span>ATTENDANCE</span></div>
               )}
-              <button className="ci-action ci-action--primary" type="button" onClick={() => navigate('/quiz-hub')}><Target size={15} /> Start practice <ArrowUpRight size={16} /></button>
-              <button className="ci-action" type="button" onClick={() => navigate('/notes')}><Library size={15} /> Study library <ArrowUpRight size={16} /></button>
+              <button className="ci-action ci-action--primary" type="button" onClick={() => navigate('/student/learning')}><Target size={15} /> Open learning plan <ArrowUpRight size={16} /></button>
+              <button className="ci-action" type="button" onClick={() => navigate('/student/library')}><Library size={15} /> Study library <ArrowUpRight size={16} /></button>
             </div>
             <div className="ci-progress-line"><span style={{ width: `${data.summary.average_mastery}%` }} /></div>
           </section>
 
-          <button className="ci-action ci-action--primary" type="button" onClick={() => navigate('/practice-next')}>Practice next →</button>
+          <InstitutionNextStep role="student" />
           <section className="ci-feature-grid" aria-label="Student workspace">
             <article className="ci-feature ci-feature--classes" id="student-classes">
               <div className="ci-tile-texture" />
@@ -467,18 +455,18 @@ function StudentDashboard() {
               </div>
             </article>
 
-            <button type="button" className="ci-feature ci-feature--tutor" onClick={() => navigate('/ai-chat')}>
+            <button type="button" className="ci-feature ci-feature--tutor" onClick={() => navigate('/student/messages')}>
               <div className="ci-tile-texture" />
               <span className="ci-feature-arrow"><ArrowUpRight size={16} /></span>
-              <div className="ci-feature-tag">COURSE TUTOR</div>
+              <div className="ci-feature-tag">TEACHER SUPPORT</div>
               <h2>Class Messages</h2>
-              <p>Get help grounded in the class you are taking.</p>
+              <p>Ask your teacher a private question about your class.</p>
               <div className="ci-tutor-prompt">
                 <Sparkles size={13} />
                 <span>{focus ? `Help me strengthen ${focus.course_code}` : 'Ask about any enrolled course'}</span>
               </div>
               <div className="ci-tutor-answer">
-                {focus?.description || 'Choose a class and Cerbyl will bring the right material into the conversation.'}
+                Choose your cohort, explain where you are stuck, and send your question to its teacher.
               </div>
             </button>
           </section>

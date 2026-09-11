@@ -18,6 +18,9 @@ const WeaknessPractice = () => {
         timingMode: 'timed',
       }));
       navigate('/solo-quiz/session', { replace: true });
+    } else if (topic) {
+      const quizDifficulty = { beginner: 'easy', intermediate: 'medium', advanced: 'hard' }[difficulty] || difficulty || 'medium';
+      navigate('/solo-quiz', { replace: true, state: { autoStart: true, topics: [topic], difficulty: quizDifficulty, questionCount: 5 } });
     } else {
       navigate('/weaknesses', { replace: true });
     }

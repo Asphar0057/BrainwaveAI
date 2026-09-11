@@ -6,7 +6,7 @@ jest.mock('../../services/productService', () => ({ productRequest: jest.fn() })
 it('preserves a report after a failed request and links the saved resolution flow', async () => {
   productRequest.mockRejectedValueOnce(new Error('Offline')).mockResolvedValueOnce({ status: 'open' });
   render(<MemoryRouter><AnswerFeedback resourceType="chat_message" resourceId={9} sources={[{ filename: 'Course.pdf', page: 4, snippet: 'An excerpt' }]} /></MemoryRouter>);
-  fireEvent.click(screen.getByRole('button', { name: 'This answer is wrong' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Report an issue' }));
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'The sign is reversed.' } });
   fireEvent.click(screen.getByRole('button', { name: 'Send for review' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Offline');

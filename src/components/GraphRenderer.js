@@ -191,7 +191,7 @@ export const detectGraphLanguage = (language = '', content = '') => {
   return null;
 };
 
-const MermaidGraph = ({ source, compact = false }) => {
+const MermaidGraph = ({ source, compact = false, darkMode }) => {
   const containerRef = useRef(null);
   const [mermaidApi, setMermaidApi] = useState(null);
   const [renderError, setRenderError] = useState('');
@@ -220,8 +220,10 @@ const MermaidGraph = ({ source, compact = false }) => {
     const themeMode = document.documentElement.getAttribute('data-theme-mode');
     mermaidApi.initialize({
       startOnLoad: false,
-      theme: themeMode === 'dark' ? 'dark' : 'default',
-      securityLevel: 'loose',
+      theme: (darkMode ?? (themeMode === 'dark')) ? 'dark' : 'default',
+      securityLevel: 'strict',
+      htmlLabels: false,
+      flowchart: { htmlLabels: false },
     });
 
     const render = async () => {
@@ -281,7 +283,7 @@ const MermaidGraph = ({ source, compact = false }) => {
     return () => {
       cancelled = true;
     };
-  }, [mermaidApi, source]);
+  }, [mermaidApi, source, darkMode]);
 
   return (
     <div className={`agr-card ${compact ? 'agr-compact' : ''}`}>
@@ -641,12 +643,12 @@ const DataGraph = ({ source, compact = false }) => {
   );
 };
 
-const GraphRenderer = ({ language = 'mermaid', content = '', compact = false }) => {
+const GraphRenderer = ({ language = 'mermaid', content = '', compact = false, darkMode }) => {
   const lang = String(language || '').toLowerCase().trim();
   if (GRAPH_JSON_LANGS.has(lang)) {
     return <DataGraph source={content} compact={compact} />;
   }
-  return <MermaidGraph source={content} compact={compact} />;
+  return <MermaidGraph source={content} compact={compact} darkMode={darkMode} />;
 };
 
 export default GraphRenderer;

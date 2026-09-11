@@ -40,12 +40,43 @@ def _datetime_sort_key(value: datetime | None) -> float:
 def _membership_query(db: Session, user_id: int):
     return (
         db.query(models.OrganizationMembership)
+        .join(models.Organization)
+        .filter(models.Organization.status == "active")
         .options(joinedload(models.OrganizationMembership.organization))
         .filter(
             models.OrganizationMembership.user_id == user_id,
             models.OrganizationMembership.status == "active",
         )
     )
+
+
+def _active_section_ids(db: Session, user: models.User) -> list[int]:
+    query = db.query(models.ClassSection.id).join(models.Course).join(
+        models.OrganizationMembership, models.OrganizationMembership.organization_id == models.Course.organization_id
+    ).join(models.Organization, models.Organization.id == models.Course.organization_id).filter(
+        models.OrganizationMembership.user_id == user.id,
+        models.OrganizationMembership.status == "active",
+        models.Organization.status == "active",
+        models.ClassSection.status == "active",
+    )
+    if user.account_role == "educator":
+        query = query.filter(models.ClassSection.instructor_id == user.id, models.OrganizationMembership.role.in_(["owner", "educator"]))
+    elif user.account_role == "student":
+        query = query.join(models.Enrollment).filter(models.Enrollment.student_id == user.id, models.Enrollment.status == "active", models.OrganizationMembership.role == "student")
+    else:
+        return []
+    return [r[0] for r in query.all()]
+
+
+def _snapshot_submission(db, submission, actor_id, event):
+    db.add(models.SubmissionRevision(submission_id=submission.id, attempt_number=submission.attempt_number or 1,
+        actor_id=actor_id, event=event, snapshot={
+            "content_text": submission.content_text, "attachment_name": submission.attachment_name,
+            "attachment_url": submission.attachment_url, "score": submission.score,
+            "feedback": submission.feedback, "status": submission.status,
+            "submitted_at": submission.submitted_at.isoformat() if submission.submitted_at else None,
+            "graded_at": submission.graded_at.isoformat() if submission.graded_at else None,
+        }))
 
 
 def _accessible_section(
@@ -68,6 +99,7 @@ def _accessible_section(
         )
         .filter(
             models.ClassSection.id == section_id,
+            models.ClassSection.id.in_(_active_section_ids(db, current_user)),
             models.ClassSection.status == "active",
         )
     )
@@ -300,6 +332,8 @@ def _recalculate_enrollment(
     db: Session,
     section: models.ClassSection,
     student_id: int,
+    *,
+    record_activity: bool = True,
 ) -> None:
     enrollment = (
         db.query(models.Enrollment)
@@ -321,6 +355,8 @@ def _recalculate_enrollment(
         .all()
     )
     if not published:
+        enrollment.progress_percent = 0
+        enrollment.mastery_percent = 0
         return
     submissions = (
         db.query(models.Submission)
@@ -332,7 +368,8 @@ def _recalculate_enrollment(
     )
     submissions_by_assignment = {row.assignment_id: row for row in submissions}
     completed = 0
-    grade_percentages = []
+    uses_weighting = any(item.weight_percent > 0 for item in published)
+    earned = possible = 0.0
     for assignment in published:
         submission = submissions_by_assignment.get(assignment.id)
         if submission and submission.status in {"submitted", "graded"}:
@@ -343,15 +380,16 @@ def _recalculate_enrollment(
             and submission.score is not None
             and assignment.points_possible
         ):
-            grade_percentages.append(
-                min(100, 100 * submission.score / assignment.points_possible)
-            )
+            if uses_weighting and assignment.weight_percent > 0:
+                earned += submission.score / assignment.points_possible * assignment.weight_percent
+                possible += assignment.weight_percent
+            elif not uses_weighting:
+                earned += submission.score
+                possible += assignment.points_possible
     enrollment.progress_percent = round(100 * completed / len(published))
-    if grade_percentages:
-        enrollment.mastery_percent = round(
-            sum(grade_percentages) / len(grade_percentages)
-        )
-    enrollment.last_active_at = datetime.now(timezone.utc)
+    enrollment.mastery_percent = round(100 * earned / possible) if possible else 0
+    if record_activity:
+        enrollment.last_active_at = datetime.now(timezone.utc)
 
 
 def _attendance_summary(records: list[models.AttendanceRecord]) -> dict:

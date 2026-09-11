@@ -1,0 +1,107 @@
+/* Rich blocks follow the note paper, independently of the surrounding app theme. */
+.notes-redesign .block-editor-container:not(.dark-mode) {
+  --panel: #ffffff;
+  --bg: #f5f5f3;
+  --hover-bg: #efefeb;
+  --border: #d7d7d1;
+  --text-primary: #22231f;
+  --text-secondary: #5e6058;
+  --accent: #80602d;
+}
+.notes-redesign .block-editor-container.dark-mode {
+  --panel: #20211e;
+  --bg: #191a17;
+  --hover-bg: #2b2d28;
+  --border: #46493f;
+  --text-primary: #f0f1e9;
+  --text-secondary: #babdb0;
+}
+.notes-redesign .block-editor-container :is(.code-block-container, .code-block-header, .code-line-numbers, .code-lang-select, .code-action-btn) {
+  background: var(--bg);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+.notes-redesign .block-editor-container .code-block-textarea {
+  color: var(--text-primary);
+  line-height: 1.65;
+  tab-size: 4;
+}
+.notes-redesign .block-editor-container .code-line-numbers { color: var(--text-secondary); }
+.notes-redesign .block-editor-container :is(.code-block-container, .table-wrapper, .agr-card) {
+  border-radius: 8px;
+  box-shadow: none;
+}
+.notes-redesign .block-editor-container .note-table { table-layout: fixed; }
+.notes-redesign .block-editor-container .table-wrapper { overflow-x: auto; }
+.notes-redesign .block-editor-container .table-cell-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 10px 12px;
+  line-height: 1.55;
+}
+.notes-redesign .block-editor-container .table-cell-content { padding: 0; }
+.notes-redesign .block-editor-container .row-controls-group {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.notes-redesign .block-editor-container .table-row-controls { width: 48px; min-width: 48px; }
+.notes-redesign .block-editor-container .row-control-btn { padding: 2px; }
+.notes-redesign .block-editor-container .table-actions { flex-wrap: wrap; }
+.notes-redesign .block-editor-container .table-action-btn { border-radius: 6px; padding: 8px 10px; }
+.notes-redesign .block-editor-container .table-block.read-only :is(.table-row-controls, .column-drag-handle, .column-menu-btn, .table-actions) { display: none; }
+.notes-redesign .block-editor-container .agr-card { background: var(--panel); }
+.notes-redesign .block-editor-container .agr-svg { display: flex; justify-content: center; }
+.notes-redesign .block-editor-container .agr-data-svg { margin-inline: auto; }
+.notes-redesign .block-editor-container .note-graph-source { margin: 8px 0 20px; }
+.notes-redesign .block-editor-container .note-graph-source summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 13px;
+  padding: 8px 0;
+}
+.notes-redesign .block-editor-container :is(button, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* The global recessed-form treatment is for app forms, not document cells. */
+#root .notes-redesign .block-editor-container :is(.table-cell-input, .code-block-textarea) {
+  box-shadow: none !important;
+  background: transparent !important;
+  border: 0 !important;
+  color: var(--text-primary) !important;
+}
+#root .notes-redesign .block-editor-container .code-block-textarea {
+  font-family: Monaco, 'Courier New', monospace !important;
+}
+#root .notes-redesign .block-editor-container .note-table td { vertical-align: top; }
+
+#root .notes-redesign .block-editor-container .table-row-controls { box-shadow: none !important; }
+.notes-redesign .block-editor-container .table-cell-rendered {
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
+  overflow-x: auto;
+  color: var(--text-primary);
+}
+.notes-redesign .block-editor-container .table-cell-rendered p { margin: 0; }
+.notes-redesign .block-editor-container .katex-display {
+  background: var(--bg) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 6px;
+}
+.notes-redesign .block-editor-container .math-display-wrap {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.notes-redesign .block-editor-container .katex,
+.notes-redesign .block-editor-container .katex * { color: var(--text-primary) !important; }
+.notes-redesign .block-editor-container .katex :is(.frac-line, .sqrt-line) {
+  border-color: var(--text-primary) !important;
+  background: var(--text-primary) !important;
+}

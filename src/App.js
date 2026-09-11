@@ -75,7 +75,12 @@ const WorkspaceSelect = lazyRoute(() => import('./pages/WorkspaceSelect'));
 const StudentDashboard = lazyRoute(() => import('./pages/StudentDashboard'));
 const EducatorDashboard = lazyRoute(() => import('./pages/EducatorDashboard'));
 const InstitutionClassroomPage = lazyRoute(() => import('./pages/InstitutionClassroomPage'));
+const CompanyWorkspace = lazyRoute(() => import('./pages/CompanyWorkspace'));
+const InstitutionLearning = lazyRoute(() => import('./pages/InstitutionLearning'));
+const JoinCompany = lazyRoute(() => import('./pages/JoinCompany'));
 const Profile = lazyRoute(() => import('./pages/ProfileNew'));
+const InstitutionProfile = lazyRoute(() => import('./pages/InstitutionProfile'));
+const ProfileEntry = lazyRoute(() => import('./components/ProfileEntry'));
 const UsageStats = lazyRoute(() => import('./pages/UsageStats'));
 const ProfileQuiz = lazyRoute(() => import('./pages/ProfileQuiz'));
 const SearchHub = lazyRoute(() => import('./pages/SearchHub'));
@@ -318,10 +323,17 @@ function App() {
                   <Route path="/sample-course" element={<SampleCourse />} />
                   <Route path="/practice-next" element={<ProtectedRoute><PracticeNext /></ProtectedRoute>} />
                   <Route path="/answer-reports" element={<ProtectedRoute><AnswerReports /></ProtectedRoute>} />
+                  <Route path="/company" element={<ProtectedRoute><CompanyWorkspace /></ProtectedRoute>} />
+                  <Route path="/join-company" element={<JoinCompany />} />
+                  <Route path="/educator/learning" element={<ProtectedRoute><RoleProtectedRoute role="educator"><InstitutionLearning role="educator" /></RoleProtectedRoute></ProtectedRoute>} />
+                  <Route path="/student/learning" element={<ProtectedRoute><RoleProtectedRoute role="student"><InstitutionLearning role="student" /></RoleProtectedRoute></ProtectedRoute>} />
                   <Route path="/workspace" element={<ProtectedRoute><WorkspaceSelect /></ProtectedRoute>} />
                   <Route path="/student" element={<ProtectedRoute><RoleProtectedRoute role="student"><StudentDashboard /></RoleProtectedRoute></ProtectedRoute>} />
                   <Route path="/educator" element={<ProtectedRoute><RoleProtectedRoute role="educator"><EducatorDashboard /></RoleProtectedRoute></ProtectedRoute>} />
                   <Route path="/student/classes" element={<ProtectedRoute><RoleProtectedRoute role="student"><InstitutionClassroomPage role="student" view="classes" /></RoleProtectedRoute></ProtectedRoute>} />
+                  <Route path="/student/library" element={<ProtectedRoute><RoleProtectedRoute role="student"><InstitutionClassroomPage role="student" view="library" /></RoleProtectedRoute></ProtectedRoute>} />
+                  <Route path="/student/profile" element={<ProtectedRoute><RoleProtectedRoute role="student"><InstitutionProfile role="student" /></RoleProtectedRoute></ProtectedRoute>} />
+                  <Route path="/educator/profile" element={<ProtectedRoute><RoleProtectedRoute role="educator"><InstitutionProfile role="educator" /></RoleProtectedRoute></ProtectedRoute>} />
                   <Route path="/student/assignments" element={<ProtectedRoute><RoleProtectedRoute role="student"><InstitutionClassroomPage role="student" view="assignments" /></RoleProtectedRoute></ProtectedRoute>} />
                   <Route path="/student/messages" element={<ProtectedRoute><RoleProtectedRoute role="student"><InstitutionClassroomPage role="student" view="messages" /></RoleProtectedRoute></ProtectedRoute>} />
                   <Route path="/student/notifications" element={<ProtectedRoute><RoleProtectedRoute role="student"><InstitutionClassroomPage role="student" view="notifications" /></RoleProtectedRoute></ProtectedRoute>} />
@@ -390,7 +402,7 @@ function App() {
                   <Route path="/notes/editor/:noteId" element={<ProtectedRoute><NotesRedesign /></ProtectedRoute>} />
                   <Route path="/activity-timeline" element={<ProtectedRoute><ActivityTimeline /></ProtectedRoute>} />
                   <Route path="/customize-dashboard" element={<LearnerProtectedRoute><CustomizeDashboard /></LearnerProtectedRoute>} />
-                  <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                  <Route path="/profile" element={<ProtectedRoute><ProfileEntry><Profile /></ProfileEntry></ProtectedRoute>} />
                   <Route path="/profile/usage" element={<LearnerProtectedRoute><UsageStats /></LearnerProtectedRoute>} />
                   <Route path="/admin/analytics" element={<ProtectedRoute><AdminAnalytics /></ProtectedRoute>} />
                   <Route path="/admin/api-usage" element={<ProtectedRoute><AdminApiUsage /></ProtectedRoute>} />
